@@ -1,0 +1,7 @@
+**/.cache
+**/node_modules
+**/.local/share/Trash
+**/Downloads
+.ssh/*
+!.ssh/config
+.gnupg/private-keys-v1.d/

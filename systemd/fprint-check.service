@@ -1,0 +1,6 @@
+[Unit]
+Description=check fingerprint enrollment
+
+[Service]
+Type=oneshot
+ExecStart=/home/blox/.local/bin/fprint-check.sh

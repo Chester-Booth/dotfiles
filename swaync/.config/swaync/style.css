@@ -1,10 +1,10 @@
-@import url('../../.cache/wal/colors-waybar.css');
+@import url('/home/blox/.config/waybar/colors.css');
 @define-color mpris-album-art-overlay alpha(@background, 0.55);
 @define-color mpris-button-hover alpha(@background, 0.50);
-@define-color text @color15;
+@define-color text @foreground;
 @define-color bg alpha(@background,.5);
 @define-color bg-hover alpha(@background,.8);
-@define-color mycolor @color9;
+@define-color mycolor @foreground;
 @define-color border-color alpha(@mycolor, 0.15);
 
 @keyframes fadeIn{
@@ -30,18 +30,21 @@
 .floating-notifications.background .notification-background .notification .notification-content {
 }
 .notification{
-    background: alpha(@mycolor,.5);
+    background: alpha(@background,0.95);
+    border-radius: 0rem;
+    border:none;
+
 
 }
 
 .control-center .notification-row .notification-background .notification {
-    margin-top: 0.150rem;
-    box-shadow: 1px 1px 5px rgba(0, 0, 0, .3);
-    background: alpha(@mycolor,.3);
+    margin-top: 0.0rem;
+    box-shadow: 0px 0px 0px rgba(0, 0, 0, .3);
+    background: alpha(@background,1);
 
 }
 .floating-notifications .notification{
-    animation: fadeIn .5s ease-in-out;
+    animation: linear .5s running slide-in;
 }
 
 .control-center .notification-row .notification-background .notification box,
@@ -50,7 +53,7 @@
 .floating-notifications .notification-row .notification-background .notification box,
 .floating-notifications .notification-row .notification-background .notification widget,
 .floating-notifications.background .notification-background .notification .notification-content {
-    border-radius: 0.818rem;
+    border-radius: 0rem;
 
 }
 .notification widget:hover{
@@ -58,7 +61,7 @@
 }
 .floating-notifications.background .notification-background .notification .notification-content,
 .control-center .notification-background .notification .notification-content {
-    padding-top: 0.818rem;
+    padding-top: 0.0rem;
     padding-right: unset;
     margin-right: unset;
 }
@@ -67,9 +70,9 @@
 .control-center .notification-row .notification-background .notification.normal .notification-content label,
 .floating-notifications.background .notification-background .notification.low .notification-content label,
 .floating-notifications.background .notification-background .notification.normal .notification-content label {
-    padding-top:10px;
-    padding-left:10px;
-    padding-right:10px;
+    padding-top:5px;
+    padding-left:5px;
+    padding-right:5px;
 }
 
 .control-center .notification-row .notification-background .notification..notification-content image,
@@ -140,7 +143,7 @@
     border: none;
     box-shadow: none;
     margin-right: 0px;
-    margin-top: 3px;
+    margin-top: 10px;
     margin-bottom: unset;
     padding-bottom: unset;
     min-height: 20px;
@@ -153,11 +156,11 @@
 .floating-notifications.background .close-button:hover {
     all:unset;
     background-color: @bg;
-    border-radius: 100%;
+    border-radius: 0%;
     border: none;
     box-shadow: none;
     margin-right: 0px;
-    margin-top: 3px;
+    margin-top: 10px;
     margin-bottom: unset;
     padding-bottom: unset;
     min-height: 20px;
@@ -168,18 +171,18 @@
 }
 
 .control-center {
-    background: @bg;
+    background: @background;
     color: @text;
-    border-radius: 10px;
+    border-radius: 0px;
     border:none;
-    box-shadow: 1px 1px 5px rgba(0, 0, 0, .65);
+    box-shadow: 0px 0px 0px rgba(0, 0, 0, 1);
 }
 .widget-title {
     padding:unset;
     margin:unset;
     color: @text;
-    padding-left:20px;
-    padding-top:20px;
+    padding-left:0px;
+    padding-top: 5px;
 }
 
 .widget-title > button {
@@ -226,7 +229,7 @@
     all: unset;
     background: @bg-hover;
     text-shadow: none;
-    border-radius: 15px;
+    border-radius: 0px;
     border: none; 
     padding: 5px; 
     margin: 5px;
@@ -318,21 +321,22 @@
 }
 
 trough {
-    border-radius: 20px;
+    border-radius: 0px;
     background: transparent;
 }
 
 trough highlight {
     padding: 5px;
     background: @mycolor;
-    border-radius: 20px;
+    border-radius: 0px;
     box-shadow: 0px 0px 5px rgba(0, 0, 0, .5);
     transition: all .7s ease;
 }
 trough highlight:hover {
     padding: 5px;
     background: @mycolor;
-    border-radius: 20px;
+    
+    border-radius: 0px;
     box-shadow: 0px 0px 5px rgba(0, 0, 0, 1);
     transition: all .7s ease;
 }
@@ -356,4 +360,5 @@ trough slider:hover {
     margin: 8px;
     border-radius: 12px;
 }
+
 

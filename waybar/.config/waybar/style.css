@@ -1,167 +1,238 @@
-@import url('../../.cache/wal/colors-waybar.css');
+@import "./colors.css";
 
 * {
-    font-size:15px;
-    font-family: "CodeNewRoman Nerd Font Propo";
+  font-family: "MartianMono Nerd Font Propo";
+  font-size: 16px;
+  border-radius: 0;
+  box-shadow: none;
 }
-window#waybar{
-    all:unset;
-}
-.modules-left {
-    padding:7px;
-    margin:10 0 5 10;
-    border-radius:10px;
-    background: alpha(@background,.6);
-    box-shadow: 0px 0px 2px rgba(0, 0, 0, .6);
-}
-.modules-center {
-    padding:7px;
-    margin:10 0 5 0;
-    border-radius:10px;
-    background: alpha(@background,.6);
-    box-shadow: 0px 0px 2px rgba(0, 0, 0, .6);
-}
-.modules-right {
-    padding:7px;
-    margin: 10 10 5 0;
-    border-radius:10px;
-    background: alpha(@background,.6);
-    box-shadow: 0px 0px 2px rgba(0, 0, 0, .6);
-}
-tooltip {
-    background:@background;
-    color: @color7;
-}
-#clock:hover, #custom-pacman:hover, #custom-notification:hover,#bluetooth:hover,#network:hover,#battery:hover, #cpu:hover,#memory:hover,#temperature:hover{
-    transition: all .3s ease;
-    color:@color9;
-}
-#custom-notification {
-    padding: 0px 5px;
-    transition: all .3s ease;
-    color:@color7;
-}
-#clock{
-    padding: 0px 5px;
-    color:@color7;
-    transition: all .3s ease;
-}
-#custom-pacman{
-    padding: 0px 5px;
-    transition: all .3s ease;
-    color:@color7;
 
-}
-#workspaces {
-    padding: 0px 5px;
-}
+
+/* Waybar Hyprland Workspaces Styling */
+/* Note: Waybar uses GTK3 CSS - some standard CSS properties are not supported */
+
+/* Base workspace button styling */
 #workspaces button {
-    all:unset;
-    padding: 0px 5px;
-    color: alpha(@color9,.4);
-    transition: all .2s ease;
+  padding: 0 8px;
+  margin: 0 2px;
+  background-color: transparent;
+  border: none;
+  border-radius: 4px;
+  transition: all 0.2s ease-in-out;
+  opacity: 1;
 }
+
+/* Hover effect */
 #workspaces button:hover {
-    color:rgba(0,0,0,0);
-    border: none;
-    text-shadow: 0px 0px 1.5px rgba(0, 0, 0, .5);
-    transition: all 1s ease;
+  background-color: @color0;
+}
+
+/* Empty workspace */
+#workspaces button.empty {
+  opacity: 0.4;
+}
+
+
+/* Urgent workspace */
+#workspaces button.urgent {
+  background-color: @color9;
+  color: @color1;
+  animation: urgent-blink 1s ease-in-out infinite;
+}
+
+/* Fixed keyframe syntax for GTK CSS */
+@keyframes urgent-blink {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+
+/* Active workspace - customize colors as needed */
+#workspaces button.active {
+  background-color: @color8;
+  color: @color12;
+  font-weight: bold;
+  opacity: 1;
+}
+
+
+#workspaces button {
+  color: @foreground;
+  padding: 0;
 }
 #workspaces button.active {
-    color: @color9;
-    border: none;
-    text-shadow: 0px 0px 2px rgba(0, 0, 0, .5);
+  background-color: transparent;
+  color: @color4;
 }
-#workspaces button.empty {
-    color: rgba(0,0,0,0);
-    border: none;
-    text-shadow: 0px 0px 1.5px rgba(0, 0, 0, .2);
-}
-#workspaces button.empty:hover {
-    color: rgba(0,0,0,0);
-    border: none;
-    text-shadow: 0px 0px 1.5px rgba(0, 0, 0, .5);
-    transition: all 1s ease;
-}
-#workspaces button.empty.active {
-    color: @color9;
-    border: none;
-    text-shadow: 0px 0px 2px rgba(0, 0, 0, .5);
-}
-#bluetooth{
-    padding: 0px 5px;
-    transition: all .3s ease;
-    color:@color7;
-
-}
-#network{
-    padding: 0px 5px;
-    transition: all .3s ease;
-    color:@color7;
-
-}
-#battery{
-    padding: 0px 5px;
-    transition: all .3s ease;
-    color:@color7;
 
 
+window#waybar {
+  background: @background;
+  
+}
+
+#custom-fan:hover,
+#custom-cal:hover,
+#custom-gpu:hover,
+#custom-todo:hover,
+#custom-notification:hover,
+#custom-update:hover,
+#cpu:hover,
+#network:hover,
+#bluetooth:hover,
+#pulseaudio:hover,
+#pulseaudio.microphone:hover,
+#pulseaudio.sink-muted:hover,
+#battery:hover,
+#custom-power:hover {
+  opacity: 0.5;
+}
+
+#custom-fan,
+#custom-cal,
+#custom-gpu,
+#custom-todo,
+#custom-notification,
+#custom-update,
+#cpu,
+#clock,
+#mpris,
+#custom-menu,
+#tray,
+#privacy,
+#network,
+#bluetooth,
+#pulseaudio,
+#pulseaudio.microphone,
+#backlight,
+#battery,
+#custom-power {
+  color: @foreground;
+  padding: 6px 0;
+}
+
+
+
+#privacy {
+  margin: 4px;
+  color: @color3;
+}
+
+#clock {
+  color: @color4;
+}
+
+#mpris {
+  color: @color3;
+}
+
+#network.disabled {
+  color: @color1;
+}
+#network.wifi {
+  color: @color2;
+}
+#network.ethernet {
+  color: @color3;
+}
+
+
+#bluetooth.disabled {
+  color: @color1;
+}
+#bluetooth.connected {
+  color: @color4;
+}
+
+#pulseaudio.sink-muted:not(.microphone) {
+  color: @color3;
+}
+#pulseaudio.microphone.source-muted {
+  color: @color1;
+}
+
+
+
+#battery.plugged {
+  color: @color4;
 }
 #battery.charging {
-    color: #26A65B;
+  color: @color2;
+}
+#battery.critical {
+  color: @color3;
 }
 
-#battery.warning:not(.charging) {
-    color: #ffbe61;
+#custom-update.zero {
+  color: @color2;
 }
 
-#battery.critical:not(.charging) {
-    color: #f53c3c;
-    animation-name: blink;
-    animation-duration: 0.5s;
-    animation-timing-function: linear;
-    animation-iteration-count: infinite;
-    animation-direction: alternate;
-}
-#group-expand{
-    padding: 0px 5px;
-    transition: all .3s ease; 
-}
-#custom-expand{
-    padding: 0px 5px;
-    color:alpha(@foreground,.2);
-    text-shadow: 0px 0px 2px rgba(0, 0, 0, .7);
-    transition: all .3s ease; 
-}
-#custom-expand:hover{
-    color:rgba(255,255,255,.2);
-    text-shadow: 0px 0px 2px rgba(255, 255, 255, .5);
-}
-#custom-colorpicker{
-    padding: 0px 5px;
-}
-#cpu,#memory,#temperature{
-    padding: 0px 5px;
-    transition: all .3s ease; 
-    color:@color7;
-
-}
-#custom-endpoint{
-    color:transparent;
-    text-shadow: 0px 0px 1.5px rgba(0, 0, 0, 1);
-
-}
-#tray{
-    padding: 0px 5px;
-    transition: all .3s ease; 
-
-}
-#tray menu * {
-    padding: 0px 5px;
-    transition: all .3s ease; 
+#custom-update.lessfifty {
+  color: @foreground;
 }
 
-#tray menu separator {
-    padding: 0px 5px;
-    transition: all .3s ease; 
+#custom-update.fifty {
+  color: @color11;
+}
+
+#custom-update.hundred {
+  color: @color1;
+}
+
+#custom-fan.Performance {
+  color: @color1;
+}
+
+
+tooltip {
+  background: @background;
+  border: 1px solid @foreground;
+}
+tooltip * {
+  color: @foreground;
+  margin: 2px;
+  background: @background;
+}
+
+#pulseaudio-slider,
+#backlight-slider {
+  min-height: 80px;
+}
+
+#pulseaudio-slider slider,
+#backlight-slider slider {
+  background: transparent;
+}
+
+#pulseaudio-slider trough,
+#backlight-slider trough {
+  min-width: 8px;
+}
+
+#pulseaudio-slider highlight {
+  background: @color4;
+}
+#backlight-slider highlight {
+  background: @color3;
+}
+
+
+
+
+menu {
+    border-radius: 0px;
+    background: @background;
+    color: @foreground;
+}
+menuitem {
+    border-radius: 0px;
+}
+
+
+
+@keyframes urgent-blink {
+  0% { opacity: 1; }
+  100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }

@@ -1,5 +1,6 @@
 #!/bin/bash
 # simple power menu with wofi
+# unused now as gtk menu is used instead
 chosen=$(printf " lock\n⏻ shutdown\n reboot\n sleep\n hibernate" | wofi --dmenu --cache-file=/dev/null)
 
 case "$chosen" in

@@ -1,0 +1,544 @@
+{
+  "group/extras": {
+    "orientation": "inherit",
+    "drawer": {
+      "transition-duration": 400,
+      "children-class": "extras",
+      "transition-left-to-right": false
+    },
+    "modules": [
+      "custom/menu",
+      "tray",
+      "custom/update",
+      "bluetooth",
+      "pulseaudio#microphone",
+      "group/brightness",
+      "privacy"
+    ]
+  },
+  "group/brightness": {
+    "orientation": "inherit",
+    "drawer": {
+      "transition-duration": 400,
+      "children-class": "brightness",
+      "transition-left-to-right": false
+    },
+    "modules": [
+      "backlight",
+      "backlight/slider"
+    ]
+  },
+  "group/audio": {
+    "orientation": "inherit",
+    "drawer": {
+      "transition-duration": 400,
+      "children-class": "audio",
+      "transition-left-to-right": false
+    },
+    "modules": [
+      "pulseaudio",
+      "pulseaudio/slider"
+    ]
+  },
+/*"hyprland/workspaces": {
+    "format": "{icon}",
+    "on-click": "activate",
+    "sort-by-number": true,
+    "show-special": true,
+    "persistent-workspaces": {
+        "*": [ 1, 2, 3, 4, 5 ]
+    },
+    "format-icons": {
+
+        "1": "󰄰",
+        "2": "󰄰",
+        "3": "󰄰",
+        "4": "󰄰",
+        "5": "󰄰",
+        
+        "magic": "󰺖",
+
+        "󰨞": "󰨞", "󰨞_2": "󰨞",
+        "󰖟": "󰖟", "󰖟_2": "󰖟", "󰖟_3": "󰖟",
+        "󰈚": "󰈚", "󰈚_2": "󰈚",
+        "": "",
+        "": "", "_2": "",
+        "󰉋": "󰉋", "󰉋_2": "󰉋",
+        "󱇣": "󱇣", "󱇣_2": "󱇣",
+        "": "", "_2": "", "_3": "",
+        
+        "default": "󰻃"
+    }
+},*/
+"hyprland/workspaces#main": {
+    "output": "eDP-1",
+    "active-only": false,
+    "all-outputs": false,
+    "format": "{icon}",
+    "format-icons": {
+        "urgent": "󰗖",
+        "active": "",
+        "default": "󰻃",
+        "empty": "󰄰"
+        
+
+
+    },
+    "persistent-workspaces": {
+        "eDP-1": [1, 2, 3, 4, 5]
+    },
+    "ignore-workspaces": ["^monitor_(?:[1-9]|10)$"]
+  },
+  "hyprland/workspaces#dp": {
+    "output": "DP-1",
+    "active-only": false,
+    "all-outputs": false,
+    "format": "{icon}",
+    "format-icons": {
+        "urgent": "󰗖",
+        "active": "",
+        "default": "󰻃",
+        "empty": "󰄰"
+      
+    },
+    "persistent-workspaces": {
+        "DP-1": ["monitor_1","monitor_2","monitor_3","monitor_4","monitor_5"]
+    },
+    "ignore-workspaces": ["^(?:[1-9]|10)$"]
+  },
+  "hyprland/workspaces#HDMI": {
+    "output": "HDMI-A-1",
+    "active-only": false,
+    "all-outputs": false,
+    "format": "{icon}",
+    "format-icons": {
+        "urgent": "󰗖",
+        "active": "",
+        "default": "󰻃",
+        "empty": "󰄰"
+      
+    },
+    "persistent-workspaces": {
+        "HDMI-A-1": ["monitor_6","monitor_7","monitor_8","monitor_9","monitor_10"]
+    },
+    "ignore-workspaces": ["^(?:[1-9]|10)$"]
+  },
+  "hyprland/workspaces#special": {
+    "output": "eDP-1",
+    "show-special": true,
+    "format": "{icon}",
+    "format-icons": {
+        "urgent": "󰘾",
+        "active":"󰘻",
+        "default": "󰘼",
+        "empty": ""
+    },
+    "persistent-workspaces": {
+    },
+    "ignore-workspaces": [
+        "^(?!.*special).*$"
+    ]
+    },
+    
+  /*
+
+    
+    "hyprland/workspaces": {
+    // HYBRID FORMAT: Show {icon} as fallback when no windows, {windows} when apps are present
+    // This solves the "persistent empty workspaces disappear" issue
+    "format": "{icon}",
+    
+    // Enable special workspaces to be shown
+    "show-special": true,
+    
+    // Workspace state icons - these are the FALLBACK when no windows match
+    "format-icons": {
+      // Regular workspace states
+      "active": "",
+      "default": "󰻃",
+      "empty": "󰄰",
+      "urgent": "󰗖",
+      
+      // Special workspace state
+      "special": "󰘼",
+      
+      // Persistent workspace state (non-empty)
+      "persistent": "󰻃"
+    },
+    
+    // Persistent workspaces (1-5) - adjust monitor name as needed
+    "persistent-workspaces": {
+      "eDP-1": [1, 2, 3, 4, 5]
+    },
+    
+    // CRITICAL: This makes window icons REPLACE the {icon} placeholder
+    // When a window-rewrite rule matches, it overrides {icon}
+    // When no rule matches, window-rewrite-default is used
+    // When workspace is empty, format-icons is used
+    
+    // Default icon when window is present but no window-rewrite rule matches
+    // Set to empty string to hide unknown windows, or use a default icon
+    "window-rewrite-default": "",
+    
+    // Window separator - only matters if multiple windows and you want to show all
+    // We'll handle "show only one icon" with smart rewrite rules below
+    "format-window-separator": "",
+    
+    // Window rewrite rules to show application icons
+    // These OVERRIDE {icon} when windows are present
+    "window-rewrite": {
+      // Development - Higher priority applications listed first
+      "code": "󰨞",
+      "class<code>": "󰨞",
+      "class<Code>": "󰨞",
+      "class<VSCodium>": "󰨞",
+      "class<code-oss>": "󰨞",
+
+      "class<jetbrains-idea>": "",
+      "class<jetbrains-idea-ce>": "",
+      
+      // Terminals
+      "class<kitty>": "",
+      "class<Alacritty>": "",
+      "class<foot>": "",
+      "class<org.wezfurlong.wezterm>": " ",
+      
+      // Browsers
+      "class<zen>": "",
+      "class<Zen-browser>": "",
+      "class<Helium>": "",
+      "class<helium>": "",
+      "class<firefox>": "",
+      "class<Firefox>": "",
+      "class<chromium>": "",
+      "class<Google-chrome>": "",
+      "class<Brave-browser>": "",
+      
+      // Communication
+      "class<discord>": "",
+      "class<Discord>": "",
+      "class<Slack>": "󰒱",
+      "class<teams>": "󰊻",
+      "title<Signal>": "󰍡",
+      "title<WhatsApp.*>": "",
+      
+      // File managers
+      "class<thunar>": "󰉋",
+      "class<Thunar>": "󰉋",
+      "class<dolphin>": "󰉋",
+      "class<Dolphin>": "󰉋",
+      "class<nemo>": "󰉋",
+      "class<Nemo>": "󰉋",
+      "class<pcmanfm>": "󰉋",
+      "class<Pcmanfm>": "󰉋",
+      
+      // Media
+      "mpv": "",
+      "class<mpv>": "",
+      "class<vlc>": "󰕼",
+      "class<spotify>": "",
+      "class<Spotify>": "",
+      
+      // Productivity
+      "obsidian": "󱞁",
+      "class<obsidian>": "󱞁",
+      "class<Obsidian>": "󱞁",
+      "class<libreoffice.*>": "󰈙",
+      "class<ONLYOFFICE.*>": "󰈙",
+      
+      // System
+      "class<pavucontrol>": "󰕾",
+      "class<blueman-manager>": "󰂯",
+      "class<nm-connection-editor>": "󱚾",
+      
+      
+   
+      "class<steam>": "󰓓",
+      "class<gimp>": "",
+      "class<com.github.maoschanz.drawing>": "󱇣",
+      "class<Drawing>": "󱇣",
+      "title<.*nvim.*>": ""
+  }
+},*/
+"clock": {
+  "interval": 1,
+  "format": "{:%I\n%M\n%S}",
+  "format-alt": "{:%d\n%m\n%y}",
+  "tooltip-format": "<tt><small>{calendar}</small></tt>",
+  "calendar": {
+    "weeks-pos": "left",
+    "format": {
+       "today": "<span color='#fAfBfC'><b><i>{}</i></b></span>",
+       "weekdays": "<b>{}</b>",
+       "weeks": "<span color='#9096ab'>{}</span>"
+    }
+  },
+    "rewrite": {
+      "Mon\n": "Mo\n",
+      "Tue\n": "Tu\n",
+      "Wed\n": "We\n",
+      "Thu\n": "Th\n",
+      "Fri\n": "Fr\n",
+      "Sat\n": "Sa\n",
+      "Sun\n": "Su\n"
+  }
+},
+"custom/menu": {
+  "format": "<span size='16pt'>󰅃</span>",
+  "tooltip": false
+},
+"tray": {
+  "spacing": 16,
+  "reverse-direction": true,
+  "icon-size": 16,
+  "show-passive-items": true
+},
+"privacy": {
+  "icon-size": 14,
+  "transition-duration": 250,
+  "modules": [
+    {
+      "type": "screenshare",
+      "tooltip": false,
+    }
+  ],
+  "ignore": [
+    {
+      "type": "screenshare",
+      "name": "obs"
+    }
+  ]
+},
+"network": {
+  "format-icons": {
+    "wifi": [
+      "<span size='12pt'>󰤯</span>",
+      "<span size='12pt'>󰤟</span>",
+      "<span size='12pt'>󰤢</span>",
+      "<span size='12pt'>󰤥</span>",
+      "<span size='12pt'>󰤨</span>"
+    ],
+    "ethernet": "<span size='12pt'>󰈀</span>",
+    "disabled": "<span size='12pt'>󰤭</span>",
+    "disconnected": "<span size='12pt'>󰤩</span>"
+  },
+  "format-wifi": "{icon}",
+  "format-ethernet": "{icon}",
+  "format-disconnected": "{icon}",
+  "format-disabled": "{icon}",
+  "tooltip-format": "{essid}\n{gwaddr}\n{bandwidthUpBits}   {signalStrength}\n{bandwidthDownBits}   {frequency}GHz",
+  "on-click": "~/.config/waybar/scripts/network/nm-applet-toggle.sh",
+  "tooltip": true,
+  "max-length": 20,
+  "interval": 5
+
+},
+"bluetooth": {
+  "interval": 5,
+  "format-on": "<span size='14pt'>󰂯</span>",
+  "format-off": "<span size='14pt'>󰂲</span>",
+  "format-disabled": "<span size='14pt'>󰂲</span>",
+  "format-connected": "<span size='14pt'>󰂱</span>",
+  "format-no-controller": "span size='14pt'>󰂯</span>",
+  "tooltip": true,
+  "tooltip-format": "{device_enumerate}",
+  "tooltip-format-enumerate-connected": "{device_address}",
+  "tooltip-format-enumerate-connected-battery": "{device_address} | Battery: {device_battery_percentage}%",
+  "on-click": "rfkill toggle bluetooth",
+  "on-click-right": "blueman-manager"
+},
+"pulseaudio#microphone": {
+  "format": "{format_source}",
+  "format-source": "<span size='14pt'>󰍬</span>",
+  "format-source-muted": "<span size='14pt'>󰍭</span>",
+  "on-click": "pactl set-source-mute @DEFAULT_SOURCE@ toggle",
+  "on-click-right": "pavucontrol -t 4",
+  "tooltip": false
+},
+"backlight/slider": {
+    "min": 0, 
+    "orientation": "vertical",
+    "device": "amdgpu_bl1"
+},
+"backlight": {
+    "device": "amdgpu_bl1",
+    "format": "{icon}",
+    "format-icons": ["󰃚", "󰃛", "󰃜", "󰃝", "󰃞", "󰃟", "󰃠"],
+    "tooltip": false,
+    // Keep these commands ONLY on the icon module
+    "on-scroll-up": "brightnessctl -d amdgpu_bl1 set +2%",
+    "on-scroll-down": "brightnessctl -d amdgpu_bl1 set 2%-"
+},
+"pulseaudio/slider": {
+    "min": 0,
+    "max": 100,
+    "orientation": "vertical"},
+"pulseaudio": {
+    "format": "{icon}",
+    "format-icons": [
+        "<span size='14pt'>󰕿</span>",
+        "<span size='14pt'>󰖀</span>",
+        "<span size='14pt'>󰕾</span>"
+    ],
+    "format-muted": "<span size='14pt'>󰝟</span>",
+    "on-click-right": "pavucontrol -t 3",
+    "on-click": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
+    "tooltip": true,
+    "tooltip-format": "Volume: {volume}%\n{desc}",
+    "ignored-sinks": ["Easy Effects Sink"]
+},
+
+"battery": {
+  "interval": 5,
+  "states": {
+    "critical": 10
+  },
+
+  "format": "{icon}\n<span size='9pt'>{capacity}</span>",
+  "format-alt": "{icon}",
+  "justify": "center",  
+  "align": 0.5,    
+       
+  "format-icons": {
+    "charging": "<span size='14pt'>󰂄</span>",
+    "plugged": "<span size='14pt'>󰚥</span>",
+    "critical": "<span size='14pt'>󰂃</span>",
+    "default": [
+        "<span size='14pt'>󰁺</span>",
+        "<span size='14pt'>󰁻</span>",
+        "<span size='14pt'>󰁼</span>",
+        "<span size='14pt'>󰁽</span>",
+        "<span size='14pt'>󰁾</span>",
+        "<span size='14pt'>󰁿</span>",
+        "<span size='14pt'>󰂀</span>",
+        "<span size='14pt'>󰂁</span>",
+        "<span size='14pt'>󰂂</span>",
+        "<span size='14pt'>󰁹</span>"
+    ]
+  },
+
+  
+  "tooltip": true,
+  "tooltip-format": "Charge: {capacity}%\n{time}"
+},
+"custom/gpu": {
+        "format": "{icon}",
+        "format-icons": {
+            "gaming": "󰪫",
+            "performance": "󰢮",
+            "high-refresh": "",
+            "eco": "󰌪"
+        },
+        "exec": "~/.config/waybar/scripts/gpu/gpu-status.sh",
+        "interval": 5,
+        "return-type": "json",
+        "menu": "on-click",
+        "menu-file": "~/.config/waybar/scripts/gpu/gpu_menu.xml",
+        "menu-actions": {
+            "gaming-mode": "~/.config/waybar/scripts/gpu/modes/gpu144.sh",
+            "perf-mode": "~/.config/waybar/scripts/gpu/modes/gpu60.sh",
+            "high-refresh": "~/.config/waybar/scripts/gpu/modes/igpu144.sh",
+            "eco-mode": "~/.config/waybar/scripts/gpu/modes/igpu60.sh",
+            "nvidia-settings": "~/.config/waybar/scripts/gpu/launch-nvidia-settings.sh",                        
+            "toggle-gpu": "~/.config/waybar/scripts/gpu/gpu-toggle.sh"
+        } 
+},
+"custom/fan": {
+        "format": "{icon}",
+        "format-icons": {
+            "Performance": "󱑬",
+            "Balanced": "󱜝",
+            "Quiet": "󰠝"
+        },
+        "exec": "~/.config/waybar/scripts/fan/fan-status.sh",
+        "interval": 10,
+        "return-type": "json",
+        "menu": "on-click",
+        "menu-file": "~/.config/waybar/scripts/fan/fan_menu.xml",
+        "menu-actions": {
+            "Performance": "asusctl profile set performance; notify-send -u low '󱑬  Performance Mode Activated'",
+            "Balanced": "asusctl profile set balanced; notify-send -u low '󱜝 Balanced Mode Activated'",
+            "Quiet": "asusctl profile set quiet; notify-send -u low '󰠝 Quiet Mode Activated'"
+        } 
+},
+"custom/todo": {
+  "exec": "~/.config/waybar/scripts/todo/todo.sh",
+  "interval": 10,
+  "return-type": "json",
+  "format": "{text}",
+  "on-click-right": "~/.config/waybar/scripts/todo/open.sh",
+  "on-click": "~/.config/waybar/scripts/todo/cycle.sh",
+  "tooltip": true
+},
+"custom/cal": {
+    "exec": "~/.config/waybar/scripts/cal/cal.sh",
+    "interval": 10,
+    "return-type": "json",
+    "format": "{text}",
+    "on-click": "~/.config/waybar/scripts/cal/add.sh",
+    "on-click-right": "~/.config/waybar/scripts/cal/cycle.sh",
+    "tooltip3": true
+},
+"custom/update": {
+    "exec": "~/.config/waybar/scripts/update/update.sh",
+    "interval": 3600,
+    "return-type": "json",
+    "format": "{icon}",
+    "format-icons": {
+      "zero": "󰅠",
+      "lessfifty": "󰅢",
+      "fifty": "󰧠",
+      "hundred": "󰧠"
+    },
+    "tooltip": true,
+    "on-click": "kitty --class update --title update sh -c '~/.config/waybar/scripts/update/update-run.sh; echo Done - press enter; read'; pkill -SIGRTMIN+8 waybar",
+    "on-click-right": "kitty --class update-list --title update-list sh -c '~/.config/waybar/scripts/update/update-list.sh'",
+    "signal": 8
+},
+"custom/notification": {
+    "tooltip": true,
+    "format": "{icon}",
+    "format-icons": {
+      "notification": "󱅫",
+      "none": "󰂜",
+      "dnd-notification": "󰂠",
+      "dnd-none": "󰪓",
+      "inhibited-notification": "󰂛",
+      "inhibited-none": "󰪑",
+      "dnd-inhibited-notification": "󰂛",
+      "dnd-inhibited-none": "󰪑"
+    },
+    "return-type": "json",
+    "exec-if": "which swaync-client",
+    "exec": "swaync-client -swb",
+    "on-click": "swaync-client -t -sw",
+    "on-click-right": "swaync-client -d -sw",
+    "escape": true
+},
+"custom/power": {
+    "format" : "⏻",
+        "tooltip": false,
+        "menu": "on-click",
+        "menu-file": "~/.config/waybar/scripts/power/power_menu.xml",
+        "menu-actions": {
+            "lock": "hyprlock", 
+            "sleep": "systemctl suspend-then-hibernate",
+            "shutdown": "systemctl poweroff",
+            "reboot": "systemctl reboot",
+            "hibernate": "systemctl hibernate"
+        }
+},
+"custom/workspaces": {
+    "exec": "~/.config/waybar/scripts/custom_workspace_script.py",
+    "return-type": "json",
+    "interval": 1,
+    "format": "{}",
+    "on-click": "hyprctl dispatch workspace {id}",
+    "tooltip": true
+  }
+
+}
+
+
+
+

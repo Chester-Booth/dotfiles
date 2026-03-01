@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <object class="GtkMenu" id="menu">
+    <child>
+      <object class="GtkSeparatorMenuItem" id="sep1"/>
+    </child>
+        <child>
+      <object class="GtkMenuItem" id="Performance">
+        <property name="label">󱑬 Performance Mode</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkMenuItem" id="Balanced">
+        <property name="label">󱜝 Balanced Mode</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkMenuItem" id="Quiet">
+        <property name="label">󰠝 Quiet Mode</property>
+      </object>
+    </child>
+  </object>
+</interface>

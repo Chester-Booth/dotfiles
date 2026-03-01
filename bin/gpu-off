@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# Unload NVIDIA modules
+sudo rmmod nvidia_uvm 2>/dev/null
+sudo rmmod nvidia_drm 2>/dev/null
+sudo rmmod nvidia_modeset 2>/dev/null
+sudo rmmod nvidia 2>/dev/null
+
+# Remove GPU from PCI bus
+sudo /usr/local/bin/gpu-pci-remove
+
+notify-send -u normal -e "GPU" "NVIDIA GPU powered off" -i battery

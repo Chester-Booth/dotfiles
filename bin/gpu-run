@@ -1,0 +1,34 @@
+#!/bin/bash
+
+gpu_is_on() {
+    lspci -s 01:00.0 2>/dev/null | grep -q "VGA"
+}
+
+# Power on GPU if needed
+if ! gpu_is_on; then
+    sudo /usr/local/bin/gpu-pci-rescan
+    sleep 1.5
+    sudo modprobe nvidia nvidia_drm nvidia_modeset nvidia_uvm 2>/dev/null
+    sleep 0.5
+fi
+
+# Run the command with NVIDIA offloading
+__NV_PRIME_RENDER_OFFLOAD=1 \
+__GLX_VENDOR_LIBRARY_NAME=nvidia \
+__VK_LAYER_NV_optimus=NVIDIA_only \
+VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json \
+"$@"
+
+# Store exit code
+EXIT_CODE=$?
+
+# Auto power-off after command completes
+(
+    sleep 2
+    if ! sudo fuser /dev/nvidia* &>/dev/null; then
+        sudo rmmod nvidia_uvm nvidia_drm nvidia_modeset nvidia 2>/dev/null
+        sudo /usr/local/bin/gpu-pci-remove
+    fi
+) &
+
+exit $EXIT_CODE

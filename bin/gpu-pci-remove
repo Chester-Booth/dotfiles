@@ -1,0 +1,10 @@
+#!/bin/bash
+# Remove NVIDIA VGA controller
+if [ -d /sys/bus/pci/devices/0000:01:00.0 ]; then
+    echo 1 > /sys/bus/pci/devices/0000:01:00.0/remove
+fi
+
+# Remove NVIDIA Audio device
+if [ -d /sys/bus/pci/devices/0000:01:00.1 ]; then
+    echo 1 > /sys/bus/pci/devices/0000:01:00.1/remove
+fi

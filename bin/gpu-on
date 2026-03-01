@@ -1,0 +1,17 @@
+#!/bin/bash
+
+gpu_is_on() {
+    lspci -s 01:00.0 2>/dev/null | grep -q "VGA"
+}
+
+if ! gpu_is_on; then
+    notify-send -u low -e "GPU" "Powering on NVIDIA GPU..." -i video-display
+    sudo /usr/local/bin/gpu-pci-rescan
+    sleep 1.5
+    sudo modprobe nvidia 2>/dev/null
+    sudo modprobe nvidia_drm 2>/dev/null
+    sudo modprobe nvidia_modeset 2>/dev/null
+    sudo modprobe nvidia_uvm 2>/dev/null
+    sleep 0.5
+    notify-send -u low -e "GPU" "NVIDIA GPU ready" -i video-display
+fi

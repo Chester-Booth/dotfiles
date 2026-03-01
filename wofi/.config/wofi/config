@@ -1,12 +1,12 @@
 [config]
 allow_images=true
-width=700
+width=400
 show=drun
-prompt=Search
-height=400
+prompt=
+height=600
 term=kitty
 hide_scroll=true
 print_command=true
 insensitive=true
 columns=1
-no_actions=true
+no_actions=falseq

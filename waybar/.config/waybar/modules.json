@@ -263,7 +263,7 @@
 "clock": {
   "interval": 1,
   "format": "{:%I\n%M\n%S}",
-  "format-alt": "{:%d\n%m\n%y}",
+  "format-alt": "<span color='#CDD6F4'>{:%d\n%m\n%y}</span>",
   "tooltip-format": "<tt><small>{calendar}</small></tt>",
   "calendar": {
     "weeks-pos": "left",
@@ -274,13 +274,13 @@
     }
   },
     "rewrite": {
-      "Mon\n": "Mo\n",
-      "Tue\n": "Tu\n",
-      "Wed\n": "We\n",
-      "Thu\n": "Th\n",
-      "Fri\n": "Fr\n",
-      "Sat\n": "Sa\n",
-      "Sun\n": "Su\n"
+      "Mon": "Mo",
+      "Tue": "Tu",
+      "Wed": "We",
+      "Thu": "Th",
+      "Fri": "Fr",
+      "Sat": "Sa",
+      "Sun": "Su"
   }
 },
 "custom/menu": {

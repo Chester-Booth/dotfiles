@@ -5,14 +5,17 @@ CACHE_DIR="$HOME/.cache/gcal_script"
 DAY_OUT="$HOME/Documents/todo/2-gcal.md"
 WEEK_OUT="$HOME/Documents/todo/99-gcal_week.md"
 NOW_HOUR=$(date +%H)
+NOW_DATE=$(date +"%a %b %d") # e.g., "Mon Mar 09"
 
 # Create cache dir if it doesn't exist
 mkdir -p "$CACHE_DIR"
 
 # --- PROCESSING FUNCTION ---
 process_gcal() {
-    # $1 = "offline", "expired", or "online"
+    # $1 = "offline", "expired", "online", or "error"
+    # $2 = error message (if "error")
     local status=$1
+    local err_msg=$2
     
     # We pipe input into this block
     # 1. Update regex to [0-9;]*35m to capture both Normal (0;35m) and Bold (1;35m)
@@ -25,17 +28,25 @@ process_gcal() {
         -e 's/\x1b\[[0-9;]*36m/▕/g' \
         -e 's/\x1b\[[0-9;]*m//g' \
         -e 's/(▒|▕)/\n\1/g' | \
-    awk -v nowh="$NOW_HOUR" -v stat="$status" '
+    awk -v nowh="$NOW_HOUR" -v nowd="$NOW_DATE" -v stat="$status" -v err="$err_msg" '
     function ltrim(s) { sub(/^[ \t]+/, "", s); return s }
     function rtrim(s) { sub(/[ \t]+$/, "", s); return s }
     function print_buffer() { if (buffer != "") { print buffer; buffer = "" } }
 
     BEGIN { 
         uni_modified = 0 
+        is_today = 0
+        
+        # Normalize spaces in the current date just in case of single digit days (e.g. Mar  9 vs Mar 9)
+        norm_nowd = nowd
+        gsub(/  +/, " ", norm_nowd)
+
         if (stat == "offline") {
             print "󰖪 "
         } else if (stat == "expired") {
             print "󱦃 "
+        } else if (stat == "error") {
+            print " " err
         }
     }
 
@@ -46,6 +57,16 @@ process_gcal() {
         # 1. DATE LINE
         if (line ~ /^[A-Z][a-z]{2} [A-Z][a-z]{2} [0-9]+/) {
             print_buffer()
+            
+            # Check if this date block is "today"
+            norm_line = line
+            gsub(/  +/, " ", norm_line)
+            if (index(norm_line, norm_nowd) == 1) {
+                is_today = 1
+            } else {
+                is_today = 0
+            }
+
             if (match(line, / [0-9]*:[0-9]{2}/)) {
                 print substr(line, 1, RSTART-1)
                 line = substr(line, RSTART)
@@ -88,8 +109,8 @@ process_gcal() {
             }
             # -----------------
 
-            # Overwrite symbol with arrow if current hour
-            if (nowh >= sh && nowh < eh) sym = "➡️"
+            # Overwrite symbol with arrow ONLY if it is today AND current hour
+            if (is_today && nowh >= sh && nowh < eh) sym = "➡️"
 
             buffer = sprintf("%s  %02d:%s-%02d:%s   %s", sym, sh, sm, eh, em, rest)
             next
@@ -124,24 +145,41 @@ generate_file() {
     if temp_raw=$(gcalcli agenda --military --details=end --details=location --width=300 $cmd_args 2>"$temp_err"); then
         if [ -n "$temp_raw" ]; then
             echo "$temp_raw" > "$cache_file"
-            echo "$temp_raw" | process_gcal "online" > "$out_file"
+            echo "$temp_raw" | process_gcal "online" "" > "$out_file"
             rm -f "$temp_err"
             return
         fi
     fi
 
-    # Check if the error was a token expiration/revocation
+    # Check if the error was a token expiration/revocation, a Wi-Fi error, or something else
     local status="offline"
-    if [ -f "$temp_err" ] && grep -q "invalid_grant.*Token has been expired or revoked" "$temp_err"; then
-        status="expired"
+    local ext_err=""
+    if [ -f "$temp_err" ] && [ -s "$temp_err" ]; then
+        if grep -q "invalid_grant.*Token has been expired or revoked" "$temp_err"; then
+            # 1. Auth/Expired Token Error (explicitly handled)
+            status="expired"
+        elif grep -qEi "ServerNotFoundError|gaierror|Network is unreachable|Name or service not known|Connection refused|Timeout|ConnectionError|Failed to establish a new connection|NewConnectionError|nodename nor servname provided" "$temp_err"; then
+            # 2. Wi-Fi/No Internet Error (explicitly handled)
+            status="offline"
+        else
+            # 3. Arbitrary/New Error - Extracted from the last non-empty line of the stack trace
+            status="error"
+            ext_err=$(awk 'NF' "$temp_err" | tail -n 1)
+            # If the output somehow didn't have any non-empty lines, silently fallback to offline
+            if [ -z "$ext_err" ]; then
+                status="offline"
+            fi
+        fi
     fi
     rm -f "$temp_err"
 
     if [ -f "$cache_file" ]; then
-        cat "$cache_file" | process_gcal "$status" > "$out_file"
+        cat "$cache_file" | process_gcal "$status" "$ext_err" > "$out_file"
     else
         if [ "$status" = "expired" ]; then
             echo "󱦃 No Data" > "$out_file"
+        elif [ "$status" = "error" ]; then
+            echo " $ext_err" > "$out_file"
         else
             echo "󰖪 No Data" > "$out_file"
         fi
@@ -169,4 +207,4 @@ if [ "$DAY_OF_WEEK" -ge 6 ]; then
 else
     # Weekday: show through this Sunday
     generate_file "today sunday" "$CACHE_DIR/week.cache" "$WEEK_OUT"
-fi
+fi	

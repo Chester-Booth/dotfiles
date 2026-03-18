@@ -24,8 +24,7 @@
       "transition-left-to-right": false
     },
     "modules": [
-      "backlight",
-      "backlight/slider"
+      "backlight"
     ]
   },
   "group/audio": {

@@ -18,8 +18,9 @@
 
 window {
     all:unset;
-    padding: 20px;
-    border-radius: 20px;
+    margin: 0px;
+    padding: 10px;
+    border-radius: 0px;
     background-color: alpha(@background,0.8);
 }
 #inner-box {
@@ -27,12 +28,12 @@ window {
     padding: 0px;
     border: none;
 }
-#outer-box {    
+#outer-box {
     border: none;
 }
 #scroll {
     margin: 0px;
-    padding: 30px;
+    padding: 10px;
     border: none;
 }
 #input {
@@ -45,7 +46,7 @@ window {
     outline: none;
     color: @foreground;
     box-shadow: 1px 1px 5px rgba(0,0,0, .5);
-    border-radius:10;
+    border-radius:0;
     background-color: alpha(@color4,0.4);
 }
 #input image {
@@ -62,7 +63,7 @@ window {
     outline: none;
     border: none;
 
-    border-radius:10;
+    border-radius:0;
 }
 #text {
     margin: 5px;
@@ -87,10 +88,9 @@ window {
 
 }
 #entry:selected {
-    box-shadow: 1px 1px 5px rgba(255,255,255, .03);
     border: none;
-    border-radius: 20px;
-    background-color:transparent;
+    border-radius: 0px;
+    background-color: alpha(@color4,0.05);
 }
 #entry:selected #text {
     color: @color4;

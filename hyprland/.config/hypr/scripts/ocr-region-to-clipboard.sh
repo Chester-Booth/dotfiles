@@ -23,3 +23,7 @@ ocr_text="$(tesseract "$tmp_file" stdout -l eng --psm 6 quiet 2>/dev/null | sed 
 [ -n "$ocr_text" ] || exit 0
 
 printf '%s' "$ocr_text" | wl-copy
+
+title="Text copied to clipboard"
+text="$ocr_text"
+notify-send "$title" "$text"

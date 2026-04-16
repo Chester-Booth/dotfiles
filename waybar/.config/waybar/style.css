@@ -168,6 +168,10 @@ window#waybar {
   color: @color2;
 }
 
+#custom-update.error {
+  color: @color1;
+}
+
 #custom-update.lessfifty {
   color: @foreground;
 }

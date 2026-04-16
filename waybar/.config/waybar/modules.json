@@ -485,6 +485,7 @@
     "return-type": "json",
     "format": "{icon}",
     "format-icons": {
+      "error": "",
       "zero": "󰅠",
       "lessfifty": "󰅢",
       "fifty": "󰧠",
@@ -492,7 +493,7 @@
     },
     "tooltip": true,
     "on-click": "kitty --class update --title update sh -c '~/.config/waybar/scripts/update/update-run.sh; echo Done - press enter; read'; pkill -SIGRTMIN+8 waybar",
-    "on-click-right": "kitty --class update-list --title update-list sh -c '~/.config/waybar/scripts/update/update-list.sh'",
+    "on-click-right": "kitty --class update-list --title update-list sh -c '~/.config/waybar/scripts/update/update-list.sh'; pkill -SIGRTMIN+8 waybar",
     "signal": 8
 },
 "custom/notification": {
@@ -538,6 +539,4 @@
   }
 
 }
-
-
 

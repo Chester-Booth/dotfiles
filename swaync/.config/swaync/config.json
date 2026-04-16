@@ -6,14 +6,14 @@
     "control-center-layer": "top",
     "layer-shell": true,
     "cssPriority": "application",
-    "control-center-width": 350,
-    "control-center-margin-top": 0,
-    "control-center-margin-bottom": 0,
-    "control-center-margin-right": 0,
+    "control-center-width": 380,
+    "control-center-margin-top": 12,
+    "control-center-margin-bottom": 12,
+    "control-center-margin-right": 12,
     "control-center-margin-left": 0,
     "notification-2fa-action": true,
     "notification-inline-replies": true,
-    "notification-window-width": 300,
+    "notification-window-width": 340,
     "notification-icon-size": 60,
     "notification-body-image-height":  180,
     "notification-body-image-width": 180,
@@ -27,6 +27,18 @@
     "hide-on-clear": false,
     "hide-on-action": true,
     "script-fail-notify": true,
+    "scripts": {
+        "focus-notification-source-workspace-by-desktop-entry": {
+            "exec": "/home/blox/.config/hypr/scripts/focus-notification-source-workspace.sh",
+            "desktop-entry": ".+",
+            "run-on": "action"
+        },
+        "focus-notification-source-workspace-by-app-name": {
+            "exec": "/home/blox/.config/hypr/scripts/focus-notification-source-workspace.sh",
+            "app-name": ".+",
+            "run-on": "action"
+        }
+    },
     "widgets": [
         "mpris",
         "title"
@@ -115,4 +127,3 @@
         }
     }
 }
-

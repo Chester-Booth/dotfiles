@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+
+set -u
+
+threshold="${LOW_POWER_THRESHOLD:-30}"
+state_dir="${XDG_RUNTIME_DIR:-$HOME/.cache}"
+state_file="$state_dir/battery-low-power-active"
+
+find_battery_dir() {
+    local battery_dir
+
+    for battery_dir in /sys/class/power_supply/BAT*; do
+        if [[ -r "$battery_dir/capacity" && -r "$battery_dir/status" ]]; then
+            printf '%s\n' "$battery_dir"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+run_low_power_mode() {
+    local capacity="$1"
+    local action_failed=0
+    local notify_failed=0
+
+    if ! notify-send -i battery-low "Low Power Mode Active" "Battery at ${capacity}%. Brightness minimized, iGPU 60 Hz mode enabled, and Bluetooth disabled."; then
+        notify_failed=1
+    fi
+
+    if ! swayosd-client --brightness 0; then
+        action_failed=1
+    fi
+
+    if ! "$HOME/.config/waybar/scripts/gpu/modes/igpu60.sh"; then
+        action_failed=1
+    fi
+
+    if ! rfkill block bluetooth; then
+        action_failed=1
+    fi
+
+    if (( action_failed == 0 )); then
+        mkdir -p "$state_dir"
+        printf '%s\n' "$capacity" > "$state_file"
+    fi
+
+    if (( notify_failed != 0 || action_failed != 0 )); then
+        return 1
+    fi
+}
+
+main() {
+    local battery_dir capacity status
+
+    if ! battery_dir="$(find_battery_dir)"; then
+        exit 0
+    fi
+
+    read -r capacity < "$battery_dir/capacity"
+    read -r status < "$battery_dir/status"
+    status="$(printf '%s' "$status" | tr '[:upper:]' '[:lower:]')"
+
+    if [[ "$status" != "discharging" ]]; then
+        rm -f "$state_file"
+        exit 0
+    fi
+
+    if (( capacity > threshold )); then
+        rm -f "$state_file"
+        exit 0
+    fi
+
+    if [[ -f "$state_file" ]]; then
+        exit 0
+    fi
+
+    run_low_power_mode "$capacity"
+}
+
+main "$@"

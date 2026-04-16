@@ -1,0 +1,6 @@
+[Unit]
+Description=Enable low power mode when battery is low
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/battery-low-power

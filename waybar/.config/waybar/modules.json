@@ -365,6 +365,7 @@
     "format-icons": ["󰃚", "󰃛", "󰃜", "󰃝", "󰃞", "󰃟", "󰃠"],
     "tooltip": false,
     // Keep these commands ONLY on the icon module
+    "on-click-right": "~/.config/waybar/scripts/hyprsunset-toggle.sh",
     "on-scroll-up": "brightnessctl -d amdgpu_bl1 set +2%",
     "on-scroll-down": "brightnessctl -d amdgpu_bl1 set 2%-"
 },
@@ -537,7 +538,6 @@
   }
 
 }
-
 
 
 

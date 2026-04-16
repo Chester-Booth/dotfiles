@@ -1,0 +1,8 @@
+[Unit]
+Description=Bidirectional sync for iCloud Drive
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.config/hypr/scripts/sync-icloud.sh

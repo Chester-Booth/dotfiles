@@ -5,7 +5,7 @@ gpu_is_on() {
 }
 
 if ! gpu_is_on; then
-    notify-send -u low -e "GPU" "Powering on NVIDIA GPU..." -i video-display
+    notify-send -u low -e "Powering on GPU"
     sudo /usr/local/bin/gpu-pci-rescan
     sleep 1.5
     sudo modprobe nvidia 2>/dev/null
@@ -13,5 +13,5 @@ if ! gpu_is_on; then
     sudo modprobe nvidia_modeset 2>/dev/null
     sudo modprobe nvidia_uvm 2>/dev/null
     sleep 0.5
-    notify-send -u low -e "GPU" "NVIDIA GPU ready" -i video-display
+    notify-send -u low -e  "NVIDIA GPU ready"
 fi

@@ -9,4 +9,4 @@ sudo rmmod nvidia 2>/dev/null
 # Remove GPU from PCI bus
 sudo /usr/local/bin/gpu-pci-remove
 
-notify-send -u normal -e "GPU" "NVIDIA GPU powered off" -i battery
+notify-send -u normal -e  "NVIDIA GPU powered off"

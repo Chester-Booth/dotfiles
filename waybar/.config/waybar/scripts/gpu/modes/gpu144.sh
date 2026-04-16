@@ -9,4 +9,4 @@ fi
 
 gpu-on
 hyprctl keyword monitor eDP-1,1920x1080@144,0x0,1
-notify-send -u low -e "Gaming Mode" "GPU ON + 144Hz enabled" -i video-display
+notify-send -u low -e "Gaming Mode" "GPU ON + 144Hz enabled" -i power-profile-performance-symbolic

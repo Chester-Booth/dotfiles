@@ -7,6 +7,10 @@ if [ "$battery_status" != "Charging" ] && [ "$battery_percent" -lt 50 ]; then
     exit 1
 fi
 
-gpu-on
+if ! ~/.config/waybar/scripts/gpu/gpu-on-safe.sh; then
+    notify-send -u low "Performance Mode" "Failed to enable the NVIDIA GPU." -u critical -i dialog-error
+    exit 1
+fi
+
 hyprctl keyword monitor eDP-1,1920x1080@60,0x0,1
 notify-send -u low -e "Performance Mode" "GPU ON + 60Hz enabled" -i power-profile-performance-symbolic

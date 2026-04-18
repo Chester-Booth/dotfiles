@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Ensure GPU is on
-gpu-on
+~/.config/waybar/scripts/gpu/gpu-on-safe.sh
 sleep 1
 
 # Check current modeset status

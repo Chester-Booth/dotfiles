@@ -523,7 +523,7 @@
         "menu-file": "~/.config/waybar/scripts/power/power_menu.xml",
         "menu-actions": {
             "lock": "hyprlock", 
-            "sleep": "systemctl suspend-then-hibernate",
+            "sleep": "systemctl sleep",
             "shutdown": "systemctl poweroff",
             "reboot": "systemctl reboot",
             "hibernate": "systemctl hibernate"
@@ -539,4 +539,3 @@
   }
 
 }
-

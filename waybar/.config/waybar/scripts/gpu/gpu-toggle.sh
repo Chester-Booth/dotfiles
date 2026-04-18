@@ -20,7 +20,7 @@ on_battery_low() {
 
 if gpu_is_on; then
     # Turn off GPU
-    gpu-off
+    ~/.config/waybar/scripts/gpu/gpu-off-safe.sh
     notify-send -u low -e "GPU Manager" "NVIDIA GPU powered off" -i battery
 else
     # Check battery before turning on
@@ -30,5 +30,5 @@ else
     fi
     
     # Turn on GPU
-    gpu-on
+    ~/.config/waybar/scripts/gpu/gpu-on-safe.sh
 fi

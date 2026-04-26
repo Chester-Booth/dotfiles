@@ -1,5 +1,15 @@
 #!/bin/bash
 
+gpu_notifications_enabled=1
+
+for gpu_arg in "$@"; do
+    case "$gpu_arg" in
+        --quiet|--no-notify)
+            gpu_notifications_enabled=0
+            ;;
+    esac
+done
+
 gpu_lock() {
     local lock_file="${XDG_RUNTIME_DIR:-/tmp}/gpu-power.lock"
 
@@ -26,6 +36,12 @@ module_loaded() {
     lsmod | awk '{print $1}' | grep -qx "$1"
 }
 
+gpu_notify() {
+    if (( gpu_notifications_enabled )); then
+        notify-send "$@"
+    fi
+}
+
 notify_gpu_busy() {
-    notify-send -u normal -e "GPU Manager" "GPU power operation already in progress." -i dialog-information
+    gpu_notify -u normal -e "GPU Manager" "GPU power operation already in progress." -i dialog-information
 }

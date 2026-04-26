@@ -22,17 +22,12 @@ find_battery_dir() {
 run_low_power_mode() {
     local capacity="$1"
     local action_failed=0
-    local notify_failed=0
-
-    if ! notify-send -i battery-low "Low Power Mode Active" "Battery at ${capacity}%. Brightness minimized, iGPU 60 Hz mode enabled, and Bluetooth disabled."; then
-        notify_failed=1
-    fi
 
     if ! swayosd-client --brightness 0; then
         action_failed=1
     fi
 
-    if ! "$HOME/.config/waybar/scripts/gpu/modes/igpu60.sh"; then
+    if ! "$HOME/.config/waybar/scripts/gpu/modes/igpu60.sh" --quiet; then
         action_failed=1
     fi
 
@@ -41,13 +36,14 @@ run_low_power_mode() {
     fi
 
     if (( action_failed == 0 )); then
+        notify-send -i battery-low "Low Power Mode Active" "Battery at ${capacity}%. Brightness minimized, iGPU 60 Hz mode enabled, and Bluetooth disabled."
         mkdir -p "$state_dir"
         printf '%s\n' "$capacity" > "$state_file"
+    else
+        logger -t battery-low-power "Low-power mode retry deferred because the NVIDIA GPU is still busy after resume."
     fi
 
-    if (( notify_failed != 0 || action_failed != 0 )); then
-        return 1
-    fi
+    (( action_failed == 0 ))
 }
 
 main() {

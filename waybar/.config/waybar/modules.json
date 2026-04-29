@@ -522,11 +522,11 @@
         "menu": "on-click",
         "menu-file": "~/.config/waybar/scripts/power/power_menu.xml",
         "menu-actions": {
-            "lock": "hyprlock", 
-            "sleep": "systemctl sleep",
-            "shutdown": "systemctl poweroff",
-            "reboot": "systemctl reboot",
-            "hibernate": "systemctl hibernate"
+            "lock": "~/.config/waybar/scripts/power/safe-power.sh lock", 
+            "sleep": "~/.config/waybar/scripts/power/safe-power.sh sleep",
+            "shutdown": "~/.config/waybar/scripts/power/safe-power.sh shutdown",
+            "reboot": "~/.config/waybar/scripts/power/safe-power.sh reboot",
+            "hibernate": "~/.config/waybar/scripts/power/safe-power.sh hibernate"
         }
 },
 "custom/workspaces": {

@@ -86,7 +86,7 @@
     "persistent-workspaces": {
         "eDP-1": [1, 2, 3, 4, 5]
     },
-    "ignore-workspaces": ["^monitor_(?:[1-9]|10)$"]
+    "ignore-workspaces": ["^(?:1[1-9]|2[0-2])$"]
   },
   "hyprland/workspaces#dp": {
     "output": "DP-1",
@@ -101,9 +101,9 @@
       
     },
     "persistent-workspaces": {
-        "DP-1": ["monitor_1","monitor_2","monitor_3","monitor_4","monitor_5"]
+        "DP-1": [11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     },
-    "ignore-workspaces": ["^(?:[1-9]|10)$"]
+    "ignore-workspaces": ["^(?:[1-9]|10|2[1-2])$"]
   },
   "hyprland/workspaces#HDMI": {
     "output": "HDMI-A-1",
@@ -118,9 +118,9 @@
       
     },
     "persistent-workspaces": {
-        "HDMI-A-1": ["monitor_6","monitor_7","monitor_8","monitor_9","monitor_10"]
+        "HDMI-A-1": [21, 22]
     },
-    "ignore-workspaces": ["^(?:[1-9]|10)$"]
+    "ignore-workspaces": ["^(?:[1-9]|1[0-9]|20)$"]
   },
   "hyprland/workspaces#special": {
     "output": "eDP-1",

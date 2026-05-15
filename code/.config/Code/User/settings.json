@@ -1,0 +1,134 @@
+{
+    "keyboard.layout": "00000809",
+    "workbench.startupEditor": "none",
+    "git.enableSmartCommit": true,
+    "liveServer.settings.donotShowInfoMsg": true,
+    "diffEditor.ignoreTrimWhitespace": true,
+    "git.confirmSync": false,
+    "github.copilot.nextEditSuggestions.enabled": true,
+    "workbench.activityBar.location": "top",
+    "workbench.layoutControl.enabled": false,
+    "window.commandCenter": false,
+    "chat.commandCenter.enabled": false,
+    "window.menuBarVisibility": "compact",
+    "window.restoreFullscreen": true,
+    "git.autofetch": true,
+    "window.menuStyle": "custom",
+    "window.dialogStyle": "custom",
+    "window.titleBarStyle": "native",
+    "workbench.panel.showLabels": false,
+    "terminal.external.linuxExec": "kitty",
+    "terminal.explorerKind": "external",
+    "zenMode.showTabs": "single",
+    "window.customTitleBarVisibility": "never",
+    
+    "launch": {
+        "version": "0.2.0",
+        "configurations": [
+            {
+                // ----- Python (Debug) -----
+                "name": "Python: Debug current file (external)",
+                "type": "debugpy",
+                "request": "launch",
+                "program": "${file}",
+                "console": "externalTerminal"
+            },
+            {
+                // ----- Python (Run only, no debugger) -----
+                "name": "Python: Run current file (external)",
+                "type": "python",
+                "request": "launch",
+                "program": "${file}",
+                "console": "externalTerminal",
+                "noDebug": true
+            },
+            {
+                // ----- C (Build + Debug with gdb) -----
+                "name": "C: Build & Debug (external)",
+                "type": "cppdbg",
+                "request": "launch",
+                "program": "${fileDirname}/${fileBasenameNoExtension}",
+                "args": [],
+                "stopAtEntry": false,
+                "cwd": "${workspaceFolder}",
+                "externalConsole": true,
+                "MIMode": "gdb",
+                "miDebuggerPath": "/usr/bin/gdb",
+                "preLaunchTask": "C: build active file"
+            },
+            {
+                // ----- C (Build + Run, no debugger) -----
+                "name": "C: Build & Run (external, no debug)",
+                "type": "cppdbg",
+                "request": "launch",
+                "program": "${fileDirname}/${fileBasenameNoExtension}",
+                "args": [],
+                "cwd": "${workspaceFolder}",
+                "externalConsole": true,
+                "MIMode": "gdb",
+                "miDebuggerPath": "/usr/bin/gdb",
+                "preLaunchTask": "C: build active file",
+                "stopAtEntry": false,
+                "noDebug": true
+            }
+        ]
+    },
+    "editor.fontFamily": "'Google Sans Code NF','MartianMono Nerd Font Mono', 'Symbols Nerd Font', 'Droid Sans Mono', 'monospace', monospace",
+    "dev.containers.mountWaylandSocket": false,
+    "editor.minimap.showSlider": "always",
+    "editor.minimap.autohide": "scroll",
+    "diffEditor.renderSideBySide": true,
+    "git.path": "",
+    "explorer.confirmDragAndDrop": false,
+    "github.copilot.enable": {
+        "*": true,
+        "plaintext": false,
+        "markdown": false,
+        "scminput": false,
+        "c": true,
+        "python": true
+    },
+    "kotlin.languageServer.enabled": false,
+    "kotlin.debugAdapter.enabled": false,
+    "python.analysis.typeCheckingMode": "basic",
+    "[markdown]": {
+        "diffEditor.ignoreTrimWhitespace": false
+    },
+    "git.openRepositoryInParentFolders": "always",
+    "security.workspace.trust.untrustedFiles": "open",
+    "qt-core.additionalQtPaths": [
+        {
+            "name": "Qt-5.15.18-linux-g++_from_PATH",
+            "path": "/usr/bin/qmake"
+        }
+    ],
+    "diffEditor.experimental.showMoves": true,
+    "terminal.integrated.fontLigatures.enabled": true,
+    "[python]": {
+        "diffEditor.ignoreTrimWhitespace": true
+    },
+    "workbench.editorAssociations": {
+        "*.copilotmd": "vscode.markdown.preview.editor",
+        "*.pdf": "pdf.preview"
+    },
+    "notebook.lineNumbers": "on",
+    "window.zoomLevel": 1,
+    "editor.fontSize": 13,
+    "redhat.telemetry.enabled": true,
+    "explorer.confirmPasteNative": false,
+    "docker.extension.dockerEngineAvailabilityPrompt": false,
+    "gitlens.ai.model": "vscode",
+    "gitlens.ai.vscode.model": "copilot:gpt-4.1",
+    "makefile.configureOnOpen": true,
+    "chat.tools.terminal.autoApprove": {
+        "gcc": true,
+        "./portfolioExerciseEdit": true,
+        "awk": true,
+        ".\\gradlew.bat": true
+    },
+    "terminal.integrated.tabs.enabled": false,
+    "diffEditor.hideUnchangedRegions.enabled": true,
+    "workbench.editor.enablePreview": false,
+    "remoteHub.commitDirectlyWarning": "off"
+
+}

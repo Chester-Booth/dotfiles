@@ -1,0 +1,51 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            // ----- Python (Debug) -----
+            "name": "Python: Debug current file (external)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "externalTerminal"
+        },
+        {
+            // ----- Python (Run only, no debugger) -----
+            "name": "Python: Run current file (external)",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "externalTerminal",
+            "noDebug": true
+        },
+        {
+            // ----- C (Build + Debug with gdb) -----
+            "name": "C: Build & Debug (external)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${fileDirname}/${fileBasenameNoExtension}",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "externalConsole": true,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "preLaunchTask": "C: build active file"
+        },
+        {
+            // ----- C (Build + Run, no debugger) -----
+            "name": "C: Build & Run (external, no debug)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${fileDirname}/${fileBasenameNoExtension}",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "externalConsole": true,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "preLaunchTask": "C: build active file",
+            "stopAtEntry": false,
+            "noDebug": true
+        }
+    ]
+}

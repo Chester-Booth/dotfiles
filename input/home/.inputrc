@@ -1,0 +1,11 @@
+#ctrl+shift+right
+"\e[1;6C": forward-word
+
+#ctrl+shift+left
+"\e[1;6D": backward-word
+
+#ctrl+right
+"\e[1;5C": forward-char
+
+#ctrl+left
+"\e[1;5D": backward-char

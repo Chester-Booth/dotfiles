@@ -1,0 +1,8 @@
+{
+    "colorscheme": "simple",
+    "mkparents": true,
+    "ruler": false,
+    "softwrap": true,
+    "statusline": false,
+    "wordwrap": true
+}

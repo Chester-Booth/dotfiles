@@ -1,0 +1,10 @@
+{
+    "Alt-/": "lua:comment.comment",
+    "CtrlUnderscore": "lua:comment.comment",
+    "CtrlBackslash": "ToggleRuler",
+    "CtrlD": "ToggleDiffGutter",
+    "CtrlH": "DeleteWordLeft",
+    "CtrlDelete": "DeleteWordRight",
+    "Alt-z": "command:togglelocal wordwrap ,command:togglelocal softwrap",
+    "CtrlSpace": "command:togglelocal statusline"
+}

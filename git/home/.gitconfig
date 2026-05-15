@@ -1,0 +1,8 @@
+[user]
+	name = Chester
+	email = 105993308+Chester-Booth@users.noreply.github.com
+[init]
+	defaultBranch = main
+[core]
+	editor = micro
+	excludesfile = ~/.gitignore

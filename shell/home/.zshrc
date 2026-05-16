@@ -71,6 +71,8 @@ alias gsw='git switch '
 alias g='git'
 #zen
 alias zen="zen-browser"
+#ytdaily
+alias yt="ytdaily open"
 
 
 # java

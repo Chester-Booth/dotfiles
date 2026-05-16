@@ -1,10 +1,92 @@
 #!/bin/bash
 
 state_file="/tmp/waybar-update-notify.state"
+cache_file="/tmp/waybar-update-check.json"
+lock_file="/tmp/waybar-update-check.lock"
+cache_ttl=15
 critical_threshold=100
+retry_delay=2
+retry_attempts=3
+
+cache_is_fresh() {
+    local now mtime
+
+    [[ -s "$cache_file" ]] || return 1
+    now=$(date +%s)
+    mtime=$(stat -c %Y "$cache_file" 2>/dev/null) || return 1
+
+    (( now - mtime <= cache_ttl ))
+}
+
+write_cache() {
+    local tmp_file
+
+    tmp_file="${cache_file}.$$"
+    printf '%s\n' "$1" >"$tmp_file"
+    mv "$tmp_file" "$cache_file"
+}
+
+emit_json() {
+    write_cache "$1"
+    printf '%s\n' "$1"
+    exit 0
+}
+
+exec 9>"$lock_file"
+if flock -w 20 9; then
+    if cache_is_fresh; then
+        cat "$cache_file"
+        exit 0
+    fi
+elif [[ -s "$cache_file" ]]; then
+    cat "$cache_file"
+    exit 0
+fi
 
 count_lines() {
     awk 'NF { count++ } END { print count + 0 }' <<<"$1"
+}
+
+run_checkupdates() {
+    local attempt output status
+
+    for (( attempt = 1; attempt <= retry_attempts; attempt++ )); do
+        output=$(checkupdates 2>&1)
+        status=$?
+
+        if (( status == 0 || status == 2 )); then
+            printf '%s' "$output"
+            return "$status"
+        fi
+
+        if (( attempt < retry_attempts )); then
+            sleep "$retry_delay"
+        fi
+    done
+
+    printf '%s' "$output"
+    return "$status"
+}
+
+run_aur_check() {
+    local attempt output status
+
+    for (( attempt = 1; attempt <= retry_attempts; attempt++ )); do
+        output=$(yay -Qua 2>&1)
+        status=$?
+
+        if (( status == 0 )) || { (( status == 1 )) && [[ -z "$output" ]]; }; then
+            printf '%s' "$output"
+            return "$status"
+        fi
+
+        if (( attempt < retry_attempts )); then
+            sleep "$retry_delay"
+        fi
+    done
+
+    printf '%s' "$output"
+    return "$status"
 }
 
 notify_critical_updates() {
@@ -28,7 +110,7 @@ clear_notification_state() {
     rm -f "$state_file"
 }
 
-repo_output=$(checkupdates 2>&1)
+repo_output=$(run_checkupdates)
 repo_status=$?
 repo_updates=0
 repo_failed=0
@@ -45,7 +127,7 @@ case "$repo_status" in
         ;;
 esac
 
-aur_output=$(yay -Qua 2>&1)
+aur_output=$(run_aur_check)
 aur_status=$?
 aur_updates=0
 aur_failed=0
@@ -72,17 +154,17 @@ if (( repo_failed || aur_failed )); then
 
     printf -v failed_list '%s, ' "${failed_checks[@]}"
     tooltip="Update check failed: ${failed_list%, }"
-    printf '{"alt":"error","class":"error","tooltip":"%s"}\n' "$tooltip"
+    emit_json "$(printf '{"alt":"error","class":"error","tooltip":"%s"}' "$tooltip")"
 elif (( repo_updates + aur_updates > critical_threshold )); then
     notify_critical_updates "$((repo_updates + aur_updates))" "$repo_updates" "$aur_updates"
-    printf '{"alt":"hundred","class":"hundred","tooltip":"%d repo updates, %d AUR updates"}\n' "$repo_updates" "$aur_updates"
+    emit_json "$(printf '{"alt":"hundred","class":"hundred","tooltip":"%d repo updates, %d AUR updates"}' "$repo_updates" "$aur_updates")"
 elif (( repo_updates + aur_updates > 50 )); then
     clear_notification_state
-    printf '{"alt":"fifty","class":"fifty","tooltip":"%d repo updates, %d AUR updates"}\n' "$repo_updates" "$aur_updates"
+    emit_json "$(printf '{"alt":"fifty","class":"fifty","tooltip":"%d repo updates, %d AUR updates"}' "$repo_updates" "$aur_updates")"
 elif (( repo_updates + aur_updates == 0 )); then
     clear_notification_state
-    printf '{"alt":"zero","class":"zero","tooltip":"Up to Date!"}\n'
+    emit_json '{"alt":"zero","class":"zero","tooltip":"Up to Date!"}'
 else
     clear_notification_state
-    printf '{"alt":"lessfifty","class":"lessfifty","tooltip":"%d repo updates, %d AUR updates"}\n' "$repo_updates" "$aur_updates"
+    emit_json "$(printf '{"alt":"lessfifty","class":"lessfifty","tooltip":"%d repo updates, %d AUR updates"}' "$repo_updates" "$aur_updates")"
 fi

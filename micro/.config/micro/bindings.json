@@ -6,5 +6,12 @@
     "CtrlH": "DeleteWordLeft",
     "CtrlDelete": "DeleteWordRight",
     "Alt-z": "command:togglelocal wordwrap ,command:togglelocal softwrap",
-    "CtrlSpace": "command:togglelocal statusline"
+    "CtrlSpace": "command:togglelocal statusline",
+    "command": {
+        "Find": {
+            "Down": "FindNext",
+            "Up": "FindPrevious",
+            "Enter": "FindNext"
+        }
+    }
 }

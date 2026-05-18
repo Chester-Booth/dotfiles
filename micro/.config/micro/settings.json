@@ -1,5 +1,6 @@
 {
     "colorscheme": "simple",
+    "hlsearch": true,
     "mkparents": true,
     "ruler": false,
     "softwrap": true,

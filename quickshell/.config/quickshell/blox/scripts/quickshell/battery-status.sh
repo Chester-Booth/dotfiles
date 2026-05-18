@@ -1,10 +1,21 @@
 #!/usr/bin/env bash
 set -u
 
-capacity="$(cat /sys/class/power_supply/BAT*/capacity 2>/dev/null | head -n1)"
-status="$(cat /sys/class/power_supply/BAT*/status 2>/dev/null | head -n1)"
+battery_dir=""
+for candidate in /sys/class/power_supply/BAT*; do
+    [[ -r "$candidate/capacity" ]] || continue
+    battery_dir="$candidate"
+    break
+done
 
-if [[ -z "${capacity:-}" ]]; then
+capacity=""
+status=""
+if [[ -n "$battery_dir" ]]; then
+    read -r capacity < "$battery_dir/capacity" || capacity=""
+    read -r status < "$battery_dir/status" || status="Unknown"
+fi
+
+if [[ ! "$capacity" =~ ^[0-9]+$ ]]; then
     jq -nc '{"icon":"󰚥","class":"plugged","capacity":"","tooltip":"No battery detected"}'
     exit 0
 fi

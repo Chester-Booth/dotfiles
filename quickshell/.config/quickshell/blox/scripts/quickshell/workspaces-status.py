@@ -11,45 +11,55 @@ def hypr_json(*args):
         return None
 
 
-def icon_for(value):
+ICON_RULES = [
+    (("t3",), ""),
+    (("intellij", "idea"), ""),
+    (("code",), "󰨞"),
+    (("zen",), "󰈹"),
+    (("helium",), ""),
+    (("zen", "helium", "firefox", "chrome", "brave"), ""),
+    (("discord", "vesktop"), ""),
+    (("slack",), "󰒱"),
+    (("teams",), "󰊻"),
+    (("thunar", "dolphin", "nemo", "pcmanfm"), "󰉋"),
+    (("obsidian",), "󱞁"),
+    (("obs",), "󰕧"),
+    (("steam",), "󰓓"),
+    (("prism", "minecraft"), "󰍳"),
+    (("gimp",), ""),
+    (("electron",), ""),
+    (("drawing",), "󱇣"),
+    (("kitty", "wezterm", "alacritty", "foot"), ""),
+]
+
+
+def app_name(client):
+    return client.get("class") or client.get("initialClass") or ""
+
+
+def icon_match(value):
     app = (value or "").lower()
-    if "t3" in app:
-        return ""
-    if any(term in app for term in ("intellij", "idea")):
-        return ""
-    if "code" in app:
-        return "󰨞"
-    if "zen" in app:
-        return "󰈹"
-    if "helium" in app:
-        return ""
-    if any(browser in app for browser in ("zen", "helium", "firefox", "chrome", "brave")):
-        return ""
-    if any(term in app for term in ("discord", "vesktop")):
-        return ""
-    if "slack" in app:
-        return "󰒱"
-    if "teams" in app:
-        return "󰊻"
-    if any(files in app for files in ("thunar", "dolphin", "nemo", "pcmanfm")):
-        return "󰉋"
-    if "obsidian" in app:
-        return "󱞁"
-    if "obs" in app:
-        return "󰕧"
-    if "steam" in app:
-        return "󰓓"
-    if any(term in app for term in ("prism", "minecraft")):
-        return "󰍳"
-    if "gimp" in app:
-        return ""
-    if "electron" in app:
-        return ""
-    if "drawing" in app:
-        return "󱇣"
-    if any(term in app for term in ("kitty", "wezterm", "alacritty", "foot")):
-        return ""
-    return "󰻃"
+    for index, (terms, icon) in enumerate(ICON_RULES):
+        if any(term in app for term in terms):
+            return index, icon
+    return len(ICON_RULES), "󰻃"
+
+
+def icon_for(value):
+    return icon_match(value)[1]
+
+
+def priority_client(clients):
+    if not clients:
+        return None
+
+    return min(
+        clients,
+        key=lambda client: (
+            icon_match(app_name(client))[0],
+            client.get("focusHistoryID", 999999),
+        ),
+    )
 
 
 active = hypr_json("activeworkspace") or {}
@@ -70,28 +80,31 @@ for client in clients:
     if client.get("urgent"):
         urgent.add(workspace_id)
 
+workspace_ids = set(range(1, 6))
+workspace_ids.update(
+    workspace_id
+    for workspace_id, workspace_clients in by_workspace.items()
+    if workspace_id > 5 and workspace_clients
+)
+
 items = []
-for workspace_id in range(1, 6):
+for workspace_id in sorted(workspace_ids):
     workspace_clients = by_workspace.get(workspace_id, [])
     focused = workspace_id == active_id
-    chosen = None
-
-    if focused:
-        chosen = next((client for client in workspace_clients if client.get("focusHistoryID") == 0), None)
-
-    if chosen is None and workspace_clients:
-        chosen = workspace_clients[0]
+    chosen = priority_client(workspace_clients)
+    urgent_client = next((client for client in workspace_clients if client.get("urgent")), None)
 
     app = ""
     title = ""
     if chosen:
-        app = chosen.get("class") or chosen.get("initialClass") or ""
+        app = app_name(chosen)
         title = chosen.get("title") or ""
 
     items.append({
         "id": workspace_id,
         "active": focused,
         "urgent": workspace_id in urgent,
+        "urgentAddress": urgent_client.get("address", "") if urgent_client else "",
         "empty": len(workspace_clients) == 0,
         "icon": "󰗖" if workspace_id in urgent else (icon_for(app) if chosen else "󰄰"),
         "tooltip": f"Workspace {workspace_id}" + (f"\\n{app}\\n{title}" if app or title else ""),

@@ -11,9 +11,12 @@ Rectangle {
     property int index: 0
     property int count: 1
     property bool editing: false
-    readonly property int lineCount: Math.max(1, body.split("\n").length + (editing ? 1 : 0))
+    property real maxPopoutWidth: 680
+    property real maxPopoutHeight: 760
+    readonly property string contentText: editing ? editor.text : body
+    readonly property int lineCount: Math.max(1, contentText.split("\n").length + (editing ? 1 : 0))
     readonly property int longestLine: {
-        const lines = body.split("\n");
+        const lines = contentText.split("\n");
         let longest = title.length + 10;
         for (let i = 0; i < lines.length; i++) longest = Math.max(longest, lines[i].length)
         return longest;
@@ -24,8 +27,8 @@ Rectangle {
     signal edit()
     signal save(string file, string body)
 
-    width: Math.min(680, Math.max(320, longestLine * 7 + 72))
-    height: Math.min(760, Math.max(150, lineCount * 18 + 96))
+    width: Math.min(maxPopoutWidth, Math.max(320, longestLine * 7 + 96))
+    height: Math.min(maxPopoutHeight, Math.max(96, (editing ? lineCount * 15 : editor.contentHeight) + 74))
     radius: 8
     color: Theme.background
     border.color: Theme.surfaceAlt
@@ -33,8 +36,8 @@ Rectangle {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 14
-        spacing: 10
+        anchors.margins: 10
+        spacing: 8
 
         RowLayout {
             Layout.fillWidth: true
@@ -118,21 +121,49 @@ Rectangle {
             border.width: 1
             clip: true
 
-            TextEdit {
-                id: editor
+            Flickable {
+                id: notesScroll
 
                 anchors.fill: parent
-                anchors.margins: 12
-                text: root.body
-                readOnly: !root.editing
-                selectByMouse: true
-                wrapMode: TextEdit.Wrap
-                textFormat: root.editing ? TextEdit.PlainText : TextEdit.MarkdownText
-                color: Theme.foreground
-                selectedTextColor: Theme.background
-                selectionColor: Theme.blue
-                font.family: Theme.fontFamily
-                font.pixelSize: 12
+                anchors.margins: 4
+                contentWidth: Math.max(width, editor.contentWidth)
+                contentHeight: Math.max(height, editor.contentHeight)
+                clip: true
+
+                TextEdit {
+                    id: editor
+
+                    width: Math.max(notesScroll.width, contentWidth)
+                    height: Math.max(notesScroll.height, contentHeight)
+                    text: root.body
+                    readOnly: !root.editing
+                    selectByMouse: true
+                    wrapMode: TextEdit.NoWrap
+                    textFormat: root.editing ? TextEdit.PlainText : TextEdit.MarkdownText
+                    color: Theme.foreground
+                    selectedTextColor: Theme.background
+                    selectionColor: Theme.blue
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 12
+                    onCursorRectangleChanged: {
+                        if (!root.editing)
+                            return ;
+
+                        notesScroll.ensureVisible(cursorRectangle);
+                    }
+                }
+
+                function ensureVisible(rect) {
+                    if (rect.y < contentY)
+                        contentY = rect.y;
+                    else if (rect.y + rect.height > contentY + height)
+                        contentY = rect.y + rect.height - height;
+
+                    if (rect.x < contentX)
+                        contentX = rect.x;
+                    else if (rect.x + rect.width > contentX + width)
+                        contentX = rect.x + rect.width - width;
+                }
             }
 
         }

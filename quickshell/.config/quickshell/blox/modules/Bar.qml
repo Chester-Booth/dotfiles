@@ -21,6 +21,11 @@ Scope {
     property bool blinkOn: true
     property string selectedCalendarDate: ""
     property string alertWorkspaceIds: ","
+    property string alertWindowAddress: ""
+    property var trayMenuHandle: null
+    property string trayMenuTitle: ""
+    property real trayMenuY: 8
+    property bool trayMenuOpen: false
     property real extrasPush: 0
 
     function togglePanel(panel, centerY) {
@@ -32,14 +37,33 @@ Scope {
         openPanel = "";
     }
 
+    function closeTrayMenu() {
+        trayMenuOpen = false;
+        trayMenuHandle = null;
+        trayMenuTitle = "";
+    }
+
     function toggleExtras() {
         closePanel();
+        closeTrayMenu();
         extrasOpen = !extrasOpen;
     }
 
     function closeDrawers() {
         closePanel();
+        closeTrayMenu();
         extrasOpen = false;
+    }
+
+    function openTrayMenu(item, centerY) {
+        closePanel();
+        extrasOpen = true;
+        trayMenuHandle = item.menu;
+        trayMenuTitle = item.tooltipTitle || item.title || item.id || "Tray";
+        trayMenuY = centerY;
+        trayMenuOpen = !!(item.hasMenu || item.onlyMenu);
+        if (!trayMenuOpen)
+            item.activate();
     }
 
     function activeWorkspaceId() {
@@ -56,18 +80,34 @@ Scope {
         return alertWorkspaceIds.indexOf("," + id + ",") >= 0;
     }
 
-    function addWorkspaceAlert(id) {
-        if (id <= 0 || id === activeWorkspaceId())
+    function addWorkspaceAlert(id, address) {
+        if (id <= 0)
             return ;
 
         if (!workspaceAlert(id))
             alertWorkspaceIds += id + ",";
+
+        if (address !== undefined && address.length > 0)
+            alertWindowAddress = address;
 
         urgentSwitchDelay.restart();
     }
 
     function clearWorkspaceAlert(id) {
         alertWorkspaceIds = alertWorkspaceIds.replace("," + id + ",", ",");
+    }
+
+    function focusWindow(address) {
+        if (address !== undefined && address.length > 0)
+            Hyprland.dispatch("focuswindow address:" + address);
+    }
+
+    function activateWorkspaceItem(item) {
+        Hyprland.dispatch("workspace " + item.id);
+        focusWindow(item.urgentAddress || alertWindowAddress);
+        clearWorkspaceAlert(item.id);
+        alertWindowAddress = "";
+        workspaces.refresh();
     }
 
     function extrasViewportHeight(panelHeight) {
@@ -640,11 +680,13 @@ Scope {
 
             } else if (event.name === "openwindow") {
                 const parts = event.data.split(",");
+                const address = parts[0] || "";
                 const workspaceId = parseInt(parts[1]);
                 if (!isNaN(workspaceId))
-                    addWorkspaceAlert(workspaceId);
+                    addWorkspaceAlert(workspaceId, address);
 
             } else if (event.name === "urgent") {
+                alertWindowAddress = event.data || "";
                 urgentSwitchDelay.restart();
             }
         }
@@ -668,8 +710,12 @@ Scope {
             const items = root.workspaceItems();
             for (let i = 0; i < items.length; i++) {
                 if ((items[i].urgent || root.workspaceAlert(items[i].id)) && !items[i].active) {
-                    Hyprland.dispatch("workspace " + items[i].id);
+                    root.activateWorkspaceItem(items[i]);
+                    break;
+                } else if ((items[i].urgent || root.workspaceAlert(items[i].id)) && items[i].active) {
+                    root.focusWindow(items[i].urgentAddress || root.alertWindowAddress);
                     root.clearWorkspaceAlert(items[i].id);
+                    root.alertWindowAddress = "";
                     workspaces.refresh();
                     break;
                 }
@@ -850,9 +896,6 @@ Scope {
                             return root.togglePanel("audio", centerY);
                         }
                         onRightClicked: root.run("pavucontrol -t 3")
-                        onWheeled: (delta) => {
-                            return root.run("pactl set-sink-volume @DEFAULT_SINK@ " + (delta > 0 ? "+2%" : "-2%"));
-                        }
                     }
 
                     RailButton {
@@ -972,6 +1015,25 @@ Scope {
                     onTopLimitChanged: Qt.callLater(updateExtrasPush)
                     onBottomLimitChanged: Qt.callLater(updateExtrasPush)
 
+                    MouseArea {
+                        id: extrasScroll
+
+                        property real offset: 0
+                        property real maxOffset: Math.max(0, extrasColumn.implicitHeight - parent.height)
+
+                        anchors.fill: parent
+                        acceptedButtons: Qt.NoButton
+                        onMaxOffsetChanged: {
+                            offset = Math.min(offset, maxOffset);
+                            if (root.extrasOpen)
+                                Qt.callLater(extrasViewport.updateExtrasPush);
+
+                        }
+                        onWheel: (event) => {
+                            offset = Math.max(0, Math.min(maxOffset, offset - event.angleDelta.y / 4));
+                        }
+                    }
+
                     Column {
                         id: extrasColumn
 
@@ -984,6 +1046,8 @@ Scope {
                             model: SystemTray.items
 
                             Rectangle {
+                                id: trayItem
+
                                 width: Theme.buttonSize
                                 height: Theme.buttonSize
                                 radius: Theme.radius
@@ -1005,11 +1069,20 @@ Scope {
                                     anchors.fill: parent
                                     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                                     hoverEnabled: true
+                                    preventStealing: true
                                     cursorShape: Qt.PointingHandCursor
+                                    onPressed: (event) => {
+                                        if (event.button !== Qt.RightButton)
+                                            return ;
+
+                                        event.accepted = true;
+                                        root.openTrayMenu(modelData, Math.round(extrasViewport.y + extrasColumn.y + trayItem.y + trayItem.height / 2));
+                                    }
                                     onClicked: (event) => {
-                                        if (event.button === Qt.RightButton && modelData.hasMenu)
-                                            modelData.display(panel, Theme.railWidth + 6, extrasViewport.y + extrasColumn.y + parent.y);
-                                        else if (event.button === Qt.MiddleButton)
+                                        if (event.button === Qt.RightButton) {
+                                            event.accepted = true;
+                                            return ;
+                                        } else if (event.button === Qt.MiddleButton)
                                             modelData.secondaryActivate();
                                         else
                                             modelData.activate();
@@ -1081,25 +1154,6 @@ Scope {
 
                     }
 
-                    MouseArea {
-                        id: extrasScroll
-
-                        property real offset: 0
-                        property real maxOffset: Math.max(0, extrasColumn.implicitHeight - parent.height)
-
-                        anchors.fill: parent
-                        acceptedButtons: Qt.NoButton
-                        onMaxOffsetChanged: {
-                            offset = Math.min(offset, maxOffset);
-                            if (root.extrasOpen)
-                                Qt.callLater(extrasViewport.updateExtrasPush);
-
-                        }
-                        onWheel: (event) => {
-                            offset = Math.max(0, Math.min(maxOffset, offset - event.angleDelta.y / 4));
-                        }
-                    }
-
                     Behavior on height {
                         NumberAnimation {
                             duration: 160
@@ -1166,6 +1220,8 @@ Scope {
                     file: todo.json.file || ""
                     index: todo.json.index || 0
                     count: todo.json.count || 1
+                    maxPopoutWidth: panel.width > 0 && panel.screen ? panel.screen.width * 0.75 : 680
+                    maxPopoutHeight: panel.height > 0 ? panel.height * 0.75 : 760
                     onPrevious: {
                         root.run(root.scriptRoot + "/quickshell/todo-cycle.sh -1");
                         todoRefreshDelay.restart();
@@ -1182,6 +1238,103 @@ Scope {
                     }
                 }
 
+            }
+
+            PopupWindow {
+                anchor.window: panel
+                anchor.rect.x: Theme.railWidth + 8
+                anchor.rect.y: Math.max(8, Math.min(panel.height - trayMenuPopout.height - 8, root.trayMenuY - trayMenuPopout.height / 2))
+                implicitWidth: trayMenuPopout.width
+                implicitHeight: trayMenuPopout.height
+                visible: root.trayMenuOpen
+                color: "transparent"
+
+                QsMenuOpener {
+                    id: trayMenuOpener
+
+                    menu: root.trayMenuHandle
+                }
+
+                Rectangle {
+                    id: trayMenuPopout
+
+                    width: 240
+                    height: Math.min(420, Math.max(44, trayMenuContent.implicitHeight + 16))
+                    radius: 8
+                    color: Theme.background
+                    border.color: Theme.surfaceAlt
+                    border.width: 1
+                    clip: true
+
+                    Column {
+                        id: trayMenuContent
+
+                        anchors.fill: parent
+                        anchors.margins: 8
+                        spacing: 2
+
+                        Text {
+                            width: parent.width
+                            text: root.trayMenuTitle
+                            color: Theme.blue
+                            font.family: Theme.fontFamily
+                            font.pixelSize: 12
+                            font.bold: true
+                            elide: Text.ElideRight
+                            visible: text.length > 0
+                        }
+
+                        Repeater {
+                            model: trayMenuOpener.children
+
+                            Rectangle {
+                                width: parent.width
+                                height: modelData.isSeparator ? 7 : 28
+                                radius: 5
+                                color: !modelData.isSeparator && trayEntryMouse.containsMouse && modelData.enabled ? Theme.surfaceAlt : "transparent"
+                                opacity: modelData.enabled ? 1 : 0.45
+
+                                Rectangle {
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    height: 1
+                                    color: Theme.surfaceAlt
+                                    visible: modelData.isSeparator
+                                }
+
+                                Text {
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 8
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: 8
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: modelData.text || ""
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: 12
+                                    elide: Text.ElideRight
+                                    visible: !modelData.isSeparator
+                                }
+
+                                MouseArea {
+                                    id: trayEntryMouse
+
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: modelData.enabled && !modelData.isSeparator ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                    onClicked: {
+                                        if (!modelData.enabled || modelData.isSeparator)
+                                            return ;
+
+                                        modelData.sendTriggered();
+                                        root.closeTrayMenu();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             PopupWindow {

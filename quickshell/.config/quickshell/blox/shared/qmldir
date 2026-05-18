@@ -1,2 +1,12 @@
 singleton Theme 1.0 Theme.qml
 RailButton 1.0 RailButton.qml
+PanelRailButton 1.0 PanelRailButton.qml
+RailClock 1.0 RailClock.qml
+TrayRailItem 1.0 TrayRailItem.qml
+BatteryCapacityTile 1.0 BatteryCapacityTile.qml
+BatteryRailButton 1.0 BatteryRailButton.qml
+ExtrasDrawer 1.0 ExtrasDrawer.qml
+WorkspaceRailButton 1.0 WorkspaceRailButton.qml
+SpecialWorkspaceRailButton 1.0 SpecialWorkspaceRailButton.qml
+SystemRailSection 1.0 SystemRailSection.qml
+HoverPopupWindow 1.0 HoverPopupWindow.qml

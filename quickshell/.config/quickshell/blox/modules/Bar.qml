@@ -29,7 +29,6 @@ Scope {
     property string trayMenuTitle: ""
     property real trayMenuY: 8
     property bool trayMenuOpen: false
-    property real extrasPush: 0
 
     function togglePanel(panel, centerY) {
         openHoverPanel(panel, centerY);
@@ -149,11 +148,6 @@ Scope {
         clearWorkspaceAlert(item.id);
         alertWindowAddress = "";
         workspaces.refresh();
-    }
-
-    function extrasViewportHeight(panelHeight) {
-        const fixedHeight = 8 + Theme.buttonSize * 2 + Theme.buttonSize * 5 + 96 + Theme.buttonSize * 7 + (batteryExpanded ? Theme.buttonSize : 0);
-        return Math.max(Theme.buttonSize, panelHeight - fixedHeight);
     }
 
     function run(command) {
@@ -843,27 +837,24 @@ Scope {
                         }
                     }
 
-                    RailButton {
+                    PanelRailButton {
                         icon: "󰺦"
                         accent: Theme.foreground
+                        panel: "todo"
                         active: root.openPanel === "todo"
-                        onClicked: (centerY) => {
-                            return root.togglePanel("todo", centerY);
-                        }
-                        onHovered: (centerY) => root.hoverButtonEntered("todo", centerY, "todo")
-                        onExited: root.hoverButtonExited("todo")
+                        onPanelClicked: (panel, centerY) => root.togglePanel(panel, centerY)
+                        onPanelHovered: (panel, centerY, source) => root.hoverButtonEntered(panel, centerY, source)
+                        onPanelExited: (source) => root.hoverButtonExited(source)
                         onRightClicked: root.run(root.scriptRoot + "/waybar/todo/open.sh")
                     }
 
                     Repeater {
                         model: root.workspaceItems()
 
-                        RailButton {
-                            icon: modelData.icon
-                            accent: modelData.urgent ? Theme.red : modelData.active ? Theme.blue : modelData.empty ? Theme.muted : Theme.foreground
-                            active: modelData.active
-                            alert: (modelData.urgent || root.workspaceAlert(modelData.id)) && root.blinkOn
-                            onClicked: () => {
+                        WorkspaceRailButton {
+                            item: modelData
+                            blinking: (modelData.urgent || root.workspaceAlert(modelData.id)) && root.blinkOn
+                            onActivate: {
                                 root.closeDrawers();
                                 Hyprland.dispatch("workspace " + modelData.id);
                                 workspaces.refresh();
@@ -872,12 +863,9 @@ Scope {
 
                     }
 
-                    RailButton {
-                        icon: (workspaces.json.special && workspaces.json.special.icon) || "󰘼"
-                        accent: workspaces.json.special && workspaces.json.special.active ? Theme.blue : Theme.muted
-                        active: !!(workspaces.json.special && workspaces.json.special.active)
-                        visible: !!(workspaces.json.special && workspaces.json.special.occupied)
-                        onClicked: () => {
+                    SpecialWorkspaceRailButton {
+                        workspace: workspaces.json.special
+                        onActivate: {
                             root.closeDrawers();
                             Hyprland.dispatch("togglespecialworkspace magic");
                             workspaces.refresh();
@@ -888,29 +876,14 @@ Scope {
                         Layout.fillHeight: true
                     }
 
-                    Text {
+                    RailClock {
                         id: clockText
 
-                        Layout.alignment: Qt.AlignHCenter
                         text: root.railClockText()
-                        color: root.clockDateMode ? Theme.foreground : Theme.blue
-                        font.family: Theme.fontFamily
-                        font.pixelSize: 16
-                        horizontalAlignment: Text.AlignHCenter
-
-                        MouseArea {
-                            anchors.fill: parent
-                            acceptedButtons: Qt.LeftButton | Qt.RightButton
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onEntered: root.hoverButtonEntered("calendar", clockText.y + clockText.height / 2, "calendar")
-                            onExited: root.hoverButtonExited("calendar")
-                            onClicked: (event) => {
-                                if (event.button === Qt.LeftButton)
-                                    root.clockDateMode = !root.clockDateMode;
-                            }
-                        }
-
+                        dateMode: root.clockDateMode
+                        onHovered: (centerY) => root.hoverButtonEntered("calendar", centerY, "calendar")
+                        onExited: root.hoverButtonExited("calendar")
+                        onClicked: root.clockDateMode = !root.clockDateMode
                     }
 
                     Item {
@@ -920,7 +893,7 @@ Scope {
                     Item {
                         id: extrasPushSpacer
 
-                        Layout.preferredHeight: root.extrasOpen ? root.extrasPush : 0
+                        Layout.preferredHeight: root.extrasOpen ? extrasViewport.push : 0
                         Layout.minimumHeight: Layout.preferredHeight
                         Layout.maximumHeight: Layout.preferredHeight
 
@@ -945,307 +918,105 @@ Scope {
                         }
                     }
 
-                    RailButton {
-                        icon: audio.json.icon || "󰕾"
-                        accent: audio.json.muted ? Theme.yellow : Theme.foreground
-                        active: root.openPanel === "audio"
-                        onClicked: (centerY) => {
-                            return root.togglePanel("audio", centerY);
-                        }
-                        onHovered: (centerY) => root.hoverButtonEntered("audio", centerY, "audio")
-                        onExited: root.hoverButtonExited("audio")
-                        onRightClicked: root.run("pavucontrol -t 3")
-                    }
-
-                    RailButton {
-                        icon: network.json.icon || "󰤩"
-                        accent: network.json.class === "wifi" ? Theme.green : network.json.class === "disabled" ? Theme.red : Theme.yellow
-                        active: root.openPanel === "network"
-                        onClicked: (centerY) => {
-                            return root.togglePanel("network", centerY);
-                        }
-                        onHovered: (centerY) => root.hoverButtonEntered("network", centerY, "network")
-                        onExited: root.hoverButtonExited("network")
-                    }
-
-                    RailButton {
-                        icon: notifications.json.icon || "󰂜"
-                        accent: notifications.json.dnd ? Theme.yellow : notifications.json.count > 0 ? Theme.blue : Theme.foreground
-                        active: false
-                        onClicked: () => {
-                            root.closeDrawers();
-                            return root.run("swaync-client -op -sw");
-                        }
-                        onRightClicked: root.run("swaync-client -d -sw")
-                    }
-
-                    RailButton {
-                        icon: fan.json.class === "Performance" ? "󱑬" : fan.json.class === "Quiet" ? "󰠝" : "󱜝"
-                        accent: fan.json.class === "Performance" ? Theme.red : Theme.foreground
-                        active: root.openPanel === "system"
-                        visible: fan.json.class !== undefined && fan.json.class !== "Quiet"
-                        onClicked: (centerY) => {
-                            return root.togglePanel("system", centerY);
-                        }
-                        onHovered: (centerY) => root.hoverButtonEntered("system", centerY, "fan")
-                        onExited: root.hoverButtonExited("fan")
-                    }
-
-                    RailButton {
-                        icon: gpu.json.alt === "eco" ? "󰌪" : gpu.json.alt === "gaming" ? "󰪫" : gpu.json.alt === "high-refresh" ? "" : "󰢮"
-                        accent: gpu.json.alt === "eco" ? Theme.green : Theme.yellow
-                        active: root.openPanel === "system"
-                        visible: gpu.json.alt !== undefined && gpu.json.alt !== "eco"
-                        onClicked: (centerY) => {
-                            return root.togglePanel("system", centerY);
-                        }
-                        onHovered: (centerY) => root.hoverButtonEntered("system", centerY, "gpu")
-                        onExited: root.hoverButtonExited("gpu")
-                    }
-
-                    RailButton {
-                        icon: battery.json.icon || "󰁹"
-                        accent: battery.json.class === "critical" ? Theme.red : battery.json.class === "charging" ? Theme.green : Theme.muted
-                        active: false
-                        onClicked: () => {
-                            root.closeDrawers();
-                            root.batteryExpanded = !root.batteryExpanded;
-                        }
-                        onHovered: () => root.hoverButtonEntered("battery", panel.height - 24, "battery")
-                        onExited: root.hoverButtonExited("battery")
-                        onRightClicked: root.togglePanel("system", panel.height - 24)
-                    }
-
-                    Rectangle {
-                        Layout.alignment: Qt.AlignHCenter
-                        width: Theme.buttonSize
-                        height: root.batteryExpanded ? Theme.buttonSize : 0
-                        radius: Theme.radius
-                        color: "transparent"
-                        visible: root.batteryExpanded
-                        clip: true
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: battery.json.capacity === undefined ? "" : String(battery.json.capacity)
-                            color: battery.json.class === "critical" ? Theme.red : battery.json.class === "charging" ? Theme.green : Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: 13
-                            font.bold: true
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.batteryExpanded = false
-                        }
-
+                    SystemRailSection {
+                        audioStatus: audio.json
+                        networkStatus: network.json
+                        notificationsStatus: notifications.json
+                        fanStatus: fan.json
+                        gpuStatus: gpu.json
+                        batteryStatus: battery.json
+                        openPanel: root.openPanel
+                        panelHeight: panel.height
+                        batteryExpanded: root.batteryExpanded
+                        onPanelClicked: (panel, centerY) => root.togglePanel(panel, centerY)
+                        onPanelHovered: (panel, centerY, source) => root.hoverButtonEntered(panel, centerY, source)
+                        onPanelExited: (source) => root.hoverButtonExited(source)
+                        onRunCommand: (command) => root.run(command)
+                        onCloseDrawers: root.closeDrawers()
+                        onToggleBatteryExpanded: root.batteryExpanded = !root.batteryExpanded
+                        onCollapseBattery: root.batteryExpanded = false
                     }
 
                 }
 
-                Item {
+                ExtrasDrawer {
                     id: extrasViewport
 
-                    readonly property real topLimit: railLayout.y + clockText.y + clockText.height + 4
-                    readonly property real bottomLimit: railLayout.y + extrasToggle.y
-                    readonly property real targetHeight: root.extrasOpen ? Math.min(extrasColumn.implicitHeight, Math.max(Theme.buttonSize, bottomLimit - topLimit)) : 0
-                    readonly property real contentY: height - extrasColumn.implicitHeight - extrasScroll.offset
-
-                    function updateExtrasPush() {
-                        if (!root.extrasOpen)
-                            return ;
-
-                        const naturalGap = bottomLimit - topLimit - root.extrasPush / 2;
-                        const nextPush = Math.max(0, 2 * (extrasColumn.implicitHeight - naturalGap));
-                        if (Math.abs(root.extrasPush - nextPush) > 0.5)
-                            root.extrasPush = nextPush;
-
-                        extrasScroll.offset = extrasScroll.maxOffset;
-                    }
-
-                    x: Math.round((parent.width - width) / 2)
-                    y: bottomLimit - targetHeight
-                    z: 10
-                    width: Theme.buttonSize
-                    height: targetHeight
-                    visible: root.extrasOpen || height > 1
-                    clip: true
-                    onVisibleChanged: {
-                        if (visible) {
-                            Qt.callLater(updateExtrasPush);
-                        } else {
-                            root.extrasPush = 0;
-                            extrasScroll.offset = 0;
-                        }
-                    }
-                    onTopLimitChanged: Qt.callLater(updateExtrasPush)
-                    onBottomLimitChanged: Qt.callLater(updateExtrasPush)
-
-                    MouseArea {
-                        id: extrasScroll
-
-                        property real offset: 0
-                        property real maxOffset: Math.max(0, extrasColumn.implicitHeight - parent.height)
-
-                        anchors.fill: parent
-                        acceptedButtons: Qt.NoButton
-                        onMaxOffsetChanged: {
-                            offset = Math.min(offset, maxOffset);
-                            if (root.extrasOpen)
-                                Qt.callLater(extrasViewport.updateExtrasPush);
-
-                        }
-                        onWheel: (event) => {
-                            offset = Math.max(0, Math.min(maxOffset, offset - event.angleDelta.y / 4));
-                        }
-                    }
-
-                    Column {
-                        id: extrasColumn
-
-                        width: parent.width
-                        y: extrasViewport.contentY
-                        opacity: root.extrasOpen ? 1 : 0
-                        onImplicitHeightChanged: Qt.callLater(extrasViewport.updateExtrasPush)
+                    open: root.extrasOpen
+                    topLimit: railLayout.y + clockText.y + clockText.height + 4
+                    bottomLimit: railLayout.y + extrasToggle.y
 
                         Repeater {
                             model: SystemTray.items
 
-                            Rectangle {
-                                id: trayItem
-
-                                width: Theme.buttonSize
-                                height: Theme.buttonSize
-                                radius: Theme.radius
-                                color: trayMouse.containsMouse ? Theme.surfaceAlt : "transparent"
-                                clip: true
-
-                                Image {
-                                    anchors.centerIn: parent
-                                    width: 17
-                                    height: 17
-                                    source: modelData.icon
-                                    fillMode: Image.PreserveAspectFit
-                                    smooth: true
-                                }
-
-                                MouseArea {
-                                    id: trayMouse
-
-                                    anchors.fill: parent
-                                    acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-                                    hoverEnabled: true
-                                    preventStealing: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onPressed: (event) => {
-                                        if (event.button !== Qt.RightButton)
-                                            return ;
-
-                                        event.accepted = true;
-                                        root.openTrayMenu(modelData, Math.round(extrasViewport.y + extrasColumn.y + trayItem.y + trayItem.height / 2));
-                                    }
-                                    onClicked: (event) => {
-                                        if (event.button === Qt.RightButton) {
-                                            event.accepted = true;
-                                            return ;
-                                        } else if (event.button === Qt.MiddleButton)
-                                            modelData.secondaryActivate();
-                                        else
-                                            modelData.activate();
-                                    }
-                                }
-
+                            TrayRailItem {
+                                item: modelData
+                                onOpenMenu: (item, centerY) => root.openTrayMenu(item, Math.round(extrasViewport.popupCenterY(centerY)))
                             }
 
                         }
 
-                        RailButton {
+                        PanelRailButton {
                             icon: root.updateIcon()
                             accent: updates.json.class === "zero" ? Theme.green : updates.json.class === "error" ? Theme.red : Theme.yellow
+                            panel: "updates"
+                            centerOffset: extrasViewport.popupCenterY(0)
                             active: root.openPanel === "updates"
-                            onClicked: (centerY) => {
-                                return root.togglePanel("updates", extrasViewport.y + extrasColumn.y + centerY);
-                            }
-                            onHovered: (centerY) => root.hoverButtonEntered("updates", extrasViewport.y + extrasColumn.y + centerY, "updates")
-                            onExited: root.hoverButtonExited("updates")
+                            onPanelClicked: (panel, centerY) => root.togglePanel(panel, centerY)
+                            onPanelHovered: (panel, centerY, source) => root.hoverButtonEntered(panel, centerY, source)
+                            onPanelExited: (source) => root.hoverButtonExited(source)
                             onRightClicked: root.run("kitty --class update-list --title update-list sh -c '" + root.scriptRoot + "/waybar/update/update-list.sh'")
                         }
 
-                        RailButton {
+                        PanelRailButton {
                             icon: bluetooth.json.icon || "󰂯"
                             accent: bluetooth.json.class === "connected" ? Theme.blue : bluetooth.json.class === "disabled" ? Theme.red : Theme.foreground
+                            panel: "bluetooth"
+                            centerOffset: extrasViewport.popupCenterY(0)
                             active: root.openPanel === "bluetooth"
-                            onClicked: (centerY) => {
-                                return root.togglePanel("bluetooth", extrasViewport.y + extrasColumn.y + centerY);
-                            }
-                            onHovered: (centerY) => root.hoverButtonEntered("bluetooth", extrasViewport.y + extrasColumn.y + centerY, "bluetooth")
-                            onExited: root.hoverButtonExited("bluetooth")
+                            onPanelClicked: (panel, centerY) => root.togglePanel(panel, centerY)
+                            onPanelHovered: (panel, centerY, source) => root.hoverButtonEntered(panel, centerY, source)
+                            onPanelExited: (source) => root.hoverButtonExited(source)
                             onRightClicked: root.run("blueman-manager")
                         }
 
-                        RailButton {
+                        PanelRailButton {
                             icon: audio.json.micIcon || "󰍬"
                             accent: audio.json.micMuted ? Theme.red : Theme.foreground
+                            panel: "mic"
+                            centerOffset: extrasViewport.popupCenterY(0)
                             active: root.openPanel === "mic"
-                            onClicked: (centerY) => {
-                                return root.togglePanel("mic", extrasViewport.y + extrasColumn.y + centerY);
-                            }
-                            onHovered: (centerY) => root.hoverButtonEntered("mic", extrasViewport.y + extrasColumn.y + centerY, "mic")
-                            onExited: root.hoverButtonExited("mic")
+                            onPanelClicked: (panel, centerY) => root.togglePanel(panel, centerY)
+                            onPanelHovered: (panel, centerY, source) => root.hoverButtonEntered(panel, centerY, source)
+                            onPanelExited: (source) => root.hoverButtonExited(source)
                             onRightClicked: root.run("pavucontrol -t 4")
                         }
 
-                        RailButton {
+                        PanelRailButton {
                             icon: brightness.json.icon || "󰃠"
                             accent: Theme.yellow
+                            panel: "brightness"
+                            centerOffset: extrasViewport.popupCenterY(0)
                             active: root.openPanel === "brightness"
-                            onClicked: (centerY) => {
-                                return root.togglePanel("brightness", extrasViewport.y + extrasColumn.y + centerY);
-                            }
-                            onHovered: (centerY) => root.hoverButtonEntered("brightness", extrasViewport.y + extrasColumn.y + centerY, "brightness")
-                            onExited: root.hoverButtonExited("brightness")
+                            onPanelClicked: (panel, centerY) => root.togglePanel(panel, centerY)
+                            onPanelHovered: (panel, centerY, source) => root.hoverButtonEntered(panel, centerY, source)
+                            onPanelExited: (source) => root.hoverButtonExited(source)
                             onRightClicked: root.run(root.scriptRoot + "/waybar/hyprsunset-toggle.sh")
                             onWheeled: (delta) => {
                                 return root.run("brightnessctl -d amdgpu_bl1 set " + (delta > 0 ? "+2%" : "2%-"));
                             }
                         }
 
-                        RailButton {
+                        PanelRailButton {
                             icon: privacy.json.icon || "󰍹"
                             accent: privacy.json.class === "active" ? Theme.yellow : Theme.foreground
+                            panel: "privacy"
+                            centerOffset: extrasViewport.popupCenterY(0)
                             active: root.openPanel === "privacy"
-                            onClicked: (centerY) => {
-                                return root.togglePanel("privacy", extrasViewport.y + extrasColumn.y + centerY);
-                            }
-                            onHovered: (centerY) => root.hoverButtonEntered("privacy", extrasViewport.y + extrasColumn.y + centerY, "privacy")
-                            onExited: root.hoverButtonExited("privacy")
+                            onPanelClicked: (panel, centerY) => root.togglePanel(panel, centerY)
+                            onPanelHovered: (panel, centerY, source) => root.hoverButtonEntered(panel, centerY, source)
+                            onPanelExited: (source) => root.hoverButtonExited(source)
                         }
-
-                        Behavior on opacity {
-                            NumberAnimation {
-                                duration: 120
-                            }
-
-                        }
-
-                    }
-
-                    Behavior on height {
-                        NumberAnimation {
-                            duration: 160
-                            easing.type: Easing.OutCubic
-                        }
-
-                    }
-
-                    Behavior on y {
-                        NumberAnimation {
-                            duration: 160
-                            easing.type: Easing.OutCubic
-                        }
-
-                    }
 
                 }
 
@@ -1279,304 +1050,176 @@ Scope {
 
             }
 
-            PopupWindow {
-                anchor.window: panel
-                anchor.rect.x: Theme.railWidth + 8
-                anchor.rect.y: Math.max(8, Math.min(panel.height - notesPopout.height - 8, root.openPanelY - notesPopout.height / 2))
-                implicitWidth: notesPopout.width
-                implicitHeight: notesPopout.height
+            HoverPopupWindow {
+                anchorWindow: panel
+                anchorY: Math.max(8, Math.min(panel.height - notesPopout.height - 8, root.openPanelY - notesPopout.height / 2))
+                contentWidth: notesPopout.width
+                contentHeight: notesPopout.height
                 visible: root.openPanel === "todo"
-                color: "transparent"
+                onHoverEntered: root.popoutEntered()
+                onHoverExited: root.popoutExited()
 
-                Item {
-                    width: notesPopout.width
-                    height: notesPopout.height
+                NotesPopout {
+                    id: notesPopout
 
-                    HoverHandler {
-                        onHoveredChanged: hovered ? root.popoutEntered() : root.popoutExited()
+                    title: todo.json.name || "notes.md"
+                    body: todo.json.raw || ""
+                    file: todo.json.file || ""
+                    index: todo.json.index || 0
+                    count: todo.json.count || 1
+                    maxPopoutWidth: panel.width > 0 && panel.screen ? panel.screen.width * 0.75 : 680
+                    maxPopoutHeight: panel.height > 0 ? panel.height * 0.75 : 760
+                    onPrevious: {
+                        root.run(root.scriptRoot + "/quickshell/todo-cycle.sh -1");
+                        todoRefreshDelay.restart();
                     }
-
-                    NotesPopout {
-                        id: notesPopout
-
-                        title: todo.json.name || "notes.md"
-                        body: todo.json.raw || ""
-                        file: todo.json.file || ""
-                        index: todo.json.index || 0
-                        count: todo.json.count || 1
-                        maxPopoutWidth: panel.width > 0 && panel.screen ? panel.screen.width * 0.75 : 680
-                        maxPopoutHeight: panel.height > 0 ? panel.height * 0.75 : 760
-                        onPrevious: {
-                            root.run(root.scriptRoot + "/quickshell/todo-cycle.sh -1");
-                            todoRefreshDelay.restart();
-                        }
-                        onNext: {
-                            root.run(root.scriptRoot + "/quickshell/todo-cycle.sh 1");
-                            todoRefreshDelay.restart();
-                        }
-                        onSave: (file, body) => {
-                            saveNotes.running = false;
-                            saveNotes.command = ["python3", "-c", "from pathlib import Path; import sys; Path(sys.argv[1]).write_text(sys.argv[2])", file, body];
-                            saveNotes.running = true;
-                            notesPopout.editing = false;
-                        }
+                    onNext: {
+                        root.run(root.scriptRoot + "/quickshell/todo-cycle.sh 1");
+                        todoRefreshDelay.restart();
+                    }
+                    onSave: (file, body) => {
+                        saveNotes.running = false;
+                        saveNotes.command = ["python3", "-c", "from pathlib import Path; import sys; Path(sys.argv[1]).write_text(sys.argv[2])", file, body];
+                        saveNotes.running = true;
+                        notesPopout.editing = false;
                     }
                 }
 
             }
 
-            PopupWindow {
-                anchor.window: panel
-                anchor.rect.x: Theme.railWidth + 8
-                anchor.rect.y: Math.max(8, Math.min(panel.height - trayMenuPopout.height - 8, root.trayMenuY - trayMenuPopout.height / 2))
-                implicitWidth: trayMenuPopout.width
-                implicitHeight: trayMenuPopout.height
+            HoverPopupWindow {
+                anchorWindow: panel
+                anchorY: Math.max(8, Math.min(panel.height - trayMenuPopout.height - 8, root.trayMenuY - trayMenuPopout.height / 2))
+                contentWidth: trayMenuPopout.width
+                contentHeight: trayMenuPopout.height
                 visible: root.trayMenuOpen
-                color: "transparent"
+                onHoverEntered: root.popoutEntered()
+                onHoverExited: root.popoutExited()
 
-                QsMenuOpener {
-                    id: trayMenuOpener
-
-                    menu: root.trayMenuHandle
-                }
-
-                Rectangle {
+                TrayMenuPopout {
                     id: trayMenuPopout
 
-                    width: 240
-                    height: Math.min(420, Math.max(44, trayMenuContent.implicitHeight + 16))
-                    radius: 8
-                    color: Theme.background
-                    border.color: Theme.surfaceAlt
-                    border.width: 1
-                    clip: true
-
-                    HoverHandler {
-                        onHoveredChanged: hovered ? root.popoutEntered() : root.popoutExited()
-                    }
-
-                    Column {
-                        id: trayMenuContent
-
-                        anchors.fill: parent
-                        anchors.margins: 8
-                        spacing: 2
-
-                        Text {
-                            width: parent.width
-                            text: root.trayMenuTitle
-                            color: Theme.blue
-                            font.family: Theme.fontFamily
-                            font.pixelSize: 12
-                            font.bold: true
-                            elide: Text.ElideRight
-                            visible: text.length > 0
-                        }
-
-                        Repeater {
-                            model: trayMenuOpener.children
-
-                            Rectangle {
-                                width: parent.width
-                                height: modelData.isSeparator ? 7 : 28
-                                radius: 5
-                                color: !modelData.isSeparator && trayEntryMouse.containsMouse && modelData.enabled ? Theme.surfaceAlt : "transparent"
-                                opacity: modelData.enabled ? 1 : 0.45
-
-                                Rectangle {
-                                    anchors.left: parent.left
-                                    anchors.right: parent.right
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    height: 1
-                                    color: Theme.surfaceAlt
-                                    visible: modelData.isSeparator
-                                }
-
-                                Text {
-                                    anchors.left: parent.left
-                                    anchors.leftMargin: 8
-                                    anchors.right: parent.right
-                                    anchors.rightMargin: 8
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: modelData.text || ""
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: 12
-                                    elide: Text.ElideRight
-                                    visible: !modelData.isSeparator
-                                }
-
-                                MouseArea {
-                                    id: trayEntryMouse
-
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: modelData.enabled && !modelData.isSeparator ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                    onClicked: {
-                                        if (!modelData.enabled || modelData.isSeparator)
-                                            return ;
-
-                                        modelData.sendTriggered();
-                                        root.closeTrayMenu();
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    menuHandle: root.trayMenuHandle
+                    title: root.trayMenuTitle
+                    onTriggered: root.closeTrayMenu()
                 }
             }
 
-            PopupWindow {
-                anchor.window: panel
-                anchor.rect.x: Theme.railWidth + 8
-                anchor.rect.y: Math.max(8, Math.min(panel.height - calendarPopout.height - 8, root.openPanelY - calendarPopout.height / 2))
-                implicitWidth: calendarPopout.width
-                implicitHeight: calendarPopout.height
+            HoverPopupWindow {
+                anchorWindow: panel
+                anchorY: Math.max(8, Math.min(panel.height - calendarPopout.height - 8, root.openPanelY - calendarPopout.height / 2))
+                contentWidth: calendarPopout.width
+                contentHeight: calendarPopout.height
                 visible: root.openPanel === "calendar"
-                color: "transparent"
+                onHoverEntered: root.popoutEntered()
+                onHoverExited: root.popoutExited()
 
-                Item {
-                    width: calendarPopout.width
-                    height: calendarPopout.height
+                CalendarPopout {
+                    id: calendarPopout
 
-                    HoverHandler {
-                        onHoveredChanged: hovered ? root.popoutEntered() : root.popoutExited()
+                    baseDate: clock.date
+                    selectedDate: root.selectedCalendarDate ? new Date(root.selectedCalendarDate + "T00:00:00") : clock.date
+                    events: calendarEvents.json.events || []
+                    eventsText: calendarEvents.json.raw || "No events"
+                    onResetMonth: root.resetCalendarMonth()
+                    onSelected: (day) => {
+                        root.selectedCalendarDate = day;
+                        calendarEvents.refresh();
                     }
-
-                    CalendarPopout {
-                        id: calendarPopout
-
-                        baseDate: clock.date
-                        selectedDate: root.selectedCalendarDate ? new Date(root.selectedCalendarDate + "T00:00:00") : clock.date
-                        events: calendarEvents.json.events || []
-                        eventsText: calendarEvents.json.raw || "No events"
-                        onResetMonth: root.resetCalendarMonth()
-                        onSelected: (day) => {
-                            root.selectedCalendarDate = day;
-                            calendarEvents.refresh();
-                        }
-                        onAddEvent: (day, title) => {
-                            addCalendarEvent.running = false;
-                            addCalendarEvent.command = [root.scriptRoot + "/quickshell/calendar-add.sh", day, title];
-                            addCalendarEvent.running = true;
-                        }
-                        onOpenEvent: (title) => {
-                            const date = root.selectedCalendarDate ? new Date(root.selectedCalendarDate + "T00:00:00") : clock.date;
-                            root.run("xdg-open 'https://calendar.google.com/calendar/u/0/r/week/" + date.getFullYear() + "/" + (date.getMonth() + 1) + "/" + date.getDate() + "'");
-                        }
+                    onAddEvent: (day, title) => {
+                        addCalendarEvent.running = false;
+                        addCalendarEvent.command = [root.scriptRoot + "/quickshell/calendar-add.sh", day, title];
+                        addCalendarEvent.running = true;
+                    }
+                    onOpenEvent: (title) => {
+                        const date = root.selectedCalendarDate ? new Date(root.selectedCalendarDate + "T00:00:00") : clock.date;
+                        root.run("xdg-open 'https://calendar.google.com/calendar/u/0/r/week/" + date.getFullYear() + "/" + (date.getMonth() + 1) + "/" + date.getDate() + "'");
                     }
                 }
 
             }
 
-            PopupWindow {
-                anchor.window: panel
-                anchor.rect.x: Theme.railWidth + 8
-                anchor.rect.y: Math.max(8, Math.min(panel.height - performancePopout.height - 8, root.openPanelY - performancePopout.height / 2))
-                implicitWidth: performancePopout.width
-                implicitHeight: performancePopout.height
+            HoverPopupWindow {
+                anchorWindow: panel
+                anchorY: Math.max(8, Math.min(panel.height - performancePopout.height - 8, root.openPanelY - performancePopout.height / 2))
+                contentWidth: performancePopout.width
+                contentHeight: performancePopout.height
                 visible: root.openPanel === "system"
-                color: "transparent"
+                onHoverEntered: root.popoutEntered()
+                onHoverExited: root.popoutExited()
 
-                Item {
-                    width: performancePopout.width
-                    height: performancePopout.height
+                PerformancePopout {
+                    id: performancePopout
 
-                    HoverHandler {
-                        onHoveredChanged: hovered ? root.popoutEntered() : root.popoutExited()
-                    }
-
-                    PerformancePopout {
-                        id: performancePopout
-
-                        status: systemInfo.json
-                        scriptRoot: root.scriptRoot
-                        onAction: (command) => {
-                            root.run(command);
-                            systemRefreshDelay.restart();
-                        }
+                    status: systemInfo.json
+                    scriptRoot: root.scriptRoot
+                    onAction: (command) => {
+                        root.run(command);
+                        systemRefreshDelay.restart();
                     }
                 }
 
             }
 
-            PopupWindow {
-                anchor.window: panel
-                anchor.rect.x: Theme.railWidth + 8
-                anchor.rect.y: Math.max(8, Math.min(panel.height - systemPopout.height - 8, root.openPanelY - systemPopout.height / 2))
-                implicitWidth: systemPopout.width
-                implicitHeight: systemPopout.height
+            HoverPopupWindow {
+                anchorWindow: panel
+                anchorY: Math.max(8, Math.min(panel.height - systemPopout.height - 8, root.openPanelY - systemPopout.height / 2))
+                contentWidth: systemPopout.width
+                contentHeight: systemPopout.height
                 visible: ["audio", "network", "bluetooth", "mic", "brightness", "battery"].indexOf(root.openPanel) >= 0
-                color: "transparent"
+                onHoverEntered: root.popoutEntered()
+                onHoverExited: root.popoutExited()
                 onVisibleChanged: {
                     if (!visible && ["audio", "network", "bluetooth", "mic", "brightness", "battery"].indexOf(root.openPanel) >= 0)
                         root.closePanel();
 
                 }
 
-                Item {
-                    width: systemPopout.width
-                    height: systemPopout.height
+                SystemPopout {
+                    id: systemPopout
 
-                    HoverHandler {
-                        onHoveredChanged: hovered ? root.popoutEntered() : root.popoutExited()
-                    }
+                    title: root.systemPanelTitle()
+                    body: root.systemPanelBody()
+                    actions: root.systemPanelActions()
+                    mode: root.openPanel
+                    audioVolume: audio.json.volume || 0
+                    audioMuted: !!audio.json.muted
+                    micMuted: !!audio.json.micMuted
+                    wifiIcon: network.json.icon || "󰤩"
+                    wifiText: network.json.ssid || network.json.class || "Wi-Fi"
+                    bluetoothIcon: bluetooth.json.icon || "󰂯"
+                    brightnessPercent: brightness.json.percent || 0
+                    onAction: (command, keepOpen) => {
+                        root.run(command);
+                        if (!keepOpen)
+                            root.closePanel();
 
-                    SystemPopout {
-                        id: systemPopout
-
-                        title: root.systemPanelTitle()
-                        body: root.systemPanelBody()
-                        actions: root.systemPanelActions()
-                        mode: root.openPanel
-                        audioVolume: audio.json.volume || 0
-                        audioMuted: !!audio.json.muted
-                        micMuted: !!audio.json.micMuted
-                        wifiIcon: network.json.icon || "󰤩"
-                        wifiText: network.json.ssid || network.json.class || "Wi-Fi"
-                        bluetoothIcon: bluetooth.json.icon || "󰂯"
-                        brightnessPercent: brightness.json.percent || 0
-                        onAction: (command, keepOpen) => {
-                            root.run(command);
-                            if (!keepOpen)
-                                root.closePanel();
-
-                        }
                     }
                 }
 
             }
 
-            PopupWindow {
-                anchor.window: panel
-                anchor.rect.x: Theme.railWidth + 8
-                anchor.rect.y: Math.max(8, Math.min(panel.height - popout.height - 8, root.openPanelY - popout.height / 2))
-                implicitWidth: 320
-                implicitHeight: popout.height
+            HoverPopupWindow {
+                anchorWindow: panel
+                anchorY: Math.max(8, Math.min(panel.height - popout.height - 8, root.openPanelY - popout.height / 2))
+                contentWidth: 320
+                contentHeight: popout.height
                 visible: ["updates", "privacy"].indexOf(root.openPanel) >= 0
-                color: "transparent"
+                onHoverEntered: root.popoutEntered()
+                onHoverExited: root.popoutExited()
 
-                Item {
-                    width: popout.width
-                    height: popout.height
+                BasicPopout {
+                    id: popout
 
-                    HoverHandler {
-                        onHoveredChanged: hovered ? root.popoutEntered() : root.popoutExited()
-                    }
+                    width: 320
+                    title: root.panelTitle()
+                    body: root.panelBody()
+                    actions: root.panelActions()
+                    onAction: (command, keepOpen) => {
+                        root.run(command);
+                        if (!keepOpen)
+                            root.closePanel();
 
-                    BasicPopout {
-                        id: popout
-
-                        width: 320
-                        title: root.panelTitle()
-                        body: root.panelBody()
-                        actions: root.panelActions()
-                        onAction: (command, keepOpen) => {
-                            root.run(command);
-                            if (!keepOpen)
-                                root.closePanel();
-
-                        }
                     }
                 }
 

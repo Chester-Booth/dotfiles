@@ -13,13 +13,19 @@ def hypr_json(*args):
 
 def icon_for(value):
     app = (value or "").lower()
+    if "t3" in app:
+        return ""
+    if any(term in app for term in ("intellij", "idea")):
+        return ""
     if "code" in app:
         return "󰨞"
-    if any(term in app for term in ("kitty", "wezterm", "alacritty", "foot")):
-        return ""
-    if any(browser in app for browser in ("zen", "helium", "firefox", "chrom", "brave")):
+    if "zen" in app:
+        return "󰈹"
+    if "helium" in app:
+        return ""
+    if any(browser in app for browser in ("zen", "helium", "firefox", "chrome", "brave")):
         return ""
-    if "discord" in app:
+    if any(term in app for term in ("discord", "vesktop")):
         return ""
     if "slack" in app:
         return "󰒱"
@@ -29,12 +35,20 @@ def icon_for(value):
         return "󰉋"
     if "obsidian" in app:
         return "󱞁"
+    if "obs" in app:
+        return "󰕧"
     if "steam" in app:
         return "󰓓"
+    if any(term in app for term in ("prism", "minecraft")):
+        return "󰍳"
     if "gimp" in app:
         return ""
+    if "electron" in app:
+        return ""
     if "drawing" in app:
         return "󱇣"
+    if any(term in app for term in ("kitty", "wezterm", "alacritty", "foot")):
+        return ""
     return "󰻃"
 
 

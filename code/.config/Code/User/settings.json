@@ -109,7 +109,9 @@
     },
     "workbench.editorAssociations": {
         "*.copilotmd": "vscode.markdown.preview.editor",
-        "*.pdf": "pdf.preview"
+        "{git,gitlens,chat-editing-snapshot-text-model,copilot,git-graph,git-graph-3}:/**/*.qrc": "default",
+        "*.pdf": "pdf.preview",
+        "*.qrc": "qt-core.qrcEditor"
     },
     "notebook.lineNumbers": "on",
     "window.zoomLevel": 1,

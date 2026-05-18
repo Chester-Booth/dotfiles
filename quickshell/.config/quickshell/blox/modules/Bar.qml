@@ -906,10 +906,8 @@ Scope {
                             onEntered: root.hoverButtonEntered("calendar", clockText.y + clockText.height / 2, "calendar")
                             onExited: root.hoverButtonExited("calendar")
                             onClicked: (event) => {
-                                if (event.button === Qt.RightButton)
+                                if (event.button === Qt.LeftButton)
                                     root.clockDateMode = !root.clockDateMode;
-                                else
-                                    root.togglePanel("calendar", clockText.y + clockText.height / 2);
                             }
                         }
 

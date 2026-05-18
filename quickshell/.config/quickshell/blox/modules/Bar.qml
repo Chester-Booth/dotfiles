@@ -18,6 +18,9 @@ Scope {
     property bool extrasOpen: false
     property bool batteryExpanded: false
     property bool clockDateMode: false
+    property bool railHovered: false
+    property string hoveredSource: ""
+    property bool popoutHovered: false
     property bool blinkOn: true
     property string selectedCalendarDate: ""
     property string alertWorkspaceIds: ","
@@ -29,12 +32,50 @@ Scope {
     property real extrasPush: 0
 
     function togglePanel(panel, centerY) {
-        openPanelY = centerY === undefined ? 8 : centerY;
-        openPanel = openPanel === panel ? "" : panel;
+        openHoverPanel(panel, centerY);
     }
 
     function closePanel() {
         openPanel = "";
+        railHovered = false;
+        hoveredSource = "";
+        popoutHovered = false;
+        hoverCloseDelay.stop();
+    }
+
+    function openHoverPanel(panel, centerY) {
+        openPanelY = centerY === undefined ? 8 : centerY;
+        openPanel = panel;
+        hoverCloseDelay.stop();
+    }
+
+    function hoverButtonEntered(panel, centerY, source) {
+        hoveredSource = source === undefined ? panel : source;
+        railHovered = true;
+        openHoverPanel(panel, centerY);
+    }
+
+    function hoverButtonExited(source) {
+        if (hoveredSource !== (source === undefined ? "" : source))
+            return ;
+
+        hoveredSource = "";
+        railHovered = false;
+        scheduleHoverClose();
+    }
+
+    function scheduleHoverClose() {
+        hoverCloseDelay.restart();
+    }
+
+    function popoutEntered() {
+        popoutHovered = true;
+        hoverCloseDelay.stop();
+    }
+
+    function popoutExited() {
+        popoutHovered = false;
+        scheduleHoverClose();
     }
 
     function closeTrayMenu() {
@@ -743,6 +784,20 @@ Scope {
         }
     }
 
+    Timer {
+        id: hoverCloseDelay
+
+        interval: 180
+        repeat: false
+        onTriggered: {
+            if (root.hoveredSource.length === 0 && !root.popoutHovered) {
+                root.closePanel();
+                root.closeTrayMenu();
+            }
+
+        }
+    }
+
     Variants {
         model: Quickshell.screens
 
@@ -795,6 +850,8 @@ Scope {
                         onClicked: (centerY) => {
                             return root.togglePanel("todo", centerY);
                         }
+                        onHovered: (centerY) => root.hoverButtonEntered("todo", centerY, "todo")
+                        onExited: root.hoverButtonExited("todo")
                         onRightClicked: root.run(root.scriptRoot + "/waybar/todo/open.sh")
                     }
 
@@ -846,6 +903,8 @@ Scope {
                             acceptedButtons: Qt.LeftButton | Qt.RightButton
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
+                            onEntered: root.hoverButtonEntered("calendar", clockText.y + clockText.height / 2, "calendar")
+                            onExited: root.hoverButtonExited("calendar")
                             onClicked: (event) => {
                                 if (event.button === Qt.RightButton)
                                     root.clockDateMode = !root.clockDateMode;
@@ -895,6 +954,8 @@ Scope {
                         onClicked: (centerY) => {
                             return root.togglePanel("audio", centerY);
                         }
+                        onHovered: (centerY) => root.hoverButtonEntered("audio", centerY, "audio")
+                        onExited: root.hoverButtonExited("audio")
                         onRightClicked: root.run("pavucontrol -t 3")
                     }
 
@@ -905,6 +966,8 @@ Scope {
                         onClicked: (centerY) => {
                             return root.togglePanel("network", centerY);
                         }
+                        onHovered: (centerY) => root.hoverButtonEntered("network", centerY, "network")
+                        onExited: root.hoverButtonExited("network")
                     }
 
                     RailButton {
@@ -926,6 +989,8 @@ Scope {
                         onClicked: (centerY) => {
                             return root.togglePanel("system", centerY);
                         }
+                        onHovered: (centerY) => root.hoverButtonEntered("system", centerY, "fan")
+                        onExited: root.hoverButtonExited("fan")
                     }
 
                     RailButton {
@@ -936,6 +1001,8 @@ Scope {
                         onClicked: (centerY) => {
                             return root.togglePanel("system", centerY);
                         }
+                        onHovered: (centerY) => root.hoverButtonEntered("system", centerY, "gpu")
+                        onExited: root.hoverButtonExited("gpu")
                     }
 
                     RailButton {
@@ -946,6 +1013,8 @@ Scope {
                             root.closeDrawers();
                             root.batteryExpanded = !root.batteryExpanded;
                         }
+                        onHovered: () => root.hoverButtonEntered("battery", panel.height - 24, "battery")
+                        onExited: root.hoverButtonExited("battery")
                         onRightClicked: root.togglePanel("system", panel.height - 24)
                     }
 
@@ -1100,6 +1169,8 @@ Scope {
                             onClicked: (centerY) => {
                                 return root.togglePanel("updates", extrasViewport.y + extrasColumn.y + centerY);
                             }
+                            onHovered: (centerY) => root.hoverButtonEntered("updates", extrasViewport.y + extrasColumn.y + centerY, "updates")
+                            onExited: root.hoverButtonExited("updates")
                             onRightClicked: root.run("kitty --class update-list --title update-list sh -c '" + root.scriptRoot + "/waybar/update/update-list.sh'")
                         }
 
@@ -1110,6 +1181,8 @@ Scope {
                             onClicked: (centerY) => {
                                 return root.togglePanel("bluetooth", extrasViewport.y + extrasColumn.y + centerY);
                             }
+                            onHovered: (centerY) => root.hoverButtonEntered("bluetooth", extrasViewport.y + extrasColumn.y + centerY, "bluetooth")
+                            onExited: root.hoverButtonExited("bluetooth")
                             onRightClicked: root.run("blueman-manager")
                         }
 
@@ -1120,6 +1193,8 @@ Scope {
                             onClicked: (centerY) => {
                                 return root.togglePanel("mic", extrasViewport.y + extrasColumn.y + centerY);
                             }
+                            onHovered: (centerY) => root.hoverButtonEntered("mic", extrasViewport.y + extrasColumn.y + centerY, "mic")
+                            onExited: root.hoverButtonExited("mic")
                             onRightClicked: root.run("pavucontrol -t 4")
                         }
 
@@ -1130,6 +1205,8 @@ Scope {
                             onClicked: (centerY) => {
                                 return root.togglePanel("brightness", extrasViewport.y + extrasColumn.y + centerY);
                             }
+                            onHovered: (centerY) => root.hoverButtonEntered("brightness", extrasViewport.y + extrasColumn.y + centerY, "brightness")
+                            onExited: root.hoverButtonExited("brightness")
                             onRightClicked: root.run(root.scriptRoot + "/waybar/hyprsunset-toggle.sh")
                             onWheeled: (delta) => {
                                 return root.run("brightnessctl -d amdgpu_bl1 set " + (delta > 0 ? "+2%" : "2%-"));
@@ -1143,6 +1220,8 @@ Scope {
                             onClicked: (centerY) => {
                                 return root.togglePanel("privacy", extrasViewport.y + extrasColumn.y + centerY);
                             }
+                            onHovered: (centerY) => root.hoverButtonEntered("privacy", extrasViewport.y + extrasColumn.y + centerY, "privacy")
+                            onExited: root.hoverButtonExited("privacy")
                         }
 
                         Behavior on opacity {
@@ -1209,32 +1288,40 @@ Scope {
                 implicitWidth: notesPopout.width
                 implicitHeight: notesPopout.height
                 visible: root.openPanel === "todo"
-                grabFocus: true
                 color: "transparent"
 
-                NotesPopout {
-                    id: notesPopout
+                Item {
+                    width: notesPopout.width
+                    height: notesPopout.height
 
-                    title: todo.json.name || "notes.md"
-                    body: todo.json.raw || ""
-                    file: todo.json.file || ""
-                    index: todo.json.index || 0
-                    count: todo.json.count || 1
-                    maxPopoutWidth: panel.width > 0 && panel.screen ? panel.screen.width * 0.75 : 680
-                    maxPopoutHeight: panel.height > 0 ? panel.height * 0.75 : 760
-                    onPrevious: {
-                        root.run(root.scriptRoot + "/quickshell/todo-cycle.sh -1");
-                        todoRefreshDelay.restart();
+                    HoverHandler {
+                        onHoveredChanged: hovered ? root.popoutEntered() : root.popoutExited()
                     }
-                    onNext: {
-                        root.run(root.scriptRoot + "/quickshell/todo-cycle.sh 1");
-                        todoRefreshDelay.restart();
-                    }
-                    onSave: (file, body) => {
-                        saveNotes.running = false;
-                        saveNotes.command = ["python3", "-c", "from pathlib import Path; import sys; Path(sys.argv[1]).write_text(sys.argv[2])", file, body];
-                        saveNotes.running = true;
-                        notesPopout.editing = false;
+
+                    NotesPopout {
+                        id: notesPopout
+
+                        title: todo.json.name || "notes.md"
+                        body: todo.json.raw || ""
+                        file: todo.json.file || ""
+                        index: todo.json.index || 0
+                        count: todo.json.count || 1
+                        maxPopoutWidth: panel.width > 0 && panel.screen ? panel.screen.width * 0.75 : 680
+                        maxPopoutHeight: panel.height > 0 ? panel.height * 0.75 : 760
+                        onPrevious: {
+                            root.run(root.scriptRoot + "/quickshell/todo-cycle.sh -1");
+                            todoRefreshDelay.restart();
+                        }
+                        onNext: {
+                            root.run(root.scriptRoot + "/quickshell/todo-cycle.sh 1");
+                            todoRefreshDelay.restart();
+                        }
+                        onSave: (file, body) => {
+                            saveNotes.running = false;
+                            saveNotes.command = ["python3", "-c", "from pathlib import Path; import sys; Path(sys.argv[1]).write_text(sys.argv[2])", file, body];
+                            saveNotes.running = true;
+                            notesPopout.editing = false;
+                        }
                     }
                 }
 
@@ -1265,6 +1352,10 @@ Scope {
                     border.color: Theme.surfaceAlt
                     border.width: 1
                     clip: true
+
+                    HoverHandler {
+                        onHoveredChanged: hovered ? root.popoutEntered() : root.popoutExited()
+                    }
 
                     Column {
                         id: trayMenuContent
@@ -1344,29 +1435,37 @@ Scope {
                 implicitWidth: calendarPopout.width
                 implicitHeight: calendarPopout.height
                 visible: root.openPanel === "calendar"
-                grabFocus: true
                 color: "transparent"
 
-                CalendarPopout {
-                    id: calendarPopout
+                Item {
+                    width: calendarPopout.width
+                    height: calendarPopout.height
 
-                    baseDate: clock.date
-                    selectedDate: root.selectedCalendarDate ? new Date(root.selectedCalendarDate + "T00:00:00") : clock.date
-                    events: calendarEvents.json.events || []
-                    eventsText: calendarEvents.json.raw || "No events"
-                    onResetMonth: root.resetCalendarMonth()
-                    onSelected: (day) => {
-                        root.selectedCalendarDate = day;
-                        calendarEvents.refresh();
+                    HoverHandler {
+                        onHoveredChanged: hovered ? root.popoutEntered() : root.popoutExited()
                     }
-                    onAddEvent: (day, title) => {
-                        addCalendarEvent.running = false;
-                        addCalendarEvent.command = [root.scriptRoot + "/quickshell/calendar-add.sh", day, title];
-                        addCalendarEvent.running = true;
-                    }
-                    onOpenEvent: (title) => {
-                        const date = root.selectedCalendarDate ? new Date(root.selectedCalendarDate + "T00:00:00") : clock.date;
-                        root.run("xdg-open 'https://calendar.google.com/calendar/u/0/r/week/" + date.getFullYear() + "/" + (date.getMonth() + 1) + "/" + date.getDate() + "'");
+
+                    CalendarPopout {
+                        id: calendarPopout
+
+                        baseDate: clock.date
+                        selectedDate: root.selectedCalendarDate ? new Date(root.selectedCalendarDate + "T00:00:00") : clock.date
+                        events: calendarEvents.json.events || []
+                        eventsText: calendarEvents.json.raw || "No events"
+                        onResetMonth: root.resetCalendarMonth()
+                        onSelected: (day) => {
+                            root.selectedCalendarDate = day;
+                            calendarEvents.refresh();
+                        }
+                        onAddEvent: (day, title) => {
+                            addCalendarEvent.running = false;
+                            addCalendarEvent.command = [root.scriptRoot + "/quickshell/calendar-add.sh", day, title];
+                            addCalendarEvent.running = true;
+                        }
+                        onOpenEvent: (title) => {
+                            const date = root.selectedCalendarDate ? new Date(root.selectedCalendarDate + "T00:00:00") : clock.date;
+                            root.run("xdg-open 'https://calendar.google.com/calendar/u/0/r/week/" + date.getFullYear() + "/" + (date.getMonth() + 1) + "/" + date.getDate() + "'");
+                        }
                     }
                 }
 
@@ -1379,17 +1478,25 @@ Scope {
                 implicitWidth: performancePopout.width
                 implicitHeight: performancePopout.height
                 visible: root.openPanel === "system"
-                grabFocus: true
                 color: "transparent"
 
-                PerformancePopout {
-                    id: performancePopout
+                Item {
+                    width: performancePopout.width
+                    height: performancePopout.height
 
-                    status: systemInfo.json
-                    scriptRoot: root.scriptRoot
-                    onAction: (command) => {
-                        root.run(command);
-                        systemRefreshDelay.restart();
+                    HoverHandler {
+                        onHoveredChanged: hovered ? root.popoutEntered() : root.popoutExited()
+                    }
+
+                    PerformancePopout {
+                        id: performancePopout
+
+                        status: systemInfo.json
+                        scriptRoot: root.scriptRoot
+                        onAction: (command) => {
+                            root.run(command);
+                            systemRefreshDelay.restart();
+                        }
                     }
                 }
 
@@ -1402,7 +1509,6 @@ Scope {
                 implicitWidth: systemPopout.width
                 implicitHeight: systemPopout.height
                 visible: ["audio", "network", "bluetooth", "mic", "brightness", "battery"].indexOf(root.openPanel) >= 0
-                grabFocus: true
                 color: "transparent"
                 onVisibleChanged: {
                     if (!visible && ["audio", "network", "bluetooth", "mic", "brightness", "battery"].indexOf(root.openPanel) >= 0)
@@ -1410,25 +1516,34 @@ Scope {
 
                 }
 
-                SystemPopout {
-                    id: systemPopout
+                Item {
+                    width: systemPopout.width
+                    height: systemPopout.height
 
-                    title: root.systemPanelTitle()
-                    body: root.systemPanelBody()
-                    actions: root.systemPanelActions()
-                    mode: root.openPanel
-                    audioVolume: audio.json.volume || 0
-                    audioMuted: !!audio.json.muted
-                    micMuted: !!audio.json.micMuted
-                    wifiIcon: network.json.icon || "󰤩"
-                    wifiText: network.json.ssid || network.json.class || "Wi-Fi"
-                    bluetoothIcon: bluetooth.json.icon || "󰂯"
-                    brightnessPercent: brightness.json.percent || 0
-                    onAction: (command, keepOpen) => {
-                        root.run(command);
-                        if (!keepOpen)
-                            root.closePanel();
+                    HoverHandler {
+                        onHoveredChanged: hovered ? root.popoutEntered() : root.popoutExited()
+                    }
 
+                    SystemPopout {
+                        id: systemPopout
+
+                        title: root.systemPanelTitle()
+                        body: root.systemPanelBody()
+                        actions: root.systemPanelActions()
+                        mode: root.openPanel
+                        audioVolume: audio.json.volume || 0
+                        audioMuted: !!audio.json.muted
+                        micMuted: !!audio.json.micMuted
+                        wifiIcon: network.json.icon || "󰤩"
+                        wifiText: network.json.ssid || network.json.class || "Wi-Fi"
+                        bluetoothIcon: bluetooth.json.icon || "󰂯"
+                        brightnessPercent: brightness.json.percent || 0
+                        onAction: (command, keepOpen) => {
+                            root.run(command);
+                            if (!keepOpen)
+                                root.closePanel();
+
+                        }
                     }
                 }
 
@@ -1441,21 +1556,29 @@ Scope {
                 implicitWidth: 320
                 implicitHeight: popout.height
                 visible: ["updates", "privacy"].indexOf(root.openPanel) >= 0
-                grabFocus: true
                 color: "transparent"
 
-                BasicPopout {
-                    id: popout
+                Item {
+                    width: popout.width
+                    height: popout.height
 
-                    width: 320
-                    title: root.panelTitle()
-                    body: root.panelBody()
-                    actions: root.panelActions()
-                    onAction: (command, keepOpen) => {
-                        root.run(command);
-                        if (!keepOpen)
-                            root.closePanel();
+                    HoverHandler {
+                        onHoveredChanged: hovered ? root.popoutEntered() : root.popoutExited()
+                    }
 
+                    BasicPopout {
+                        id: popout
+
+                        width: 320
+                        title: root.panelTitle()
+                        body: root.panelBody()
+                        actions: root.panelActions()
+                        onAction: (command, keepOpen) => {
+                            root.run(command);
+                            if (!keepOpen)
+                                root.closePanel();
+
+                        }
                     }
                 }
 

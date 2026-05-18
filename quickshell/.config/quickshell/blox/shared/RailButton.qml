@@ -14,6 +14,8 @@ Rectangle {
     signal clicked(real centerY)
     signal rightClicked()
     signal wheeled(int delta)
+    signal hovered(real centerY)
+    signal exited()
 
     Layout.alignment: Qt.AlignHCenter
     width: Theme.buttonSize
@@ -53,6 +55,8 @@ Rectangle {
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
+        onEntered: root.hovered(root.y + root.height / 2)
+        onExited: root.exited()
         onClicked: (event) => {
             if (event.button === Qt.RightButton)
                 root.rightClicked();

@@ -11,10 +11,23 @@ Rectangle {
     property var events: []
     property string eventsText: ""
     property string newEventTitle: ""
+    readonly property int eventCount: Math.max(1, events.length)
+    readonly property int visibleEventCount: Math.max(1, events.length)
+    readonly property int eventRowHeight: 42
+    readonly property int eventRowSpacing: 6
+    readonly property int contentMargins: 28
+    readonly property int contentSpacing: 40
+    readonly property int headerHeight: 30
+    readonly property int monthGridHeight: 246
+    readonly property int selectedDateHeight: 15
+    readonly property int inputHeight: 34
+    readonly property int agendaHeight: root.events.length === 0 ? 18 : visibleEventCount * eventRowHeight + Math.max(0, visibleEventCount - 1) * eventRowSpacing
+    readonly property int desiredHeight: contentMargins + contentSpacing + headerHeight + monthGridHeight + selectedDateHeight + agendaHeight + inputHeight
 
     signal selected(string day)
     signal addEvent(string day, string title)
     signal resetMonth()
+    signal openEvent(string title)
 
     function shownDate() {
         return new Date(baseDate.getFullYear(), baseDate.getMonth() + monthOffset, 1);
@@ -25,7 +38,7 @@ Rectangle {
     }
 
     function firstDay(date) {
-        return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+        return (new Date(date.getFullYear(), date.getMonth(), 1).getDay() + 6) % 7;
     }
 
     function isoDate(date) {
@@ -52,7 +65,7 @@ Rectangle {
     }
 
     width: 420
-    height: 520
+    height: Math.max(420, desiredHeight)
     radius: 8
     color: Theme.background
     border.color: Theme.surfaceAlt
@@ -144,7 +157,7 @@ Rectangle {
             columnSpacing: 4
 
             Repeater {
-                model: ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
+                model: ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
 
                 Text {
                     Layout.fillWidth: true
@@ -233,7 +246,7 @@ Rectangle {
 
                 Rectangle {
                     Layout.fillWidth: true
-                    height: 42
+                    Layout.preferredHeight: root.eventRowHeight
                     radius: 6
                     color: eventMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
                     border.color: Theme.surfaceAlt
@@ -246,7 +259,8 @@ Rectangle {
 
                         Text {
                             Layout.preferredWidth: 42
-                            text: root.eventTime(modelData) || "•"
+                            text: root.eventTime(modelData)
+                            visible: text.length > 0
                             color: Theme.blue
                             font.family: Theme.fontFamily
                             font.pixelSize: 11
@@ -269,6 +283,8 @@ Rectangle {
 
                         anchors.fill: parent
                         hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.openEvent(root.eventTitle(modelData))
                     }
 
                 }
@@ -283,7 +299,7 @@ Rectangle {
 
             Rectangle {
                 Layout.fillWidth: true
-                height: 34
+                Layout.preferredHeight: root.inputHeight
                 radius: 5
                 color: Theme.surface
                 border.color: Theme.surfaceAlt
@@ -318,8 +334,8 @@ Rectangle {
             }
 
             Rectangle {
-                width: 42
-                height: 34
+                Layout.preferredWidth: 42
+                Layout.preferredHeight: root.inputHeight
                 radius: 5
                 color: addMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
                 border.color: Theme.surfaceAlt

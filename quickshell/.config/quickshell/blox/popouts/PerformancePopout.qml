@@ -5,7 +5,8 @@ import QtQuick.Layouts
 Rectangle {
     id: root
 
-    property var status: ({})
+    property var status: ({
+    })
     property string scriptRoot: ""
 
     signal action(string command)
@@ -66,7 +67,9 @@ Rectangle {
                     font.pixelSize: 10
                     elide: Text.ElideRight
                 }
+
             }
+
         }
 
         GridLayout {
@@ -142,10 +145,15 @@ Rectangle {
                                 font.bold: true
                                 elide: Text.ElideRight
                             }
+
                         }
+
                     }
+
                 }
+
             }
+
         }
 
         ColumnLayout {
@@ -185,13 +193,17 @@ Rectangle {
 
                         MouseArea {
                             id: fanMouse
+
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: root.action(root.fanCommand(modelData))
                         }
+
                     }
+
                 }
+
             }
 
             Text {
@@ -241,14 +253,21 @@ Rectangle {
 
                         MouseArea {
                             id: gpuMouse
+
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: root.action(root.gpuCommand(modelData.id))
                         }
+
                     }
+
                 }
+
             }
+
         }
+
     }
+
 }

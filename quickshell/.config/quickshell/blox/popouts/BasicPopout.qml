@@ -10,11 +10,11 @@ Rectangle {
 
     signal action(string command, bool keepOpen)
 
-    width: 300
-    height: Math.min(520, Math.max(120, content.implicitHeight + 28))
-    radius: Theme.radius
+    width: 340
+    height: Math.min(520, Math.max(140, content.implicitHeight + 28))
+    radius: 8
     color: Theme.background
-    border.color: Theme.foreground
+    border.color: Theme.surfaceAlt
     border.width: 1
 
     Column {
@@ -24,14 +24,27 @@ Rectangle {
         anchors.margins: 12
         spacing: 10
 
-        Text {
+        Row {
             width: parent.width
-            text: root.title
-            color: Theme.blue
-            font.family: Theme.fontFamily
-            font.pixelSize: 14
-            font.bold: true
-            elide: Text.ElideRight
+            spacing: 8
+
+            Text {
+                text: root.title === "Updates" ? "󰧠" : "󰍹"
+                color: Theme.blue
+                font.family: Theme.fontFamily
+                font.pixelSize: 18
+            }
+
+            Text {
+                width: parent.width - 28
+                text: root.title
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: 14
+                font.bold: true
+                elide: Text.ElideRight
+            }
+
         }
 
         Text {
@@ -43,40 +56,45 @@ Rectangle {
             wrapMode: Text.Wrap
         }
 
-        Repeater {
-            model: root.actions
+        Flow {
+            width: parent.width
+            spacing: 8
 
-            Rectangle {
-                width: content.width
-                height: 30
-                radius: Theme.radius
-                color: actionMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
-                border.color: Theme.surfaceAlt
-                border.width: 1
+            Repeater {
+                model: root.actions
 
-                Text {
-                    anchors.fill: parent
-                    anchors.leftMargin: 10
-                    anchors.rightMargin: 10
-                    text: modelData.label || ""
-                    color: modelData.danger ? Theme.red : Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 12
-                    verticalAlignment: Text.AlignVCenter
-                    elide: Text.ElideRight
-                }
+                Rectangle {
+                    width: Math.max(96, actionLabel.implicitWidth + 22)
+                    height: 34
+                    radius: 7
+                    color: actionMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
+                    border.color: modelData.danger ? Theme.red : Theme.surfaceAlt
+                    border.width: 1
 
-                MouseArea {
-                    id: actionMouse
+                    Text {
+                        id: actionLabel
 
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        const label = (modelData.label || "").toLowerCase();
-                        const keepOpen = !!modelData.keepOpen || label.indexOf("cycle") >= 0 || label.indexOf(" up") >= 0 || label.indexOf(" down") >= 0;
-                        root.action(modelData.command || "", keepOpen);
+                        anchors.centerIn: parent
+                        text: modelData.label || ""
+                        color: modelData.danger ? Theme.red : Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 11
+                        font.bold: true
                     }
+
+                    MouseArea {
+                        id: actionMouse
+
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            const label = (modelData.label || "").toLowerCase();
+                            const keepOpen = !!modelData.keepOpen || label.indexOf("cycle") >= 0 || label.indexOf(" up") >= 0 || label.indexOf(" down") >= 0;
+                            root.action(modelData.command || "", keepOpen);
+                        }
+                    }
+
                 }
 
             }

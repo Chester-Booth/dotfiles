@@ -5,10 +5,12 @@ import QtQuick.Layouts
 Rectangle {
     id: root
 
+    property string updateSummary: "Check updates"
+
     signal action(string command)
     signal close()
 
-    color: "transparent"
+    color: "#99000000"
 
     MouseArea {
         anchors.fill: parent
@@ -73,7 +75,7 @@ Rectangle {
                     Layout.fillHeight: true
                     Layout.minimumHeight: 112
                     radius: 8
-                    color: powerMouse.containsMouse ? "#553b3c4a" : "#331e1e1e"
+                    color: powerMouse.containsMouse ? "#ee3b3c4a" : "#dd1e1e1e"
                     border.color: modelData.danger ? Theme.red : Theme.surfaceAlt
                     border.width: 1
 
@@ -91,11 +93,12 @@ Rectangle {
 
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: modelData.label
+                            text: modelData.command === "update-shutdown" ? modelData.label + "\n" + root.updateSummary : modelData.label
                             color: Theme.foreground
                             font.family: Theme.fontFamily
                             font.pixelSize: 12
                             font.bold: true
+                            horizontalAlignment: Text.AlignHCenter
                         }
 
                     }

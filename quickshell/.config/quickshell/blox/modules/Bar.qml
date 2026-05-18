@@ -7,6 +7,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Services.SystemTray
+import Quickshell.Wayland
 
 Scope {
     id: root
@@ -104,8 +105,10 @@ Scope {
         const match = text.match(/([0-9]+)\s+repo updates,\s+([0-9]+)\s+AUR updates/);
         if (match)
             return (parseInt(match[1]) + parseInt(match[2])) + " updates";
+
         if (updates.json.class === "zero")
             return "0 updates";
+
         return text || "Check updates";
     }
 
@@ -817,6 +820,15 @@ Scope {
                         Layout.preferredHeight: root.extrasOpen ? root.extrasPush : 0
                         Layout.minimumHeight: Layout.preferredHeight
                         Layout.maximumHeight: Layout.preferredHeight
+
+                        Behavior on Layout.preferredHeight {
+                            NumberAnimation {
+                                duration: 140
+                                easing.type: Easing.OutCubic
+                            }
+
+                        }
+
                     }
 
                     RailButton {
@@ -927,7 +939,8 @@ Scope {
 
                     readonly property real topLimit: railLayout.y + clockText.y + clockText.height + 4
                     readonly property real bottomLimit: railLayout.y + extrasToggle.y
-                    readonly property real contentY: Math.max(0, height - extrasColumn.implicitHeight) - extrasScroll.offset
+                    readonly property real targetHeight: root.extrasOpen ? Math.min(extrasColumn.implicitHeight, Math.max(Theme.buttonSize, bottomLimit - topLimit)) : 0
+                    readonly property real contentY: height - extrasColumn.implicitHeight - extrasScroll.offset
 
                     function updateExtrasPush() {
                         if (!root.extrasOpen)
@@ -942,11 +955,11 @@ Scope {
                     }
 
                     x: Math.round((parent.width - width) / 2)
-                    y: bottomLimit - height
+                    y: bottomLimit - targetHeight
                     z: 10
                     width: Theme.buttonSize
-                    height: root.extrasOpen ? Math.min(extrasColumn.implicitHeight, Math.max(Theme.buttonSize, bottomLimit - topLimit)) : 0
-                    visible: root.extrasOpen
+                    height: targetHeight
+                    visible: root.extrasOpen || height > 1
                     clip: true
                     onVisibleChanged: {
                         if (visible) {
@@ -964,6 +977,7 @@ Scope {
 
                         width: parent.width
                         y: extrasViewport.contentY
+                        opacity: root.extrasOpen ? 1 : 0
                         onImplicitHeightChanged: Qt.callLater(extrasViewport.updateExtrasPush)
 
                         Repeater {
@@ -1058,6 +1072,13 @@ Scope {
                             }
                         }
 
+                        Behavior on opacity {
+                            NumberAnimation {
+                                duration: 120
+                            }
+
+                        }
+
                     }
 
                     MouseArea {
@@ -1079,26 +1100,49 @@ Scope {
                         }
                     }
 
+                    Behavior on height {
+                        NumberAnimation {
+                            duration: 160
+                            easing.type: Easing.OutCubic
+                        }
+
+                    }
+
+                    Behavior on y {
+                        NumberAnimation {
+                            duration: 160
+                            easing.type: Easing.OutCubic
+                        }
+
+                    }
+
                 }
 
             }
 
-	            PopupWindow {
-                anchor.window: panel
-                anchor.rect.x: Theme.railWidth
-                anchor.rect.y: 0
-                implicitWidth: Math.max(640, panel.screen.width - Theme.railWidth)
-                implicitHeight: panel.screen.height
+            PanelWindow {
+                screen: modelData
+                exclusionMode: ExclusionMode.Ignore
+                focusable: true
+                aboveWindows: true
                 visible: root.openPanel === "power"
-                grabFocus: true
                 color: "transparent"
+                WlrLayershell.layer: WlrLayer.Overlay
+                WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
 
-	                PowerOverlay {
-	                    anchors.fill: parent
-	                    updateSummary: root.updateSummary()
-	                    onAction: (kind) => {
-	                        return root.run(root.powerCommand(kind));
-	                    }
+                anchors {
+                    left: true
+                    right: true
+                    top: true
+                    bottom: true
+                }
+
+                PowerOverlay {
+                    anchors.fill: parent
+                    updateSummary: root.updateSummary()
+                    onAction: (kind) => {
+                        return root.run(root.powerCommand(kind));
+                    }
                     onClose: root.closePanel()
                 }
 
@@ -1167,46 +1211,51 @@ Scope {
                         addCalendarEvent.command = [root.scriptRoot + "/quickshell/calendar-add.sh", day, title];
                         addCalendarEvent.running = true;
                     }
+                    onOpenEvent: (title) => {
+                        const date = root.selectedCalendarDate ? new Date(root.selectedCalendarDate + "T00:00:00") : clock.date;
+                        root.run("xdg-open 'https://calendar.google.com/calendar/u/0/r/week/" + date.getFullYear() + "/" + (date.getMonth() + 1) + "/" + date.getDate() + "'");
+                    }
                 }
 
             }
 
-	            PopupWindow {
-	                anchor.window: panel
-	                anchor.rect.x: Theme.railWidth + 8
-	                anchor.rect.y: Math.max(8, Math.min(panel.height - performancePopout.height - 8, root.openPanelY - performancePopout.height / 2))
-	                implicitWidth: performancePopout.width
-	                implicitHeight: performancePopout.height
-	                visible: root.openPanel === "system"
-	                grabFocus: true
-	                color: "transparent"
-	
-	                PerformancePopout {
-	                    id: performancePopout
-	
-	                    status: systemInfo.json
-	                    scriptRoot: root.scriptRoot
-	                    onAction: (command) => {
-	                        root.run(command);
-	                        systemRefreshDelay.restart();
-	                    }
-	                }
-	            }
-	
-	            PopupWindow {
-	                anchor.window: panel
-	                anchor.rect.x: Theme.railWidth + 8
-	                anchor.rect.y: Math.max(8, Math.min(panel.height - systemPopout.height - 8, root.openPanelY - systemPopout.height / 2))
-	                implicitWidth: systemPopout.width
-	                implicitHeight: systemPopout.height
-	                visible: ["audio", "network", "bluetooth", "mic", "brightness", "battery"].indexOf(root.openPanel) >= 0
-	                grabFocus: true
-	                color: "transparent"
-	                onVisibleChanged: {
-	                    if (!visible && ["audio", "network", "bluetooth", "mic", "brightness", "battery"].indexOf(root.openPanel) >= 0)
-	                        root.closePanel();
-	
-	                }
+            PopupWindow {
+                anchor.window: panel
+                anchor.rect.x: Theme.railWidth + 8
+                anchor.rect.y: Math.max(8, Math.min(panel.height - performancePopout.height - 8, root.openPanelY - performancePopout.height / 2))
+                implicitWidth: performancePopout.width
+                implicitHeight: performancePopout.height
+                visible: root.openPanel === "system"
+                grabFocus: true
+                color: "transparent"
+
+                PerformancePopout {
+                    id: performancePopout
+
+                    status: systemInfo.json
+                    scriptRoot: root.scriptRoot
+                    onAction: (command) => {
+                        root.run(command);
+                        systemRefreshDelay.restart();
+                    }
+                }
+
+            }
+
+            PopupWindow {
+                anchor.window: panel
+                anchor.rect.x: Theme.railWidth + 8
+                anchor.rect.y: Math.max(8, Math.min(panel.height - systemPopout.height - 8, root.openPanelY - systemPopout.height / 2))
+                implicitWidth: systemPopout.width
+                implicitHeight: systemPopout.height
+                visible: ["audio", "network", "bluetooth", "mic", "brightness", "battery"].indexOf(root.openPanel) >= 0
+                grabFocus: true
+                color: "transparent"
+                onVisibleChanged: {
+                    if (!visible && ["audio", "network", "bluetooth", "mic", "brightness", "battery"].indexOf(root.openPanel) >= 0)
+                        root.closePanel();
+
+                }
 
                 SystemPopout {
                     id: systemPopout

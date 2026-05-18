@@ -828,24 +828,13 @@ Scope {
                     anchors.bottomMargin: 4
                     spacing: 0
 
-                    RailButton {
-                        icon: "⏻"
-                        accent: Theme.foreground
-                        active: root.openPanel === "power"
-                        onClicked: (centerY) => {
-                            return root.togglePanel("power", centerY);
-                        }
-                    }
-
-                    PanelRailButton {
-                        icon: "󰺦"
-                        accent: Theme.foreground
-                        panel: "todo"
-                        active: root.openPanel === "todo"
+                    RailTopActions {
+                        openPanel: root.openPanel
+                        scriptRoot: root.scriptRoot
                         onPanelClicked: (panel, centerY) => root.togglePanel(panel, centerY)
                         onPanelHovered: (panel, centerY, source) => root.hoverButtonEntered(panel, centerY, source)
                         onPanelExited: (source) => root.hoverButtonExited(source)
-                        onRightClicked: root.run(root.scriptRoot + "/waybar/todo/open.sh")
+                        onRunCommand: (command) => root.run(command)
                     }
 
                     Repeater {
@@ -907,15 +896,11 @@ Scope {
 
                     }
 
-                    RailButton {
+                    ExtrasToggleButton {
                         id: extrasToggle
 
-                        icon: "󰅃"
-                        accent: Theme.foreground
                         active: root.extrasOpen
-                        onClicked: () => {
-                            return root.toggleExtras();
-                        }
+                        onToggle: root.toggleExtras()
                     }
 
                     SystemRailSection {
@@ -956,273 +941,108 @@ Scope {
 
                         }
 
-                        PanelRailButton {
-                            icon: root.updateIcon()
-                            accent: updates.json.class === "zero" ? Theme.green : updates.json.class === "error" ? Theme.red : Theme.yellow
-                            panel: "updates"
+                        ExtrasActionSection {
+                            openPanel: root.openPanel
                             centerOffset: extrasViewport.popupCenterY(0)
-                            active: root.openPanel === "updates"
+                            updateIcon: root.updateIcon()
+                            updatesStatus: updates.json
+                            bluetoothStatus: bluetooth.json
+                            audioStatus: audio.json
+                            brightnessStatus: brightness.json
+                            privacyStatus: privacy.json
+                            scriptRoot: root.scriptRoot
                             onPanelClicked: (panel, centerY) => root.togglePanel(panel, centerY)
                             onPanelHovered: (panel, centerY, source) => root.hoverButtonEntered(panel, centerY, source)
                             onPanelExited: (source) => root.hoverButtonExited(source)
-                            onRightClicked: root.run("kitty --class update-list --title update-list sh -c '" + root.scriptRoot + "/waybar/update/update-list.sh'")
-                        }
-
-                        PanelRailButton {
-                            icon: bluetooth.json.icon || "󰂯"
-                            accent: bluetooth.json.class === "connected" ? Theme.blue : bluetooth.json.class === "disabled" ? Theme.red : Theme.foreground
-                            panel: "bluetooth"
-                            centerOffset: extrasViewport.popupCenterY(0)
-                            active: root.openPanel === "bluetooth"
-                            onPanelClicked: (panel, centerY) => root.togglePanel(panel, centerY)
-                            onPanelHovered: (panel, centerY, source) => root.hoverButtonEntered(panel, centerY, source)
-                            onPanelExited: (source) => root.hoverButtonExited(source)
-                            onRightClicked: root.run("blueman-manager")
-                        }
-
-                        PanelRailButton {
-                            icon: audio.json.micIcon || "󰍬"
-                            accent: audio.json.micMuted ? Theme.red : Theme.foreground
-                            panel: "mic"
-                            centerOffset: extrasViewport.popupCenterY(0)
-                            active: root.openPanel === "mic"
-                            onPanelClicked: (panel, centerY) => root.togglePanel(panel, centerY)
-                            onPanelHovered: (panel, centerY, source) => root.hoverButtonEntered(panel, centerY, source)
-                            onPanelExited: (source) => root.hoverButtonExited(source)
-                            onRightClicked: root.run("pavucontrol -t 4")
-                        }
-
-                        PanelRailButton {
-                            icon: brightness.json.icon || "󰃠"
-                            accent: Theme.yellow
-                            panel: "brightness"
-                            centerOffset: extrasViewport.popupCenterY(0)
-                            active: root.openPanel === "brightness"
-                            onPanelClicked: (panel, centerY) => root.togglePanel(panel, centerY)
-                            onPanelHovered: (panel, centerY, source) => root.hoverButtonEntered(panel, centerY, source)
-                            onPanelExited: (source) => root.hoverButtonExited(source)
-                            onRightClicked: root.run(root.scriptRoot + "/waybar/hyprsunset-toggle.sh")
-                            onWheeled: (delta) => {
-                                return root.run("brightnessctl -d amdgpu_bl1 set " + (delta > 0 ? "+2%" : "2%-"));
-                            }
-                        }
-
-                        PanelRailButton {
-                            icon: privacy.json.icon || "󰍹"
-                            accent: privacy.json.class === "active" ? Theme.yellow : Theme.foreground
-                            panel: "privacy"
-                            centerOffset: extrasViewport.popupCenterY(0)
-                            active: root.openPanel === "privacy"
-                            onPanelClicked: (panel, centerY) => root.togglePanel(panel, centerY)
-                            onPanelHovered: (panel, centerY, source) => root.hoverButtonEntered(panel, centerY, source)
-                            onPanelExited: (source) => root.hoverButtonExited(source)
+                            onRunCommand: (command) => root.run(command)
                         }
 
                 }
 
             }
 
-            PanelWindow {
-                screen: modelData
-                exclusionMode: ExclusionMode.Ignore
-                focusable: true
-                aboveWindows: true
-                visible: root.openPanel === "power"
-                color: "transparent"
-                WlrLayershell.layer: WlrLayer.Overlay
-                WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
-
-                anchors {
-                    left: true
-                    right: true
-                    top: true
-                    bottom: true
-                }
-
-                PowerOverlay {
-                    anchors.fill: parent
-                    updateSummary: root.updateSummary()
-                    onAction: (kind) => {
-                        return root.run(root.powerCommand(kind));
-                    }
-                    onClose: root.closePanel()
-                }
-
+            PowerOverlayWindow {
+                targetScreen: modelData
+                open: root.openPanel === "power"
+                updateSummary: root.updateSummary()
+                onAction: (kind) => root.run(root.powerCommand(kind))
+                onClose: root.closePanel()
             }
 
-            HoverPopupWindow {
-                anchorWindow: panel
-                anchorY: Math.max(8, Math.min(panel.height - notesPopout.height - 8, root.openPanelY - notesPopout.height / 2))
-                contentWidth: notesPopout.width
-                contentHeight: notesPopout.height
-                visible: root.openPanel === "todo"
+            BarPopouts {
+                panelWindow: panel
+                panelHeight: panel.height
+                screenWidth: panel.screen ? panel.screen.width : 0
+                openPanel: root.openPanel
+                openPanelY: root.openPanelY
+                trayMenuY: root.trayMenuY
+                trayMenuOpen: root.trayMenuOpen
+                trayMenuHandle: root.trayMenuHandle
+                trayMenuTitle: root.trayMenuTitle
+                todoStatus: todo.json
+                clockDate: clock.date
+                selectedCalendarDate: root.selectedCalendarDate
+                calendarStatus: calendarEvents.json || ({})
+                systemStatus: systemInfo.json || ({})
+                scriptRoot: root.scriptRoot
+                systemTitle: root.systemPanelTitle()
+                systemBody: root.systemPanelBody()
+                systemActions: root.systemPanelActions()
+                audioVolume: audio.json.volume || 0
+                audioMuted: !!audio.json.muted
+                micMuted: !!audio.json.micMuted
+                wifiIcon: network.json.icon || "󰤩"
+                wifiText: network.json.ssid || network.json.class || "Wi-Fi"
+                bluetoothIcon: bluetooth.json.icon || "󰂯"
+                brightnessPercent: brightness.json.percent || 0
+                basicTitle: root.panelTitle()
+                basicBody: root.panelBody()
+                basicActions: root.panelActions()
                 onHoverEntered: root.popoutEntered()
                 onHoverExited: root.popoutExited()
-
-                NotesPopout {
-                    id: notesPopout
-
-                    title: todo.json.name || "notes.md"
-                    body: todo.json.raw || ""
-                    file: todo.json.file || ""
-                    index: todo.json.index || 0
-                    count: todo.json.count || 1
-                    maxPopoutWidth: panel.width > 0 && panel.screen ? panel.screen.width * 0.75 : 680
-                    maxPopoutHeight: panel.height > 0 ? panel.height * 0.75 : 760
-                    onPrevious: {
-                        root.run(root.scriptRoot + "/quickshell/todo-cycle.sh -1");
-                        todoRefreshDelay.restart();
-                    }
-                    onNext: {
-                        root.run(root.scriptRoot + "/quickshell/todo-cycle.sh 1");
-                        todoRefreshDelay.restart();
-                    }
-                    onSave: (file, body) => {
-                        saveNotes.running = false;
-                        saveNotes.command = ["python3", "-c", "from pathlib import Path; import sys; Path(sys.argv[1]).write_text(sys.argv[2])", file, body];
-                        saveNotes.running = true;
-                        notesPopout.editing = false;
-                    }
+                onClosePanel: root.closePanel()
+                onCloseTrayMenu: root.closeTrayMenu()
+                onPreviousTodo: {
+                    root.run(root.scriptRoot + "/quickshell/todo-cycle.sh -1");
+                    todoRefreshDelay.restart();
                 }
-
-            }
-
-            HoverPopupWindow {
-                anchorWindow: panel
-                anchorY: Math.max(8, Math.min(panel.height - trayMenuPopout.height - 8, root.trayMenuY - trayMenuPopout.height / 2))
-                contentWidth: trayMenuPopout.width
-                contentHeight: trayMenuPopout.height
-                visible: root.trayMenuOpen
-                onHoverEntered: root.popoutEntered()
-                onHoverExited: root.popoutExited()
-
-                TrayMenuPopout {
-                    id: trayMenuPopout
-
-                    menuHandle: root.trayMenuHandle
-                    title: root.trayMenuTitle
-                    onTriggered: root.closeTrayMenu()
+                onNextTodo: {
+                    root.run(root.scriptRoot + "/quickshell/todo-cycle.sh 1");
+                    todoRefreshDelay.restart();
                 }
-            }
-
-            HoverPopupWindow {
-                anchorWindow: panel
-                anchorY: Math.max(8, Math.min(panel.height - calendarPopout.height - 8, root.openPanelY - calendarPopout.height / 2))
-                contentWidth: calendarPopout.width
-                contentHeight: calendarPopout.height
-                visible: root.openPanel === "calendar"
-                onHoverEntered: root.popoutEntered()
-                onHoverExited: root.popoutExited()
-
-                CalendarPopout {
-                    id: calendarPopout
-
-                    baseDate: clock.date
-                    selectedDate: root.selectedCalendarDate ? new Date(root.selectedCalendarDate + "T00:00:00") : clock.date
-                    events: calendarEvents.json.events || []
-                    eventsText: calendarEvents.json.raw || "No events"
-                    onResetMonth: root.resetCalendarMonth()
-                    onSelected: (day) => {
-                        root.selectedCalendarDate = day;
-                        calendarEvents.refresh();
-                    }
-                    onAddEvent: (day, title) => {
-                        addCalendarEvent.running = false;
-                        addCalendarEvent.command = [root.scriptRoot + "/quickshell/calendar-add.sh", day, title];
-                        addCalendarEvent.running = true;
-                    }
-                    onOpenEvent: (title) => {
-                        const date = root.selectedCalendarDate ? new Date(root.selectedCalendarDate + "T00:00:00") : clock.date;
-                        root.run("xdg-open 'https://calendar.google.com/calendar/u/0/r/week/" + date.getFullYear() + "/" + (date.getMonth() + 1) + "/" + date.getDate() + "'");
-                    }
+                onSaveTodo: (file, body) => {
+                    saveNotes.running = false;
+                    saveNotes.command = ["python3", "-c", "from pathlib import Path; import sys; Path(sys.argv[1]).write_text(sys.argv[2])", file, body];
+                    saveNotes.running = true;
                 }
-
-            }
-
-            HoverPopupWindow {
-                anchorWindow: panel
-                anchorY: Math.max(8, Math.min(panel.height - performancePopout.height - 8, root.openPanelY - performancePopout.height / 2))
-                contentWidth: performancePopout.width
-                contentHeight: performancePopout.height
-                visible: root.openPanel === "system"
-                onHoverEntered: root.popoutEntered()
-                onHoverExited: root.popoutExited()
-
-                PerformancePopout {
-                    id: performancePopout
-
-                    status: systemInfo.json
-                    scriptRoot: root.scriptRoot
-                    onAction: (command) => {
-                        root.run(command);
-                        systemRefreshDelay.restart();
-                    }
+                onResetCalendarMonth: root.resetCalendarMonth()
+                onSelectCalendarDate: (day) => {
+                    root.selectedCalendarDate = day;
+                    calendarEvents.refresh();
                 }
-
-            }
-
-            HoverPopupWindow {
-                anchorWindow: panel
-                anchorY: Math.max(8, Math.min(panel.height - systemPopout.height - 8, root.openPanelY - systemPopout.height / 2))
-                contentWidth: systemPopout.width
-                contentHeight: systemPopout.height
-                visible: ["audio", "network", "bluetooth", "mic", "brightness", "battery"].indexOf(root.openPanel) >= 0
-                onHoverEntered: root.popoutEntered()
-                onHoverExited: root.popoutExited()
-                onVisibleChanged: {
-                    if (!visible && ["audio", "network", "bluetooth", "mic", "brightness", "battery"].indexOf(root.openPanel) >= 0)
+                onAddCalendarEvent: (day, title) => {
+                    addCalendarEvent.running = false;
+                    addCalendarEvent.command = [root.scriptRoot + "/quickshell/calendar-add.sh", day, title];
+                    addCalendarEvent.running = true;
+                }
+                onOpenCalendarEvent: {
+                    const date = root.selectedCalendarDate ? new Date(root.selectedCalendarDate + "T00:00:00") : clock.date;
+                    root.run("xdg-open 'https://calendar.google.com/calendar/u/0/r/week/" + date.getFullYear() + "/" + (date.getMonth() + 1) + "/" + date.getDate() + "'");
+                }
+                onPerformanceAction: (command) => {
+                    root.run(command);
+                    systemRefreshDelay.restart();
+                }
+                onSystemAction: (command, keepOpen) => {
+                    root.run(command);
+                    if (!keepOpen)
                         root.closePanel();
-
                 }
-
-                SystemPopout {
-                    id: systemPopout
-
-                    title: root.systemPanelTitle()
-                    body: root.systemPanelBody()
-                    actions: root.systemPanelActions()
-                    mode: root.openPanel
-                    audioVolume: audio.json.volume || 0
-                    audioMuted: !!audio.json.muted
-                    micMuted: !!audio.json.micMuted
-                    wifiIcon: network.json.icon || "󰤩"
-                    wifiText: network.json.ssid || network.json.class || "Wi-Fi"
-                    bluetoothIcon: bluetooth.json.icon || "󰂯"
-                    brightnessPercent: brightness.json.percent || 0
-                    onAction: (command, keepOpen) => {
-                        root.run(command);
-                        if (!keepOpen)
-                            root.closePanel();
-
-                    }
+                onBasicAction: (command, keepOpen) => {
+                    root.run(command);
+                    if (!keepOpen)
+                        root.closePanel();
                 }
-
-            }
-
-            HoverPopupWindow {
-                anchorWindow: panel
-                anchorY: Math.max(8, Math.min(panel.height - popout.height - 8, root.openPanelY - popout.height / 2))
-                contentWidth: 320
-                contentHeight: popout.height
-                visible: ["updates", "privacy"].indexOf(root.openPanel) >= 0
-                onHoverEntered: root.popoutEntered()
-                onHoverExited: root.popoutExited()
-
-                BasicPopout {
-                    id: popout
-
-                    width: 320
-                    title: root.panelTitle()
-                    body: root.panelBody()
-                    actions: root.panelActions()
-                    onAction: (command, keepOpen) => {
-                        root.run(command);
-                        if (!keepOpen)
-                            root.closePanel();
-
-                    }
-                }
-
             }
 
         }

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <object class="GtkMenu" id="menu">
+    <child>
+      <object class="GtkSeparatorMenuItem" id="sep1"/>
+    </child>
+        <child>
+      <object class="GtkMenuItem" id="gaming-mode">
+        <property name="label">󰪫 Gaming Mode (GPU + 144Hz)</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkMenuItem" id="perf-mode">
+        <property name="label">󰢮 Performance Mode (GPU + 60Hz)</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkMenuItem" id="high-refresh">
+        <property name="label"> High Refresh (iGPU + 144Hz)</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkMenuItem" id="eco-mode">
+        <property name="label">󰌪 Eco Mode (iGPU + 60Hz)</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkSeparatorMenuItem" id="sep2"/>
+    </child>
+    <child>
+      <object class="GtkMenuItem" id="toggle-gpu">
+        <property name="label">Toggle GPU</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkMenuItem" id="nvidia-settings">
+        <property name="label">NVIDIA Settings</property>
+      </object>
+    </child>
+  </object>
+</interface>

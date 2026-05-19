@@ -153,6 +153,10 @@ Scope {
         return -1;
     }
 
+    function focusedWorkspaceId() {
+        return Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : activeWorkspaceId();
+    }
+
     function workspaceAlert(id) {
         return alertWorkspaceIds.indexOf("," + id + ",") >= 0;
     }
@@ -177,6 +181,14 @@ Scope {
     function focusWindow(address) {
         if (address !== undefined && address.length > 0)
             Hyprland.dispatch("focuswindow address:" + address);
+    }
+
+    function lookupWindowWorkspace(address) {
+        if (address === undefined || address.length === 0 || activationLookup.running)
+            return ;
+
+        activationLookup.command = ["python3", root.scriptRoot + "/quickshell/window-workspace.py", address];
+        activationLookup.running = true;
     }
 
     function activateWorkspaceItem(item) {
@@ -801,6 +813,26 @@ Scope {
         onExited: calendarEvents.refresh()
     }
 
+    Process {
+        id: activationLookup
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let info = {};
+                try {
+                    info = this.text.trim().length > 0 ? JSON.parse(this.text.trim()) : {};
+                } catch (error) {
+                    info = {};
+                }
+
+                const workspaceId = parseInt(info.workspace);
+                const address = info.address || "";
+                if (!isNaN(workspaceId) && workspaceId !== root.focusedWorkspaceId())
+                    root.addWorkspaceAlert(workspaceId, address);
+            }
+        }
+    }
+
     Connections {
         function onRawEvent(event) {
             workspaces.refresh();
@@ -818,7 +850,10 @@ Scope {
 
             } else if (event.name === "urgent") {
                 alertWindowAddress = event.data || "";
+                lookupWindowWorkspace(alertWindowAddress);
                 urgentSwitchDelay.restart();
+            } else if (event.name === "activewindowv2") {
+                lookupWindowWorkspace(event.data || "");
             }
         }
 

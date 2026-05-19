@@ -270,6 +270,7 @@ blankwindow,
 
 .control-center .notification-row .notification-background .notification .notification-content .summary,
 .floating-notifications.background .notification-background .notification .notification-content .summary {
+    font-family: "MartianMono Nerd Font Propo";
     color: @text;
     font-size: 12px;
     font-weight: 700;
@@ -277,6 +278,7 @@ blankwindow,
 
 .control-center .notification-row .notification-background .notification .notification-content .time,
 .floating-notifications.background .notification-background .notification .notification-content .time {
+    font-family: "MartianMono Nerd Font Propo";
     color: @text-muted;
     font-size: 10px;
     font-weight: 500;
@@ -285,6 +287,7 @@ blankwindow,
 
 .control-center .notification-row .notification-background .notification .notification-content .body,
 .floating-notifications.background .notification-background .notification .notification-content .body {
+    font-family: "Google Sans Display";
     color: @text-dim;
     font-size: 11px;
     font-weight: 400;

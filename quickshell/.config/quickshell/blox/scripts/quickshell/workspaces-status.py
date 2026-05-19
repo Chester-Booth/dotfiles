@@ -12,7 +12,7 @@ def hypr_json(*args):
 
 
 ICON_RULES = [
-    (("t3",), ""),
+    (("t3",), "T3"),
     (("intellij", "idea"), ""),
     (("code",), "󰨞"),
     (("firefox",), "󰈹"),

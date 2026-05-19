@@ -230,7 +230,7 @@ Scope {
         if (address === undefined || address.length === 0 || activationLookup.running)
             return ;
 
-        activationLookup.command = ["python3", root.scriptRoot + "/quickshell/window-workspace.py", address];
+        activationLookup.command = ["python3", root.scriptRoot + "/workspaces/window-for-address.py", address];
         activationLookup.running = true;
     }
 
@@ -262,9 +262,9 @@ Scope {
 
     function powerCommand(kind) {
         if (kind === "update-shutdown")
-            return "kitty --class update-shutdown --title update-shutdown sh -c '" + root.scriptRoot + "/waybar/update/update-run.sh; " + root.scriptRoot + "/waybar/power/safe-power.sh shutdown'";
+            return "kitty --class update-shutdown --title update-shutdown sh -c '" + root.scriptRoot + "/update/run.sh; " + root.scriptRoot + "/power/safe.sh shutdown'";
 
-        return root.scriptRoot + "/waybar/power/safe-power.sh " + kind;
+        return root.scriptRoot + "/power/safe.sh " + kind;
     }
 
     function updateSummary() {
@@ -366,7 +366,7 @@ Scope {
             "keepOpen": true
         }, {
             "label": "Open app",
-            "command": root.scriptRoot + "/waybar/network/nm-applet-toggle.sh"
+            "command": root.scriptRoot + "/network/toggle-applet.sh"
         }];
 
         if (openPanel === "bluetooth")
@@ -506,7 +506,7 @@ Scope {
 
     function panelBody() {
         if (openPanel === "power")
-            return "Session actions use the copied safe-power backend, including the micro guard.";
+            return "Session actions use the guarded power backend, including the micro guard.";
 
         if (openPanel === "todo")
             return todo.json.tooltip || "Todo status unavailable";
@@ -555,48 +555,45 @@ Scope {
         if (current === "power")
             return [{
             "label": "Lock",
-            "command": root.scriptRoot + "/waybar/power/safe-power.sh lock"
+            "command": root.scriptRoot + "/power/safe.sh lock"
         }, {
             "label": "Sleep",
-            "command": root.scriptRoot + "/waybar/power/safe-power.sh sleep"
+            "command": root.scriptRoot + "/power/safe.sh sleep"
         }, {
             "label": "Hibernate",
-            "command": root.scriptRoot + "/waybar/power/safe-power.sh hibernate"
+            "command": root.scriptRoot + "/power/safe.sh hibernate"
         }, {
             "label": "Reboot",
-            "command": root.scriptRoot + "/waybar/power/safe-power.sh reboot",
+            "command": root.scriptRoot + "/power/safe.sh reboot",
             "danger": true
         }, {
             "label": "Shut down",
-            "command": root.scriptRoot + "/waybar/power/safe-power.sh shutdown",
+            "command": root.scriptRoot + "/power/safe.sh shutdown",
             "danger": true
         }];
 
         if (current === "todo")
             return [{
             "label": "Cycle file",
-            "command": root.scriptRoot + "/waybar/todo/cycle.sh"
+            "command": root.scriptRoot + "/todo/cycle.sh"
         }, {
             "label": "Open editor",
-            "command": root.scriptRoot + "/waybar/todo/open.sh"
+            "command": root.scriptRoot + "/todo/open.sh"
         }];
 
         if (current === "calendar")
             return [{
-            "label": "Add calendar item",
-            "command": root.scriptRoot + "/waybar/cal/add.sh"
-        }, {
-            "label": "Cycle calendar mode",
-            "command": root.scriptRoot + "/waybar/cal/cycle.sh"
+            "label": "Open calendar",
+            "command": "xdg-open 'https://calendar.google.com/calendar/u/0/r/week'"
         }];
 
         if (current === "extras")
             return [{
             "label": "Run updates",
-            "command": "kitty --class update --title update sh -c '" + root.scriptRoot + "/waybar/update/update-run.sh; echo Done - press enter; read'"
+            "command": "kitty --class update --title update sh -c '" + root.scriptRoot + "/update/run.sh; echo Done - press enter; read'"
         }, {
             "label": "List updates",
-            "command": "kitty --class update-list --title update-list sh -c '" + root.scriptRoot + "/waybar/update/update-list.sh'"
+            "command": "kitty --class update-list --title update-list sh -c '" + root.scriptRoot + "/update/list.sh'"
         }, {
             "label": bluetooth.json.class === "disabled" ? "Enable Bluetooth" : "Toggle Bluetooth",
             "command": "rfkill toggle bluetooth"
@@ -617,18 +614,18 @@ Scope {
             "command": "brightnessctl -d amdgpu_bl1 set 5%-"
         }, {
             "label": "Toggle sunset",
-            "command": root.scriptRoot + "/waybar/hyprsunset-toggle.sh"
+            "command": root.scriptRoot + "/display/hyprsunset-toggle.sh"
         }];
 
         if (current === "updates")
             return [{
             "icon": "󰇚",
             "label": "Run updates",
-            "command": "kitty --class update --title update sh -c '" + root.scriptRoot + "/waybar/update/update-run.sh; echo Done - press enter; read'"
+            "command": "kitty --class update --title update sh -c '" + root.scriptRoot + "/update/run.sh; echo Done - press enter; read'"
         }, {
             "icon": "",
             "label": "List updates",
-            "command": "kitty --class update-list --title update-list sh -c '" + root.scriptRoot + "/waybar/update/update-list.sh'"
+            "command": "kitty --class update-list --title update-list sh -c '" + root.scriptRoot + "/update/list.sh'"
         }];
 
         if (current === "bluetooth")
@@ -649,7 +646,7 @@ Scope {
             "command": "brightnessctl -d amdgpu_bl1 set 5%-"
         }, {
             "label": "Toggle sunset",
-            "command": root.scriptRoot + "/waybar/hyprsunset-toggle.sh"
+            "command": root.scriptRoot + "/display/hyprsunset-toggle.sh"
         }];
 
         if (current === "audio")
@@ -673,7 +670,7 @@ Scope {
             "command": "nmcli radio wifi " + (network.json.class === "disabled" ? "on" : "off")
         }, {
             "label": "Network applet",
-            "command": root.scriptRoot + "/waybar/network/nm-applet-toggle.sh"
+            "command": root.scriptRoot + "/network/toggle-applet.sh"
         }, {
             "label": bluetooth.json.class === "disabled" ? "Enable Bluetooth" : "Toggle Bluetooth",
             "command": "rfkill toggle bluetooth"
@@ -709,16 +706,16 @@ Scope {
         if (current === "gpu")
             return [{
             "label": "Gaming: GPU + 144Hz",
-            "command": root.scriptRoot + "/waybar/gpu/modes/gpu144.sh"
+            "command": root.scriptRoot + "/gpu/modes/gpu144.sh"
         }, {
             "label": "Performance: GPU + 60Hz",
-            "command": root.scriptRoot + "/waybar/gpu/modes/gpu60.sh"
+            "command": root.scriptRoot + "/gpu/modes/gpu60.sh"
         }, {
             "label": "High refresh: iGPU + 144Hz",
-            "command": root.scriptRoot + "/waybar/gpu/modes/igpu144.sh"
+            "command": root.scriptRoot + "/gpu/modes/igpu144.sh"
         }, {
             "label": "Eco: iGPU + 60Hz",
-            "command": root.scriptRoot + "/waybar/gpu/modes/igpu60.sh"
+            "command": root.scriptRoot + "/gpu/modes/igpu60.sh"
         }];
 
         return [];
@@ -733,98 +730,98 @@ Scope {
     ScriptPoller {
         id: workspaces
 
-        command: [root.scriptRoot + "/quickshell/workspaces-status.py"]
+        command: [root.scriptRoot + "/workspaces/status.py"]
         interval: 60000
     }
 
     ScriptPoller {
         id: gpu
 
-        command: [root.scriptRoot + "/waybar/gpu/gpu-status.sh"]
+        command: [root.scriptRoot + "/status/gpu.sh"]
         interval: 5000
     }
 
     ScriptPoller {
         id: fan
 
-        command: [root.scriptRoot + "/waybar/fan/fan-status.sh"]
+        command: [root.scriptRoot + "/status/fan.sh"]
         interval: 10000
     }
 
     ScriptPoller {
         id: systemInfo
 
-        command: [root.scriptRoot + "/quickshell/system-status.sh"]
+        command: [root.scriptRoot + "/status/system.sh"]
         interval: 5000
     }
 
     ScriptPoller {
         id: todo
 
-        command: [root.scriptRoot + "/quickshell/todo-status.sh"]
+        command: [root.scriptRoot + "/todo/status.sh"]
         interval: 10000
     }
 
     ScriptPoller {
         id: calendarEvents
 
-        command: [root.scriptRoot + "/quickshell/calendar-events.sh", root.selectedCalendarDate || root.currentIsoDate()]
+        command: [root.scriptRoot + "/calendar/events.sh", root.selectedCalendarDate || root.currentIsoDate()]
         interval: 300000
     }
 
     ScriptPoller {
         id: updates
 
-        command: [root.scriptRoot + "/waybar/update/update.sh"]
+        command: [root.scriptRoot + "/update/status.sh"]
         interval: 3.6e+06
     }
 
     ScriptPoller {
         id: battery
 
-        command: [root.scriptRoot + "/quickshell/battery-status.sh"]
+        command: [root.scriptRoot + "/status/battery.sh"]
         interval: 5000
     }
 
     ScriptPoller {
         id: audio
 
-        command: [root.scriptRoot + "/quickshell/audio-status.sh"]
+        command: [root.scriptRoot + "/status/audio.sh"]
         interval: 2000
     }
 
     ScriptPoller {
         id: brightness
 
-        command: [root.scriptRoot + "/quickshell/brightness-status.sh"]
+        command: [root.scriptRoot + "/status/brightness.sh"]
         interval: 5000
     }
 
     ScriptPoller {
         id: network
 
-        command: [root.scriptRoot + "/quickshell/network-status.sh"]
+        command: [root.scriptRoot + "/status/network.sh"]
         interval: 5000
     }
 
     ScriptPoller {
         id: bluetooth
 
-        command: [root.scriptRoot + "/quickshell/bluetooth-status.sh"]
+        command: [root.scriptRoot + "/status/bluetooth.sh"]
         interval: 5000
     }
 
     ScriptPoller {
         id: notifications
 
-        command: [root.scriptRoot + "/quickshell/notification-status.sh"]
+        command: [root.scriptRoot + "/status/notifications.sh"]
         interval: 2000
     }
 
     ScriptPoller {
         id: privacy
 
-        command: [root.scriptRoot + "/quickshell/privacy-status.sh"]
+        command: [root.scriptRoot + "/status/privacy.sh"]
         interval: 5000
     }
 
@@ -1262,16 +1259,16 @@ Scope {
                 onClosePanel: root.closePanel()
                 onCloseTrayMenu: root.closeTrayMenu()
                 onPreviousTodo: {
-                    root.run(root.scriptRoot + "/quickshell/todo-cycle.sh -1");
+                    root.run(root.scriptRoot + "/todo/cycle.sh -1");
                     todoRefreshDelay.restart();
                 }
                 onNextTodo: {
-                    root.run(root.scriptRoot + "/quickshell/todo-cycle.sh 1");
+                    root.run(root.scriptRoot + "/todo/cycle.sh 1");
                     todoRefreshDelay.restart();
                 }
                 onRefreshTodo: {
                     refreshGeneratedNotes.running = false;
-                    refreshGeneratedNotes.command = [root.scriptRoot + "/quickshell/todo-generated-refresh.sh"];
+                    refreshGeneratedNotes.command = [root.scriptRoot + "/todo/generated-refresh.sh"];
                     refreshGeneratedNotes.running = true;
                 }
                 onSaveTodo: (file, body) => {
@@ -1286,7 +1283,7 @@ Scope {
                 }
                 onAddCalendarEvent: (day, title) => {
                     addCalendarEvent.running = false;
-                    addCalendarEvent.command = [root.scriptRoot + "/quickshell/calendar-add.sh", day, title];
+                    addCalendarEvent.command = [root.scriptRoot + "/calendar/add-event.sh", day, title];
                     addCalendarEvent.running = true;
                 }
                 onOpenCalendarEvent: {

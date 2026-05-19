@@ -7,7 +7,7 @@ After=network-online.target
 [Service]
 Type=oneshot
 EnvironmentFile=-%h/.config/quickshell/blox/env
-ExecStart=%h/.config/quickshell/blox/scripts/quickshell/todo-generated-refresh.sh
+ExecStart=%h/.config/quickshell/blox/scripts/todo/generated-refresh.sh
 
 [Install]
 WantedBy=default.target

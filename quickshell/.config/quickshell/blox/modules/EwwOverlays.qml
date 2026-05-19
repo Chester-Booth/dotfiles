@@ -35,21 +35,21 @@ Scope {
     ScriptPoller {
         id: workspaceState
 
-        command: [root.scriptRoot + "/quickshell/overlay-workspace-empty.sh"]
+        command: [root.scriptRoot + "/overlays/workspace-empty.sh"]
         interval: 60000
     }
 
     ScriptPoller {
         id: todoContent
 
-        command: [root.scriptRoot + "/quickshell/overlay-todo-content.sh"]
+        command: [root.scriptRoot + "/overlays/todo-content.sh"]
         interval: 1000
     }
 
     ScriptPoller {
         id: gcalContent
 
-        command: [root.scriptRoot + "/quickshell/overlay-gcal-content.sh"]
+        command: [root.scriptRoot + "/overlays/gcal-content.sh"]
         interval: 1000
     }
 
@@ -62,7 +62,7 @@ Scope {
     Process {
         id: generatedRefresh
 
-        command: [root.scriptRoot + "/quickshell/todo-generated-refresh.sh"]
+        command: [root.scriptRoot + "/todo/generated-refresh.sh"]
         onExited: root.refreshOverlays()
     }
 
@@ -111,8 +111,8 @@ Scope {
                 id: todoBox
 
                 text: todoContent.raw.length > 0 ? todoContent.raw : "Loading..."
-                onLeftClicked: root.run(root.scriptRoot + "/quickshell/overlay-cycle-todo.sh")
-                onRightClicked: root.run(root.scriptRoot + "/quickshell/overlay-open-todo-editor.sh")
+                onLeftClicked: root.run(root.scriptRoot + "/overlays/cycle-todo.sh")
+                onRightClicked: root.run(root.scriptRoot + "/overlays/open-todo-editor.sh")
             }
 
         }
@@ -153,8 +153,8 @@ Scope {
                 id: gcalBox
 
                 text: gcalContent.raw.length > 0 ? gcalContent.raw : "Loading..."
-                onLeftClicked: root.run(root.scriptRoot + "/quickshell/overlay-cycle-gcal.sh")
-                onRightClicked: root.run(root.scriptRoot + "/quickshell/overlay-open-gcal.sh")
+                onLeftClicked: root.run(root.scriptRoot + "/overlays/cycle-gcal.sh")
+                onRightClicked: root.run(root.scriptRoot + "/overlays/open-gcal.sh")
             }
 
         }

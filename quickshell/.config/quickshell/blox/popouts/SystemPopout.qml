@@ -82,21 +82,26 @@ Rectangle {
     }
 
     function micActions() {
-        return actions.filter((item) => String(item.label || "").toLowerCase().indexOf("mic") >= 0);
+        return actions.filter((item) => {
+            return String(item.label || "").toLowerCase().indexOf("mic") >= 0;
+        });
     }
 
     function bluetoothActions() {
-        return actions.filter((item) => String(item.label || "").toLowerCase().indexOf("mic") < 0);
+        return actions.filter((item) => {
+            return String(item.label || "").toLowerCase().indexOf("mic") < 0;
+        });
     }
 
     function normalActions() {
-        return actions.filter((item) => String(item.label || "").toLowerCase().indexOf("open app") < 0);
+        return actions.filter((item) => {
+            return String(item.label || "").toLowerCase().indexOf("open app") < 0;
+        });
     }
 
     onAudioVolumeChanged: visualAudioVolume = audioVolume
     onBrightnessPercentChanged: visualBrightnessPercent = brightnessPercent
     onBlueLightModeChanged: visualBlueLightMode = blueLightMode
-
     width: 330
     height: Math.min(520, Math.max(178, content.implicitHeight + 24))
     radius: 8
@@ -171,6 +176,7 @@ Rectangle {
                         cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                         onClicked: root.action("pactl set-sink-mute @DEFAULT_SINK@ toggle", true)
                     }
+
                 }
 
                 ColumnLayout {
@@ -264,7 +270,7 @@ Rectangle {
                 }]
                 onSelected: (id) => {
                     root.visualBlueLightMode = id;
-                    root.action(root.scriptRoot + "/quickshell/blue-light-mode.sh " + id, true);
+                    root.action(root.scriptRoot + "/display/blue-light-mode.sh " + id, true);
                 }
             }
 
@@ -422,6 +428,7 @@ Rectangle {
                     }
 
                 }
+
             }
 
             Rectangle {
@@ -441,18 +448,20 @@ Rectangle {
                     }
 
                 }
+
             }
 
             MouseArea {
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-
                 function valueAt(xPos) {
                     return Math.round(Math.max(0, Math.min(1, xPos / width)) * 100);
                 }
 
-                onPressed: (mouse) => slider.value = valueAt(mouse.x)
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onPressed: (mouse) => {
+                    return slider.value = valueAt(mouse.x);
+                }
                 onPositionChanged: (mouse) => {
                     if (pressed) {
                         slider.value = valueAt(mouse.x);
@@ -462,6 +471,7 @@ Rectangle {
                 onPressedChanged: {
                     if (pressed)
                         slider.changed(slider.value);
+
                 }
             }
 
@@ -563,6 +573,7 @@ Rectangle {
                     }
 
                 }
+
             }
 
             RowLayout {

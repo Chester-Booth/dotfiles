@@ -1,5 +1,9 @@
-@import url("/home/blox/.config/quickshell/blox/shared/colors.css");
-@define-color text  @foreground;
+@import url('/home/blox/.config/quickshell/blox/shared/colors.css');
+
+@define-color mauve  @color9;
+@define-color red  @color9;
+@define-color lavender  @color7;
+@define-color text  @color7;
 @keyframes fadeIn {
     0% {
     }
@@ -8,32 +12,32 @@
 }
 
 * {
-    all:unset;
-    font-family: 'Google Sans NF', sans-serif;
+    all: unset;
+    font-family: 'CodeNewRoman Nerd Font Mono', monospace;
     font-size: 18px;
     outline: none;
     border: none;
     text-shadow:none;
+    background-color:transparent;
 }
 
 window {
     all:unset;
-    margin: 0px;
-    padding: 10px;
+    padding: 20px;
     border-radius: 0px;
-    background-color: alpha(@background,0.8);
+    background-color: alpha(@background,.5);
 }
 #inner-box {
-    margin: 0px;
-    padding: 0px;
+    margin: 2px;
+    padding: 5px
     border: none;
 }
-#outer-box {
+#outer-box {    
     border: none;
 }
 #scroll {
     margin: 0px;
-    padding: 10px;
+    padding: 30px;
     border: none;
 }
 #input {
@@ -44,15 +48,14 @@ window {
     padding: 20px;
     border: none;
     outline: none;
-    color: @foreground;
-    box-shadow: 1px 1px 5px rgba(0,0,0, .5);
-    border-radius:0;
-    background-color: alpha(@color4,0.4);
+    color: @text;
+    box-shadow: 1px 1px 5px rgba(0, 0, 0, .5);
+    border-radius:10;
+    background-color: alpha(@background,.2);
 }
 #input image {
     border: none;
-    color: @foreground;
-    padding-right:10px;
+    color: @red;
 }
 #input * {
     border: none;
@@ -62,14 +65,7 @@ window {
 #input:focus {
     outline: none;
     border: none;
-
-    border-radius:0;
-}
-#text {
-    margin: 5px;
-    border: none;
-    color: @text;
-    outline: none;
+    border-radius:10;
 }
 #text {
     margin: 5px;
@@ -79,22 +75,22 @@ window {
 }
 #entry {
     border: none;
-    margin: 5px;
-    padding: 10px;
+    padding: 30;
 }
 #entry arrow {
     border: none;
-    color: @color4;
+    color: @lavender;
 
 }
 #entry:selected {
+    padding: 30;
     border: none;
-    border-radius: 0px;
-    background-color: alpha(@color4,0.05);
+    border-radius: 20px;
+    background-color: alpha(@background,.2);
 }
 #entry:selected #text {
-    color: @color4;
+    color: @mauve;
 }
 #entry:drop(active) {
-    background-color: @color4 !important;
+    background-color: @lavender !important;
 }

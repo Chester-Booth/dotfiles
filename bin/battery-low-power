@@ -5,6 +5,7 @@ set -u
 threshold="${LOW_POWER_THRESHOLD:-30}"
 state_dir="${XDG_RUNTIME_DIR:-$HOME/.cache}"
 state_file="$state_dir/battery-low-power-active"
+script_root="${QUICKSHELL_SCRIPT_ROOT:-$HOME/.config/quickshell/blox/scripts}"
 
 find_battery_dir() {
     local battery_dir
@@ -27,7 +28,7 @@ run_low_power_mode() {
         action_failed=1
     fi
 
-    if ! "$HOME/.config/waybar/scripts/gpu/modes/igpu60.sh" --quiet; then
+    if ! "$script_root/gpu/modes/igpu60.sh" --quiet; then
         action_failed=1
     fi
 

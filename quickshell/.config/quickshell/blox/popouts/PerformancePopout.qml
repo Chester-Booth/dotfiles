@@ -19,10 +19,10 @@ Rectangle {
 
     function gpuCommand(mode) {
         const paths = {
-            "gaming": "/waybar/gpu/modes/gpu144.sh",
-            "performance": "/waybar/gpu/modes/gpu60.sh",
-            "high-refresh": "/waybar/gpu/modes/igpu144.sh",
-            "eco": "/waybar/gpu/modes/igpu60.sh"
+            "gaming": "/gpu/modes/gpu144.sh",
+            "performance": "/gpu/modes/gpu60.sh",
+            "high-refresh": "/gpu/modes/igpu144.sh",
+            "eco": "/gpu/modes/igpu60.sh"
         };
         return scriptRoot + paths[mode];
     }
@@ -197,7 +197,9 @@ Rectangle {
                     "icon": "󰠝",
                     "label": "Quiet"
                 }]
-                onSelected: (id) => root.action(root.fanCommand(id.charAt(0).toUpperCase() + id.slice(1)))
+                onSelected: (id) => {
+                    return root.action(root.fanCommand(id.charAt(0).toUpperCase() + id.slice(1)));
+                }
             }
 
             SliderControl {
@@ -222,7 +224,9 @@ Rectangle {
                     "icon": "󰌪",
                     "label": "Eco"
                 }]
-                onSelected: (id) => root.action(root.gpuCommand(id))
+                onSelected: (id) => {
+                    return root.action(root.gpuCommand(id));
+                }
             }
 
         }
@@ -364,6 +368,7 @@ Rectangle {
                         }
 
                     }
+
                 }
 
             }
@@ -440,6 +445,7 @@ Rectangle {
                     }
 
                 }
+
             }
 
             RowLayout {
@@ -462,7 +468,6 @@ Rectangle {
                             color: modelData.id === slider.visualId ? Theme.yellow : Theme.foreground
                             font.family: Theme.fontFamily
                             font.pixelSize: 14
-
                         }
 
                         MouseArea {

@@ -36,10 +36,16 @@ Item {
             accent: root.updatesStatus && root.updatesStatus.class === "zero" ? Theme.green : root.updatesStatus && root.updatesStatus.class === "error" ? Theme.red : Theme.yellow
             panel: "updates"
             active: root.openPanel === "updates"
-            onPanelClicked: (panel, centerY) => root.panelClicked(panel, root.mapCenterY(centerY))
-            onPanelHovered: (panel, centerY, source) => root.panelHovered(panel, root.mapCenterY(centerY), source)
-            onPanelExited: (source) => root.panelExited(source)
-            onRightClicked: root.runCommand("kitty --class update-list --title update-list sh -c '" + root.scriptRoot + "/waybar/update/update-list.sh'")
+            onPanelClicked: (panel, centerY) => {
+                return root.panelClicked(panel, root.mapCenterY(centerY));
+            }
+            onPanelHovered: (panel, centerY, source) => {
+                return root.panelHovered(panel, root.mapCenterY(centerY), source);
+            }
+            onPanelExited: (source) => {
+                return root.panelExited(source);
+            }
+            onRightClicked: root.runCommand("kitty --class update-list --title update-list sh -c '" + root.scriptRoot + "/update/list.sh'")
         }
 
         PanelRailButton {
@@ -47,9 +53,15 @@ Item {
             accent: root.bluetoothStatus && root.bluetoothStatus.class === "connected" ? Theme.blue : root.bluetoothStatus && root.bluetoothStatus.class === "disabled" ? Theme.red : Theme.foreground
             panel: "bluetooth"
             active: root.openPanel === "bluetooth"
-            onPanelClicked: (panel, centerY) => root.panelClicked(panel, root.mapCenterY(centerY))
-            onPanelHovered: (panel, centerY, source) => root.panelHovered(panel, root.mapCenterY(centerY), source)
-            onPanelExited: (source) => root.panelExited(source)
+            onPanelClicked: (panel, centerY) => {
+                return root.panelClicked(panel, root.mapCenterY(centerY));
+            }
+            onPanelHovered: (panel, centerY, source) => {
+                return root.panelHovered(panel, root.mapCenterY(centerY), source);
+            }
+            onPanelExited: (source) => {
+                return root.panelExited(source);
+            }
             onRightClicked: root.runCommand("blueman-manager")
         }
 
@@ -58,11 +70,19 @@ Item {
             accent: Theme.yellow
             panel: "brightness"
             active: root.openPanel === "brightness"
-            onPanelClicked: (panel, centerY) => root.panelClicked(panel, root.mapCenterY(centerY))
-            onPanelHovered: (panel, centerY, source) => root.panelHovered(panel, root.mapCenterY(centerY), source)
-            onPanelExited: (source) => root.panelExited(source)
-            onRightClicked: root.runCommand(root.scriptRoot + "/waybar/hyprsunset-toggle.sh")
-            onWheeled: (delta) => root.runCommand("brightnessctl -d amdgpu_bl1 set " + (delta > 0 ? "+2%" : "2%-"))
+            onPanelClicked: (panel, centerY) => {
+                return root.panelClicked(panel, root.mapCenterY(centerY));
+            }
+            onPanelHovered: (panel, centerY, source) => {
+                return root.panelHovered(panel, root.mapCenterY(centerY), source);
+            }
+            onPanelExited: (source) => {
+                return root.panelExited(source);
+            }
+            onRightClicked: root.runCommand(root.scriptRoot + "/display/hyprsunset-toggle.sh")
+            onWheeled: (delta) => {
+                return root.runCommand("brightnessctl -d amdgpu_bl1 set " + (delta > 0 ? "+2%" : "2%-"));
+            }
         }
 
         PanelRailButton {
@@ -70,9 +90,17 @@ Item {
             accent: root.privacyStatus && root.privacyStatus.class === "active" ? Theme.yellow : Theme.foreground
             panel: "privacy"
             active: root.openPanel === "privacy"
-            onPanelClicked: (panel, centerY) => root.panelClicked(panel, root.mapCenterY(centerY))
-            onPanelHovered: (panel, centerY, source) => root.panelHovered(panel, root.mapCenterY(centerY), source)
-            onPanelExited: (source) => root.panelExited(source)
+            onPanelClicked: (panel, centerY) => {
+                return root.panelClicked(panel, root.mapCenterY(centerY));
+            }
+            onPanelHovered: (panel, centerY, source) => {
+                return root.panelHovered(panel, root.mapCenterY(centerY), source);
+            }
+            onPanelExited: (source) => {
+                return root.panelExited(source);
+            }
         }
+
     }
+
 }

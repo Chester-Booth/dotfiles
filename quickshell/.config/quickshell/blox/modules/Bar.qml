@@ -159,6 +159,46 @@ Scope {
         extrasOpen = false;
     }
 
+    function refreshControlStatus() {
+        audio.refresh();
+        brightness.refresh();
+        bluetooth.refresh();
+        network.refresh();
+        notifications.refresh();
+        privacy.refresh();
+        battery.refresh();
+    }
+
+    function refreshPerformanceStatus() {
+        fan.refresh();
+        gpu.refresh();
+        systemInfo.refresh();
+        battery.refresh();
+    }
+
+    function setControlPolling(visible) {
+        audio.interval = visible ? 2000 : 30000;
+        brightness.interval = visible ? 2000 : 30000;
+        bluetooth.interval = visible ? 2000 : 30000;
+        network.interval = visible ? 2000 : 30000;
+        notifications.interval = visible ? 2000 : 15000;
+        privacy.interval = visible ? 5000 : 30000;
+        if (visible)
+            refreshControlStatus();
+
+    }
+
+    function updatePanelPolling() {
+        const controlPanels = ["audio", "network", "bluetooth", "brightness", "notifications", "privacy"];
+        setControlPolling(controlPanels.indexOf(openPanel) >= 0);
+        if (openPanel === "todo")
+            todo.refresh();
+        else if (openPanel === "calendar")
+            calendarEvents.refresh();
+        else if (openPanel === "updates")
+            updates.refresh();
+    }
+
     function openTrayMenu(item, centerY) {
         closePanel();
         extrasOpen = true;
@@ -173,16 +213,13 @@ Scope {
     }
 
     function setPerformancePolling(visible) {
-        systemInfo.interval = visible ? 1000 : 5000;
-        battery.interval = visible ? 1000 : 5000;
-        fan.interval = visible ? 2000 : 10000;
-        gpu.interval = visible ? 2000 : 5000;
-        if (visible) {
-            fan.refresh();
-            gpu.refresh();
-            systemInfo.refresh();
-            battery.refresh();
-        }
+        systemInfo.interval = visible ? 1000 : 60000;
+        battery.interval = visible ? 1000 : 30000;
+        fan.interval = visible ? 2000 : 60000;
+        gpu.interval = visible ? 2000 : 60000;
+        if (visible)
+            refreshPerformanceStatus();
+
     }
 
     function activeWorkspaceId() {
@@ -726,47 +763,48 @@ Scope {
             closeDrawers();
 
     }
+    onOpenPanelChanged: updatePanelPolling()
 
     ScriptPoller {
         id: workspaces
 
         command: [root.scriptRoot + "/workspaces/status.py"]
-        interval: 60000
+        interval: 300000
     }
 
     ScriptPoller {
         id: gpu
 
         command: [root.scriptRoot + "/status/gpu.sh"]
-        interval: 5000
+        interval: 60000
     }
 
     ScriptPoller {
         id: fan
 
         command: [root.scriptRoot + "/status/fan.sh"]
-        interval: 10000
+        interval: 60000
     }
 
     ScriptPoller {
         id: systemInfo
 
         command: [root.scriptRoot + "/status/system.sh"]
-        interval: 5000
+        interval: 60000
     }
 
     ScriptPoller {
         id: todo
 
         command: [root.scriptRoot + "/todo/status.sh"]
-        interval: 10000
+        interval: 60000
     }
 
     ScriptPoller {
         id: calendarEvents
 
         command: [root.scriptRoot + "/calendar/events.sh", root.selectedCalendarDate || root.currentIsoDate()]
-        interval: 300000
+        interval: 600000
     }
 
     ScriptPoller {
@@ -780,57 +818,67 @@ Scope {
         id: battery
 
         command: [root.scriptRoot + "/status/battery.sh"]
-        interval: 5000
+        interval: 30000
     }
 
     ScriptPoller {
         id: audio
 
         command: [root.scriptRoot + "/status/audio.sh"]
-        interval: 2000
+        interval: 30000
     }
 
     ScriptPoller {
         id: brightness
 
         command: [root.scriptRoot + "/status/brightness.sh"]
-        interval: 5000
+        interval: 30000
     }
 
     ScriptPoller {
         id: network
 
         command: [root.scriptRoot + "/status/network.sh"]
-        interval: 5000
+        interval: 30000
     }
 
     ScriptPoller {
         id: bluetooth
 
         command: [root.scriptRoot + "/status/bluetooth.sh"]
-        interval: 5000
+        interval: 30000
     }
 
     ScriptPoller {
         id: notifications
 
         command: [root.scriptRoot + "/status/notifications.sh"]
-        interval: 2000
+        interval: 15000
     }
 
     ScriptPoller {
         id: privacy
 
         command: [root.scriptRoot + "/status/privacy.sh"]
-        interval: 5000
+        interval: 30000
     }
 
     Process {
         id: action
+
+        onExited: {
+            root.refreshControlStatus();
+            root.refreshPerformanceStatus();
+        }
     }
 
     Process {
         id: actionArgs
+
+        onExited: {
+            root.refreshControlStatus();
+            root.refreshPerformanceStatus();
+        }
     }
 
     Process {
@@ -890,13 +938,15 @@ Scope {
                 if (!isNaN(workspaceId))
                     addWorkspaceAlert(workspaceId, address);
 
+                privacy.refresh();
             } else if (event.name === "urgent") {
                 alertWindowAddress = event.data || "";
                 lookupWindowWorkspace(alertWindowAddress);
                 urgentSwitchDelay.restart();
-            } else if (event.name === "activewindowv2") {
+            } else if (event.name === "closewindow")
+                privacy.refresh();
+            else if (event.name === "activewindowv2")
                 lookupWindowWorkspace(event.data || "");
-            }
         }
 
         target: Hyprland

@@ -36,21 +36,21 @@ Scope {
         id: workspaceState
 
         command: [root.scriptRoot + "/overlays/workspace-empty.sh"]
-        interval: 60000
+        interval: 300000
     }
 
     ScriptPoller {
         id: todoContent
 
         command: [root.scriptRoot + "/overlays/todo-content.sh"]
-        interval: 1000
+        interval: 60000
     }
 
     ScriptPoller {
         id: gcalContent
 
         command: [root.scriptRoot + "/overlays/gcal-content.sh"]
-        interval: 1000
+        interval: 60000
     }
 
     Process {

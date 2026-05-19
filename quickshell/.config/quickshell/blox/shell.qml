@@ -5,4 +5,7 @@ Scope {
     Bar {
     }
 
+    EwwOverlays {
+    }
+
 }

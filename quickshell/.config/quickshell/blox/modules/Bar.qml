@@ -64,6 +64,19 @@ Scope {
         hoverCloseDelay.stop();
     }
 
+    function switchSystemPanel(panel) {
+        if (["network", "bluetooth", "audio", "brightness"].indexOf(panel) < 0)
+            return ;
+
+        if (openPanel !== panel)
+            inputPopupLocked = false;
+
+        openPanel = panel;
+        hoveredSource = panel;
+        railHovered = true;
+        hoverCloseDelay.stop();
+    }
+
     function hoverButtonEntered(panel, centerY, source) {
         hoveredSource = source === undefined ? panel : source;
         railHovered = true;
@@ -291,7 +304,7 @@ Scope {
             return "Network";
 
         if (openPanel === "bluetooth")
-            return "Bluetooth";
+            return "Mic / Bluetooth";
 
         if (openPanel === "mic")
             return "Microphone";
@@ -316,7 +329,7 @@ Scope {
             return network.json.tooltip || "Network unavailable";
 
         if (openPanel === "bluetooth")
-            return bluetooth.json.tooltip || "Bluetooth unavailable";
+            return (bluetooth.json.tooltip || "Bluetooth unavailable") + "\n" + (audio.json.micMuted ? "Microphone muted" : "Microphone open");
 
         if (openPanel === "mic")
             return audio.json.micMuted ? "Microphone muted" : "Microphone open";
@@ -336,18 +349,6 @@ Scope {
     function systemPanelActions() {
         if (openPanel === "audio")
             return [{
-            "label": audio.json.muted ? "Unmute" : "Mute",
-            "command": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
-            "keepOpen": true
-        }, {
-            "label": "Volume down",
-            "command": "pactl set-sink-volume @DEFAULT_SINK@ -5%",
-            "keepOpen": true
-        }, {
-            "label": "Volume up",
-            "command": "pactl set-sink-volume @DEFAULT_SINK@ +5%",
-            "keepOpen": true
-        }, {
             "label": "Open app",
             "command": "pavucontrol -t 3"
         }];
@@ -368,8 +369,15 @@ Scope {
             "command": "rfkill toggle bluetooth",
             "keepOpen": true
         }, {
+            "label": audio.json.micMuted ? "Unmute mic" : "Mute mic",
+            "command": "pactl set-source-mute @DEFAULT_SOURCE@ toggle",
+            "keepOpen": true
+        }, {
             "label": "Open app",
             "command": "blueman-manager"
+        }, {
+            "label": "Mic settings",
+            "command": "pavucontrol -t 4"
         }];
 
         if (openPanel === "mic")
@@ -384,12 +392,6 @@ Scope {
 
         if (openPanel === "brightness")
             return [{
-            "label": "Brightness up",
-            "command": "brightnessctl -d amdgpu_bl1 set +5%"
-        }, {
-            "label": "Brightness down",
-            "command": "brightnessctl -d amdgpu_bl1 set 5%-"
-        }, {
             "label": "Toggle sunset",
             "command": root.scriptRoot + "/waybar/hyprsunset-toggle.sh"
         }];
@@ -1175,11 +1177,13 @@ Scope {
                 systemBody: root.systemPanelBody()
                 systemActions: root.systemPanelActions()
                 audioVolume: audio.json.volume || 0
+                audioIcon: audio.json.icon || "󰕾"
                 audioMuted: !!audio.json.muted
                 micMuted: !!audio.json.micMuted
                 wifiIcon: network.json.icon || "󰤩"
                 wifiText: network.json.ssid || network.json.class || "Wi-Fi"
                 bluetoothIcon: bluetooth.json.icon || "󰂯"
+                brightnessIcon: brightness.json.icon || "󰃠"
                 brightnessPercent: brightness.json.percent || 0
                 basicTitle: root.panelTitle()
                 basicSubtitle: root.panelSubtitle()
@@ -1231,9 +1235,14 @@ Scope {
                 onPerformanceVisibleChanged: (visible) => root.setPerformancePolling(visible)
                 onSystemAction: (command, keepOpen) => {
                     root.run(command);
+                    audio.refresh();
+                    brightness.refresh();
+                    bluetooth.refresh();
+                    network.refresh();
                     if (!keepOpen)
                         root.closePanel();
                 }
+                onSelectSystemPanel: (panel) => root.switchSystemPanel(panel)
                 onBasicAction: (command, keepOpen) => {
                     if (command === "__refresh_updates") {
                         updates.refresh();

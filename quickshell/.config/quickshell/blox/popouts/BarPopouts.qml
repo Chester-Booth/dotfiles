@@ -25,11 +25,13 @@ Item {
     property string systemBody: ""
     property var systemActions: []
     property int audioVolume: 0
+    property string audioIcon: "󰕾"
     property bool audioMuted: false
     property bool micMuted: false
     property string wifiIcon: "󰤩"
     property string wifiText: "Wi-Fi"
     property string bluetoothIcon: "󰂯"
+    property string brightnessIcon: "󰃠"
     property int brightnessPercent: 0
     property string basicTitle: ""
     property string basicSubtitle: ""
@@ -55,6 +57,7 @@ Item {
     signal performanceAction(string command)
     signal performanceVisibleChanged(bool visible)
     signal systemAction(string command, bool keepOpen)
+    signal selectSystemPanel(string panel)
     signal basicAction(string command, bool keepOpen)
 
     HoverPopupWindow {
@@ -174,11 +177,11 @@ Item {
         anchorY: Math.max(8, Math.min(root.panelHeight - systemPopout.height - 8, root.openPanelY - systemPopout.height / 2))
         contentWidth: systemPopout.width
         contentHeight: systemPopout.height
-        visible: ["audio", "network", "bluetooth", "mic", "brightness"].indexOf(root.openPanel) >= 0
+        visible: ["audio", "network", "bluetooth", "brightness"].indexOf(root.openPanel) >= 0
         onHoverEntered: root.hoverEntered()
         onHoverExited: root.hoverExited()
         onVisibleChanged: {
-            if (!visible && ["audio", "network", "bluetooth", "mic", "brightness"].indexOf(root.openPanel) >= 0)
+            if (!visible && ["audio", "network", "bluetooth", "brightness"].indexOf(root.openPanel) >= 0)
                 root.closePanel();
         }
 
@@ -190,13 +193,16 @@ Item {
             actions: root.systemActions
             mode: root.openPanel
             audioVolume: root.audioVolume
+            audioIcon: root.audioIcon
             audioMuted: root.audioMuted
             micMuted: root.micMuted
             wifiIcon: root.wifiIcon
             wifiText: root.wifiText
             bluetoothIcon: root.bluetoothIcon
+            brightnessIcon: root.brightnessIcon
             brightnessPercent: root.brightnessPercent
             onAction: (command, keepOpen) => root.systemAction(command, keepOpen)
+            onSectionSelected: (panel) => root.selectSystemPanel(panel)
         }
     }
 

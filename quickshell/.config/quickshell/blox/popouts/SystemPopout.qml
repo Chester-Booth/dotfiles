@@ -10,14 +10,23 @@ Rectangle {
     property string body: ""
     property var actions: []
     property int audioVolume: 0
+    property string audioIcon: "󰕾"
     property bool audioMuted: false
     property bool micMuted: false
     property string wifiIcon: "󰤩"
     property string wifiText: "Wi-Fi"
     property string bluetoothIcon: "󰂯"
+    property string brightnessIcon: "󰃠"
     property int brightnessPercent: 0
+    property int visualAudioVolume: audioVolume
+    property int visualBrightnessPercent: brightnessPercent
 
     signal action(string command, bool keepOpen)
+    signal sectionSelected(string panel)
+
+    function currentMode() {
+        return mode === "mic" ? "bluetooth" : mode;
+    }
 
     function actionByLabel(text) {
         const lower = text.toLowerCase();
@@ -38,36 +47,51 @@ Rectangle {
     }
 
     function heroIcon() {
-        if (mode === "audio")
-            return audioMuted ? "󰝟" : "󰕾";
+        if (currentMode() === "audio")
+            return audioIcon;
 
-        if (mode === "mic")
-            return micMuted ? "󰍭" : "󰍬";
-
-        if (mode === "network")
+        if (currentMode() === "network")
             return wifiIcon;
 
-        if (mode === "bluetooth")
+        if (currentMode() === "bluetooth")
             return bluetoothIcon;
 
-        if (mode === "brightness")
-            return "󰃠";
-
-        if (mode === "system")
-            return "󰓅";
+        if (currentMode() === "brightness")
+            return brightnessIcon;
 
         return "󰁹";
     }
 
-    function sliderValue() {
-        if (mode === "audio")
-            return audioVolume;
+    function subtitle() {
+        if (currentMode() === "network")
+            return wifiText;
 
-        if (mode === "brightness")
-            return brightnessPercent;
+        if (currentMode() === "audio")
+            return audioMuted ? "Muted" : audioVolume + "%";
 
-        return 0;
+        if (currentMode() === "brightness")
+            return brightnessPercent + "%";
+
+        if (currentMode() === "bluetooth")
+            return (micMuted ? "Mic muted" : "Mic open") + "  |  " + body.split("\n")[0];
+
+        return body.split("\n")[0];
     }
+
+    function micActions() {
+        return actions.filter((item) => String(item.label || "").toLowerCase().indexOf("mic") >= 0);
+    }
+
+    function bluetoothActions() {
+        return actions.filter((item) => String(item.label || "").toLowerCase().indexOf("mic") < 0);
+    }
+
+    function normalActions() {
+        return actions.filter((item) => String(item.label || "").toLowerCase().indexOf("open app") < 0);
+    }
+
+    onAudioVolumeChanged: visualAudioVolume = audioVolume
+    onBrightnessPercentChanged: visualBrightnessPercent = brightnessPercent
 
     width: 330
     height: Math.min(520, Math.max(178, content.implicitHeight + 24))
@@ -89,33 +113,23 @@ Rectangle {
 
             Repeater {
                 model: [{
-                    "icon": root.mode === "network" ? root.wifiIcon : "󰤩",
-                    "active": root.mode === "network"
+                    "panel": "network",
+                    "icon": root.wifiIcon
                 }, {
-                    "icon": root.mode === "bluetooth" ? root.bluetoothIcon : "󰂯",
-                    "active": root.mode === "bluetooth"
+                    "panel": "bluetooth",
+                    "icon": root.bluetoothIcon
                 }, {
-                    "icon": root.mode === "mic" ? root.heroIcon() : "󰍬",
-                    "active": root.mode === "mic"
+                    "panel": "audio",
+                    "icon": root.audioIcon
                 }, {
-                    "icon": root.mode === "brightness" ? "󰃠" : "󰃟",
-                    "active": root.mode === "brightness"
+                    "panel": "brightness",
+                    "icon": root.brightnessIcon
                 }]
 
-                Rectangle {
-                    width: 34
-                    height: 34
-                    radius: 8
-                    color: modelData.active ? "#553b3c4a" : "transparent"
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: modelData.icon
-                        color: modelData.active ? Theme.blue : Theme.muted
-                        font.family: Theme.fontFamily
-                        font.pixelSize: 17
-                    }
-
+                SectionButton {
+                    icon: modelData.icon
+                    active: root.currentMode() === modelData.panel
+                    onClicked: root.sectionSelected(modelData.panel)
                 }
 
             }
@@ -130,11 +144,29 @@ Rectangle {
                 Layout.fillWidth: true
                 spacing: 10
 
-                Text {
-                    text: root.heroIcon()
-                    color: mode === "system" ? Theme.yellow : Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 24
+                Rectangle {
+                    width: 30
+                    height: 30
+                    radius: 7
+                    color: root.currentMode() === "audio" && headerIconMouse.containsMouse ? Theme.surfaceAlt : "transparent"
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: root.heroIcon()
+                        color: root.currentMode() === "brightness" ? Theme.yellow : Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 24
+                    }
+
+                    MouseArea {
+                        id: headerIconMouse
+
+                        anchors.fill: parent
+                        enabled: root.currentMode() === "audio"
+                        hoverEnabled: true
+                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                        onClicked: root.action("pactl set-sink-mute @DEFAULT_SINK@ toggle", true)
+                    }
                 }
 
                 ColumnLayout {
@@ -152,7 +184,7 @@ Rectangle {
 
                     Text {
                         Layout.fillWidth: true
-                        text: root.mode === "network" ? root.wifiText : root.mode === "audio" ? (root.audioMuted ? "Muted" : root.audioVolume + "%") : root.mode === "brightness" ? root.brightnessPercent + "%" : root.mode === "mic" ? (root.micMuted ? "Muted" : "Open") : root.body.split("\n")[0]
+                        text: root.subtitle()
                         color: Theme.muted
                         font.family: Theme.fontFamily
                         font.pixelSize: 10
@@ -166,7 +198,7 @@ Rectangle {
                     height: 30
                     radius: 7
                     color: cogMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
-                    visible: root.actionByLabel("open app") !== null
+                    visible: root.actionByLabel("open app") !== null && root.currentMode() !== "bluetooth"
 
                     Text {
                         anchors.centerIn: parent
@@ -189,20 +221,26 @@ Rectangle {
 
             }
 
-            Rectangle {
+            LevelSlider {
                 Layout.fillWidth: true
-                height: 10
-                radius: 5
-                color: Theme.surface
-                visible: root.mode === "audio" || root.mode === "brightness"
-
-                Rectangle {
-                    width: parent.width * Math.max(0, Math.min(100, root.sliderValue())) / 100
-                    height: parent.height
-                    radius: parent.radius
-                    color: root.mode === "brightness" ? Theme.yellow : Theme.blue
+                visible: root.currentMode() === "audio"
+                value: root.visualAudioVolume
+                accent: Theme.blue
+                onChanged: (value) => {
+                    root.visualAudioVolume = value;
+                    root.action("pactl set-sink-volume @DEFAULT_SINK@ " + value + "%", true);
                 }
+            }
 
+            LevelSlider {
+                Layout.fillWidth: true
+                visible: root.currentMode() === "brightness"
+                value: root.visualBrightnessPercent
+                accent: Theme.yellow
+                onChanged: (value) => {
+                    root.visualBrightnessPercent = value;
+                    root.action("brightnessctl -d amdgpu_bl1 set " + value + "%", true);
+                }
             }
 
             Text {
@@ -212,44 +250,60 @@ Rectangle {
                 font.family: Theme.fontFamily
                 font.pixelSize: 11
                 wrapMode: Text.Wrap
-                maximumLineCount: root.mode === "system" ? 10 : 4
+                maximumLineCount: 4
                 elide: Text.ElideRight
             }
 
-            Flow {
+            ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 8
+                visible: root.currentMode() === "bluetooth"
 
-                Repeater {
-                    model: root.actions.filter((item) => {
-                        return String(item.label || "").toLowerCase().indexOf("open app") < 0;
-                    })
+                Text {
+                    Layout.fillWidth: true
+                    text: "Microphone"
+                    color: Theme.muted
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 10
+                    font.bold: true
+                }
 
-                    Rectangle {
-                        width: Math.max(46, label.implicitWidth + 20)
-                        height: 32
-                        radius: 8
-                        color: actionMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
-                        border.color: modelData.danger ? Theme.red : Theme.surfaceAlt
-                        border.width: 1
+                Flow {
+                    Layout.fillWidth: true
+                    spacing: 8
 
-                        Text {
-                            id: label
+                    Repeater {
+                        model: root.micActions()
 
-                            anchors.centerIn: parent
-                            text: modelData.label || ""
-                            color: modelData.danger ? Theme.red : Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: 10
-                            font.bold: true
+                        ActionChip {
+                            label: modelData.label || ""
+                            danger: !!modelData.danger
+                            onClicked: root.action(modelData.command || "", !!modelData.keepOpen)
                         }
 
-                        MouseArea {
-                            id: actionMouse
+                    }
 
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: "Bluetooth"
+                    color: Theme.muted
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 10
+                    font.bold: true
+                }
+
+                Flow {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Repeater {
+                        model: root.bluetoothActions()
+
+                        ActionChip {
+                            label: modelData.label || ""
+                            danger: !!modelData.danger
                             onClicked: root.action(modelData.command || "", !!modelData.keepOpen)
                         }
 
@@ -259,6 +313,170 @@ Rectangle {
 
             }
 
+            Flow {
+                Layout.fillWidth: true
+                spacing: 8
+                visible: root.currentMode() !== "bluetooth"
+
+                Repeater {
+                    model: root.normalActions()
+
+                    ActionChip {
+                        label: modelData.label || ""
+                        danger: !!modelData.danger
+                        onClicked: root.action(modelData.command || "", !!modelData.keepOpen)
+                    }
+
+                }
+
+            }
+
+        }
+
+    }
+
+    component SectionButton: Rectangle {
+        id: section
+
+        property string icon: ""
+        property bool active: false
+
+        signal clicked()
+
+        width: 34
+        height: 34
+        radius: 8
+        color: active ? "#553b3c4a" : sectionMouse.containsMouse ? Theme.surfaceAlt : "transparent"
+
+        Text {
+            anchors.centerIn: parent
+            text: section.icon
+            color: section.active ? Theme.blue : Theme.muted
+            font.family: Theme.fontFamily
+            font.pixelSize: 17
+        }
+
+        MouseArea {
+            id: sectionMouse
+
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: section.clicked()
+        }
+
+    }
+
+    component LevelSlider: RowLayout {
+        id: slider
+
+        property int value: 0
+        property color accent: Theme.blue
+        property color knobColor: accent === Theme.yellow ? "#b79a55" : "#4f74ad"
+
+        signal changed(int value)
+
+        spacing: 8
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 14
+            radius: 7
+            color: Theme.surface
+
+            Rectangle {
+                width: parent.width * Math.max(0, Math.min(100, slider.value)) / 100
+                height: parent.height
+                radius: parent.radius
+                color: slider.accent
+
+                Behavior on width {
+                    NumberAnimation {
+                        duration: 120
+                        easing.type: Easing.OutCubic
+                    }
+
+                }
+            }
+
+            Rectangle {
+                width: 18
+                height: 18
+                radius: 9
+                x: Math.max(0, Math.min(parent.width - width, parent.width * Math.max(0, Math.min(100, slider.value)) / 100 - width / 2))
+                y: -2
+                color: slider.knobColor
+                border.color: slider.accent
+                border.width: 2
+
+                Behavior on x {
+                    NumberAnimation {
+                        duration: 120
+                        easing.type: Easing.OutCubic
+                    }
+
+                }
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+
+                function valueAt(xPos) {
+                    return Math.round(Math.max(0, Math.min(1, xPos / width)) * 100);
+                }
+
+                onPressed: (mouse) => slider.value = valueAt(mouse.x)
+                onPositionChanged: (mouse) => {
+                    if (pressed) {
+                        slider.value = valueAt(mouse.x);
+                        slider.changed(slider.value);
+                    }
+                }
+                onPressedChanged: {
+                    if (pressed)
+                        slider.changed(slider.value);
+                }
+            }
+
+        }
+
+    }
+
+    component ActionChip: Rectangle {
+        id: chip
+
+        property string label: ""
+        property bool danger: false
+
+        signal clicked()
+
+        width: Math.max(46, chipLabel.implicitWidth + 20)
+        height: 32
+        radius: 8
+        color: chipMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
+        border.color: danger ? Theme.red : Theme.surfaceAlt
+        border.width: 1
+
+        Text {
+            id: chipLabel
+
+            anchors.centerIn: parent
+            text: chip.label
+            color: chip.danger ? Theme.red : Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: 10
+            font.bold: true
+        }
+
+        MouseArea {
+            id: chipMouse
+
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: chip.clicked()
         }
 
     }

@@ -54,17 +54,6 @@ Item {
         }
 
         PanelRailButton {
-            icon: root.audioStatus && root.audioStatus.micIcon ? root.audioStatus.micIcon : "󰍬"
-            accent: root.audioStatus && root.audioStatus.micMuted ? Theme.red : Theme.foreground
-            panel: "mic"
-            active: root.openPanel === "mic"
-            onPanelClicked: (panel, centerY) => root.panelClicked(panel, root.mapCenterY(centerY))
-            onPanelHovered: (panel, centerY, source) => root.panelHovered(panel, root.mapCenterY(centerY), source)
-            onPanelExited: (source) => root.panelExited(source)
-            onRightClicked: root.runCommand("pavucontrol -t 4")
-        }
-
-        PanelRailButton {
             icon: root.brightnessStatus && root.brightnessStatus.icon ? root.brightnessStatus.icon : "󰃠"
             accent: Theme.yellow
             panel: "brightness"

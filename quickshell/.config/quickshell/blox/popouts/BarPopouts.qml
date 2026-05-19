@@ -137,7 +137,6 @@ Item {
             onAddEvent: (day, title) => root.addCalendarEvent(day, title)
             onOpenEvent: (title) => root.openCalendarEvent(title)
             onFocusRequested: {
-                root.inputLockChanged(true);
                 calendarWindow.requestKeyboardFocus();
             }
         }

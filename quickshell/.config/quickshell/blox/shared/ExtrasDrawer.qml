@@ -12,6 +12,9 @@ Item {
     readonly property real targetHeight: open ? Math.min(contentColumn.implicitHeight, Math.max(Theme.buttonSize, bottomLimit - topLimit)) : 0
     readonly property real columnY: height - contentColumn.implicitHeight - extrasScroll.offset
 
+    signal hoverEntered()
+    signal hoverExited()
+
     function popupCenterY(localCenterY) {
         return y + columnY + localCenterY;
     }
@@ -54,6 +57,9 @@ Item {
 
         anchors.fill: parent
         acceptedButtons: Qt.NoButton
+        hoverEnabled: true
+        onEntered: root.hoverEntered()
+        onExited: root.hoverExited()
         onMaxOffsetChanged: {
             offset = Math.min(offset, maxOffset);
             if (root.open)

@@ -21,6 +21,7 @@ Scope {
     property bool railHovered: false
     property string hoveredSource: ""
     property bool popoutHovered: false
+    property bool extrasHovered: false
     property bool inputPopupLocked: false
     property bool blinkOn: true
     property string selectedCalendarDate: ""
@@ -40,6 +41,7 @@ Scope {
         railHovered = false;
         hoveredSource = "";
         popoutHovered = false;
+        extrasHovered = false;
         inputPopupLocked = false;
         hoverCloseDelay.stop();
     }
@@ -81,6 +83,16 @@ Scope {
         hoverCloseDelay.restart();
     }
 
+    function extrasEntered() {
+        extrasHovered = true;
+        hoverCloseDelay.stop();
+    }
+
+    function extrasExited() {
+        extrasHovered = false;
+        scheduleHoverClose();
+    }
+
     function popoutEntered() {
         popoutHovered = true;
         hoverCloseDelay.stop();
@@ -101,6 +113,7 @@ Scope {
         closePanel();
         closeTrayMenu();
         extrasOpen = !extrasOpen;
+        extrasHovered = extrasOpen;
     }
 
     function openExtras() {
@@ -115,6 +128,7 @@ Scope {
     function closeDrawers() {
         closePanel();
         closeTrayMenu();
+        extrasHovered = false;
         extrasOpen = false;
     }
 
@@ -807,9 +821,10 @@ Scope {
         interval: 180
         repeat: false
         onTriggered: {
-            if (root.hoveredSource.length === 0 && !root.popoutHovered && !root.inputPopupLocked) {
+            if (root.hoveredSource.length === 0 && !root.popoutHovered && !root.extrasHovered && !root.inputPopupLocked) {
                 root.closePanel();
                 root.closeTrayMenu();
+                root.extrasOpen = false;
             }
 
         }
@@ -924,7 +939,11 @@ Scope {
 
                         active: root.extrasOpen
                         onToggle: root.toggleExtras()
-                        onOpenRequested: root.openExtras()
+                        onOpenRequested: {
+                            root.openExtras();
+                            root.extrasEntered();
+                        }
+                        onExited: root.extrasExited()
                     }
 
                     SystemRailSection {
@@ -954,6 +973,8 @@ Scope {
                     open: root.extrasOpen
                     topLimit: railLayout.y + clockText.y + clockText.height + 4
                     bottomLimit: railLayout.y + extrasToggle.y
+                    onHoverEntered: root.extrasEntered()
+                    onHoverExited: root.extrasExited()
 
                         Repeater {
                             model: SystemTray.items

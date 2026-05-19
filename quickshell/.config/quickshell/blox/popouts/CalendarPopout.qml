@@ -316,19 +316,12 @@ Rectangle {
                     color: Theme.foreground
                     font.family: Theme.fontFamily
                     font.pixelSize: 11
-                    focus: true
                     activeFocusOnPress: true
                     verticalAlignment: TextInput.AlignVCenter
                     clip: true
                     onActiveFocusChanged: {
                         if (activeFocus)
                             root.focusRequested();
-                    }
-                    onVisibleChanged: {
-                        if (visible) {
-                            root.focusRequested();
-                            forceActiveFocus();
-                        }
                     }
                     onTextChanged: root.newEventTitle = text
                 }

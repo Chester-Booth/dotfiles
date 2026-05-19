@@ -1032,20 +1032,6 @@ Scope {
                         Layout.fillHeight: true
                     }
 
-                    RailClock {
-                        id: clockText
-
-                        text: root.railClockText()
-                        dateMode: root.clockDateMode
-                        onHovered: (centerY) => root.hoverButtonEntered("calendar", centerY, "calendar")
-                        onExited: root.hoverButtonExited("calendar")
-                        onClicked: root.clockDateMode = !root.clockDateMode
-                    }
-
-                    Item {
-                        Layout.fillHeight: true
-                    }
-
                     Item {
                         id: extrasPushSpacer
 
@@ -1096,11 +1082,24 @@ Scope {
 
                 }
 
+                RailClock {
+                    id: clockText
+
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    y: Math.round((parent.height - height) / 2)
+                    z: 20
+                    text: root.railClockText()
+                    dateMode: root.clockDateMode
+                    onHovered: (centerY) => root.hoverButtonEntered("calendar", centerY, "calendar")
+                    onExited: root.hoverButtonExited("calendar")
+                    onClicked: root.clockDateMode = !root.clockDateMode
+                }
+
                 ExtrasDrawer {
                     id: extrasViewport
 
                     open: root.extrasOpen
-                    topLimit: railLayout.y + clockText.y + clockText.height + 4
+                    topLimit: clockText.y + clockText.height + 4
                     bottomLimit: railLayout.y + extrasToggle.y
                     hoverMargin: Theme.buttonSize + 4
                     onHoverEntered: root.extrasEntered()

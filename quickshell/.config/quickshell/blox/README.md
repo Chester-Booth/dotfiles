@@ -22,6 +22,13 @@ Layout:
 - `scripts/status/` - JSON status producers for the rail and popouts.
 - `scripts/{calendar,display,gpu,network,power,todo,update,workspaces}/` - action and domain backends.
 - `scripts/overlays/` - background todo/calendar overlay helpers.
+- `scripts/contracts/status.json` - expected JSON contracts for status-producing scripts.
 
-The next migration step is to replace tooltip-shaped script output with stable
-JSON status/action contracts for the popout panels.
+Validate script output contracts with:
+
+```sh
+~/.config/quickshell/blox/scripts/validate-status.py
+```
+
+The contracts keep script changes honest: each producer must emit valid JSON
+with the fields and types the QML expects.

@@ -1,0 +1,184 @@
+{
+  "audio": {
+    "command": ["status/audio.sh"],
+    "required": {
+      "icon": "string",
+      "micIcon": "string",
+      "volume": "number",
+      "muted": "boolean",
+      "micMuted": "boolean",
+      "tooltip": "string"
+    }
+  },
+  "battery": {
+    "command": ["status/battery.sh"],
+    "required": {
+      "icon": "string",
+      "class": "string",
+      "capacity": ["number", "string"],
+      "tooltip": "string"
+    }
+  },
+  "bluetooth": {
+    "command": ["status/bluetooth.sh"],
+    "required": {
+      "icon": "string",
+      "class": "string",
+      "tooltip": "string"
+    }
+  },
+  "brightness": {
+    "command": ["status/brightness.sh"],
+    "required": {
+      "icon": "string",
+      "percent": "number",
+      "blueLightMode": "string",
+      "blueLightActive": "boolean",
+      "tooltip": "string"
+    }
+  },
+  "calendar": {
+    "command": ["calendar/events.sh", "$TODAY"],
+    "required": {
+      "date": "string",
+      "events": "array",
+      "raw": "string"
+    },
+    "items": {
+      "events": "string"
+    }
+  },
+  "fan": {
+    "command": ["status/fan.sh"],
+    "required": {
+      "text": "string",
+      "alt": "string",
+      "class": "string",
+      "tooltip": "string"
+    }
+  },
+  "gpu": {
+    "command": ["status/gpu.sh"],
+    "required": {
+      "text": "string",
+      "alt": "string",
+      "class": "string",
+      "tooltip": "string"
+    },
+    "enum": {
+      "class": ["eco", "high-refresh", "performance", "gaming"]
+    }
+  },
+  "network": {
+    "command": ["status/network.sh"],
+    "required": {
+      "icon": "string",
+      "class": "string",
+      "tooltip": "string"
+    },
+    "optional": {
+      "ssid": "string",
+      "signal": "number",
+      "freq": "string",
+      "device": "string"
+    }
+  },
+  "notifications": {
+    "command": ["status/notifications.sh"],
+    "required": {
+      "icon": "string",
+      "class": "string",
+      "count": "number",
+      "dnd": "boolean",
+      "inhibited": "boolean",
+      "tooltip": "string"
+    }
+  },
+  "privacy": {
+    "command": ["status/privacy.sh"],
+    "required": {
+      "icon": "string",
+      "class": "string",
+      "tooltip": "string"
+    }
+  },
+  "system": {
+    "command": ["status/system.sh"],
+    "required": {
+      "profile": "string",
+      "fanRpm": "string",
+      "cpuTemp": "string",
+      "cpuClock": "string",
+      "cpuUtil": "number",
+      "powerW": "string",
+      "ramUsed": "string",
+      "ramTotal": "string",
+      "ramPercent": "number",
+      "gpuMode": "string",
+      "gpuLabel": "string",
+      "gpuOn": "boolean",
+      "refresh": "string",
+      "gpuUtil": "string",
+      "gpuTemp": "string",
+      "vramUsed": "string",
+      "vramTotal": "string"
+    },
+    "enum": {
+      "gpuMode": ["eco", "high-refresh", "performance", "gaming"]
+    }
+  },
+  "todo": {
+    "command": ["todo/status.sh"],
+    "required": {
+      "text": "string",
+      "file": "string",
+      "name": "string",
+      "raw": "string",
+      "index": "number",
+      "count": "number",
+      "tooltip": "string"
+    }
+  },
+  "updates": {
+    "command": ["update/status.sh"],
+    "required": {
+      "alt": "string",
+      "class": "string",
+      "tooltip": "string"
+    }
+  },
+  "workspaceEmpty": {
+    "command": ["overlays/workspace-empty.sh"],
+    "required": {
+      "workspace": ["number", "null"],
+      "empty": "boolean",
+      "count": "number"
+    }
+  },
+  "workspaces": {
+    "command": ["workspaces/status.py"],
+    "required": {
+      "main": "array",
+      "special": "object"
+    },
+    "items": {
+      "main": {
+        "id": "number",
+        "active": "boolean",
+        "urgent": "boolean",
+        "urgentAddress": "string",
+        "empty": "boolean",
+        "icon": "string",
+        "tooltip": "string"
+      }
+    },
+    "children": {
+      "special": {
+        "active": "boolean",
+        "occupied": "boolean",
+        "icon": "string",
+        "tooltip": "string"
+      }
+    }
+  }
+}

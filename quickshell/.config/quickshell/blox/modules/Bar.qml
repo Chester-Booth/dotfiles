@@ -15,6 +15,8 @@ Scope {
     property string openPanel: ""
     property real openPanelY: 8
     property string scriptRoot: Quickshell.shellDir + "/scripts"
+    property bool barOpen: true
+    property real barSlide: barOpen ? 1 : 0
     property bool extrasOpen: false
     property bool batteryExpanded: false
     property bool clockDateMode: false
@@ -48,11 +50,10 @@ Scope {
 
     function setInputPopupLocked(locked) {
         inputPopupLocked = locked;
-        if (locked) {
+        if (locked)
             hoverCloseDelay.stop();
-        } else if (hoveredSource.length === 0 && !popoutHovered) {
+        else if (hoveredSource.length === 0 && !popoutHovered)
             scheduleHoverClose();
-        }
     }
 
     function openHoverPanel(panel, centerY) {
@@ -164,6 +165,7 @@ Scope {
         trayMenuOpen = !!(item.hasMenu || item.onlyMenu);
         if (!trayMenuOpen)
             item.activate();
+
     }
 
     function setPerformancePolling(visible) {
@@ -217,6 +219,7 @@ Scope {
     function focusWindow(address) {
         if (address !== undefined && address.length > 0)
             Hyprland.dispatch("focuswindow address:" + address);
+
     }
 
     function lookupWindowWorkspace(address) {
@@ -280,7 +283,6 @@ Scope {
             const yay = parseInt(match[2]);
             return repo + " repo updates, " + yay + " yay updates\n" + (repo + yay) + " total updates";
         }
-
         if (updates.json.class === "zero")
             return "0 repo updates, 0 yay updates\n0 total updates";
 
@@ -462,6 +464,7 @@ Scope {
         const elapsed = Math.max(0, Math.floor((nowMs - ms) / 1000));
         if (elapsed < 5)
             return "Fetched just now";
+
         if (elapsed < 60)
             return "Fetched " + elapsed + "s ago";
 
@@ -717,6 +720,12 @@ Scope {
         return [];
     }
 
+    onBarOpenChanged: {
+        if (!barOpen)
+            closeDrawers();
+
+    }
+
     ScriptPoller {
         id: workspaces
 
@@ -846,19 +855,23 @@ Scope {
 
         stdout: StdioCollector {
             onStreamFinished: {
-                let info = {};
+                let info = {
+                };
                 try {
-                    info = this.text.trim().length > 0 ? JSON.parse(this.text.trim()) : {};
+                    info = this.text.trim().length > 0 ? JSON.parse(this.text.trim()) : {
+                    };
                 } catch (error) {
-                    info = {};
+                    info = {
+                    };
                 }
-
                 const workspaceId = parseInt(info.workspace);
                 const address = info.address || "";
                 if (!isNaN(workspaceId) && workspaceId !== root.focusedWorkspaceId())
                     root.addWorkspaceAlert(workspaceId, address);
+
             }
         }
+
     }
 
     Connections {
@@ -948,7 +961,6 @@ Scope {
                 root.closeTrayMenu();
                 root.extrasOpen = false;
             }
-
         }
     }
 
@@ -964,13 +976,16 @@ Scope {
                 Qt.callLater(function() {
                     if (!extrasViewport.hovered)
                         root.extrasExited();
+
                 });
             }
 
             screen: modelData
             implicitWidth: Theme.railWidth
-            exclusiveZone: Theme.railWidth
+            exclusiveZone: Math.round(Theme.railWidth * root.barSlide)
             focusable: false
+            visible: root.barOpen || root.barSlide > 0.01
+            color: "transparent"
 
             anchors {
                 left: true
@@ -979,7 +994,9 @@ Scope {
             }
 
             Rectangle {
-                anchors.fill: parent
+                x: Math.round(-Theme.railWidth * (1 - root.barSlide))
+                width: Theme.railWidth
+                height: parent.height
                 color: Theme.background
 
                 MouseArea {
@@ -998,10 +1015,18 @@ Scope {
                     RailTopActions {
                         openPanel: root.openPanel
                         scriptRoot: root.scriptRoot
-                        onPanelClicked: (panel, centerY) => root.togglePanel(panel, centerY)
-                        onPanelHovered: (panel, centerY, source) => root.hoverButtonEntered(panel, centerY, source)
-                        onPanelExited: (source) => root.hoverButtonExited(source)
-                        onRunCommand: (command) => root.run(command)
+                        onPanelClicked: (panel, centerY) => {
+                            return root.togglePanel(panel, centerY);
+                        }
+                        onPanelHovered: (panel, centerY, source) => {
+                            return root.hoverButtonEntered(panel, centerY, source);
+                        }
+                        onPanelExited: (source) => {
+                            return root.hoverButtonExited(source);
+                        }
+                        onRunCommand: (command) => {
+                            return root.run(command);
+                        }
                     }
 
                     Repeater {
@@ -1071,10 +1096,18 @@ Scope {
                         openPanel: root.openPanel
                         panelHeight: panel.height
                         batteryExpanded: root.batteryExpanded
-                        onPanelClicked: (panel, centerY) => root.togglePanel(panel, centerY)
-                        onPanelHovered: (panel, centerY, source) => root.hoverButtonEntered(panel, centerY, source)
-                        onPanelExited: (source) => root.hoverButtonExited(source)
-                        onRunCommand: (command) => root.run(command)
+                        onPanelClicked: (panel, centerY) => {
+                            return root.togglePanel(panel, centerY);
+                        }
+                        onPanelHovered: (panel, centerY, source) => {
+                            return root.hoverButtonEntered(panel, centerY, source);
+                        }
+                        onPanelExited: (source) => {
+                            return root.hoverButtonExited(source);
+                        }
+                        onRunCommand: (command) => {
+                            return root.run(command);
+                        }
                         onCloseDrawers: root.closeDrawers()
                         onToggleBatteryExpanded: root.batteryExpanded = !root.batteryExpanded
                         onCollapseBattery: root.batteryExpanded = false
@@ -1090,7 +1123,9 @@ Scope {
                     z: 20
                     text: root.railClockText()
                     dateMode: root.clockDateMode
-                    onHovered: (centerY) => root.hoverButtonEntered("calendar", centerY, "calendar")
+                    onHovered: (centerY) => {
+                        return root.hoverButtonEntered("calendar", centerY, "calendar");
+                    }
                     onExited: root.hoverButtonExited("calendar")
                     onClicked: root.clockDateMode = !root.clockDateMode
                 }
@@ -1105,40 +1140,50 @@ Scope {
                     onHoverEntered: root.extrasEntered()
                     onHoverExited: panel.extrasLeft()
 
-                        Column {
-                            id: systemTrayItems
+                    Column {
+                        id: systemTrayItems
 
-                            width: Theme.buttonSize
+                        width: Theme.buttonSize
 
-                            Repeater {
-                                model: SystemTray.items
+                        Repeater {
+                            model: SystemTray.items
 
-                                TrayRailItem {
-                                    item: modelData
-                                    onHovered: root.trayItemEntered()
-                                    onExited: panel.extrasLeft()
-                                    onOpenMenu: (item, centerY) => root.openTrayMenu(item, Math.round(extrasViewport.popupCenterY(systemTrayItems.y + centerY)))
+                            TrayRailItem {
+                                item: modelData
+                                onHovered: root.trayItemEntered()
+                                onExited: panel.extrasLeft()
+                                onOpenMenu: (item, centerY) => {
+                                    return root.openTrayMenu(item, Math.round(extrasViewport.popupCenterY(systemTrayItems.y + centerY)));
                                 }
-
                             }
 
                         }
 
-                        ExtrasActionSection {
-                            openPanel: root.openPanel
-                            centerOffset: extrasViewport.popupCenterY(0)
-                            updateIcon: root.updateIcon()
-                            updatesStatus: updates.json
-                            bluetoothStatus: bluetooth.json
-                            audioStatus: audio.json
-                            brightnessStatus: brightness.json
-                            privacyStatus: privacy.json
-                            scriptRoot: root.scriptRoot
-                            onPanelClicked: (panel, centerY) => root.togglePanel(panel, centerY)
-                            onPanelHovered: (panel, centerY, source) => root.hoverButtonEntered(panel, centerY, source)
-                            onPanelExited: (source) => root.hoverButtonExited(source)
-                            onRunCommand: (command) => root.run(command)
+                    }
+
+                    ExtrasActionSection {
+                        openPanel: root.openPanel
+                        centerOffset: extrasViewport.popupCenterY(0)
+                        updateIcon: root.updateIcon()
+                        updatesStatus: updates.json
+                        bluetoothStatus: bluetooth.json
+                        audioStatus: audio.json
+                        brightnessStatus: brightness.json
+                        privacyStatus: privacy.json
+                        scriptRoot: root.scriptRoot
+                        onPanelClicked: (panel, centerY) => {
+                            return root.togglePanel(panel, centerY);
                         }
+                        onPanelHovered: (panel, centerY, source) => {
+                            return root.hoverButtonEntered(panel, centerY, source);
+                        }
+                        onPanelExited: (source) => {
+                            return root.hoverButtonExited(source);
+                        }
+                        onRunCommand: (command) => {
+                            return root.run(command);
+                        }
+                    }
 
                 }
 
@@ -1148,7 +1193,9 @@ Scope {
                 targetScreen: modelData
                 open: root.openPanel === "power"
                 updateSummary: root.updateSummary()
-                onAction: (kind) => root.run(root.powerCommand(kind))
+                onAction: (kind) => {
+                    return root.run(root.powerCommand(kind));
+                }
                 onClose: root.closePanel()
             }
 
@@ -1166,8 +1213,10 @@ Scope {
                 batteryStatus: battery.json
                 clockDate: clock.date
                 selectedCalendarDate: root.selectedCalendarDate
-                calendarStatus: calendarEvents.json || ({})
-                systemStatus: systemInfo.json || ({})
+                calendarStatus: calendarEvents.json || ({
+                })
+                systemStatus: systemInfo.json || ({
+                })
                 scriptRoot: root.scriptRoot
                 systemTitle: root.systemPanelTitle()
                 systemBody: root.systemPanelBody()
@@ -1190,7 +1239,9 @@ Scope {
                 basicHeaderActionCommand: root.panelHeaderActionCommand()
                 onHoverEntered: root.popoutEntered()
                 onHoverExited: root.popoutExited()
-                onInputLockChanged: (locked) => root.setInputPopupLocked(locked)
+                onInputLockChanged: (locked) => {
+                    return root.setInputPopupLocked(locked);
+                }
                 onClosePanel: root.closePanel()
                 onCloseTrayMenu: root.closeTrayMenu()
                 onPreviousTodo: {
@@ -1229,7 +1280,9 @@ Scope {
                     root.run(command);
                     systemRefreshDelay.restart();
                 }
-                onPerformanceVisibleChanged: (visible) => root.setPerformancePolling(visible)
+                onPerformanceVisibleChanged: (visible) => {
+                    return root.setPerformancePolling(visible);
+                }
                 onSystemAction: (command, keepOpen) => {
                     root.run(command);
                     audio.refresh();
@@ -1238,17 +1291,20 @@ Scope {
                     network.refresh();
                     if (!keepOpen)
                         root.closePanel();
+
                 }
-                onSelectSystemPanel: (panel) => root.switchSystemPanel(panel)
+                onSelectSystemPanel: (panel) => {
+                    return root.switchSystemPanel(panel);
+                }
                 onBasicAction: (command, keepOpen) => {
                     if (command === "__refresh_updates") {
                         updates.refresh();
                         return ;
                     }
-
                     root.run(command);
                     if (!keepOpen)
                         root.closePanel();
+
                 }
             }
 
@@ -1260,6 +1316,14 @@ Scope {
         id: clock
 
         precision: SystemClock.Seconds
+    }
+
+    Behavior on barSlide {
+        NumberAnimation {
+            duration: 180
+            easing.type: Easing.OutCubic
+        }
+
     }
 
 }

@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -u
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+TODO_DIR="$HOME/Documents/todo"
+EXPENSES_API_BASE_URL="${EXPENSES_API_BASE_URL:-}"
+
+mkdir -p "$TODO_DIR"
+
+"$SCRIPT_DIR/../waybar/todo/update_gcal_md.sh" || true
+
+if [ -n "$EXPENSES_API_BASE_URL" ]; then
+    today_tmp="$(mktemp)"
+    week_tmp="$(mktemp)"
+
+    curl -fsS --connect-timeout 2 --max-time 8 \
+        -X POST "$EXPENSES_API_BASE_URL/api/exports/regenerate" >/dev/null || true
+
+    if curl -fsS --connect-timeout 2 --max-time 6 \
+        "$EXPENSES_API_BASE_URL/api/chart/today-text" > "$today_tmp"; then
+        mv "$today_tmp" "$TODO_DIR/80-today.md"
+    else
+        rm -f "$today_tmp"
+    fi
+
+    if curl -fsS --connect-timeout 2 --max-time 6 \
+        "$EXPENSES_API_BASE_URL/api/chart/week-text" > "$week_tmp"; then
+        mv "$week_tmp" "$TODO_DIR/81-week.md"
+    else
+        rm -f "$week_tmp"
+    fi
+fi

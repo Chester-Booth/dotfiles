@@ -818,6 +818,12 @@ Scope {
     }
 
     Process {
+        id: refreshGeneratedNotes
+
+        onExited: todoRefreshDelay.restart()
+    }
+
+    Process {
         id: addCalendarEvent
 
         onExited: calendarEvents.refresh()
@@ -1179,6 +1185,11 @@ Scope {
                 onNextTodo: {
                     root.run(root.scriptRoot + "/quickshell/todo-cycle.sh 1");
                     todoRefreshDelay.restart();
+                }
+                onRefreshTodo: {
+                    refreshGeneratedNotes.running = false;
+                    refreshGeneratedNotes.command = [root.scriptRoot + "/quickshell/todo-generated-refresh.sh"];
+                    refreshGeneratedNotes.running = true;
                 }
                 onSaveTodo: (file, body) => {
                     saveNotes.running = false;

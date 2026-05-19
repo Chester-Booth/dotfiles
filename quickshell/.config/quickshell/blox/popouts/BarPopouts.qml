@@ -45,6 +45,7 @@ Item {
     signal runCommand(string command)
     signal previousTodo()
     signal nextTodo()
+    signal refreshTodo(string file)
     signal saveTodo(string file, string body)
     signal resetCalendarMonth()
     signal selectCalendarDate(string day)
@@ -83,6 +84,7 @@ Item {
             maxPopoutHeight: root.panelHeight > 0 ? root.panelHeight * 0.75 : 760
             onPrevious: root.previousTodo()
             onNext: root.nextTodo()
+            onRefresh: (file) => root.refreshTodo(file)
             onSave: (file, body) => root.saveTodo(file, body)
             onEditingChanged: root.inputLockChanged(editing)
             onFocusRequested: {

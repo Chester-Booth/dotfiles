@@ -13,6 +13,8 @@ Rectangle {
     property bool editing: false
     property real maxPopoutWidth: 680
     property real maxPopoutHeight: 760
+    readonly property string fileName: file.substring(file.lastIndexOf("/") + 1)
+    readonly property bool generated: ["2-gcal.md", "80-today.md", "81-week.md", "99-gcal.md", "99-gcal_week.md"].indexOf(fileName) >= 0
     readonly property string contentText: editing ? editor.text : body
     readonly property int lineCount: Math.max(1, contentText.split("\n").length + (editing ? 1 : 0))
     readonly property int longestLine: {
@@ -25,6 +27,7 @@ Rectangle {
     signal previous()
     signal next()
     signal edit()
+    signal refresh(string file)
     signal save(string file, string body)
     signal focusRequested()
 
@@ -38,6 +41,10 @@ Rectangle {
 
     onEditingChanged: {
         focusEditor();
+    }
+    onGeneratedChanged: {
+        if (generated)
+            editing = false;
     }
 
     width: Math.min(maxPopoutWidth, Math.max(320, longestLine * 7 + 96))
@@ -64,8 +71,8 @@ Rectangle {
                     "icon": "›",
                     "action": "next"
                 }, {
-                    "icon": root.editing ? "󰈈" : "󰏫",
-                    "action": "edit"
+                    "icon": root.generated ? "󰑐" : root.editing ? "󰈈" : "󰏫",
+                    "action": root.generated ? "refresh" : "edit"
                 }, {
                     "icon": root.editing ? "󰆓" : "",
                     "action": "save"
@@ -101,6 +108,8 @@ Rectangle {
                                 root.previous();
                             else if (modelData.action === "next")
                                 root.next();
+                            else if (modelData.action === "refresh")
+                                root.refresh(root.file);
                             else if (modelData.action === "save")
                                 root.save(root.file, editor.text);
                             else
@@ -152,7 +161,7 @@ Rectangle {
                     readOnly: !root.editing
                     selectByMouse: true
                     wrapMode: TextEdit.NoWrap
-                    textFormat: root.editing ? TextEdit.PlainText : TextEdit.MarkdownText
+                    textFormat: root.editing || root.generated ? TextEdit.PlainText : TextEdit.MarkdownText
                     color: Theme.foreground
                     selectedTextColor: Theme.background
                     selectionColor: Theme.blue

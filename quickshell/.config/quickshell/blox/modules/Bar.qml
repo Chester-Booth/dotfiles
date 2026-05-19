@@ -16,7 +16,11 @@ Scope {
     property real openPanelY: 8
     property string scriptRoot: Quickshell.shellDir + "/scripts"
     property bool barOpen: true
-    property real barSlide: barOpen ? 1 : 0
+    property bool edgeTriggerHovered: false
+    property bool railSurfaceHovered: false
+    readonly property bool hoverRevealHeld: !barOpen && (edgeTriggerHovered || railSurfaceHovered || openPanel.length > 0 || extrasOpen || trayMenuOpen || popoutHovered || extrasHovered || inputPopupLocked)
+    readonly property bool barVisible: barOpen || hoverRevealHeld
+    property real barSlide: barVisible ? 1 : 0
     property bool extrasOpen: false
     property bool batteryExpanded: false
     property bool clockDateMode: false
@@ -981,10 +985,10 @@ Scope {
             }
 
             screen: modelData
-            implicitWidth: Theme.railWidth
-            exclusiveZone: Math.round(Theme.railWidth * root.barSlide)
+            implicitWidth: root.barVisible || root.barSlide > 0.01 ? Theme.railWidth : 1
+            exclusiveZone: root.barOpen ? Math.round(Theme.railWidth * root.barSlide) : 0
             focusable: false
-            visible: root.barOpen || root.barSlide > 0.01
+            visible: true
             color: "transparent"
 
             anchors {
@@ -993,11 +997,24 @@ Scope {
                 bottom: true
             }
 
+            MouseArea {
+                z: -1
+                anchors.fill: parent
+                acceptedButtons: Qt.NoButton
+                hoverEnabled: true
+                onEntered: root.edgeTriggerHovered = true
+                onExited: root.edgeTriggerHovered = false
+            }
+
             Rectangle {
                 x: Math.round(-Theme.railWidth * (1 - root.barSlide))
                 width: Theme.railWidth
                 height: parent.height
                 color: Theme.background
+
+                HoverHandler {
+                    onHoveredChanged: root.railSurfaceHovered = hovered
+                }
 
                 MouseArea {
                     anchors.fill: parent

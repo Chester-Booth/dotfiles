@@ -3,6 +3,9 @@
 **/node_modules
 **/.local/share/Trash
 **/Downloads
+/eww/
+/waybar/
+/quickshell/.config/quickshell/blox/env
 .ssh/*
 !.ssh/config
 .gnupg/private-keys-v1.d/

@@ -1,13 +1,13 @@
 [Unit]
-Description=Update Gcal Markdown files
+Description=Update generated todo markdown files
 # Try to wait for network, but run anyway if it fails so we get cached data
 Wants=network-online.target
 After=network-online.target
 
 [Service]
 Type=oneshot
-# Point this to your script path
-ExecStart=%h/.config/waybar/scripts/todo/update_gcal_md.sh
+EnvironmentFile=-%h/.config/quickshell/blox/env
+ExecStart=%h/.config/quickshell/blox/scripts/quickshell/todo-generated-refresh.sh
 
 [Install]
 WantedBy=default.target

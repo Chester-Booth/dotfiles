@@ -9,6 +9,8 @@ Item {
     property real topLimit: 0
     property real bottomLimit: 0
     property real push: 0
+    property real hoverMargin: 0
+    readonly property bool hovered: drawerHover.hovered
     readonly property real targetHeight: open ? Math.min(contentColumn.implicitHeight, Math.max(Theme.buttonSize, bottomLimit - topLimit)) : 0
     readonly property real columnY: height - contentColumn.implicitHeight - extrasScroll.offset
 
@@ -49,6 +51,13 @@ Item {
     onTopLimitChanged: Qt.callLater(updatePush)
     onBottomLimitChanged: Qt.callLater(updatePush)
 
+    HoverHandler {
+        id: drawerHover
+
+        margin: root.hoverMargin
+        onHoveredChanged: hovered ? root.hoverEntered() : root.hoverExited()
+    }
+
     MouseArea {
         id: extrasScroll
 
@@ -57,9 +66,6 @@ Item {
 
         anchors.fill: parent
         acceptedButtons: Qt.NoButton
-        hoverEnabled: true
-        onEntered: root.hoverEntered()
-        onExited: root.hoverExited()
         onMaxOffsetChanged: {
             offset = Math.min(offset, maxOffset);
             if (root.open)

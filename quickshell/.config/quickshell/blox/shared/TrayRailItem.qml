@@ -7,6 +7,8 @@ Rectangle {
     property var item
 
     signal openMenu(var item, real centerY)
+    signal hovered()
+    signal exited()
 
     width: Theme.buttonSize
     height: Theme.buttonSize
@@ -31,6 +33,8 @@ Rectangle {
         hoverEnabled: true
         preventStealing: true
         cursorShape: Qt.PointingHandCursor
+        onEntered: root.hovered()
+        onExited: root.exited()
         onPressed: (event) => {
             if (event.button !== Qt.RightButton)
                 return ;

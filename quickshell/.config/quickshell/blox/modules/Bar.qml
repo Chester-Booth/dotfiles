@@ -88,6 +88,15 @@ Scope {
         hoverCloseDelay.stop();
     }
 
+    function trayItemEntered() {
+        openPanel = "";
+        railHovered = false;
+        hoveredSource = "";
+        popoutHovered = false;
+        inputPopupLocked = false;
+        extrasEntered();
+    }
+
     function extrasExited() {
         extrasHovered = false;
         scheduleHoverClose();
@@ -135,6 +144,7 @@ Scope {
     function openTrayMenu(item, centerY) {
         closePanel();
         extrasOpen = true;
+        extrasHovered = true;
         trayMenuHandle = item.menu;
         trayMenuTitle = item.tooltipTitle || item.title || item.id || "Tray";
         trayMenuY = centerY;
@@ -932,6 +942,13 @@ Scope {
 
             required property var modelData
 
+            function extrasLeft() {
+                Qt.callLater(function() {
+                    if (!extrasViewport.hovered)
+                        root.extrasExited();
+                });
+            }
+
             screen: modelData
             implicitWidth: Theme.railWidth
             exclusiveZone: Theme.railWidth
@@ -1037,7 +1054,7 @@ Scope {
                             root.openExtras();
                             root.extrasEntered();
                         }
-                        onExited: root.extrasExited()
+                        onExited: panel.extrasLeft()
                     }
 
                     SystemRailSection {
@@ -1067,15 +1084,25 @@ Scope {
                     open: root.extrasOpen
                     topLimit: railLayout.y + clockText.y + clockText.height + 4
                     bottomLimit: railLayout.y + extrasToggle.y
+                    hoverMargin: Theme.buttonSize + 4
                     onHoverEntered: root.extrasEntered()
-                    onHoverExited: root.extrasExited()
+                    onHoverExited: panel.extrasLeft()
 
-                        Repeater {
-                            model: SystemTray.items
+                        Column {
+                            id: systemTrayItems
 
-                            TrayRailItem {
-                                item: modelData
-                                onOpenMenu: (item, centerY) => root.openTrayMenu(item, Math.round(extrasViewport.popupCenterY(centerY)))
+                            width: Theme.buttonSize
+
+                            Repeater {
+                                model: SystemTray.items
+
+                                TrayRailItem {
+                                    item: modelData
+                                    onHovered: root.trayItemEntered()
+                                    onExited: panel.extrasLeft()
+                                    onOpenMenu: (item, centerY) => root.openTrayMenu(item, Math.round(extrasViewport.popupCenterY(systemTrayItems.y + centerY)))
+                                }
+
                             }
 
                         }

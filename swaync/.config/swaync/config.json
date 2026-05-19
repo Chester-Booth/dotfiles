@@ -6,14 +6,14 @@
     "control-center-layer": "top",
     "layer-shell": true,
     "cssPriority": "application",
-    "control-center-width": 380,
+    "control-center-width": 340,
     "control-center-margin-top": 12,
     "control-center-margin-bottom": 12,
     "control-center-margin-right": 12,
     "control-center-margin-left": 0,
     "notification-2fa-action": true,
     "notification-inline-replies": true,
-    "notification-window-width": 340,
+    "notification-window-width": 330,
     "notification-icon-size": 60,
     "notification-body-image-height":  180,
     "notification-body-image-width": 180,
@@ -40,12 +40,13 @@
         }
     },
     "widgets": [
-        "mpris",
-        "title"
+        "title",
+        "dnd",
+        "mpris"
     ],
     "widget-config": {
         "title": {
-            "text": "Notification Centre",
+            "text": "Notifications",
             "clear-all-button": true,
             "button-text": "󰆴"
         },
@@ -56,7 +57,7 @@
 
         "mpris": {
             "image-size": 80,
-            "image-radius": 0
+            "image-radius": 6
         },
         "volume": {
             "label": "󰕾 "

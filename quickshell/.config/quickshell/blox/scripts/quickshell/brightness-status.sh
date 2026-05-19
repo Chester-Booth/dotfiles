@@ -18,7 +18,9 @@ case "$blue_mode" in
 esac
 
 blue_active=false
-pgrep -x hyprsunset >/dev/null && blue_active=true
+if [[ "$blue_mode" != "off" ]] && pgrep -x hyprsunset >/dev/null; then
+    blue_active=true
+fi
 
 jq -nc \
     --arg icon "${icons[$index]}" \

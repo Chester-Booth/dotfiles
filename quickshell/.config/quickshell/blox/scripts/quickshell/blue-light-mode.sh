@@ -4,46 +4,87 @@ set -u
 mode="${1:-auto}"
 state_dir="${XDG_CACHE_HOME:-$HOME/.cache}/quickshell"
 state_file="$state_dir/blue-light-mode"
+config_file="${XDG_CONFIG_HOME:-$HOME/.config}/hypr/generated/hyprsunset.conf"
 
 mkdir -p "$state_dir"
 
-start_filter() {
-    if ! pgrep -x hyprsunset >/dev/null; then
-        hyprsunset >/dev/null 2>&1 &
-    fi
-}
-
-stop_filter() {
+restart_filter() {
     pkill -x hyprsunset >/dev/null 2>&1 || true
+    hyprsunset >/dev/null 2>&1 &
 }
 
-auto_active() {
-    local hour
-    hour="$(date +%H)"
-    [[ "$hour" =~ ^[0-9]+$ ]] || hour=0
-    (( hour >= 20 || hour < 7 ))
+write_config() {
+    local selected_mode="$1"
+
+    mkdir -p "$(dirname "$config_file")"
+
+    case "$selected_mode" in
+        on)
+            cat > "$config_file" <<'EOF'
+max-gamma = 150
+
+profile {
+    time = 00:00
+    temperature = 5500
+}
+EOF
+            ;;
+        off)
+            cat > "$config_file" <<'EOF'
+max-gamma = 150
+
+profile {
+    time = 00:00
+    identity = true
+}
+EOF
+            ;;
+        auto)
+            cat > "$config_file" <<'EOF'
+max-gamma = 150
+
+profile {
+    time = 07:00
+    identity = true
+}
+
+profile {
+    time = 18:00
+    temperature = 6000
+}
+
+profile {
+    time = 20:00
+    temperature = 5500
+}
+
+profile {
+    time = 22:00
+    temperature = 4500
+}
+EOF
+            ;;
+    esac
 }
 
 case "$mode" in
     on)
         echo "on" > "$state_file"
-        start_filter
+        write_config "on"
+        restart_filter
         notify-send -u low -e "Blue-light filter" "Enabled"
         ;;
     off | disable | disabled)
         echo "off" > "$state_file"
-        stop_filter
+        write_config "off"
+        restart_filter
         notify-send -u low -e "Blue-light filter" "Disabled"
         ;;
     auto)
         echo "auto" > "$state_file"
-        if auto_active; then
-            start_filter
-            notify-send -u low -e "Blue-light filter" "Auto: enabled"
-        else
-            stop_filter
-            notify-send -u low -e "Blue-light filter" "Auto: disabled"
-        fi
+        write_config "auto"
+        restart_filter
+        notify-send -u low -e "Blue-light filter" "Auto schedule enabled"
         ;;
     *)
         echo "Usage: $0 on|auto|off" >&2

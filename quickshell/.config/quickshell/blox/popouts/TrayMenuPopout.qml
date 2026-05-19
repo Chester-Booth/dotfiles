@@ -86,7 +86,7 @@ Rectangle {
                         if (!modelData.enabled || modelData.isSeparator)
                             return ;
 
-                        modelData.sendTriggered();
+                        modelData.triggered();
                         root.triggered();
                     }
                 }

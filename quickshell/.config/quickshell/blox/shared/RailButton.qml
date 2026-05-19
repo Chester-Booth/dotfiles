@@ -10,6 +10,7 @@ Rectangle {
     property color accent: Theme.foreground
     property bool active: false
     property bool alert: false
+    property real iconRotation: 0
 
     signal clicked(real centerY)
     signal rightClicked()
@@ -21,7 +22,7 @@ Rectangle {
     width: Theme.buttonSize
     height: visible ? Theme.buttonSize : 0
     radius: Theme.radius
-    color: alert ? Theme.red : active ? Theme.surfaceAlt : "transparent"
+    color: alert ? Theme.red : active || mouse.containsMouse ? Theme.surfaceAlt : "transparent"
     opacity: mouse.containsMouse ? 0.68 : 1
 
     Text {
@@ -34,6 +35,15 @@ Rectangle {
         font.pixelSize: Theme.iconSize
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
+        rotation: root.iconRotation
+
+        Behavior on rotation {
+            NumberAnimation {
+                duration: 160
+                easing.type: Easing.OutCubic
+            }
+
+        }
     }
 
     Text {

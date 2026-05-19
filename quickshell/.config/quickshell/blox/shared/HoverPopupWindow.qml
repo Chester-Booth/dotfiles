@@ -11,16 +11,30 @@ PopupWindow {
     property real anchorY: 8
     property real contentWidth: 0
     property real contentHeight: 0
+    property bool keyboardFocus: false
+    property bool persistentKeyboardFocus: false
+    property bool focusOnPress: false
 
     signal hoverEntered()
     signal hoverExited()
+
+    function requestKeyboardFocus() {
+        keyboardFocus = true;
+        if (_backingWindow)
+            _backingWindow.requestActivate();
+    }
 
     anchor.window: anchorWindow
     anchor.rect.x: anchorX
     anchor.rect.y: anchorY
     implicitWidth: contentWidth
     implicitHeight: contentHeight
+    grabFocus: keyboardFocus || persistentKeyboardFocus
     color: "transparent"
+    onVisibleChanged: {
+        if (!visible)
+            keyboardFocus = false;
+    }
 
     Item {
         id: contentHost

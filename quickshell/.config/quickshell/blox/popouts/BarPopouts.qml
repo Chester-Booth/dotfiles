@@ -36,6 +36,7 @@ Item {
 
     signal hoverEntered()
     signal hoverExited()
+    signal inputLockChanged(bool locked)
     signal closePanel()
     signal closeTrayMenu()
     signal runCommand(string command)
@@ -51,13 +52,21 @@ Item {
     signal basicAction(string command, bool keepOpen)
 
     HoverPopupWindow {
+        id: notesWindow
+
         anchorWindow: root.panelWindow
         anchorY: Math.max(8, Math.min(root.panelHeight - notesPopout.height - 8, root.openPanelY - notesPopout.height / 2))
         contentWidth: notesPopout.width
         contentHeight: notesPopout.height
+        persistentKeyboardFocus: notesPopout.editing
+        focusOnPress: true
         visible: root.openPanel === "todo"
         onHoverEntered: root.hoverEntered()
         onHoverExited: root.hoverExited()
+        onVisibleChanged: {
+            if (!visible)
+                root.inputLockChanged(false);
+        }
 
         NotesPopout {
             id: notesPopout
@@ -72,10 +81,17 @@ Item {
             onPrevious: root.previousTodo()
             onNext: root.nextTodo()
             onSave: (file, body) => root.saveTodo(file, body)
+            onEditingChanged: root.inputLockChanged(editing)
+            onFocusRequested: {
+                root.inputLockChanged(true);
+                notesWindow.requestKeyboardFocus();
+            }
         }
     }
 
     HoverPopupWindow {
+        id: trayWindow
+
         anchorWindow: root.panelWindow
         anchorY: Math.max(8, Math.min(root.panelHeight - trayMenuPopout.height - 8, root.trayMenuY - trayMenuPopout.height / 2))
         contentWidth: trayMenuPopout.width
@@ -94,13 +110,20 @@ Item {
     }
 
     HoverPopupWindow {
+        id: calendarWindow
+
         anchorWindow: root.panelWindow
         anchorY: Math.max(8, Math.min(root.panelHeight - calendarPopout.height - 8, root.openPanelY - calendarPopout.height / 2))
         contentWidth: calendarPopout.width
         contentHeight: calendarPopout.height
+        focusOnPress: true
         visible: root.openPanel === "calendar"
         onHoverEntered: root.hoverEntered()
         onHoverExited: root.hoverExited()
+        onVisibleChanged: {
+            if (!visible)
+                root.inputLockChanged(false);
+        }
 
         CalendarPopout {
             id: calendarPopout
@@ -113,6 +136,10 @@ Item {
             onSelected: (day) => root.selectCalendarDate(day)
             onAddEvent: (day, title) => root.addCalendarEvent(day, title)
             onOpenEvent: (title) => root.openCalendarEvent(title)
+            onFocusRequested: {
+                root.inputLockChanged(true);
+                calendarWindow.requestKeyboardFocus();
+            }
         }
     }
 

@@ -28,6 +28,7 @@ Rectangle {
     signal addEvent(string day, string title)
     signal resetMonth()
     signal openEvent(string title)
+    signal focusRequested()
 
     function shownDate() {
         return new Date(baseDate.getFullYear(), baseDate.getMonth() + monthOffset, 1);
@@ -315,8 +316,20 @@ Rectangle {
                     color: Theme.foreground
                     font.family: Theme.fontFamily
                     font.pixelSize: 11
+                    focus: true
+                    activeFocusOnPress: true
                     verticalAlignment: TextInput.AlignVCenter
                     clip: true
+                    onActiveFocusChanged: {
+                        if (activeFocus)
+                            root.focusRequested();
+                    }
+                    onVisibleChanged: {
+                        if (visible) {
+                            root.focusRequested();
+                            forceActiveFocus();
+                        }
+                    }
                     onTextChanged: root.newEventTitle = text
                 }
 

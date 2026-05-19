@@ -1,5 +1,6 @@
 import "."
 import QtQuick
+import QtQuick.Layouts
 
 Item {
     id: root
@@ -28,6 +29,7 @@ Item {
 
     width: Theme.buttonSize
     implicitHeight: content.implicitHeight
+    Layout.alignment: Qt.AlignHCenter
 
     Column {
         id: content
@@ -55,14 +57,17 @@ Item {
             onPanelExited: (source) => root.panelExited(source)
         }
 
-        RailButton {
+        PanelRailButton {
             icon: root.notificationsStatus && root.notificationsStatus.icon ? root.notificationsStatus.icon : "󰂜"
             accent: root.notificationsStatus && root.notificationsStatus.dnd ? Theme.yellow : root.notificationsStatus && root.notificationsStatus.count > 0 ? Theme.blue : Theme.foreground
-            active: false
-            onClicked: {
+            panel: "notifications"
+            active: root.openPanel === "notifications"
+            onPanelClicked: {
                 root.closeDrawers();
                 root.runCommand("swaync-client -op -sw");
             }
+            onPanelHovered: (panel, centerY, source) => root.panelHovered(panel, root.mapCenterY(centerY), source)
+            onPanelExited: (source) => root.panelExited(source)
             onRightClicked: root.runCommand("swaync-client -d -sw")
         }
 

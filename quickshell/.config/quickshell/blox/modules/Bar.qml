@@ -21,6 +21,7 @@ Scope {
     property bool railHovered: false
     property string hoveredSource: ""
     property bool popoutHovered: false
+    property bool inputPopupLocked: false
     property bool blinkOn: true
     property string selectedCalendarDate: ""
     property string alertWorkspaceIds: ","
@@ -39,10 +40,23 @@ Scope {
         railHovered = false;
         hoveredSource = "";
         popoutHovered = false;
+        inputPopupLocked = false;
         hoverCloseDelay.stop();
     }
 
+    function setInputPopupLocked(locked) {
+        inputPopupLocked = locked;
+        if (locked) {
+            hoverCloseDelay.stop();
+        } else if (hoveredSource.length === 0 && !popoutHovered) {
+            scheduleHoverClose();
+        }
+    }
+
     function openHoverPanel(panel, centerY) {
+        if (openPanel !== panel)
+            inputPopupLocked = false;
+
         openPanelY = centerY === undefined ? 8 : centerY;
         openPanel = panel;
         hoverCloseDelay.stop();
@@ -87,6 +101,15 @@ Scope {
         closePanel();
         closeTrayMenu();
         extrasOpen = !extrasOpen;
+    }
+
+    function openExtras() {
+        if (extrasOpen)
+            return ;
+
+        closePanel();
+        closeTrayMenu();
+        extrasOpen = true;
     }
 
     function closeDrawers() {
@@ -784,7 +807,7 @@ Scope {
         interval: 180
         repeat: false
         onTriggered: {
-            if (root.hoveredSource.length === 0 && !root.popoutHovered) {
+            if (root.hoveredSource.length === 0 && !root.popoutHovered && !root.inputPopupLocked) {
                 root.closePanel();
                 root.closeTrayMenu();
             }
@@ -901,6 +924,7 @@ Scope {
 
                         active: root.extrasOpen
                         onToggle: root.toggleExtras()
+                        onOpenRequested: root.openExtras()
                     }
 
                     SystemRailSection {
@@ -1000,6 +1024,7 @@ Scope {
                 basicActions: root.panelActions()
                 onHoverEntered: root.popoutEntered()
                 onHoverExited: root.popoutExited()
+                onInputLockChanged: (locked) => root.setInputPopupLocked(locked)
                 onClosePanel: root.closePanel()
                 onCloseTrayMenu: root.closeTrayMenu()
                 onPreviousTodo: {

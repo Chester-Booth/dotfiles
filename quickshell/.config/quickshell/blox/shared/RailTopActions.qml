@@ -1,5 +1,6 @@
 import "."
 import QtQuick
+import QtQuick.Layouts
 
 Item {
     id: root
@@ -14,6 +15,7 @@ Item {
 
     width: Theme.buttonSize
     implicitHeight: content.implicitHeight
+    Layout.alignment: Qt.AlignHCenter
 
     Column {
         id: content

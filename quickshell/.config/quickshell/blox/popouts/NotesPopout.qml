@@ -26,6 +26,19 @@ Rectangle {
     signal next()
     signal edit()
     signal save(string file, string body)
+    signal focusRequested()
+
+    function focusEditor() {
+        if (!editing)
+            return ;
+
+        focusRequested();
+        Qt.callLater(() => editor.forceActiveFocus());
+    }
+
+    onEditingChanged: {
+        focusEditor();
+    }
 
     width: Math.min(maxPopoutWidth, Math.max(320, longestLine * 7 + 96))
     height: Math.min(maxPopoutHeight, Math.max(96, (editing ? lineCount * 15 : editor.contentHeight) + 74))
@@ -145,6 +158,16 @@ Rectangle {
                     selectionColor: Theme.blue
                     font.family: Theme.fontFamily
                     font.pixelSize: 12
+                    focus: root.editing
+                    activeFocusOnPress: root.editing
+                    onActiveFocusChanged: {
+                        if (activeFocus && root.editing)
+                            root.focusRequested();
+                    }
+                    TapHandler {
+                        acceptedButtons: Qt.LeftButton
+                        onTapped: root.focusEditor()
+                    }
                     onCursorRectangleChanged: {
                         if (!root.editing)
                             return ;

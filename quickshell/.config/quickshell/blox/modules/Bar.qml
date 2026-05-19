@@ -224,6 +224,21 @@ Scope {
         return text || "Check updates";
     }
 
+    function updateBody() {
+        const text = updates.json.tooltip || "";
+        const match = text.match(/([0-9]+)\s+repo updates,\s+([0-9]+)\s+AUR updates/i);
+        if (match) {
+            const repo = parseInt(match[1]);
+            const yay = parseInt(match[2]);
+            return repo + " repo updates, " + yay + " yay updates\n" + (repo + yay) + " total updates";
+        }
+
+        if (updates.json.class === "zero")
+            return "0 repo updates, 0 yay updates\n0 total updates";
+
+        return text || "Update status unavailable";
+    }
+
     function currentIsoDate() {
         return Qt.formatDate(clock.date, "yyyy-MM-dd");
     }
@@ -406,6 +421,48 @@ Scope {
         return titles[openPanel] || "";
     }
 
+    function elapsedText(ms, nowMs) {
+        if (!ms || ms <= 0)
+            return "Not fetched yet";
+
+        const elapsed = Math.max(0, Math.floor((nowMs - ms) / 1000));
+        if (elapsed < 5)
+            return "Fetched just now";
+        if (elapsed < 60)
+            return "Fetched " + elapsed + "s ago";
+
+        const minutes = Math.floor(elapsed / 60);
+        if (minutes < 60)
+            return "Fetched " + minutes + "m ago";
+
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24)
+            return "Fetched " + hours + "h ago";
+
+        return "Fetched " + Math.floor(hours / 24) + "d ago";
+    }
+
+    function panelSubtitle() {
+        if (openPanel === "updates")
+            return elapsedText(updates.lastUpdatedMs, clock.date.getTime());
+
+        return "";
+    }
+
+    function panelHeaderActionIcon() {
+        if (openPanel === "updates")
+            return "󰑐";
+
+        return "";
+    }
+
+    function panelHeaderActionCommand() {
+        if (openPanel === "updates")
+            return "__refresh_updates";
+
+        return "";
+    }
+
     function panelBody() {
         if (openPanel === "power")
             return "Session actions use the copied safe-power backend, including the micro guard.";
@@ -420,7 +477,7 @@ Scope {
             return "Tray/menu placeholder\n" + (updates.json.tooltip || "Update status unavailable") + "\n" + (bluetooth.json.tooltip || "Bluetooth unavailable") + "\n" + (audio.json.micMuted ? "Mic muted" : "Mic open") + "\n" + (brightness.json.tooltip || "Brightness unavailable") + "\n" + (privacy.json.tooltip || "Privacy unavailable");
 
         if (openPanel === "updates")
-            return updates.json.tooltip || "Update status unavailable";
+            return updateBody();
 
         if (openPanel === "bluetooth")
             return bluetooth.json.tooltip || "Bluetooth status unavailable";
@@ -524,9 +581,11 @@ Scope {
 
         if (current === "updates")
             return [{
+            "icon": "󰇚",
             "label": "Run updates",
             "command": "kitty --class update --title update sh -c '" + root.scriptRoot + "/waybar/update/update-run.sh; echo Done - press enter; read'"
         }, {
+            "icon": "",
             "label": "List updates",
             "command": "kitty --class update-list --title update-list sh -c '" + root.scriptRoot + "/waybar/update/update-list.sh'"
         }];
@@ -1041,8 +1100,11 @@ Scope {
                 bluetoothIcon: bluetooth.json.icon || "󰂯"
                 brightnessPercent: brightness.json.percent || 0
                 basicTitle: root.panelTitle()
+                basicSubtitle: root.panelSubtitle()
                 basicBody: root.panelBody()
                 basicActions: root.panelActions()
+                basicHeaderActionIcon: root.panelHeaderActionIcon()
+                basicHeaderActionCommand: root.panelHeaderActionCommand()
                 onHoverEntered: root.popoutEntered()
                 onHoverExited: root.popoutExited()
                 onInputLockChanged: (locked) => root.setInputPopupLocked(locked)
@@ -1085,6 +1147,11 @@ Scope {
                         root.closePanel();
                 }
                 onBasicAction: (command, keepOpen) => {
+                    if (command === "__refresh_updates") {
+                        updates.refresh();
+                        return ;
+                    }
+
                     root.run(command);
                     if (!keepOpen)
                         root.closePanel();

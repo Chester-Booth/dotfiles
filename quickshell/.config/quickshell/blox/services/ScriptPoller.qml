@@ -11,6 +11,7 @@ Scope {
     property var json: ({
     })
     property bool ok: true
+    property real lastUpdatedMs: 0
 
     function refresh() {
         if (command.length > 0 && !process.running)
@@ -26,6 +27,7 @@ Scope {
         stdout: StdioCollector {
             onStreamFinished: {
                 root.raw = this.text.trim();
+                root.lastUpdatedMs = Date.now();
                 try {
                     root.json = root.raw.length > 0 ? JSON.parse(root.raw) : {
                     };

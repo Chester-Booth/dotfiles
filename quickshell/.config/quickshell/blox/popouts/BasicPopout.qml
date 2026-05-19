@@ -5,8 +5,11 @@ Rectangle {
     id: root
 
     property string title: ""
+    property string subtitle: ""
     property string body: ""
     property var actions: []
+    property string headerActionIcon: ""
+    property string headerActionCommand: ""
 
     signal action(string command, bool keepOpen)
 
@@ -17,37 +20,100 @@ Rectangle {
     border.color: Theme.surfaceAlt
     border.width: 1
 
-    Column {
+    Item {
         id: content
 
         anchors.fill: parent
         anchors.margins: 12
-        spacing: 10
+        implicitHeight: headerRow.height + bodyText.implicitHeight + actionFlow.implicitHeight + 20
 
-        Row {
+        Item {
+            id: headerRow
+
             width: parent.width
-            spacing: 8
+            anchors.top: parent.top
+            height: Math.max(22, titleBlock.implicitHeight)
 
             Text {
+                id: titleIcon
+
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
                 text: root.title === "Updates" ? "󰧠" : "󰍹"
                 color: Theme.blue
                 font.family: Theme.fontFamily
                 font.pixelSize: 18
             }
 
-            Text {
-                width: parent.width - 28
-                text: root.title
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: 14
-                font.bold: true
-                elide: Text.ElideRight
+            Column {
+                id: titleBlock
+
+                anchors.left: titleIcon.right
+                anchors.leftMargin: 8
+                anchors.right: headerAction.left
+                anchors.rightMargin: headerAction.visible ? 8 : 0
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 1
+
+                Text {
+                    width: parent.width
+                    text: root.title
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 14
+                    font.bold: true
+                    elide: Text.ElideRight
+                }
+
+                Text {
+                    width: parent.width
+                    visible: root.subtitle.length > 0
+                    text: root.subtitle
+                    color: Theme.muted
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 10
+                    elide: Text.ElideRight
+                }
+            }
+
+            Rectangle {
+                id: headerAction
+
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                visible: root.headerActionCommand.length > 0
+                width: 28
+                height: 28
+                radius: 6
+                color: headerActionMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
+                border.color: Theme.surfaceAlt
+                border.width: 1
+
+                Text {
+                    anchors.centerIn: parent
+                    text: root.headerActionIcon
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 14
+                }
+
+                MouseArea {
+                    id: headerActionMouse
+
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.action(root.headerActionCommand, true)
+                }
             }
 
         }
 
         Text {
+            id: bodyText
+
+            anchors.top: headerRow.bottom
+            anchors.topMargin: 8
             width: parent.width
             text: root.body
             color: Theme.foreground
@@ -57,6 +123,11 @@ Rectangle {
         }
 
         Flow {
+            id: actionFlow
+
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
             width: parent.width
             spacing: 8
 
@@ -64,22 +135,36 @@ Rectangle {
                 model: root.actions
 
                 Rectangle {
-                    width: Math.max(96, actionLabel.implicitWidth + 22)
+                    width: root.title === "Updates" ? Math.floor((parent.width - 8) / 2) : Math.max(96, actionContent.implicitWidth + 22)
                     height: 34
                     radius: 7
                     color: actionMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
                     border.color: modelData.danger ? Theme.red : Theme.surfaceAlt
                     border.width: 1
 
-                    Text {
-                        id: actionLabel
+                    Row {
+                        id: actionContent
 
                         anchors.centerIn: parent
-                        text: modelData.label || ""
-                        color: modelData.danger ? Theme.red : Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: 11
-                        font.bold: true
+                        spacing: 7
+
+                        Text {
+                            visible: !!modelData.icon
+                            text: modelData.icon || ""
+                            color: modelData.danger ? Theme.red : Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: 13
+                        }
+
+                        Text {
+                            id: actionLabel
+
+                            text: modelData.label || ""
+                            color: modelData.danger ? Theme.red : Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: 11
+                            font.bold: true
+                        }
                     }
 
                     MouseArea {

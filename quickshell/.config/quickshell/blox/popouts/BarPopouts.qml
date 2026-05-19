@@ -31,8 +31,11 @@ Item {
     property string bluetoothIcon: "󰂯"
     property int brightnessPercent: 0
     property string basicTitle: ""
+    property string basicSubtitle: ""
     property string basicBody: ""
     property var basicActions: []
+    property string basicHeaderActionIcon: ""
+    property string basicHeaderActionCommand: ""
 
     signal hoverEntered()
     signal hoverExited()
@@ -205,8 +208,11 @@ Item {
 
             width: 320
             title: root.basicTitle
+            subtitle: root.basicSubtitle
             body: root.basicBody
             actions: root.basicActions
+            headerActionIcon: root.basicHeaderActionIcon
+            headerActionCommand: root.basicHeaderActionCommand
             onAction: (command, keepOpen) => root.basicAction(command, keepOpen)
         }
     }

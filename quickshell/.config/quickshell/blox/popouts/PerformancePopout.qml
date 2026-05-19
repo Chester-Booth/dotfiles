@@ -7,6 +7,8 @@ Rectangle {
 
     property var status: ({
     })
+    property var batteryStatus: ({
+    })
     property string scriptRoot: ""
 
     signal action(string command)
@@ -26,7 +28,7 @@ Rectangle {
     }
 
     width: 370
-    height: 430
+    height: 490
     radius: 8
     color: Theme.background
     border.color: Theme.surfaceAlt
@@ -95,6 +97,10 @@ Rectangle {
                     "icon": "󱟤",
                     "label": "Power",
                     "value": (status.powerW || "N/A") + " W"
+                }, {
+                    "icon": batteryStatus && batteryStatus.icon ? batteryStatus.icon : "󰁹",
+                    "label": "Battery",
+                    "value": batteryStatus && batteryStatus.capacity !== "" && batteryStatus.capacity !== undefined ? (batteryStatus.capacity + "% " + (batteryStatus.status || "")) : (batteryStatus && batteryStatus.tooltip ? batteryStatus.tooltip : "N/A")
                 }, {
                     "icon": "",
                     "label": "Memory",

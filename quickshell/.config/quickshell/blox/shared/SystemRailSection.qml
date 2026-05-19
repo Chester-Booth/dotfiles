@@ -102,8 +102,6 @@ Item {
                 root.closeDrawers();
                 root.toggleBatteryExpanded();
             }
-            onPanelHovered: (panel, centerY, source) => root.panelHovered(panel, centerY, source)
-            onPanelExited: (source) => root.panelExited(source)
             onSystemPanelRequested: (centerY) => root.panelClicked("system", centerY)
         }
 

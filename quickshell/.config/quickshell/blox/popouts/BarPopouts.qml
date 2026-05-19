@@ -15,6 +15,7 @@ Item {
     property var trayMenuHandle: null
     property string trayMenuTitle: ""
     property var todoStatus
+    property var batteryStatus
     property date clockDate
     property string selectedCalendarDate: ""
     property var calendarStatus
@@ -160,6 +161,7 @@ Item {
             id: performancePopout
 
             status: root.systemStatus || ({})
+            batteryStatus: root.batteryStatus || ({})
             scriptRoot: root.scriptRoot
             onAction: (command) => root.performanceAction(command)
         }
@@ -170,11 +172,11 @@ Item {
         anchorY: Math.max(8, Math.min(root.panelHeight - systemPopout.height - 8, root.openPanelY - systemPopout.height / 2))
         contentWidth: systemPopout.width
         contentHeight: systemPopout.height
-        visible: ["audio", "network", "bluetooth", "mic", "brightness", "battery"].indexOf(root.openPanel) >= 0
+        visible: ["audio", "network", "bluetooth", "mic", "brightness"].indexOf(root.openPanel) >= 0
         onHoverEntered: root.hoverEntered()
         onHoverExited: root.hoverExited()
         onVisibleChanged: {
-            if (!visible && ["audio", "network", "bluetooth", "mic", "brightness", "battery"].indexOf(root.openPanel) >= 0)
+            if (!visible && ["audio", "network", "bluetooth", "mic", "brightness"].indexOf(root.openPanel) >= 0)
                 root.closePanel();
         }
 

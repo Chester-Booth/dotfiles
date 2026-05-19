@@ -1152,6 +1152,7 @@ Scope {
                 trayMenuHandle: root.trayMenuHandle
                 trayMenuTitle: root.trayMenuTitle
                 todoStatus: todo.json
+                batteryStatus: battery.json
                 clockDate: clock.date
                 selectedCalendarDate: root.selectedCalendarDate
                 calendarStatus: calendarEvents.json || ({})

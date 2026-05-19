@@ -153,6 +153,19 @@ Scope {
             item.activate();
     }
 
+    function setPerformancePolling(visible) {
+        systemInfo.interval = visible ? 1000 : 5000;
+        battery.interval = visible ? 1000 : 5000;
+        fan.interval = visible ? 2000 : 10000;
+        gpu.interval = visible ? 2000 : 5000;
+        if (visible) {
+            fan.refresh();
+            gpu.refresh();
+            systemInfo.refresh();
+            battery.refresh();
+        }
+    }
+
     function activeWorkspaceId() {
         const items = workspaceItems();
         for (let i = 0; i < items.length; i++) {
@@ -1215,6 +1228,7 @@ Scope {
                     root.run(command);
                     systemRefreshDelay.restart();
                 }
+                onPerformanceVisibleChanged: (visible) => root.setPerformancePolling(visible)
                 onSystemAction: (command, keepOpen) => {
                     root.run(command);
                     if (!keepOpen)

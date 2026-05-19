@@ -53,6 +53,7 @@ Item {
     signal addCalendarEvent(string day, string title)
     signal openCalendarEvent(string title)
     signal performanceAction(string command)
+    signal performanceVisibleChanged(bool visible)
     signal systemAction(string command, bool keepOpen)
     signal basicAction(string command, bool keepOpen)
 
@@ -156,6 +157,7 @@ Item {
         visible: root.openPanel === "system"
         onHoverEntered: root.hoverEntered()
         onHoverExited: root.hoverExited()
+        onVisibleChanged: root.performanceVisibleChanged(visible)
 
         PerformancePopout {
             id: performancePopout

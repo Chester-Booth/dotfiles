@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -u
 
+CACHE_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/quickshell/battery-status.json"
+
 battery_dir=""
 for candidate in /sys/class/power_supply/BAT*; do
     [[ -r "$candidate/capacity" ]] || continue
@@ -16,6 +18,11 @@ if [[ -n "$battery_dir" ]]; then
 fi
 
 if [[ ! "$capacity" =~ ^[0-9]+$ ]]; then
+    if [[ -s "$CACHE_FILE" ]]; then
+        cat "$CACHE_FILE"
+        exit 0
+    fi
+
     jq -nc '{"icon":"󰚥","class":"plugged","capacity":"","tooltip":"No battery detected"}'
     exit 0
 fi
@@ -39,5 +46,6 @@ else
     icon="${icons[$index]}"
 fi
 
+mkdir -p "$(dirname "$CACHE_FILE")"
 jq -nc --arg icon "$icon" --arg class "$class" --arg status "$status" --argjson capacity "$capacity" \
-    '{icon:$icon,class:$class,capacity:$capacity,tooltip:("Charge: \($capacity)%\n\($status)")}'
+    '{icon:$icon,class:$class,capacity:$capacity,tooltip:("Charge: \($capacity)%\n\($status)")}' | tee "$CACHE_FILE"

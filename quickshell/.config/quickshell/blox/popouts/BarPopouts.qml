@@ -33,6 +33,7 @@ Item {
     property string bluetoothIcon: "󰂯"
     property string brightnessIcon: "󰃠"
     property int brightnessPercent: 0
+    property string blueLightMode: "auto"
     property string basicTitle: ""
     property string basicSubtitle: ""
     property string basicBody: ""
@@ -201,6 +202,8 @@ Item {
             bluetoothIcon: root.bluetoothIcon
             brightnessIcon: root.brightnessIcon
             brightnessPercent: root.brightnessPercent
+            blueLightMode: root.blueLightMode
+            scriptRoot: root.scriptRoot
             onAction: (command, keepOpen) => root.systemAction(command, keepOpen)
             onSectionSelected: (panel) => root.selectSystemPanel(panel)
         }

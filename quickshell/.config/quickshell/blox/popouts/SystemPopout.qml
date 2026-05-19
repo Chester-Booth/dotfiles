@@ -9,6 +9,7 @@ Rectangle {
     property string title: ""
     property string body: ""
     property var actions: []
+    property string scriptRoot: ""
     property int audioVolume: 0
     property string audioIcon: "󰕾"
     property bool audioMuted: false
@@ -18,8 +19,10 @@ Rectangle {
     property string bluetoothIcon: "󰂯"
     property string brightnessIcon: "󰃠"
     property int brightnessPercent: 0
+    property string blueLightMode: "auto"
     property int visualAudioVolume: audioVolume
     property int visualBrightnessPercent: brightnessPercent
+    property string visualBlueLightMode: blueLightMode
 
     signal action(string command, bool keepOpen)
     signal sectionSelected(string panel)
@@ -92,6 +95,7 @@ Rectangle {
 
     onAudioVolumeChanged: visualAudioVolume = audioVolume
     onBrightnessPercentChanged: visualBrightnessPercent = brightnessPercent
+    onBlueLightModeChanged: visualBlueLightMode = blueLightMode
 
     width: 330
     height: Math.min(520, Math.max(178, content.implicitHeight + 24))
@@ -240,6 +244,27 @@ Rectangle {
                 onChanged: (value) => {
                     root.visualBrightnessPercent = value;
                     root.action("brightnessctl -d amdgpu_bl1 set " + value + "%", true);
+                }
+            }
+
+            SegmentControl {
+                Layout.fillWidth: true
+                visible: root.currentMode() === "brightness"
+                title: "Blue light"
+                currentId: root.visualBlueLightMode
+                options: [{
+                    "id": "off",
+                    "icon": "󰃞"
+                }, {
+                    "id": "auto",
+                    "icon": "󰖙"
+                }, {
+                    "id": "on",
+                    "icon": "󰖔"
+                }]
+                onSelected: (id) => {
+                    root.visualBlueLightMode = id;
+                    root.action(root.scriptRoot + "/quickshell/blue-light-mode.sh " + id, true);
                 }
             }
 
@@ -477,6 +502,106 @@ Rectangle {
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: chip.clicked()
+        }
+
+    }
+
+    component SegmentControl: ColumnLayout {
+        id: segment
+
+        property string title: ""
+        property string currentId: ""
+        property var options: []
+        property int selectedIndex: {
+            for (let i = 0; i < options.length; i++) {
+                if (options[i].id === currentId)
+                    return i;
+
+            }
+            return 0;
+        }
+
+        signal selected(string id)
+
+        spacing: 4
+
+        RowLayout {
+            Layout.fillWidth: true
+
+            Text {
+                Layout.fillWidth: true
+                text: segment.title
+                color: Theme.muted
+                font.family: Theme.fontFamily
+                font.pixelSize: 10
+                font.bold: true
+            }
+
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 32
+            radius: 16
+            color: Theme.surface
+            border.color: Theme.surfaceAlt
+            border.width: 1
+            clip: true
+
+            Rectangle {
+                x: 3 + segment.selectedIndex * ((parent.width - 6) / Math.max(1, segment.options.length))
+                y: 3
+                width: (parent.width - 6) / Math.max(1, segment.options.length)
+                height: parent.height - 6
+                radius: 13
+                color: "#66453d3d"
+
+                Behavior on x {
+                    NumberAnimation {
+                        duration: 150
+                        easing.type: Easing.OutCubic
+                    }
+
+                }
+            }
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.margins: 3
+                spacing: 0
+
+                Repeater {
+                    model: segment.options
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        radius: 13
+                        color: segmentMouse.containsMouse ? "#333b3c4a" : "transparent"
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: modelData.icon
+                            color: modelData.id === segment.currentId ? Theme.yellow : Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: 14
+                        }
+
+                        MouseArea {
+                            id: segmentMouse
+
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: segment.selected(modelData.id)
+                        }
+
+                    }
+
+                }
+
+            }
+
         }
 
     }

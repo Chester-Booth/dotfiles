@@ -391,10 +391,7 @@ Scope {
         }];
 
         if (openPanel === "brightness")
-            return [{
-            "label": "Toggle sunset",
-            "command": root.scriptRoot + "/waybar/hyprsunset-toggle.sh"
-        }];
+            return [];
 
         if (openPanel === "system")
             return [];
@@ -1185,6 +1182,7 @@ Scope {
                 bluetoothIcon: bluetooth.json.icon || "󰂯"
                 brightnessIcon: brightness.json.icon || "󰃠"
                 brightnessPercent: brightness.json.percent || 0
+                blueLightMode: brightness.json.blueLightMode || "auto"
                 basicTitle: root.panelTitle()
                 basicSubtitle: root.panelSubtitle()
                 basicBody: root.panelBody()

@@ -72,8 +72,8 @@ Scope {
             inputPopupLocked = false;
 
         openPanel = panel;
-        hoveredSource = panel;
-        railHovered = true;
+        hoveredSource = "";
+        railHovered = false;
         hoverCloseDelay.stop();
     }
 

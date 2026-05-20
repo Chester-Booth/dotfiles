@@ -31,10 +31,6 @@ window#osd segmentedprogress {
   padding: 0;
   margin: 0;
   box-shadow: none;
-  -GtkProgressBar-min-horizontal-bar-width: 0;
-  -GtkProgressBar-min-horizontal-bar-height: 6;
-  -GtkProgressBar-xspacing: 0;
-  -GtkProgressBar-yspacing: 0;
 }
 
 window#osd trough,

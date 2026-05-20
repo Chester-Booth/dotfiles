@@ -27,10 +27,12 @@ shellcheck:
 	fi
 
 py-compile:
-	@find $(QS)/scripts -type f -name '*.py' -print0 | xargs -0 -r python3 -m py_compile
+	@while IFS= read -r -d '' file; do \
+		python3 -c 'import ast, pathlib, sys; path = pathlib.Path(sys.argv[1]); ast.parse(path.read_text(), filename=str(path))' "$$file"; \
+	done < <(find $(QS)/scripts -type f -name '*.py' -print0)
 
 validate-status:
-	@$(QS)/scripts/validate-status.py
+	@$(QS)/scripts/validate-status.py --timeout 10
 
 systemd-verify:
 	@systemd-analyze --user verify systemd/*.service systemd/*.timer

@@ -12,6 +12,21 @@ Run with:
 quickshell -c blox
 ```
 
+Private environment values are read from:
+
+```sh
+~/.config/quickshell/blox/env
+```
+
+Create it from the tracked template:
+
+```sh
+cp ~/.config/quickshell/blox/env.example ~/.config/quickshell/blox/env
+```
+
+`EXPENSES_API_BASE_URL` is optional. When set, `scripts/todo/generated-refresh.sh`
+uses it to refresh expenses-generated todo markdown files.
+
 Layout:
 
 - `shell.qml` - Quickshell entrypoint.

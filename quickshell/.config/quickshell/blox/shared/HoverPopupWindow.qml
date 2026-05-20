@@ -29,8 +29,9 @@ PopupWindow {
     anchor.rect.y: anchorY
     implicitWidth: contentWidth
     implicitHeight: contentHeight
+    surfaceFormat.opaque: false
     grabFocus: keyboardFocus || persistentKeyboardFocus
-    color: "transparent"
+    color: Qt.rgba(0, 0, 0, 0.004)
     onVisibleChanged: {
         if (!visible)
             keyboardFocus = false;

@@ -139,10 +139,12 @@ generate_file() {
     local out_file="$3"
     local temp_raw
     local temp_err
+    local args
+    read -r -a args <<< "$cmd_args"
 
     # Capture stderr to detect token expiration errors
     temp_err=$(mktemp)
-    if temp_raw=$(gcalcli agenda --military --details=end --details=location --width=300 $cmd_args 2>"$temp_err"); then
+    if temp_raw=$(gcalcli agenda --military --details=end --details=location --width=300 "${args[@]}" 2>"$temp_err"); then
         if [ -n "$temp_raw" ]; then
             echo "$temp_raw" > "$cache_file"
             echo "$temp_raw" | process_gcal "online" "" > "$out_file"
@@ -207,4 +209,4 @@ if [ "$DAY_OF_WEEK" -ge 6 ]; then
 else
     # Weekday: show through this Sunday
     generate_file "today sunday" "$CACHE_DIR/week.cache" "$WEEK_OUT"
-fi	
+fi

@@ -12,7 +12,7 @@ if [ "$aur_count" -gt 0 ]; then
     echo "Listing AUR packages..."
     yay -Qua
     echo "Press enter to install them or ctrl+c to skip"
-    read
+    read -r
     current_profile=$(asusctl profile get | sed -n 's/^Active profile: //p')
     asusctl profile set performance
     yay -Syu

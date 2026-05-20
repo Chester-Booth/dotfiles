@@ -1,0 +1,232 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+fail_count=0
+warn_count=0
+
+ok() {
+	printf 'ok    %s\n' "$*"
+}
+
+warn() {
+	printf 'warn  %s\n' "$*"
+	warn_count=$((warn_count + 1))
+}
+
+fail() {
+	printf 'fail  %s\n' "$*"
+	fail_count=$((fail_count + 1))
+}
+
+have() {
+	command -v "$1" >/dev/null 2>&1
+}
+
+require_cmd() {
+	if have "$1"; then
+		ok "command available: $1"
+	else
+		fail "missing required command: $1"
+	fi
+}
+
+warn_cmd() {
+	if have "$1"; then
+		ok "runtime command available: $1"
+	else
+		warn "missing runtime command: $1"
+	fi
+}
+
+run_check() {
+	local label="$1"
+	shift
+	local output
+
+	if output="$("$@" 2>&1)"; then
+		ok "$label"
+	else
+		fail "$label"
+		if [[ -n "$output" ]]; then
+			printf '%s\n' "$output" | sed 's/^/      /'
+		fi
+	fi
+}
+
+expect_resolves_to() {
+	local label="$1"
+	local actual_path="$2"
+	local expected_path="$3"
+	local actual
+	local expected
+
+	if [[ ! -e "$actual_path" ]]; then
+		fail "$label missing: $actual_path"
+		return
+	fi
+
+	actual="$(realpath -m "$actual_path" 2>/dev/null || true)"
+	expected="$(realpath -m "$expected_path" 2>/dev/null || true)"
+
+	if [[ "$actual" == "$expected" ]]; then
+		ok "$label resolves into repo"
+	else
+		fail "$label resolves to $actual, expected $expected"
+	fi
+}
+
+check_git_clean() {
+	local status
+
+	status="$(git -C "$ROOT" status --short)"
+	if [[ -z "$status" ]]; then
+		ok "git working tree clean"
+	else
+		warn "git working tree has changes"
+		printf '%s\n' "$status" | sed 's/^/      /'
+	fi
+}
+
+check_private_env() {
+	local env_path="quickshell/.config/quickshell/blox/env"
+	local example="$ROOT/quickshell/.config/quickshell/blox/env.example"
+
+	if git -C "$ROOT" check-ignore -q "$env_path"; then
+		ok "private Quickshell env is ignored"
+	else
+		fail "private Quickshell env is not ignored: $env_path"
+	fi
+
+	if [[ -f "$HOME/.config/quickshell/blox/env" ]]; then
+		ok "live Quickshell env exists"
+	else
+		warn "live Quickshell env missing: $HOME/.config/quickshell/blox/env"
+	fi
+
+	if [[ -f "$example" ]]; then
+		if grep -Eq '^EXPENSES_API_BASE_URL=.+$' "$example"; then
+			fail "env.example contains a concrete EXPENSES_API_BASE_URL"
+		else
+			ok "env.example has no concrete base URL"
+		fi
+	else
+		fail "missing env example: $example"
+	fi
+}
+
+check_stale_configs() {
+	local tracked
+	local refs
+
+	tracked="$(git -C "$ROOT" ls-files waybar eww)"
+	if [[ -z "$tracked" ]]; then
+		ok "Waybar/Eww stale configs are untracked"
+	else
+		fail "Waybar/Eww files are still tracked"
+		printf '%s\n' "$tracked" | sed 's/^/      /'
+	fi
+
+	refs="$(rg -n --glob '!waybar/**' --glob '!eww/**' --glob '!docs/INSTALL.md' --glob '!bin/dotfiles-doctor' '(\.config/waybar|scripts/waybar|colors-waybar)' "$ROOT" 2>/dev/null || true)"
+	if [[ -z "$refs" ]]; then
+		ok "no live Waybar references found"
+	else
+		fail "live Waybar references remain"
+		printf '%s\n' "$refs" | sed 's/^/      /'
+	fi
+}
+
+check_hyprland() {
+	local errors
+
+	expect_resolves_to "Hyprland entrypoint" "$HOME/.config/hypr/hyprland.conf" "$ROOT/hyprland/.config/hypr/hyprland.conf"
+	expect_resolves_to "Hyprland conf.d" "$HOME/.config/hypr/conf.d" "$ROOT/hyprland/.config/hypr/conf.d"
+
+	if have hyprctl; then
+		errors="$(hyprctl configerrors 2>/dev/null || true)"
+		if [[ -z "$errors" || "$errors" == "No errors" ]]; then
+			ok "Hyprland reports no config errors"
+		else
+			fail "Hyprland config errors"
+			printf '%s\n' "$errors" | sed 's/^/      /'
+		fi
+	fi
+}
+
+check_quickshell() {
+	expect_resolves_to "Quickshell config" "$HOME/.config/quickshell/blox" "$ROOT/quickshell/.config/quickshell/blox"
+
+	if quickshell ipc -p "$HOME/.config/quickshell/blox" show >/dev/null 2>&1; then
+		ok "Quickshell IPC is responding"
+	else
+		warn "Quickshell IPC is not responding"
+	fi
+}
+
+check_systemd_timers() {
+	local timer
+	local timers=(
+		battery-low-power.timer
+		fprint-check.timer
+		gcal-update.timer
+		gdrive-bisync.timer
+		icloud-bisync.timer
+	)
+
+	for timer in "${timers[@]}"; do
+		if systemctl --user is-enabled "$timer" >/dev/null 2>&1; then
+			ok "user timer enabled: $timer"
+		else
+			warn "user timer not enabled: $timer"
+		fi
+	done
+}
+
+main() {
+	cd "$ROOT" || exit 1
+
+	printf 'Dotfiles doctor: %s\n\n' "$ROOT"
+
+	require_cmd git
+	require_cmd make
+	require_cmd python3
+	require_cmd jq
+	require_cmd rg
+	require_cmd realpath
+	require_cmd qmlformat
+	require_cmd shfmt
+	require_cmd shellcheck
+	require_cmd quickshell
+	require_cmd hyprctl
+	require_cmd systemd-analyze
+	require_cmd systemctl
+
+	warn_cmd gcalcli
+	warn_cmd pactl
+	warn_cmd nmcli
+	warn_cmd bluetoothctl
+	warn_cmd brightnessctl
+	warn_cmd swaync-client
+	warn_cmd swayosd-client
+	warn_cmd asusctl
+	warn_cmd hyprshot
+
+	printf '\n'
+	check_git_clean
+	check_private_env
+	check_stale_configs
+	check_hyprland
+	check_quickshell
+	check_systemd_timers
+	run_check "repo checks pass" make -C "$ROOT" check
+
+	printf '\n'
+	if ((fail_count > 0)); then
+		printf 'Doctor found %d failure(s) and %d warning(s).\n' "$fail_count" "$warn_count"
+		exit 1
+	fi
+
+	printf 'Doctor passed with %d warning(s).\n' "$warn_count"
+}
+
+main "$@"

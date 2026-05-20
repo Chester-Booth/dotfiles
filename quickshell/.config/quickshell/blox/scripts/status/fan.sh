@@ -41,13 +41,13 @@ done
 [ $count -gt 0 ] && cpu_clock=$(awk "BEGIN {printf \"%.2f\", $total/$count/1000000}") || cpu_clock="N/A"
 
 # === CPU UTILIZATION (delta calculation) ===
-read cpu user nice sys idle iowait irq softirq steal guest guest_nice < <(head -1 /proc/stat)
+read -r _ user nice sys idle iowait irq softirq steal _ _ < <(head -1 /proc/stat)
 total=$((user + nice + sys + idle + iowait + irq + softirq + steal))
 idle=$((idle + iowait))
 
 cache="/tmp/quickshell_cpu_fan_module"
 if [ -f "$cache" ]; then
-    read prev_total prev_idle < "$cache"
+    read -r prev_total prev_idle < "$cache"
     diff_total=$((total - prev_total))
     diff_idle=$((idle - prev_idle))
     [ $diff_total -gt 0 ] && cpu_util=$(( (diff_total - diff_idle) * 100 / diff_total )) || cpu_util=0
@@ -61,7 +61,7 @@ power_uw=$(cat /sys/class/power_supply/BAT*/power_now 2>/dev/null | head -1)
 [ -n "$power_uw" ] && power=$(awk "BEGIN {printf \"%.1f\", $power_uw/1000000}") || power="N/A"
 
 # === RAM USAGE (direct /proc/meminfo) ===
-read mem_total mem_avail < <(awk '/MemTotal:|MemAvailable:/ {print $2}' /proc/meminfo | xargs)
+read -r mem_total mem_avail < <(awk '/MemTotal:|MemAvailable:/ {print $2}' /proc/meminfo | xargs)
 ram_used=$(awk "BEGIN {printf \"%.1f\", ($mem_total-$mem_avail)/1048576}")
 ram_total=$(awk "BEGIN {printf \"%.1f\", $mem_total/1048576}")
 

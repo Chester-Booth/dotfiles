@@ -3,6 +3,7 @@
 set -u
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=quickshell/.config/quickshell/blox/scripts/gpu/common.sh
 source "$script_dir/common.sh" "$@"
 
 if ! gpu_lock; then

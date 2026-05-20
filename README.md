@@ -38,6 +38,12 @@ Run the non-mutating checks:
 make check
 ```
 
+Run the machine-level doctor:
+
+```sh
+make doctor
+```
+
 Useful focused targets:
 
 ```sh
@@ -47,4 +53,11 @@ make format
 ```
 
 `make check` validates Quickshell JSON script contracts, Python syntax, systemd
-unit files, and Git whitespace. `make format` runs mutating formatters.
+unit files, and Git whitespace. `make doctor` additionally checks live links,
+ignored private env files, stale Waybar/Eww boundaries, runtime tools,
+Hyprland, Quickshell IPC, and user timers. `make format` runs mutating
+formatters.
+
+## Install
+
+See [docs/INSTALL.md](docs/INSTALL.md) for the full bootstrap guide.

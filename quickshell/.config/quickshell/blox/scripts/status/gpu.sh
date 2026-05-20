@@ -11,24 +11,20 @@ current_rr=$(hyprctl monitors -j 2>/dev/null | jq -r '.[0].refreshRate' 2>/dev/n
 
 if gpu_is_on; then
     if [ "$current_rr" = "144" ]; then
-        icon="󰪫"
         text="GAMING"
         class="gaming"
         tooltip="Gaming Mode\nGPU: ON | 144Hz"
     else
-        icon="󰢮"
         text="PERF"
         class="performance"
         tooltip="Performance Mode\nGPU: ON | ${current_rr}Hz"
     fi
 else
     if [ "$current_rr" = "144" ]; then
-        icon=""
         text="144Hz"
         class="high-refresh"
         tooltip="High Refresh Only\nGPU: OFF | 144Hz"
     else
-        icon="󰌪"
         text="ECO"
         class="eco"
         tooltip="Eco Mode\nGPU: OFF | ${current_rr}Hz"

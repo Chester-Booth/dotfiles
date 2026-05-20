@@ -21,8 +21,9 @@
 @define-color accent @blue;
 @define-color accent-soft alpha(@blue, 0.16);
 @define-color accent-strong alpha(@blue, 0.34);
-@define-color danger-soft alpha(@red, 0.16);
-@define-color danger-border alpha(@red, 0.42);
+@define-color danger-card #3a2027;
+@define-color danger-card-hover #4a2831;
+@define-color danger-border alpha(@red, 0.78);
 
 * {
     font-family: "MartianMono Nerd Font Propo";
@@ -296,8 +297,13 @@ blankwindow,
 
 .control-center .notification-row .notification-background .notification.critical,
 .floating-notifications .notification-row .notification-background .notification.critical {
-    background: @danger-soft;
+    background: @danger-card;
     border-color: @danger-border;
+}
+
+.notification-row .notification-background .notification.critical:hover {
+    background: @danger-card-hover;
+    border-color: @red;
 }
 
 .control-center .notification-row .notification-background .notification.critical .notification-content .summary,
@@ -305,6 +311,11 @@ blankwindow,
 .control-center .notification-row .notification-background .notification.critical .notification-content .time,
 .floating-notifications.background .notification-background .notification.critical .notification-content .time {
     color: @red;
+}
+
+.control-center .notification-row .notification-background .notification.critical .notification-content .body,
+.floating-notifications.background .notification-background .notification.critical .notification-content .body {
+    color: @text;
 }
 
 .close-button {

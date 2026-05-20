@@ -86,7 +86,7 @@ case "$action" in
         ;;
     sleep)
         guard_micro_before_power_action || exit 1
-        exec systemctl sleep
+        exec systemctl suspend-then-hibernate
         ;;
     shutdown)
         guard_micro_before_power_action || exit 1

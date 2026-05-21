@@ -13,6 +13,7 @@ Scope {
     property bool muted: false
     property string valueText: "0%"
     property bool showing: false
+    property bool rendered: false
     property string scriptRoot: Quickshell.shellDir + "/scripts"
     property bool segmented: false
     property int segments: 3
@@ -41,7 +42,9 @@ Scope {
 
     function showFor(durationMs) {
         hideDelay.interval = Math.max(500, parseInt(durationMs) || 1200);
+        rendered = true;
         showing = true;
+        hideFinish.stop();
         hideDelay.restart();
     }
 
@@ -241,7 +244,22 @@ Scope {
 
         interval: 1200
         repeat: false
-        onTriggered: root.showing = false
+        onTriggered: {
+            root.showing = false;
+            hideFinish.restart();
+        }
+    }
+
+    Timer {
+        id: hideFinish
+
+        interval: 190
+        repeat: false
+        onTriggered: {
+            if (!root.showing)
+                root.rendered = false;
+
+        }
     }
 
     Timer {
@@ -286,7 +304,7 @@ Scope {
             required property var modelData
 
             screen: modelData
-            visible: root.showing
+            visible: root.rendered
             implicitWidth: 320
             implicitHeight: 128
             exclusiveZone: 0
@@ -298,9 +316,8 @@ Scope {
             }
 
             Rectangle {
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: 28
+                x: Math.round((parent.width - width) / 2)
+                y: root.showing ? parent.height - height - 28 : parent.height + 6
                 width: 292
                 height: 72
                 radius: 8
@@ -391,7 +408,15 @@ Scope {
 
                 Behavior on opacity {
                     NumberAnimation {
-                        duration: 120
+                        duration: 140
+                        easing.type: Easing.OutCubic
+                    }
+
+                }
+
+                Behavior on y {
+                    NumberAnimation {
+                        duration: 190
                         easing.type: Easing.OutCubic
                     }
 

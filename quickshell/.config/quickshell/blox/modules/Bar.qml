@@ -736,13 +736,13 @@ Scope {
         if (current === "fan")
             return [{
             "label": "Performance",
-            "command": "asusctl profile set performance; notify-send -u low '󱑬 Performance Mode Activated'"
+            "command": "asusctl profile set performance; " + root.scriptRoot + "/osd/fan-profile.sh performance"
         }, {
             "label": "Balanced",
-            "command": "asusctl profile set balanced; notify-send -u low '󱜝 Balanced Mode Activated'"
+            "command": "asusctl profile set balanced; " + root.scriptRoot + "/osd/fan-profile.sh balanced"
         }, {
             "label": "Quiet",
-            "command": "asusctl profile set quiet; notify-send -u low '󰠝 Quiet Mode Activated'"
+            "command": "asusctl profile set quiet; " + root.scriptRoot + "/osd/fan-profile.sh quiet"
         }];
 
         if (current === "gpu")

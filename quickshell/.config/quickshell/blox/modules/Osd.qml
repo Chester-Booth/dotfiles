@@ -17,6 +17,8 @@ Scope {
     property bool segmented: false
     property int segments: 3
     property int activeSegments: 0
+    property bool noticeMode: false
+    property color noticeAccent: Theme.blue
     readonly property bool volumeOverdriven: label === "Volume" && !muted && value > 100
     readonly property int fillValue: Math.max(0, Math.min(100, value))
 
@@ -37,7 +39,91 @@ Scope {
         return "󰛨";
     }
 
+    function showFor(durationMs) {
+        hideDelay.interval = Math.max(500, parseInt(durationMs) || 1200);
+        showing = true;
+        hideDelay.restart();
+    }
+
+    function showBlueLight(mode, active) {
+        const id = String(mode || "auto").toLowerCase();
+        const isActive = active === true || active === "true" || active === "yes" || active === "1";
+        label = "Blue light";
+        muted = false;
+        segmented = false;
+        noticeMode = true;
+        noticeAccent = Theme.blue;
+        if (id === "off" || id === "disable" || id === "disabled") {
+            icon = "󰃞";
+            value = 0;
+            valueText = "";
+        } else if (id === "on") {
+            icon = "󰖔";
+            value = 100;
+            valueText = "";
+        } else {
+            icon = "󰖙";
+            value = isActive ? 100 : 0;
+            valueText = "Auto";
+        }
+        showFor(1200);
+    }
+
+    function showGpu(mode) {
+        const id = String(mode || "eco").toLowerCase();
+        label = "GPU mode";
+        muted = false;
+        noticeMode = false;
+        segmented = true;
+        segments = 4;
+        if (id === "gaming" || id === "gpu144") {
+            activeSegments = 4;
+            icon = "󰪫";
+            valueText = "GPU 144";
+        } else if (id === "performance" || id === "gpu60") {
+            activeSegments = 3;
+            icon = "󰢮";
+            valueText = "GPU 60";
+        } else if (id === "high-refresh" || id === "igpu144") {
+            activeSegments = 2;
+            icon = "";
+            valueText = "iGPU 144";
+        } else {
+            activeSegments = 1;
+            icon = "󰌪";
+            valueText = "iGPU 60";
+        }
+        value = Math.round(activeSegments * 100 / segments);
+        showFor(4500);
+    }
+
+    function showFan(profile) {
+        const id = String(profile || "balanced").toLowerCase();
+        label = "Fan profile";
+        muted = false;
+        noticeMode = false;
+        segmented = true;
+        segments = 3;
+        if (id === "quiet") {
+            activeSegments = 1;
+            icon = "󰠝";
+            valueText = "Quiet";
+        } else if (id === "performance") {
+            activeSegments = 3;
+            icon = "󱑬";
+            valueText = "Performance";
+        } else {
+            activeSegments = 2;
+            icon = "󱜝";
+            valueText = "Balanced";
+        }
+        value = Math.round(activeSegments * 100 / segments);
+        showFor(1200);
+    }
+
     function show(kind, percent, isMuted) {
+        noticeAccent = Theme.blue;
+        noticeMode = false;
         value = kind === "volume" ? Math.max(0, parseInt(percent) || 0) : clamp(percent);
         muted = isMuted === true || isMuted === "true" || isMuted === "yes" || isMuted === "1";
         segmented = false;
@@ -74,8 +160,19 @@ Scope {
             icon = muted ? "󰝟" : value > 100 ? "󰝝" : value < 35 ? "󰕿" : value < 70 ? "󰖀" : "󰕾";
             valueText = muted ? "Muted" : value + "%";
         }
-        showing = true;
-        hideDelay.restart();
+        showFor(1200);
+    }
+
+    function showNotice(title, message, iconName, level, durationMs) {
+        label = title || "Status";
+        icon = iconName || "󰋼";
+        valueText = message || "";
+        value = 100;
+        muted = false;
+        segmented = false;
+        noticeMode = true;
+        noticeAccent = level === "error" || level === "critical" ? Theme.red : level === "warning" ? Theme.yellow : Theme.blue;
+        showFor(durationMs);
     }
 
     IpcHandler {
@@ -99,6 +196,21 @@ Scope {
             return "ok";
         }
 
+        function fan(profile: string) : string {
+            root.showFan(profile);
+            return "ok";
+        }
+
+        function blueLight(mode: string, active: string) : string {
+            root.showBlueLight(mode, active);
+            return "ok";
+        }
+
+        function gpu(mode: string) : string {
+            root.showGpu(mode);
+            return "ok";
+        }
+
         function caps(enabled: string) : string {
             root.show("caps", enabled === "true" || enabled === "1" || enabled === "yes" ? 100 : 0, enabled);
             return "ok";
@@ -113,6 +225,11 @@ Scope {
         function touchpad(enabled: string) : string {
             const active = enabled === "true" || enabled === "1" || enabled === "yes";
             root.show("touchpad", active ? 100 : 0, !active);
+            return "ok";
+        }
+
+        function notice(title: string, message: string, icon: string, level: string, durationMs: string) : string {
+            root.showNotice(title, message, icon, level, durationMs);
             return "ok";
         }
 
@@ -201,7 +318,7 @@ Scope {
                         Layout.preferredWidth: 34
                         horizontalAlignment: Text.AlignHCenter
                         text: root.icon
-                        color: root.volumeOverdriven ? Theme.red : root.muted ? Theme.yellow : Theme.foreground
+                        color: root.volumeOverdriven ? Theme.red : root.muted ? Theme.yellow : root.noticeMode ? root.noticeAccent : Theme.foreground
                         font.family: Theme.fontFamily
                         font.pixelSize: 26
                     }
@@ -244,7 +361,7 @@ Scope {
                                 width: Math.round(parent.width * root.fillValue / 100)
                                 height: parent.height
                                 radius: 4
-                                color: root.volumeOverdriven ? Theme.red : root.muted ? Theme.yellow : Theme.blue
+                                color: root.volumeOverdriven ? Theme.red : root.muted ? Theme.yellow : root.noticeMode ? root.noticeAccent : Theme.blue
                             }
 
                         }

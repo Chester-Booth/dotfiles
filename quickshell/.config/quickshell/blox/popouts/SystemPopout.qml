@@ -272,6 +272,9 @@ Rectangle {
                     "icon": "󰖔"
                 }]
                 onSelected: (id) => {
+                    if (id === root.visualBlueLightMode)
+                        return ;
+
                     root.visualBlueLightMode = id;
                     root.action(root.scriptRoot + "/display/blue-light-mode.sh " + id, true);
                 }

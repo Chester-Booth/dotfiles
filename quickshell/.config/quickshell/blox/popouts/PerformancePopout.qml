@@ -14,7 +14,7 @@ Rectangle {
     signal action(string command)
 
     function fanCommand(profile) {
-        return "asusctl profile set " + profile.toLowerCase() + "; notify-send -u low '" + profile + " mode'";
+        return "asusctl profile set " + profile.toLowerCase() + "; " + scriptRoot + "/osd/fan-profile.sh " + profile.toLowerCase();
     }
 
     function gpuCommand(mode) {

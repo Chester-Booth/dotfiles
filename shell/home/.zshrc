@@ -65,6 +65,7 @@ alias LS='ls'
 alias icat='kitty +kitten icat '
 alias fastfetch='fastfetch --logo none'
 alias m='micro'
+alias cpwd='printf "%s" "$PWD" | wl-copy'
 # git alias
 alias gs='git status --short'
 alias gsw='git switch '

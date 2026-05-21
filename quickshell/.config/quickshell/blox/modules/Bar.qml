@@ -1046,7 +1046,10 @@ Scope {
 
             MouseArea {
                 z: -1
-                anchors.fill: parent
+                x: 0
+                y: parent.height - height
+                width: 1
+                height: Math.ceil(parent.height / 5)
                 acceptedButtons: Qt.NoButton
                 hoverEnabled: true
                 onEntered: root.edgeTriggerHovered = true

@@ -69,6 +69,11 @@ alias m='micro'
 alias gs='git status --short'
 alias gsw='git switch '
 alias g='git'
+gacp() {
+  g add .
+  g commit -m "$*"
+  g push
+}
 #zen
 alias zen="zen-browser"
 #ytdaily

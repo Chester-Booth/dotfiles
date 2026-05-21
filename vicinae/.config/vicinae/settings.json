@@ -15,17 +15,18 @@
    "search_files_in_root": false,
    "font": {
       "normal": {
-         "family": "Google Sans",
-         "size": 13
+         "family": "MartianMono Nerd Font Propo",
+         "size": 10
       }
    },
    "theme": {
       "dark": {
+         "name": "blox-panel",
          "icon_theme": "Adwaita"
       }
    },
    "launcher_window": {
-      "opacity": 0.9,
+      "opacity": 1,
       "client_side_decorations": {
          "enabled": true
       }
@@ -42,6 +43,12 @@
                "/var/lib/flatpak/exports/share/applications",
                "/usr/share/applications"
             ]
+         }
+      },
+      "calculator": {
+         "preferences": {
+            "backend": "qalculate",
+            "refreshRatesOnStartup": true
          }
       },
       "files": {

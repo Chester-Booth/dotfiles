@@ -1,0 +1,81 @@
+# Blox Panel - matches the Quickshell bar, popouts, and SwayNC surfaces.
+
+[meta]
+version = 1
+name = "Blox Panel"
+description = "Dark panel theme matching the Quickshell bar, popouts, and SwayNC."
+variant = "dark"
+inherits = "vicinae-dark"
+
+[colors.core]
+background = "#242424"
+foreground = "#CDD6F4"
+secondary_background = "#1E1E1E"
+border = "#3B3C4A"
+accent = "#89B4FA"
+accent_foreground = "#1E1E1E"
+
+[colors.main_window]
+border = "#3B3C4A"
+footer = { background = "#1E1E1E" }
+
+[colors.settings_window]
+border = "#3B3C4A"
+
+[colors.accents]
+blue = "#89B4FA"
+green = "#A6E3A1"
+magenta = "#F5C2E7"
+orange = "#FAB387"
+purple = "#F5C2E7"
+red = "#F38BA8"
+yellow = "#F9E2AF"
+cyan = "#94E2D5"
+
+[colors.shortcut]
+border = "#3B3C4A"
+
+[colors.text]
+default = "#CDD6F4"
+muted = "#A6ADC8"
+danger = "#F38BA8"
+success = "#A6E3A1"
+placeholder = "#A6ADC8"
+selection = { background = "#89B4FA", foreground = "#1E1E1E" }
+
+[colors.text.links]
+default = "#89B4FA"
+visited = "#F5C2E7"
+
+[colors.input]
+border = "#3B3C4A"
+border_focus = "#89B4FA"
+border_error = "#F38BA8"
+
+[colors.button.primary]
+background = "#1E1E1E"
+foreground = "#CDD6F4"
+hover = { background = "#3B3C4A" }
+focus = { outline = "#89B4FA" }
+
+[colors.list.item.hover]
+foreground = "#CDD6F4"
+secondary_foreground = "#CDD6F4"
+
+[colors.list.item.selection]
+background = "#3B3C4A"
+foreground = "#CDD6F4"
+secondary_background = "#1E1E1E"
+secondary_foreground = "#A6ADC8"
+
+[colors.grid.item]
+background = "#1E1E1E"
+hover = { outline = "#89B4FA" }
+selection = { outline = "#89B4FA" }
+
+[colors.scrollbars]
+background = "#3B3C4A"
+
+[colors.loading]
+bar = "#89B4FA"
+spinner = "#CDD6F4"

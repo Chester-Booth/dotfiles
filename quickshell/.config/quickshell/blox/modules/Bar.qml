@@ -165,6 +165,7 @@ Scope {
         bluetooth.refresh();
         network.refresh();
         notifications.refresh();
+        touchpad.refresh();
         privacy.refresh();
         battery.refresh();
     }
@@ -182,6 +183,7 @@ Scope {
         bluetooth.interval = visible ? 2000 : 30000;
         network.interval = visible ? 2000 : 30000;
         notifications.interval = visible ? 2000 : 15000;
+        touchpad.interval = visible ? 2000 : 15000;
         privacy.interval = visible ? 5000 : 30000;
         if (visible)
             refreshControlStatus();
@@ -575,6 +577,9 @@ Scope {
         if (openPanel === "notifications")
             return notifications.json.tooltip || "Notification status unavailable";
 
+        if (openPanel === "touchpad")
+            return touchpad.json.tooltip || "Touchpad status unavailable";
+
         if (openPanel === "fan")
             return fan.json.tooltip || "Fan status unavailable";
 
@@ -854,6 +859,13 @@ Scope {
 
         command: [root.scriptRoot + "/status/notifications.sh"]
         interval: 15000
+    }
+
+    ScriptPoller {
+        id: touchpad
+
+        command: [root.scriptRoot + "/status/touchpad.sh"]
+        interval: 2000
     }
 
     ScriptPoller {
@@ -1157,6 +1169,7 @@ Scope {
                         audioStatus: audio.json
                         networkStatus: network.json
                         notificationsStatus: notifications.json
+                        touchpadStatus: touchpad.json
                         fanStatus: fan.json
                         gpuStatus: gpu.json
                         batteryStatus: battery.json

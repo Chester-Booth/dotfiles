@@ -11,6 +11,7 @@ Item {
     property var audioStatus
     property var networkStatus
     property var notificationsStatus
+    property var touchpadStatus
     property var fanStatus
     property var gpuStatus
     property var batteryStatus
@@ -38,12 +39,18 @@ Item {
 
         PanelRailButton {
             icon: root.audioStatus && root.audioStatus.icon ? root.audioStatus.icon : "󰕾"
-            accent: root.audioStatus && root.audioStatus.muted ? Theme.yellow : Theme.foreground
+            accent: root.audioStatus && root.audioStatus.muted ? Theme.yellow : root.audioStatus && root.audioStatus.volume > 100 ? Theme.red : Theme.foreground
             panel: "audio"
             active: root.openPanel === "audio"
-            onPanelClicked: (panel, centerY) => root.panelClicked(panel, root.mapCenterY(centerY))
-            onPanelHovered: (panel, centerY, source) => root.panelHovered(panel, root.mapCenterY(centerY), source)
-            onPanelExited: (source) => root.panelExited(source)
+            onPanelClicked: (panel, centerY) => {
+                return root.panelClicked(panel, root.mapCenterY(centerY));
+            }
+            onPanelHovered: (panel, centerY, source) => {
+                return root.panelHovered(panel, root.mapCenterY(centerY), source);
+            }
+            onPanelExited: (source) => {
+                return root.panelExited(source);
+            }
             onRightClicked: root.runCommand("pavucontrol -t 3")
         }
 
@@ -52,9 +59,15 @@ Item {
             accent: root.networkStatus && root.networkStatus.class === "wifi" ? Theme.green : root.networkStatus && root.networkStatus.class === "disabled" ? Theme.red : Theme.yellow
             panel: "network"
             active: root.openPanel === "network"
-            onPanelClicked: (panel, centerY) => root.panelClicked(panel, root.mapCenterY(centerY))
-            onPanelHovered: (panel, centerY, source) => root.panelHovered(panel, root.mapCenterY(centerY), source)
-            onPanelExited: (source) => root.panelExited(source)
+            onPanelClicked: (panel, centerY) => {
+                return root.panelClicked(panel, root.mapCenterY(centerY));
+            }
+            onPanelHovered: (panel, centerY, source) => {
+                return root.panelHovered(panel, root.mapCenterY(centerY), source);
+            }
+            onPanelExited: (source) => {
+                return root.panelExited(source);
+            }
         }
 
         PanelRailButton {
@@ -66,9 +79,24 @@ Item {
                 root.closeDrawers();
                 root.runCommand("swaync-client -op -sw");
             }
-            onPanelHovered: (panel, centerY, source) => root.panelHovered(panel, root.mapCenterY(centerY), source)
-            onPanelExited: (source) => root.panelExited(source)
+            onPanelHovered: (panel, centerY, source) => {
+                return root.panelHovered(panel, root.mapCenterY(centerY), source);
+            }
+            onPanelExited: (source) => {
+                return root.panelExited(source);
+            }
             onRightClicked: root.runCommand("swaync-client -d -sw")
+        }
+
+        RailButton {
+            icon: root.touchpadStatus && root.touchpadStatus.icon ? root.touchpadStatus.icon : "󰤳"
+            accent: Theme.red
+            visible: root.touchpadStatus && root.touchpadStatus.enabled === false
+            onClicked: root.runCommand("~/.config/quickshell/blox/scripts/osd/control.sh touchpad-toggle")
+            onHovered: (centerY) => {
+                return root.panelHovered("touchpad", root.mapCenterY(centerY), "touchpad");
+            }
+            onExited: root.panelExited("touchpad")
         }
 
         PanelRailButton {
@@ -78,9 +106,15 @@ Item {
             source: "fan"
             active: root.openPanel === "system"
             visible: root.fanStatus && root.fanStatus.class !== undefined && root.fanStatus.class !== "Quiet"
-            onPanelClicked: (panel, centerY) => root.panelClicked(panel, root.mapCenterY(centerY))
-            onPanelHovered: (panel, centerY, source) => root.panelHovered(panel, root.mapCenterY(centerY), source)
-            onPanelExited: (source) => root.panelExited(source)
+            onPanelClicked: (panel, centerY) => {
+                return root.panelClicked(panel, root.mapCenterY(centerY));
+            }
+            onPanelHovered: (panel, centerY, source) => {
+                return root.panelHovered(panel, root.mapCenterY(centerY), source);
+            }
+            onPanelExited: (source) => {
+                return root.panelExited(source);
+            }
         }
 
         PanelRailButton {
@@ -90,9 +124,15 @@ Item {
             source: "gpu"
             active: root.openPanel === "system"
             visible: root.gpuStatus && root.gpuStatus.alt !== undefined && root.gpuStatus.alt !== "eco"
-            onPanelClicked: (panel, centerY) => root.panelClicked(panel, root.mapCenterY(centerY))
-            onPanelHovered: (panel, centerY, source) => root.panelHovered(panel, root.mapCenterY(centerY), source)
-            onPanelExited: (source) => root.panelExited(source)
+            onPanelClicked: (panel, centerY) => {
+                return root.panelClicked(panel, root.mapCenterY(centerY));
+            }
+            onPanelHovered: (panel, centerY, source) => {
+                return root.panelHovered(panel, root.mapCenterY(centerY), source);
+            }
+            onPanelExited: (source) => {
+                return root.panelExited(source);
+            }
         }
 
         BatteryRailButton {
@@ -102,7 +142,9 @@ Item {
                 root.closeDrawers();
                 root.toggleBatteryExpanded();
             }
-            onSystemPanelRequested: (centerY) => root.panelClicked("system", centerY)
+            onSystemPanelRequested: (centerY) => {
+                return root.panelClicked("system", centerY);
+            }
         }
 
         BatteryCapacityTile {
@@ -110,5 +152,7 @@ Item {
             expanded: root.batteryExpanded
             onCollapse: root.collapseBattery()
         }
+
     }
+
 }

@@ -139,6 +139,15 @@
       "tooltip": "string"
     }
   },
+  "touchpad": {
+    "command": ["status/touchpad.sh"],
+    "required": {
+      "icon": "string",
+      "class": "string",
+      "enabled": "boolean",
+      "tooltip": "string"
+    }
+  },
   "updates": {
     "command": ["update/status.sh"],
     "required": {

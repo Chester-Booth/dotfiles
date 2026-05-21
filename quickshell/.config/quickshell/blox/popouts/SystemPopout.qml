@@ -23,6 +23,8 @@ Rectangle {
     property int visualAudioVolume: audioVolume
     property int visualBrightnessPercent: brightnessPercent
     property string visualBlueLightMode: blueLightMode
+    readonly property bool audioOverdriven: currentMode() === "audio" && !audioMuted && audioVolume > 100
+    readonly property bool visualAudioOverdriven: currentMode() === "audio" && !audioMuted && visualAudioVolume > 100
 
     signal action(string command, bool keepOpen)
     signal sectionSelected(string panel)
@@ -162,7 +164,7 @@ Rectangle {
                     Text {
                         anchors.centerIn: parent
                         text: root.heroIcon()
-                        color: root.currentMode() === "brightness" ? Theme.yellow : Theme.foreground
+                        color: root.audioOverdriven ? Theme.red : root.currentMode() === "brightness" ? Theme.yellow : Theme.foreground
                         font.family: Theme.fontFamily
                         font.pixelSize: 24
                     }
@@ -235,7 +237,8 @@ Rectangle {
                 Layout.fillWidth: true
                 visible: root.currentMode() === "audio"
                 value: root.visualAudioVolume
-                accent: Theme.blue
+                maxValue: 150
+                accent: root.visualAudioOverdriven ? Theme.red : Theme.blue
                 onChanged: (value) => {
                     root.visualAudioVolume = value;
                     root.action("pactl set-sink-volume @DEFAULT_SINK@ " + value + "%", true);
@@ -402,8 +405,9 @@ Rectangle {
         id: slider
 
         property int value: 0
+        property int maxValue: 100
         property color accent: Theme.blue
-        property color knobColor: accent === Theme.yellow ? "#b79a55" : "#4f74ad"
+        property color knobColor: accent === Theme.yellow ? "#b79a55" : accent === Theme.red ? "#ad4f63" : "#4f74ad"
 
         signal changed(int value)
 
@@ -416,7 +420,7 @@ Rectangle {
             color: Theme.surface
 
             Rectangle {
-                width: parent.width * Math.max(0, Math.min(100, slider.value)) / 100
+                width: parent.width * Math.max(0, Math.min(slider.maxValue, slider.value)) / slider.maxValue
                 height: parent.height
                 radius: parent.radius
                 color: slider.accent
@@ -435,7 +439,7 @@ Rectangle {
                 width: 18
                 height: 18
                 radius: 9
-                x: Math.max(0, Math.min(parent.width - width, parent.width * Math.max(0, Math.min(100, slider.value)) / 100 - width / 2))
+                x: Math.max(0, Math.min(parent.width - width, parent.width * Math.max(0, Math.min(slider.maxValue, slider.value)) / slider.maxValue - width / 2))
                 y: -2
                 color: slider.knobColor
                 border.color: slider.accent
@@ -453,7 +457,7 @@ Rectangle {
 
             MouseArea {
                 function valueAt(xPos) {
-                    return Math.round(Math.max(0, Math.min(1, xPos / width)) * 100);
+                    return Math.round(Math.max(0, Math.min(1, xPos / width)) * slider.maxValue);
                 }
 
                 anchors.fill: parent

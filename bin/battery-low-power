@@ -24,7 +24,7 @@ run_low_power_mode() {
     local capacity="$1"
     local action_failed=0
 
-    if ! swayosd-client --brightness 0; then
+    if ! "$script_root/osd/control.sh" brightness-set 0; then
         action_failed=1
     fi
 

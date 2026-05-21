@@ -12,6 +12,8 @@ sink_desc="$(pactl get-default-sink 2>/dev/null)"
 
 if [[ "$sink_mute" == "yes" ]]; then
     icon="󰝟"
+elif ((sink_volume > 100)); then
+    icon="󰝝"
 elif (( sink_volume < 35 )); then
     icon="󰕿"
 elif (( sink_volume < 70 )); then

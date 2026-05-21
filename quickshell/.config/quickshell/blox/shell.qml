@@ -20,6 +20,9 @@ Scope {
         barOpen: root.barOpen
     }
 
+    Osd {
+    }
+
     EwwOverlays {
     }
 

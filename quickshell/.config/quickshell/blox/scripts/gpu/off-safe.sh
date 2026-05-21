@@ -15,7 +15,7 @@ if ! gpu_is_on; then
     exit 0
 fi
 
-if gpu_nodes_in_use; then
+if ! wait_for_gpu_nodes_idle; then
     gpu_notify -u normal -e "GPU Manager" "NVIDIA GPU is still in use; leaving it powered on." -i dialog-warning
     exit 1
 fi

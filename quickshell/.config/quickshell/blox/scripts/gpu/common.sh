@@ -32,6 +32,21 @@ gpu_nodes_in_use() {
     sudo fuser "${nodes[@]}" &>/dev/null
 }
 
+wait_for_gpu_nodes_idle() {
+    local attempts="${1:-10}"
+    local delay="${2:-0.2}"
+    local i
+
+    for ((i = 0; i < attempts; i++)); do
+        if ! gpu_nodes_in_use; then
+            return 0
+        fi
+        sleep "$delay"
+    done
+
+    return 1
+}
+
 module_loaded() {
     lsmod | awk '{print $1}' | grep -qx "$1"
 }

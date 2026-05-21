@@ -5,6 +5,7 @@
 **/Downloads
 /eww/
 /waybar/
+/wofi/
 /quickshell/.config/quickshell/blox/env
 .ssh/*
 !.ssh/config

@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 import argparse
-import base64
 import hashlib
 import json
 import mimetypes
 import os
 import shutil
 import subprocess
-import sys
 import time
 from pathlib import Path
 
@@ -75,12 +73,13 @@ def add_item(kind, mime, payload, text=None, path=None):
         return
     items = load_history()
     item_id = fingerprint(kind, mime, payload)
+    previous = next((item for item in items if item.get("id") == item_id), {})
     items = [item for item in items if item.get("id") != item_id]
     item = {
         "id": item_id,
         "kind": kind,
         "mime": mime,
-        "pinned": False,
+        "pinned": previous.get("pinned", False),
         "created": now_ms(),
     }
     if text is not None:

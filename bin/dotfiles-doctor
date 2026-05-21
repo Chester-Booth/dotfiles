@@ -119,19 +119,19 @@ check_stale_configs() {
 	local tracked
 	local refs
 
-	tracked="$(git -C "$ROOT" ls-files waybar eww)"
+	tracked="$(git -C "$ROOT" ls-files waybar eww wofi)"
 	if [[ -z "$tracked" ]]; then
-		ok "Waybar/Eww stale configs are untracked"
+		ok "Waybar/Eww/Wofi stale configs are untracked"
 	else
-		fail "Waybar/Eww files are still tracked"
+		fail "Waybar/Eww/Wofi files are still tracked"
 		printf '%s\n' "$tracked" | sed 's/^/      /'
 	fi
 
-	refs="$(rg -n --glob '!waybar/**' --glob '!eww/**' --glob '!docs/INSTALL.md' --glob '!bin/dotfiles-doctor' '(\.config/waybar|scripts/waybar|colors-waybar)' "$ROOT" 2>/dev/null || true)"
+	refs="$(rg -n --glob '!waybar/**' --glob '!eww/**' --glob '!wofi/**' --glob '!AGENTS.md' --glob '!README.md' --glob '!docs/INSTALL.md' --glob '!bin/dotfiles-doctor' '(\.config/waybar|scripts/waybar|colors-waybar|\.config/wofi|\bwofi\b)' "$ROOT" 2>/dev/null || true)"
 	if [[ -z "$refs" ]]; then
-		ok "no live Waybar references found"
+		ok "no live Waybar/Wofi references found"
 	else
-		fail "live Waybar references remain"
+		fail "live Waybar/Wofi references remain"
 		printf '%s\n' "$refs" | sed 's/^/      /'
 	fi
 }

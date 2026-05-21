@@ -8,8 +8,8 @@ timers, and app configuration.
 - `hyprland/.config/hypr/hyprland.conf` is the Hyprland entrypoint and sources
   `hyprland/.config/hypr/conf.d/*.conf`.
 - `quickshell/.config/quickshell/blox` is the live bar/overlay setup.
-- Top-level `waybar/` and `eww/` are intentionally stale and ignored so they can
-  be revived later without affecting the live desktop.
+- Top-level `waybar/`, `eww/`, and `wofi/` are intentionally stale and ignored
+  so they can be revived later without affecting the live desktop.
 
 ## Private Env
 
@@ -54,7 +54,7 @@ make format
 
 `make check` validates Quickshell JSON script contracts, Python syntax, systemd
 unit files, and Git whitespace. `make doctor` additionally checks live links,
-ignored private env files, stale Waybar/Eww boundaries, runtime tools,
+ignored private env files, stale Waybar/Eww/Wofi boundaries, runtime tools,
 Hyprland, Quickshell IPC, and user timers. `make format` runs mutating
 formatters.
 

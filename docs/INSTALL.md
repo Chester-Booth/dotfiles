@@ -1,7 +1,8 @@
 # Install Guide
 
 These dotfiles are intended for the current Hyprland and Quickshell desktop.
-Top-level `waybar/` and `eww/` are stale backups and should stay untracked.
+Top-level `waybar/`, `eww/`, and `wofi/` are stale backups and should stay
+untracked.
 
 ## 1. Clone
 
@@ -40,8 +41,8 @@ ln -sfn "$PWD/quickshell/.config/quickshell/blox" ~/.config/quickshell/blox
 ln -sfn "$PWD/bin/battery-low-power" ~/.local/bin/battery-low-power
 ```
 
-Keep any stale `~/.config/waybar` or Eww links disconnected unless intentionally
-booting the old setup.
+Keep any stale `~/.config/waybar`, `~/.config/eww`, or `~/.config/wofi` links
+disconnected unless intentionally booting the old setup.
 
 ## 4. Private Env
 
@@ -87,7 +88,7 @@ make doctor
 ```
 
 `make check` validates source files and contracts. `make doctor` also checks live
-links, ignored private env files, stale Waybar/Eww boundaries, Hyprland,
+links, ignored private env files, stale Waybar/Eww/Wofi boundaries, Hyprland,
 Quickshell IPC, and user timers.
 
 ## 7. Start Or Reload

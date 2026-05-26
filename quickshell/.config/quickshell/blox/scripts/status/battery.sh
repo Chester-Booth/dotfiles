@@ -27,6 +27,8 @@ if [[ ! "$capacity" =~ ^[0-9]+$ ]]; then
     exit 0
 fi
 
+(( capacity > 100 )) && capacity=100
+
 icon="󰁹"
 class="normal"
 
@@ -47,5 +49,7 @@ else
 fi
 
 mkdir -p "$(dirname "$CACHE_FILE")"
-jq -nc --arg icon "$icon" --arg class "$class" --arg status "$status" --argjson capacity "$capacity" \
-    '{icon:$icon,class:$class,capacity:$capacity,tooltip:("Charge: \($capacity)%\n\($status)")}' | tee "$CACHE_FILE"
+json="$(jq -nc --arg icon "$icon" --arg class "$class" --arg status "$status" --argjson capacity "$capacity" \
+    '{icon:$icon,class:$class,capacity:$capacity,tooltip:("Charge: \($capacity)%\n\($status)")}')"
+printf '%s\n' "$json" >"$CACHE_FILE"
+printf '%s\n' "$json"

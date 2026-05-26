@@ -31,7 +31,7 @@ Rectangle {
         anchors.fill: parent
         text: root.icon
         color: root.accent
-        font.family: Theme.iconFontFamily
+        font.family: Theme.fontFamily
         font.pixelSize: Theme.iconSize
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter

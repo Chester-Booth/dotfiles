@@ -305,19 +305,20 @@ Scope {
 
             screen: modelData
             visible: root.rendered
-            implicitWidth: 320
+            implicitWidth: 348
             implicitHeight: 128
             exclusiveZone: 0
             focusable: false
             color: "transparent"
 
             anchors {
-                bottom: true
+                left: true
+                top: true
             }
 
             Rectangle {
-                x: Math.round((parent.width - width) / 2)
-                y: root.showing ? parent.height - height - 28 : parent.height + 6
+                x: 28
+                y: root.showing ? 28 : -height - 6
                 width: 292
                 height: 72
                 radius: 8

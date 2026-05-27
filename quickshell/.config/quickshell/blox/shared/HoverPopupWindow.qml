@@ -11,9 +11,12 @@ PopupWindow {
     property real anchorY: 8
     property real contentWidth: 0
     property real contentHeight: 0
+    property bool open: false
+    property bool rendered: false
     property bool keyboardFocus: false
     property bool persistentKeyboardFocus: false
     property bool focusOnPress: false
+    readonly property bool animating: showAnimation.running || hideAnimation.running
 
     signal hoverEntered()
     signal hoverExited()
@@ -32,9 +35,20 @@ PopupWindow {
     surfaceFormat.opaque: false
     grabFocus: keyboardFocus || persistentKeyboardFocus
     color: Qt.rgba(0, 0, 0, 0.004)
+    visible: rendered
     onVisibleChanged: {
         if (!visible)
             keyboardFocus = false;
+    }
+    onOpenChanged: {
+        if (open) {
+            hideAnimation.stop();
+            rendered = true;
+            showAnimation.restart();
+        } else {
+            showAnimation.stop();
+            hideAnimation.restart();
+        }
     }
 
     Item {
@@ -42,9 +56,80 @@ PopupWindow {
 
         width: root.contentWidth
         height: root.contentHeight
+        x: -10
+        opacity: 0
+        scale: 0.985
+        transformOrigin: Item.Left
 
         HoverHandler {
             onHoveredChanged: hovered ? root.hoverEntered() : root.hoverExited()
+        }
+    }
+
+    ParallelAnimation {
+        id: showAnimation
+
+        NumberAnimation {
+            target: contentHost
+            property: "opacity"
+            from: contentHost.opacity
+            to: 1
+            duration: 140
+            easing.type: Easing.OutCubic
+        }
+
+        NumberAnimation {
+            target: contentHost
+            property: "x"
+            from: contentHost.x
+            to: 0
+            duration: 160
+            easing.type: Easing.OutCubic
+        }
+
+        NumberAnimation {
+            target: contentHost
+            property: "scale"
+            from: contentHost.scale
+            to: 1
+            duration: 160
+            easing.type: Easing.OutCubic
+        }
+    }
+
+    ParallelAnimation {
+        id: hideAnimation
+
+        onFinished: {
+            if (!root.open)
+                root.rendered = false;
+        }
+
+        NumberAnimation {
+            target: contentHost
+            property: "opacity"
+            from: contentHost.opacity
+            to: 0
+            duration: 110
+            easing.type: Easing.InCubic
+        }
+
+        NumberAnimation {
+            target: contentHost
+            property: "x"
+            from: contentHost.x
+            to: -10
+            duration: 130
+            easing.type: Easing.InCubic
+        }
+
+        NumberAnimation {
+            target: contentHost
+            property: "scale"
+            from: contentHost.scale
+            to: 0.985
+            duration: 130
+            easing.type: Easing.InCubic
         }
     }
 }

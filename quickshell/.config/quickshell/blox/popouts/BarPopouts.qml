@@ -70,7 +70,7 @@ Item {
         contentHeight: notesPopout.height
         persistentKeyboardFocus: notesPopout.editing
         focusOnPress: true
-        visible: root.openPanel === "todo"
+        open: root.openPanel === "todo"
         onHoverEntered: root.hoverEntered()
         onHoverExited: root.hoverExited()
         onVisibleChanged: {
@@ -107,7 +107,7 @@ Item {
         anchorY: Math.max(8, Math.min(root.panelHeight - trayMenuPopout.height - 8, root.trayMenuY - trayMenuPopout.height / 2))
         contentWidth: trayMenuPopout.width
         contentHeight: trayMenuPopout.height
-        visible: root.trayMenuOpen
+        open: root.trayMenuOpen
         onHoverEntered: root.hoverEntered()
         onHoverExited: root.hoverExited()
 
@@ -128,7 +128,7 @@ Item {
         contentWidth: calendarPopout.width
         contentHeight: calendarPopout.height
         focusOnPress: true
-        visible: root.openPanel === "calendar"
+        open: root.openPanel === "calendar"
         onHoverEntered: root.hoverEntered()
         onHoverExited: root.hoverExited()
         onVisibleChanged: {
@@ -158,7 +158,7 @@ Item {
         anchorY: Math.max(8, Math.min(root.panelHeight - performancePopout.height - 8, root.openPanelY - performancePopout.height / 2))
         contentWidth: performancePopout.width
         contentHeight: performancePopout.height
-        visible: root.openPanel === "system"
+        open: root.openPanel === "system"
         onHoverEntered: root.hoverEntered()
         onHoverExited: root.hoverExited()
         onVisibleChanged: root.performanceVisibleChanged(visible)
@@ -178,7 +178,7 @@ Item {
         anchorY: Math.max(8, Math.min(root.panelHeight - systemPopout.height - 8, root.openPanelY - systemPopout.height / 2))
         contentWidth: systemPopout.width
         contentHeight: systemPopout.height
-        visible: ["audio", "network", "bluetooth", "brightness"].indexOf(root.openPanel) >= 0
+        open: ["audio", "network", "bluetooth", "brightness"].indexOf(root.openPanel) >= 0
         onHoverEntered: root.hoverEntered()
         onHoverExited: root.hoverExited()
         onVisibleChanged: {
@@ -214,7 +214,7 @@ Item {
         anchorY: Math.max(8, Math.min(root.panelHeight - basicPopout.height - 8, root.openPanelY - basicPopout.height / 2))
         contentWidth: 320
         contentHeight: basicPopout.height
-        visible: ["updates", "privacy"].indexOf(root.openPanel) >= 0
+        open: ["updates", "privacy"].indexOf(root.openPanel) >= 0
         onHoverEntered: root.hoverEntered()
         onHoverExited: root.hoverExited()
 

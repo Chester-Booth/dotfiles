@@ -9,6 +9,7 @@ PanelWindow {
 
     property var targetScreen
     property bool open: false
+    property bool rendered: false
     property string updateSummary: ""
 
     signal action(string kind)
@@ -18,7 +19,7 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
     focusable: true
     aboveWindows: true
-    visible: open
+    visible: rendered
     color: "transparent"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
@@ -30,8 +31,28 @@ PanelWindow {
         bottom: true
     }
 
+    onOpenChanged: {
+        if (open) {
+            rendered = true;
+        } else {
+            hideTimer.restart();
+        }
+    }
+
+    Timer {
+        id: hideTimer
+
+        interval: 260
+        repeat: false
+        onTriggered: {
+            if (!root.open)
+                root.rendered = false;
+        }
+    }
+
     PowerOverlay {
         anchors.fill: parent
+        overlayOpen: root.open
         updateSummary: root.updateSummary
         onAction: (kind) => root.action(kind)
         onClose: root.close()

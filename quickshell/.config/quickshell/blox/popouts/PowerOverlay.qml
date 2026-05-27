@@ -5,12 +5,26 @@ import QtQuick.Layouts
 Rectangle {
     id: root
 
+    property bool overlayOpen: false
     property string updateSummary: "Check updates"
 
     signal action(string command)
     signal close()
 
-    color: "#99000000"
+    color: "transparent"
+
+    Rectangle {
+        anchors.fill: parent
+        color: "#99000000"
+        opacity: root.overlayOpen ? 1 : 0
+
+        Behavior on opacity {
+            NumberAnimation {
+                duration: root.overlayOpen ? 110 : 220
+                easing.type: root.overlayOpen ? Easing.OutCubic : Easing.InCubic
+            }
+        }
+    }
 
     MouseArea {
         anchors.fill: parent
@@ -27,10 +41,18 @@ Rectangle {
             Layout.fillWidth: true
             text: "Power"
             color: Theme.foreground
+            opacity: root.overlayOpen ? 1 : 0
             font.family: Theme.fontFamily
             font.pixelSize: 20
             font.bold: true
             horizontalAlignment: Text.AlignHCenter
+
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: 120
+                    easing.type: Easing.OutCubic
+                }
+            }
         }
 
         GridLayout {
@@ -71,13 +93,53 @@ Rectangle {
                 }]
 
                 Rectangle {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    Layout.minimumHeight: 112
+                    id: buttonCard
+
                     radius: 8
                     color: powerMouse.containsMouse ? "#ee3b3c4a" : "#dd1e1e1e"
                     border.color: modelData.danger ? Theme.red : Theme.surfaceAlt
                     border.width: 1
+                    opacity: 0
+                    scale: 0.96
+                    transformOrigin: Item.Center
+
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.minimumHeight: 112
+
+                    transform: Translate {
+                        id: buttonSlide
+
+                        y: 18
+                    }
+
+                    function show() {
+                        hideAnimation.stop();
+                        opacity = 0;
+                        scale = 0.96;
+                        buttonSlide.y = 18;
+                        showAnimation.restart();
+                    }
+
+                    function hide() {
+                        showAnimation.stop();
+                        hideAnimation.restart();
+                    }
+
+                    Component.onCompleted: {
+                        if (root.overlayOpen)
+                            show();
+                    }
+
+                    Connections {
+                        target: root
+                        function onOverlayOpenChanged() {
+                            if (root.overlayOpen)
+                                buttonCard.show();
+                            else
+                                buttonCard.hide();
+                        }
+                    }
 
                     Column {
                         anchors.centerIn: parent
@@ -101,6 +163,74 @@ Rectangle {
                             horizontalAlignment: Text.AlignHCenter
                         }
 
+                    }
+
+                    SequentialAnimation {
+                        id: showAnimation
+
+                        PauseAnimation {
+                            duration: 70 + index * 32
+                        }
+
+                        ParallelAnimation {
+                            NumberAnimation {
+                                target: buttonCard
+                                property: "opacity"
+                                from: buttonCard.opacity
+                                to: 1
+                                duration: 150
+                                easing.type: Easing.OutCubic
+                            }
+
+                            NumberAnimation {
+                                target: buttonCard
+                                property: "scale"
+                                from: buttonCard.scale
+                                to: 1
+                                duration: 170
+                                easing.type: Easing.OutCubic
+                            }
+
+                            NumberAnimation {
+                                target: buttonSlide
+                                property: "y"
+                                from: buttonSlide.y
+                                to: 0
+                                duration: 170
+                                easing.type: Easing.OutCubic
+                            }
+                        }
+                    }
+
+                    ParallelAnimation {
+                        id: hideAnimation
+
+                        NumberAnimation {
+                            target: buttonCard
+                            property: "opacity"
+                            from: buttonCard.opacity
+                            to: 0
+                            duration: 110
+                            easing.type: Easing.InCubic
+                        }
+
+                        NumberAnimation {
+                            target: buttonCard
+                            property: "scale"
+                            from: buttonCard.scale
+                            to: 0.96
+                            duration: 130
+                            easing.type: Easing.InCubic
+                        }
+
+                        NumberAnimation {
+                            target: buttonSlide
+                            property: "y"
+                            from: buttonSlide.y
+                            to: 18
+                            duration: 130
+                            easing.type: Easing.InCubic
+                        }
                     }
 
                     MouseArea {

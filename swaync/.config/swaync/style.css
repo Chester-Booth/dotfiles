@@ -12,6 +12,8 @@
 
 @define-color panel alpha(@background, 0.96);
 @define-color card @surface;
+@define-color button alpha(@surface-alt, 0.46);
+@define-color button-hover alpha(@surface-alt, 0.72);
 @define-color card-hover alpha(@surface-alt, 0.72);
 @define-color border @surface-alt;
 @define-color border-soft alpha(@foreground, 0.10);
@@ -85,20 +87,44 @@ blankwindow,
     letter-spacing: 0;
 }
 
+.widget-title button,
 .widget-title > button {
-    min-width: 30px;
+    min-width: 32px;
     min-height: 30px;
     padding: 0 10px;
-    margin: 0;
+    margin: 0 1px 0 0;
     background: @card;
+    background-color: @card;
+    background-image: none;
     color: @accent;
-    border: 1px solid @border;
+    border: none;
     border-radius: 7px;
+    box-shadow: inset 0 0 0 1px @border;
 }
 
-.widget-title > button:hover {
+.widget-title button *,
+.widget-title > button *,
+.widget-title button label,
+.widget-title button image,
+.widget-title > button label,
+.widget-title > button image {
+    background: transparent;
+    background-color: transparent;
+    background-image: none;
+    box-shadow: none;
+    text-shadow: none;
+}
+
+.widget-title button:hover,
+.widget-title button:focus,
+.widget-title button:active,
+.widget-title > button:hover,
+.widget-title > button:focus,
+.widget-title > button:active {
     background: @card-hover;
-    border-color: @accent-strong;
+    background-color: @card-hover;
+    background-image: none;
+    box-shadow: inset 0 0 0 1px @accent-strong;
 }
 
 .widget-label > label,
@@ -251,6 +277,71 @@ blankwindow,
     padding: 9px;
 }
 
+.notification-default-action {
+    background: transparent;
+    background-color: transparent;
+    background-image: none;
+    border: none;
+    box-shadow: none;
+}
+
+.notification-row .notification-background .notification .notification-action {
+    background: transparent;
+    background-color: transparent;
+    background-image: none;
+    border: none;
+    box-shadow: none;
+    margin: 4px 9px 9px 9px;
+    padding: 0;
+}
+
+.notification-row .notification-background .notification .notification-action > button,
+.notification-action > button,
+.notification-action button {
+    background: @button;
+    background-color: @button;
+    background-image: none;
+    border: 1px solid @border;
+    box-shadow: none;
+    border-radius: 7px;
+    color: @accent;
+    margin: 0;
+    min-height: 28px;
+    padding: 0 10px;
+}
+
+.notification-row .notification-background .notification .notification-action > button *,
+.notification-row .notification-background .notification .notification-action > button label,
+.notification-row .notification-background .notification .notification-action > button image,
+.notification-action > button *,
+.notification-action > button label,
+.notification-action > button image,
+.notification-action button *,
+.notification-action button label,
+.notification-action button image {
+    background: transparent;
+    background-color: transparent;
+    background-image: none;
+    box-shadow: none;
+    text-shadow: none;
+}
+
+.notification-row .notification-background .notification .notification-action > button:hover,
+.notification-row .notification-background .notification .notification-action > button:focus,
+.notification-row .notification-background .notification .notification-action > button:active,
+.notification-action > button:hover,
+.notification-action > button:focus,
+.notification-action > button:active,
+.notification-action button:hover,
+.notification-action button:focus,
+.notification-action button:active {
+    background: @button-hover;
+    background-color: @button-hover;
+    background-image: none;
+    border-color: @accent-strong;
+    color: @accent;
+}
+
 .control-center .notification-row .notification-background .notification box,
 .control-center .notification-row .notification-background .notification widget,
 .control-center .notification-row .notification-background .notification .notification-content,
@@ -359,4 +450,72 @@ trough slider {
     background: @surface-alt;
     border: 2px solid @accent;
     border-radius: 999px;
+}
+
+.control-center button,
+.floating-notifications button,
+.notification-row button {
+    background-image: none;
+    box-shadow: none;
+    text-shadow: none;
+}
+
+.control-center .widget-title button,
+.control-center .widget-title > button,
+.notification-row .notification-background .notification .notification-action > button {
+    background-image: none;
+    color: @accent;
+}
+
+.notification-row .notification-background .notification .notification-action > button {
+    background: @button;
+    background-color: @button;
+}
+
+.control-center .widget-title button:hover,
+.control-center .widget-title button:focus,
+.control-center .widget-title button:active,
+.control-center .widget-title > button:hover,
+.control-center .widget-title > button:focus,
+.control-center .widget-title > button:active,
+.notification-row .notification-background .notification .notification-action > button:hover,
+.notification-row .notification-background .notification .notification-action > button:focus,
+.notification-row .notification-background .notification .notification-action > button:active {
+    background-image: none;
+    color: @accent;
+}
+
+.notification-row .notification-background .notification .notification-action > button:hover,
+.notification-row .notification-background .notification .notification-action > button:focus,
+.notification-row .notification-background .notification .notification-action > button:active {
+    background: @button-hover;
+    background-color: @button-hover;
+}
+
+.control-center .widget-title button,
+.control-center .widget-title > button {
+    border: none;
+    box-shadow: inset 0 0 0 1px @border;
+}
+
+.control-center .widget-title button:hover,
+.control-center .widget-title button:focus,
+.control-center .widget-title button:active,
+.control-center .widget-title > button:hover,
+.control-center .widget-title > button:focus,
+.control-center .widget-title > button:active {
+    box-shadow: inset 0 0 0 1px @accent-strong;
+}
+
+.control-center .widget-title button *,
+.control-center .widget-title > button *,
+.control-center .widget-title button label,
+.control-center .widget-title button image,
+.control-center .widget-title > button label,
+.control-center .widget-title > button image {
+    background: transparent;
+    background-color: transparent;
+    background-image: none;
+    box-shadow: none;
+    text-shadow: none;
 }

@@ -105,3 +105,16 @@ Start Quickshell with the live config:
 ```sh
 quickshell -p ~/.config/quickshell/blox
 ```
+
+## 8. Laptop Power Button
+
+Hyprland binds a short power-button press to the Quickshell power overlay. If
+systemd handles the key before Hyprland sees it, add this machine-level setting:
+
+```sh
+sudo install -d -m 0755 /etc/systemd/logind.conf.d
+printf '%s\n' '[Login]' 'HandlePowerKey=ignore' | sudo tee /etc/systemd/logind.conf.d/90-power-key.conf
+```
+
+Then restart `systemd-logind` or reboot. Holding the physical button still uses
+the firmware force-off path.

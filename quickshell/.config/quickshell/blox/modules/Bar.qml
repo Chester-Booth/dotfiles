@@ -770,6 +770,29 @@ Scope {
     }
     onOpenPanelChanged: updatePanelPolling()
 
+    IpcHandler {
+        function open() : string {
+            root.openHoverPanel("power", root.openPanelY);
+            return "open";
+        }
+
+        function toggle() : string {
+            if (root.openPanel === "power") {
+                root.closePanel();
+                return "closed";
+            }
+            root.openHoverPanel("power", root.openPanelY);
+            return "open";
+        }
+
+        function close() : string {
+            root.closePanel();
+            return "closed";
+        }
+
+        target: "power"
+    }
+
     ScriptPoller {
         id: workspaces
 

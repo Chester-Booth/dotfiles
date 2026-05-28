@@ -145,6 +145,10 @@ Item {
             onSystemPanelRequested: (centerY) => {
                 return root.panelClicked("system", centerY);
             }
+            onSystemPanelHovered: (centerY) => {
+                return root.panelHovered("system", root.mapCenterY(centerY), "battery");
+            }
+            onSystemPanelExited: root.panelExited("battery")
         }
 
         BatteryCapacityTile {

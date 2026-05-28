@@ -7,6 +7,8 @@ Rectangle {
 
     property bool overlayOpen: false
     property string updateSummary: "Check updates"
+    property int debugOpenAnimationDuration: 900
+    property int debugButtonAnimationDuration: debugOpenAnimationDuration / 3
 
     signal action(string command)
     signal close()
@@ -20,8 +22,8 @@ Rectangle {
 
         Behavior on opacity {
             NumberAnimation {
-                duration: root.overlayOpen ? 110 : 220
-                easing.type: root.overlayOpen ? Easing.OutCubic : Easing.InCubic
+                duration: root.overlayOpen ? 200 : 300
+                easing.type: Easing.InSine
             }
         }
     }
@@ -49,8 +51,8 @@ Rectangle {
 
             Behavior on opacity {
                 NumberAnimation {
-                    duration: 120
-                    easing.type: Easing.OutCubic
+                    duration: root.debugOpenAnimationDuration
+                    easing.type: Easing.InCubic
                 }
             }
         }
@@ -169,7 +171,7 @@ Rectangle {
                         id: showAnimation
 
                         PauseAnimation {
-                            duration: 70 + index * 32
+                            duration: 200 + index * 64
                         }
 
                         ParallelAnimation {
@@ -187,7 +189,7 @@ Rectangle {
                                 property: "scale"
                                 from: buttonCard.scale
                                 to: 1
-                                duration: 170
+                                duration: 150
                                 easing.type: Easing.OutCubic
                             }
 
@@ -196,7 +198,7 @@ Rectangle {
                                 property: "y"
                                 from: buttonSlide.y
                                 to: 0
-                                duration: 170
+                                duration: 150   
                                 easing.type: Easing.OutCubic
                             }
                         }

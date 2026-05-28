@@ -12,9 +12,9 @@
 
 @define-color panel alpha(@background, 0.96);
 @define-color card @surface;
-@define-color button alpha(@surface-alt, 0.46);
-@define-color button-hover alpha(@surface-alt, 0.72);
-@define-color card-hover alpha(@surface-alt, 0.72);
+@define-color button #2b2c35;
+@define-color button-hover @surface-alt;
+@define-color card-hover #33343e;
 @define-color border @surface-alt;
 @define-color border-soft alpha(@foreground, 0.10);
 @define-color text @foreground;
@@ -264,8 +264,9 @@ blankwindow,
     transition: background 0.15s ease-in-out, border-color 0.15s ease-in-out;
 }
 
-.notification-row .notification-background .notification:hover {
+.notification-row .notification-background .notification:hover:not(:has(button:hover)) {
     background: @card-hover;
+    background-color: @card-hover;
     border-color: @accent-strong;
 }
 
@@ -274,6 +275,11 @@ blankwindow,
 }
 
 .notification-content {
+    background: transparent;
+    background-color: transparent;
+    background-image: none;
+    border-radius: 8px;
+    box-shadow: none;
     padding: 9px;
 }
 
@@ -282,6 +288,7 @@ blankwindow,
     background-color: transparent;
     background-image: none;
     border: none;
+    border-radius: 8px;
     box-shadow: none;
 }
 
@@ -290,9 +297,17 @@ blankwindow,
     background-color: transparent;
     background-image: none;
     border: none;
+    border-radius: 8px;
     box-shadow: none;
-    margin: 4px 9px 9px 9px;
-    padding: 0;
+    margin: 0 9px 9px 9px;
+    padding: 4px 0 0 0;
+}
+
+.notification-row .notification-background .notification:hover .notification-action {
+    background: transparent;
+    background-color: transparent;
+    background-image: none;
+    box-shadow: none;
 }
 
 .notification-row .notification-background .notification .notification-action > button,
@@ -339,6 +354,7 @@ blankwindow,
     background-color: @button-hover;
     background-image: none;
     border-color: @accent-strong;
+    box-shadow: none;
     color: @accent;
 }
 
@@ -392,9 +408,19 @@ blankwindow,
     border-color: @danger-border;
 }
 
-.notification-row .notification-background .notification.critical:hover {
+.notification-row .notification-background .notification.critical:hover:not(:has(button:hover)) {
     background: @danger-card-hover;
+    background-color: @danger-card-hover;
     border-color: @red;
+}
+
+.notification-row .notification-background .notification.critical .notification-action > button:hover,
+.notification-row .notification-background .notification.critical .notification-action > button:focus,
+.notification-row .notification-background .notification.critical .notification-action > button:active,
+.notification.critical .notification-action button:hover,
+.notification.critical .notification-action button:focus,
+.notification.critical .notification-action button:active {
+    box-shadow: none;
 }
 
 .control-center .notification-row .notification-background .notification.critical .notification-content .summary,

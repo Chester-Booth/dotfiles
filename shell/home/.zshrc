@@ -58,7 +58,6 @@ bindkey -e
 
 
 # alias
-alias cd='z'
 alias CD='cd'
 alias ls='exa --color=auto --icons=auto --across --group-directories-first  '
 alias LS='ls'
@@ -93,6 +92,38 @@ export XDG_CONFIG_HOME="$HOME/.config"
 
 # zoxide
 eval "$(zoxide init zsh)"
+
+# cd * opens in new tab if multiple directories are given, otherwise cd as normal
+cd() {
+  # Globs like `cd *` expand before this function runs. If that expansion
+  # produces multiple arguments, open one Kitty tab for each directory and
+  # ignore files from the same glob.
+  if (( $# > 1 )); then
+    local dir
+    local -a dirs
+
+    for dir in "$@"; do
+      [[ -d "$dir" ]] && dirs+=("$dir")
+    done
+
+    if (( ${#dirs} > 0 )); then
+      for dir in "${dirs[@]}"; do
+        kitty @ launch --type=tab --tab-title="${dir:t}" --cwd="${dir:a}" >/dev/null
+      done
+      return
+    fi
+  fi
+
+  # Keep normal path navigation literal, including quoted special names like
+  # `cd '*'` when a directory named `*` exists.
+  if (( $# == 1 )) && [[ -d "$1" ]]; then
+    builtin cd -- "$1"
+    return
+  fi
+
+  # otherwise use zoxide
+  z "$@"
+}
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh

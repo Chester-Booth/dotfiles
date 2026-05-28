@@ -723,7 +723,7 @@ Scope {
 
         if (current === "notifications")
             return [{
-            "label": "Open notification center",
+            "label": "Open notification centre",
             "command": "swaync-client -op -sw"
         }, {
             "label": notifications.json.dnd ? "Disable DND" : "Enable DND",

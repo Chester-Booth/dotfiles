@@ -214,7 +214,7 @@ Item {
         anchorY: Math.max(8, Math.min(root.panelHeight - basicPopout.height - 8, root.openPanelY - basicPopout.height / 2))
         contentWidth: 320
         contentHeight: basicPopout.height
-        open: ["updates", "privacy"].indexOf(root.openPanel) >= 0
+        open: ["updates", "notifications", "privacy"].indexOf(root.openPanel) >= 0
         onHoverEntered: root.hoverEntered()
         onHoverExited: root.hoverExited()
 

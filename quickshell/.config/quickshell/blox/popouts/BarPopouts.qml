@@ -38,6 +38,7 @@ Item {
     property string basicSubtitle: ""
     property string basicBody: ""
     property var basicActions: []
+    property string basicCurrentId: ""
     property string basicHeaderActionIcon: ""
     property string basicHeaderActionCommand: ""
 
@@ -214,7 +215,7 @@ Item {
         anchorY: Math.max(8, Math.min(root.panelHeight - basicPopout.height - 8, root.openPanelY - basicPopout.height / 2))
         contentWidth: 320
         contentHeight: basicPopout.height
-        open: ["updates", "notifications", "privacy"].indexOf(root.openPanel) >= 0
+        open: ["updates", "notifications", "privacy", "caffeine"].indexOf(root.openPanel) >= 0
         onHoverEntered: root.hoverEntered()
         onHoverExited: root.hoverExited()
 
@@ -226,6 +227,7 @@ Item {
             subtitle: root.basicSubtitle
             body: root.basicBody
             actions: root.basicActions
+            currentId: root.basicCurrentId
             headerActionIcon: root.basicHeaderActionIcon
             headerActionCommand: root.basicHeaderActionCommand
             onAction: (command, keepOpen) => root.basicAction(command, keepOpen)

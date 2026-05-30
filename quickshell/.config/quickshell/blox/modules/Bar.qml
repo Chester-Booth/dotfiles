@@ -168,6 +168,7 @@ Scope {
         touchpad.refresh();
         privacy.refresh();
         battery.refresh();
+        caffeine.refresh();
     }
 
     function refreshPerformanceStatus() {
@@ -193,6 +194,9 @@ Scope {
     function updatePanelPolling() {
         const controlPanels = ["audio", "network", "bluetooth", "brightness", "notifications", "privacy"];
         setControlPolling(controlPanels.indexOf(openPanel) >= 0);
+        caffeine.interval = openPanel === "caffeine" ? 1000 : caffeine.json.active ? 5000 : 30000;
+        if (openPanel === "caffeine")
+            caffeine.refresh();
         if (openPanel === "todo")
             todo.refresh();
         else if (openPanel === "calendar")
@@ -494,6 +498,7 @@ Scope {
             "notifications": "Notifications",
             "power": "Power",
             "privacy": "Privacy",
+            "caffeine": "Awake",
             "todo": "Todo",
             "updates": "Updates"
         };
@@ -525,6 +530,9 @@ Scope {
     function panelSubtitle() {
         if (openPanel === "updates")
             return elapsedText(updates.lastUpdatedMs, clock.date.getTime());
+
+        if (openPanel === "caffeine")
+            return caffeine.json.active ? "Hypridle paused" : "Hypridle active";
 
         return "";
     }
@@ -558,6 +566,9 @@ Scope {
 
         if (openPanel === "updates")
             return updateBody();
+
+        if (openPanel === "caffeine")
+            return caffeine.json.tooltip || "Awake status unavailable";
 
         if (openPanel === "bluetooth")
             return bluetooth.json.tooltip || "Bluetooth status unavailable";
@@ -733,6 +744,33 @@ Scope {
             "command": "swaync-client -C -sw"
         }];
 
+        if (current === "caffeine")
+            return [{
+            "id": "off",
+            "icon": "󰒲",
+            "label": "Off",
+            "command": root.scriptRoot + "/status/caffeine.sh off",
+            "keepOpen": true
+        }, {
+            "id": "30m",
+            "icon": "󰔟",
+            "label": "30 mins",
+            "command": root.scriptRoot + "/status/caffeine.sh 30m",
+            "keepOpen": true
+        }, {
+            "id": "1h",
+            "icon": "󰞌",
+            "label": "1 hr",
+            "command": root.scriptRoot + "/status/caffeine.sh 1h",
+            "keepOpen": true
+        }, {
+            "id": "indefinite",
+            "icon": "󰒳",
+            "label": "Indefinite",
+            "command": root.scriptRoot + "/status/caffeine.sh indefinite",
+            "keepOpen": true
+        }];
+
         if (current === "fan")
             return [{
             "label": "Performance",
@@ -895,6 +933,13 @@ Scope {
         id: privacy
 
         command: [root.scriptRoot + "/status/privacy.sh"]
+        interval: 30000
+    }
+
+    ScriptPoller {
+        id: caffeine
+
+        command: [root.scriptRoot + "/status/caffeine.sh"]
         interval: 30000
     }
 
@@ -1272,6 +1317,7 @@ Scope {
                         bluetoothStatus: bluetooth.json
                         audioStatus: audio.json
                         brightnessStatus: brightness.json
+                        caffeineStatus: caffeine.json
                         privacyStatus: privacy.json
                         scriptRoot: root.scriptRoot
                         onPanelClicked: (panel, centerY) => {
@@ -1338,6 +1384,7 @@ Scope {
                 basicSubtitle: root.panelSubtitle()
                 basicBody: root.panelBody()
                 basicActions: root.panelActions()
+                basicCurrentId: root.openPanel === "caffeine" ? (caffeine.json.mode || "off") : ""
                 basicHeaderActionIcon: root.panelHeaderActionIcon()
                 basicHeaderActionCommand: root.panelHeaderActionCommand()
                 onHoverEntered: root.popoutEntered()

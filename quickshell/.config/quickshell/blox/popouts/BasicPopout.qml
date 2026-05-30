@@ -8,6 +8,7 @@ Rectangle {
     property string subtitle: ""
     property string body: ""
     property var actions: []
+    property string currentId: ""
     property string headerActionIcon: ""
     property string headerActionCommand: ""
 
@@ -25,7 +26,7 @@ Rectangle {
 
         anchors.fill: parent
         anchors.margins: 12
-        implicitHeight: headerRow.height + bodyText.implicitHeight + actionFlow.implicitHeight + 20
+        implicitHeight: headerRow.height + bodyText.implicitHeight + (root.title === "Awake" ? awakeSlider.height : actionFlow.implicitHeight) + 20
 
         Item {
             id: headerRow
@@ -39,8 +40,8 @@ Rectangle {
 
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
-                text: root.title === "Updates" ? "󰧠" : "󰍹"
-                color: Theme.blue
+                text: root.title === "Updates" ? "󰧠" : root.title === "Awake" ? "󰅶" : "󰍹"
+                color: root.title === "Awake" ? Theme.yellow : Theme.blue
                 font.family: Theme.fontFamily
                 font.pixelSize: 18
             }
@@ -130,6 +131,7 @@ Rectangle {
             anchors.bottom: parent.bottom
             width: parent.width
             spacing: 8
+            visible: root.title !== "Awake"
 
             Repeater {
                 model: root.actions
@@ -178,6 +180,143 @@ Rectangle {
                             const keepOpen = !!modelData.keepOpen || label.indexOf("cycle") >= 0 || label.indexOf(" up") >= 0 || label.indexOf(" down") >= 0;
                             root.action(modelData.command || "", keepOpen);
                         }
+                    }
+
+                }
+
+            }
+
+        }
+
+        AwakeSlider {
+            id: awakeSlider
+
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: bodyText.bottom
+            anchors.topMargin: 10
+            visible: root.title === "Awake"
+            currentId: root.currentId || "off"
+            options: root.actions
+            onSelected: (command) => root.action(command, true)
+        }
+
+    }
+
+    component AwakeSlider: Column {
+        id: slider
+
+        property string currentId: "off"
+        property var options: []
+        property string visualId: currentId
+        property int selectedIndex: {
+            for (let i = 0; i < options.length; i++) {
+                if ((options[i].id || "") === visualId)
+                    return i;
+
+            }
+            return 0;
+        }
+
+        signal selected(string command)
+
+        spacing: 4
+        height: visible ? labelRow.height + control.height + spacing : 0
+        onCurrentIdChanged: visualId = currentId
+
+        Row {
+            id: labelRow
+
+            width: parent.width
+            height: 12
+
+            Text {
+                anchors.left: parent.left
+                text: "Duration"
+                color: Theme.muted
+                font.family: Theme.fontFamily
+                font.pixelSize: 9
+            }
+
+            Text {
+                anchors.right: parent.right
+                text: {
+                    for (let i = 0; i < slider.options.length; i++) {
+                        if ((slider.options[i].id || "") === slider.visualId)
+                            return slider.options[i].label || "";
+
+                    }
+                    return "";
+                }
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: 9
+            }
+
+        }
+
+        Rectangle {
+            id: control
+
+            width: parent.width
+            height: 32
+            radius: 16
+            color: Theme.surface
+            border.color: Theme.surfaceAlt
+            border.width: 1
+            clip: true
+
+            Rectangle {
+                x: 3 + slider.selectedIndex * ((parent.width - 6) / Math.max(1, slider.options.length))
+                y: 3
+                width: (parent.width - 6) / Math.max(1, slider.options.length)
+                height: parent.height - 6
+                radius: 13
+                color: "#66453d3d"
+
+                Behavior on x {
+                    NumberAnimation {
+                        duration: 150
+                        easing.type: Easing.OutCubic
+                    }
+
+                }
+
+            }
+
+            Row {
+                anchors.fill: parent
+                anchors.margins: 3
+
+                Repeater {
+                    model: slider.options
+
+                    Rectangle {
+                        width: (control.width - 6) / Math.max(1, slider.options.length)
+                        height: parent.height
+                        radius: 13
+                        color: optionMouse.containsMouse ? "#333b3c4a" : "transparent"
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: modelData.icon || ""
+                            color: (modelData.id || "") === slider.visualId ? Theme.yellow : Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: 14
+                        }
+
+                        MouseArea {
+                            id: optionMouse
+
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                slider.visualId = modelData.id || "";
+                                slider.selected(modelData.command || "");
+                            }
+                        }
+
                     }
 
                 }

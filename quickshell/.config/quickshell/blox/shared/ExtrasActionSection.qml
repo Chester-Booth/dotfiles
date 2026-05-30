@@ -11,6 +11,7 @@ Item {
     property var bluetoothStatus
     property var audioStatus
     property var brightnessStatus
+    property var caffeineStatus
     property var privacyStatus
     property string scriptRoot: ""
 
@@ -83,6 +84,23 @@ Item {
             onWheeled: (delta) => {
                 return root.runCommand("brightnessctl -d amdgpu_bl1 set " + (delta > 0 ? "+2%" : "2%-"));
             }
+        }
+
+        PanelRailButton {
+            icon: root.caffeineStatus && root.caffeineStatus.icon ? root.caffeineStatus.icon : "󰅶"
+            accent: root.caffeineStatus && root.caffeineStatus.active ? Theme.yellow : Theme.foreground
+            panel: "caffeine"
+            active: root.openPanel === "caffeine"
+            onPanelClicked: (panel, centerY) => {
+                return root.panelClicked(panel, root.mapCenterY(centerY));
+            }
+            onPanelHovered: (panel, centerY, source) => {
+                return root.panelHovered(panel, root.mapCenterY(centerY), source);
+            }
+            onPanelExited: (source) => {
+                return root.panelExited(source);
+            }
+            onRightClicked: root.runCommand(root.scriptRoot + "/status/caffeine.sh off")
         }
 
         PanelRailButton {

@@ -31,6 +31,7 @@ Scope {
     property bool inputPopupLocked: false
     property bool blinkOn: true
     property string selectedCalendarDate: ""
+    property int notesSaveRevision: 0
     property string alertWorkspaceIds: ","
     property string alertWindowAddress: ""
     property var trayMenuHandle: null
@@ -964,7 +965,12 @@ Scope {
     Process {
         id: saveNotes
 
-        onExited: todoRefreshDelay.restart()
+        onExited: (exitCode, exitStatus) => {
+            if (exitCode === 0 && exitStatus === 0)
+                root.notesSaveRevision += 1;
+
+            todoRefreshDelay.restart();
+        }
     }
 
     Process {
@@ -1359,6 +1365,7 @@ Scope {
                 trayMenuHandle: root.trayMenuHandle
                 trayMenuTitle: root.trayMenuTitle
                 todoStatus: todo.json
+                notesSaveRevision: root.notesSaveRevision
                 batteryStatus: battery.json
                 clockDate: clock.date
                 selectedCalendarDate: root.selectedCalendarDate

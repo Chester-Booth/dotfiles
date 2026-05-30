@@ -15,6 +15,7 @@ Item {
     property var trayMenuHandle: null
     property string trayMenuTitle: ""
     property var todoStatus
+    property int notesSaveRevision: 0
     property var batteryStatus
     property date clockDate
     property string selectedCalendarDate: ""
@@ -87,6 +88,7 @@ Item {
             file: root.todoStatus && root.todoStatus.file ? root.todoStatus.file : ""
             index: root.todoStatus && root.todoStatus.index !== undefined ? root.todoStatus.index : 0
             count: root.todoStatus && root.todoStatus.count !== undefined ? root.todoStatus.count : 1
+            saveRevision: root.notesSaveRevision
             maxPopoutWidth: root.screenWidth > 0 ? root.screenWidth * 0.75 : 680
             maxPopoutHeight: root.panelHeight > 0 ? root.panelHeight * 0.75 : 760
             onPrevious: root.previousTodo()

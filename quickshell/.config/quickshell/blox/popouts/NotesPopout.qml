@@ -10,6 +10,7 @@ Rectangle {
     property string file: ""
     property int index: 0
     property int count: 1
+    property int saveRevision: 0
     property bool editing: false
     property real maxPopoutWidth: 680
     property real maxPopoutHeight: 760
@@ -44,6 +45,10 @@ Rectangle {
     }
     onGeneratedChanged: {
         if (generated)
+            editing = false;
+    }
+    onSaveRevisionChanged: {
+        if (saveRevision > 0)
             editing = false;
     }
 

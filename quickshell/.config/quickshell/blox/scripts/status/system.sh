@@ -56,6 +56,15 @@ ram_used="$(awk "BEGIN {printf \"%.1f\", ($mem_total-$mem_avail)/1048576}")"
 ram_total="$(awk "BEGIN {printf \"%.1f\", $mem_total/1048576}")"
 ram_percent="$(awk "BEGIN {printf \"%d\", (($mem_total-$mem_avail)/$mem_total)*100}")"
 
+read -r swap_total swap_free < <(awk '/SwapTotal:|SwapFree:/ {print $2}' /proc/meminfo | xargs)
+swap_used="$(awk "BEGIN {printf \"%.1f\", ($swap_total-$swap_free)/1048576}")"
+swap_total_gb="$(awk "BEGIN {printf \"%.1f\", $swap_total/1048576}")"
+if [ "$swap_total" -gt 0 ]; then
+    swap_percent="$(awk "BEGIN {printf \"%d\", (($swap_total-$swap_free)/$swap_total)*100}")"
+else
+    swap_percent=0
+fi
+
 refresh="$(hyprctl monitors -j 2>/dev/null | jq -r '.[0].refreshRate // 60' 2>/dev/null | cut -d. -f1)"
 [ -n "$refresh" ] || refresh="60"
 if lspci -s 01:00.0 2>/dev/null | grep -q "VGA"; then
@@ -97,6 +106,8 @@ jq -nc \
     --arg powerW "$power_w" \
     --arg ramUsed "$ram_used" \
     --arg ramTotal "$ram_total" \
+    --arg swapUsed "$swap_used" \
+    --arg swapTotal "$swap_total_gb" \
     --arg gpuMode "$gpu_mode" \
     --arg gpuLabel "$gpu_label" \
     --arg refresh "$refresh" \
@@ -106,6 +117,7 @@ jq -nc \
     --arg vramTotal "$vram_total" \
     --argjson cpuUtil "$cpu_util" \
     --argjson ramPercent "$ram_percent" \
+    --argjson swapPercent "$swap_percent" \
     --argjson gpuOn "$gpu_on" \
     '{
       profile:$profile,
@@ -117,6 +129,9 @@ jq -nc \
       ramUsed:$ramUsed,
       ramTotal:$ramTotal,
       ramPercent:$ramPercent,
+      swapUsed:$swapUsed,
+      swapTotal:$swapTotal,
+      swapPercent:$swapPercent,
       gpuMode:$gpuMode,
       gpuLabel:$gpuLabel,
       gpuOn:$gpuOn,

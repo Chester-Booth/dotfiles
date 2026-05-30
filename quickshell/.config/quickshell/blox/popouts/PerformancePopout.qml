@@ -48,8 +48,19 @@ Rectangle {
         return value + " RPM";
     }
 
+    function gpuMemoryLabel() {
+        return status.vramTotal ? "VRAM" : "Swap";
+    }
+
+    function gpuMemoryValue() {
+        if (status.vramTotal)
+            return (status.vramUsed || "0") + "/" + status.vramTotal + " MB";
+
+        return (status.swapUsed || "?") + "/" + (status.swapTotal || "?") + " GB";
+    }
+
     width: 268
-    height: 474
+    height: status.vramTotal ? 526 : 474
     radius: 8
     color: Theme.background
     border.color: Theme.surfaceAlt
@@ -130,8 +141,8 @@ Rectangle {
 
             DetailPill {
                 icon: "󰍛"
-                label: "VRAM"
-                value: root.status.vramTotal ? ((root.status.vramUsed || "0") + "/" + root.status.vramTotal + " MB") : "off"
+                label: root.gpuMemoryLabel()
+                value: root.gpuMemoryValue()
                 accent: Theme.mauve
             }
 
@@ -171,6 +182,16 @@ Rectangle {
                 detail: (root.status.ramUsed || "?") + "/" + (root.status.ramTotal || "?") + " GB"
                 percent: root.clamp(root.numberValue(root.status.ramPercent, 0), 0, 100)
                 accent: Theme.mauve
+            }
+
+            MetricBar {
+                icon: ""
+                label: "Swap"
+                detail: (root.status.swapUsed || "?") + "/" + (root.status.swapTotal || "?") + " GB"
+                percent: root.clamp(root.numberValue(root.status.swapPercent, 0), 0, 100)
+                accent: Theme.mauve
+                visible: root.status.vramTotal
+                Layout.preferredHeight: visible ? 45 : 0
             }
 
         }

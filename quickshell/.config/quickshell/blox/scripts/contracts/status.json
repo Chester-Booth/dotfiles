@@ -151,6 +151,21 @@
       "tooltip": "string"
     }
   },
+  "caffeine": {
+    "command": ["status/caffeine.sh"],
+    "required": {
+      "icon": "string",
+      "class": "string",
+      "mode": "string",
+      "label": "string",
+      "tooltip": "string",
+      "active": "boolean",
+      "deadline": "number",
+      "remaining": "number",
+      "hypridleRunning": "boolean",
+      "reconciled": "boolean"
+    }
+  },
   "updates": {
     "command": ["update/status.sh"],
     "required": {

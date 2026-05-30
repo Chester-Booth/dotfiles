@@ -533,7 +533,7 @@ Scope {
             return elapsedText(updates.lastUpdatedMs, clock.date.getTime());
 
         if (openPanel === "caffeine")
-            return caffeine.json.active ? "Hypridle paused" : "Hypridle active";
+            return caffeine.json.active ? (caffeine.json.hypridleRunning ? "Awake warning" : "Hypridle paused") : "Hypridle active";
 
         return "";
     }

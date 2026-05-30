@@ -28,9 +28,10 @@ duration_label() {
 }
 
 json_status() {
-    local deadline mode active remaining label class tooltip
+    local deadline mode active remaining label class tooltip hypridle_running reconciled
     deadline="0"
     mode="off"
+    reconciled=false
 
     if [[ -f "$state_file" ]]; then
         deadline="$(jq -r '.deadline // 0' "$state_file" 2>/dev/null || echo 0)"
@@ -63,6 +64,30 @@ json_status() {
         fi
     fi
 
+    if [[ "$active" == "true" ]] && pgrep -x hypridle >/dev/null 2>&1; then
+        pkill -x hypridle >/dev/null 2>&1 || true
+        reconciled=true
+    fi
+
+    if pgrep -x hypridle >/dev/null 2>&1; then
+        hypridle_running=true
+    else
+        hypridle_running=false
+    fi
+
+    if [[ "$active" == "true" ]]; then
+        if [[ "$hypridle_running" == "true" ]]; then
+            class="warning"
+            tooltip+=$'\nWarning: Hypridle is still running'
+        elif [[ "$reconciled" == "true" ]]; then
+            tooltip+=$'\nHypridle was restarted and has been paused again'
+        else
+            tooltip+=$'\nHypridle paused'
+        fi
+    else
+        tooltip+=$'\nHypridle active'
+    fi
+
     jq -nc \
         --arg icon "󰅶" \
         --arg class "$class" \
@@ -72,7 +97,9 @@ json_status() {
         --argjson active "$active" \
         --argjson deadline "$deadline" \
         --argjson remaining "$remaining" \
-        '{icon:$icon,class:$class,mode:$mode,label:$label,tooltip:$tooltip,active:$active,deadline:$deadline,remaining:$remaining}'
+        --argjson hypridleRunning "$hypridle_running" \
+        --argjson reconciled "$reconciled" \
+        '{icon:$icon,class:$class,mode:$mode,label:$label,tooltip:$tooltip,active:$active,deadline:$deadline,remaining:$remaining,hypridleRunning:$hypridleRunning,reconciled:$reconciled}'
 }
 
 set_awake() {

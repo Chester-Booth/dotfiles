@@ -1,6 +1,7 @@
 import "."
 import QtQuick
 import Quickshell
+import Quickshell.Hyprland
 
 PopupWindow {
     id: root
@@ -64,6 +65,12 @@ PopupWindow {
         HoverHandler {
             onHoveredChanged: hovered ? root.hoverEntered() : root.hoverExited()
         }
+    }
+
+    HyprlandFocusGrab {
+        active: root.visible && root.keyboardFocus
+        windows: [root]
+        onCleared: root.keyboardFocus = false
     }
 
     ParallelAnimation {

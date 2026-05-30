@@ -1,14 +1,31 @@
 #!/bin/bash
 
 # --- CONFIGURATION ---
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 CACHE_DIR="$HOME/.cache/gcal_script"
 DAY_OUT="$HOME/Documents/todo/2-gcal.md"
 WEEK_OUT="$HOME/Documents/todo/99-gcal_week.md"
 NOW_HOUR=$(date +%H)
 NOW_DATE=$(date +"%a %b %d") # e.g., "Mon Mar 09"
+auth_notification_sent=0
 
 # Create cache dir if it doesn't exist
 mkdir -p "$CACHE_DIR"
+
+notify_auth_expired() {
+    if [ "$auth_notification_sent" -eq 1 ]; then
+        return
+    fi
+    auth_notification_sent=1
+
+    if command -v systemd-run >/dev/null 2>&1; then
+        systemd-run --user --quiet --collect \
+            --unit=gcalcli-auth-notify \
+            "$SCRIPT_DIR/gcalcli-auth-notify.sh" >/dev/null 2>&1 && return
+    fi
+
+    "$SCRIPT_DIR/gcalcli-auth-notify.sh" >/dev/null 2>&1 &
+}
 
 # --- PROCESSING FUNCTION ---
 process_gcal() {
@@ -160,6 +177,7 @@ generate_file() {
         if grep -q "invalid_grant.*Token has been expired or revoked" "$temp_err"; then
             # 1. Auth/Expired Token Error (explicitly handled)
             status="expired"
+            notify_auth_expired
         elif grep -qEi "ServerNotFoundError|gaierror|Network is unreachable|Name or service not known|Connection refused|Timeout|ConnectionError|Failed to establish a new connection|NewConnectionError|nodename nor servname provided" "$temp_err"; then
             # 2. Wi-Fi/No Internet Error (explicitly handled)
             status="offline"

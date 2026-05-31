@@ -21,8 +21,8 @@
     "terminal.explorerKind": "external",
     "zenMode.showTabs": "single",
     "window.customTitleBarVisibility": "never",
-    
-    "launch": {
+
+     "launch": {
         "version": "0.2.0",
         "configurations": [
             {
@@ -40,35 +40,6 @@
                 "request": "launch",
                 "program": "${file}",
                 "console": "externalTerminal",
-                "noDebug": true
-            },
-            {
-                // ----- C (Build + Debug with gdb) -----
-                "name": "C: Build & Debug (external)",
-                "type": "cppdbg",
-                "request": "launch",
-                "program": "${fileDirname}/${fileBasenameNoExtension}",
-                "args": [],
-                "stopAtEntry": false,
-                "cwd": "${workspaceFolder}",
-                "externalConsole": true,
-                "MIMode": "gdb",
-                "miDebuggerPath": "/usr/bin/gdb",
-                "preLaunchTask": "C: build active file"
-            },
-            {
-                // ----- C (Build + Run, no debugger) -----
-                "name": "C: Build & Run (external, no debug)",
-                "type": "cppdbg",
-                "request": "launch",
-                "program": "${fileDirname}/${fileBasenameNoExtension}",
-                "args": [],
-                "cwd": "${workspaceFolder}",
-                "externalConsole": true,
-                "MIMode": "gdb",
-                "miDebuggerPath": "/usr/bin/gdb",
-                "preLaunchTask": "C: build active file",
-                "stopAtEntry": false,
                 "noDebug": true
             }
         ]
@@ -121,6 +92,17 @@
     "docker.extension.dockerEngineAvailabilityPrompt": false,
     "gitlens.ai.model": "vscode",
     "gitlens.ai.vscode.model": "copilot:gpt-4.1",
+    "C_Cpp.intelliSenseEngine": "disabled",
+    "C_Cpp.autocomplete": "disabled",
+    "clangd.path": "/usr/bin/clangd",
+    "clangd.arguments": [
+        "--background-index",
+        "--clang-tidy",
+        "--completion-style=detailed",
+        "--header-insertion=iwyu"
+    ],
+    "cmake.configureOnOpen": true,
+    "cmake.buildDirectory": "${workspaceFolder}/build",
     "makefile.configureOnOpen": true,
     "chat.tools.terminal.autoApprove": {
         "gcc": true,

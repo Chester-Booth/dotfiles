@@ -4,17 +4,53 @@
         {
             "label": "C/C++: Build active file",
             "type": "shell",
-            "command": "sh",
+            "command": "bash",
             "args": [
                 "-c",
-                "if [[ \"${file}\" == *.c ]]; then gcc -g \"${file}\" -o \"${fileDirname}/${fileBasenameNoExtension}\"; elif [[ \"${file}\" == *.cpp ]]; then g++ -g \"${file}\" -o \"${fileDirname}/${fileBasenameNoExtension}\"; else echo 'Unsupported file type'; exit 1; fi"
+                "set -euo pipefail; if [[ \"${file}\" == *.c ]]; then gcc -Wall -Wextra -g \"${file}\" -o \"${fileDirname}/${fileBasenameNoExtension}\"; elif [[ \"${file}\" == *.cpp ]]; then g++ -Wall -Wextra -std=c++20 -g \"${file}\" -o \"${fileDirname}/${fileBasenameNoExtension}\"; else echo 'Unsupported file type'; exit 1; fi"
             ],
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
             "problemMatcher": "$gcc"
+        },
+        {
+            "label": "CMake: configure",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-S",
+                "${workspaceFolder}",
+                "-B",
+                "${workspaceFolder}/build",
+                "-DCMAKE_BUILD_TYPE=Debug",
+                "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "CMake: build",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "${workspaceFolder}/build"
+            ],
+            "group": "build",
+            "problemMatcher": "$gcc",
+            "dependsOn": "CMake: configure"
+        },
+        {
+            "label": "Make: build",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "-C",
+                "${workspaceFolder}"
+            ],
+            "group": "build",
+            "problemMatcher": "$gcc"
         }
     ]
 }
-

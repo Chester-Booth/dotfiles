@@ -98,7 +98,7 @@
         "key": "ctrl+f5",
         "command": "workbench.action.debug.start",
         "args": {
-            "config": "Python: Run current file (external, no debug)"
+            "config": "Python: Run current file (external)"
         },
         "when": "editorLangId == python"
     },
@@ -106,7 +106,7 @@
         "key": "f5",
         "command": "workbench.action.debug.start",
         "args": {
-            "config": "C: Build & Debug (external)"
+            "config": "C/C++: Build & Debug active file (external)"
         },
         "when": "editorLangId == c || editorLangId == cpp"
     },
@@ -114,14 +114,14 @@
         "key": "ctrl+f5",
         "command": "workbench.action.debug.start",
         "args": {
-            "config": "C: Build & Run (external, no debug)"
+            "config": "C/C++: Build & Run active file (external, no debug)"
         },
         "when": "editorLangId == c || editorLangId == cpp"
     },
     {
         "key": "f5",
         "command": "workbench.action.debug.start",
-        "when": "(debuggersAvailable && debugState == 'inactive') && (editorLangId == 'c' || editorLangId == 'cpp' || editorLangId == 'python') "
+        "when": "(debuggersAvailable && debugState == 'inactive') && editorLangId != 'c' && editorLangId != 'cpp' && editorLangId != 'python'"
     },
     {
         "key": "f5",
@@ -131,7 +131,7 @@
     {
         "key": "ctrl+f5",
         "command": "workbench.action.debug.run",
-        "when": "  (debuggersAvailable && debugState != 'initializing') && (editorLangId != 'c' || editorLangId != 'cpp' || editorLangId != 'python') "
+        "when": "(debuggersAvailable && debugState != 'initializing') && editorLangId != 'c' && editorLangId != 'cpp' && editorLangId != 'python'"
     },
     {
         "key": "ctrl+f5",

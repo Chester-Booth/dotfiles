@@ -19,8 +19,8 @@
             "noDebug": true
         },
         {
-            // ----- C (Build + Debug with gdb) -----
-            "name": "C: Build & Debug (external)",
+            // ----- C/C++ single-file debug with gdb -----
+            "name": "C/C++: Build & Debug active file (external)",
             "type": "cppdbg",
             "request": "launch",
             "program": "${fileDirname}/${fileBasenameNoExtension}",
@@ -30,11 +30,11 @@
             "externalConsole": true,
             "MIMode": "gdb",
             "miDebuggerPath": "/usr/bin/gdb",
-            "preLaunchTask": "C: build active file"
+            "preLaunchTask": "C/C++: Build active file"
         },
         {
-            // ----- C (Build + Run, no debugger) -----
-            "name": "C: Build & Run (external, no debug)",
+            // ----- C/C++ single-file run without debugger -----
+            "name": "C/C++: Build & Run active file (external, no debug)",
             "type": "cppdbg",
             "request": "launch",
             "program": "${fileDirname}/${fileBasenameNoExtension}",
@@ -43,9 +43,37 @@
             "externalConsole": true,
             "MIMode": "gdb",
             "miDebuggerPath": "/usr/bin/gdb",
-            "preLaunchTask": "C: build active file",
+            "preLaunchTask": "C/C++: Build active file",
             "stopAtEntry": false,
             "noDebug": true
+        },
+        {
+            // ----- CMake project debug with gdb -----
+            "name": "CMake: Build & Debug target (external)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${command:cmake.launchTargetPath}",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "externalConsole": true,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "preLaunchTask": "CMake: build"
+        },
+        {
+            // ----- Makefile project debug; set program if your binary differs -----
+            "name": "Make: Build & Debug ./main (external)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/main",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "externalConsole": true,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "preLaunchTask": "Make: build"
         }
     ]
 }

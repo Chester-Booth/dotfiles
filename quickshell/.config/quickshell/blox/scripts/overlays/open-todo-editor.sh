@@ -12,6 +12,15 @@ PADDING_X=40
 PADDING_Y=40
 MIN_W=200
 MIN_H=80
+MICRO_BIN="${MICRO_BIN:-$HOME/.local/bin/micro}"
+
+if [ ! -x "$MICRO_BIN" ]; then
+    MICRO_BIN="$(command -v micro 2>/dev/null || true)"
+fi
+
+if [ -z "$MICRO_BIN" ]; then
+    exit 1
+fi
 
 current_file="$DEFAULT_FILE"
 if [ -f "$STATE_FILE" ]; then
@@ -43,7 +52,7 @@ read_window_address() {
     ' 2>/dev/null
 }
 
-kitty --class quickshell_todo --title quickshell_todo micro "$current_file" >/dev/null 2>&1 &
+kitty --class quickshell_todo --title quickshell_todo "$MICRO_BIN" "$current_file" >/dev/null 2>&1 &
 kitty_pid=$!
 window_address=""
 
@@ -61,6 +70,6 @@ if [ -z "$window_address" ]; then
 fi
 
 sleep 0.15
-hyprctl --batch "dispatch focuswindow address:$window_address; dispatch resizeactive exact $target_w $target_h; dispatch moveactive exact $TARGET_X $TARGET_Y" >/dev/null 2>&1 || true
+hyprctl --batch "dispatch setfloating address:$window_address; dispatch focuswindow address:$window_address; dispatch resizeactive exact $target_w $target_h; dispatch moveactive exact $TARGET_X $TARGET_Y" >/dev/null 2>&1 || true
 sleep 0.05
-hyprctl --batch "dispatch focuswindow address:$window_address; dispatch resizeactive exact $target_w $target_h; dispatch moveactive exact $TARGET_X $TARGET_Y" >/dev/null 2>&1 || true
+hyprctl --batch "dispatch setfloating address:$window_address; dispatch focuswindow address:$window_address; dispatch resizeactive exact $target_w $target_h; dispatch moveactive exact $TARGET_X $TARGET_Y" >/dev/null 2>&1 || true

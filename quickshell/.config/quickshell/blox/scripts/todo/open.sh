@@ -12,6 +12,14 @@ if [[ "$current_file" == *"2-gcal.md"* || "$current_file" == *"99-gcal_week.md"*
     current_file="$HOME/Documents/todo/1-todo.md"
 fi
 
+micro_bin="${MICRO_BIN:-$HOME/.local/bin/micro}"
+if [ ! -x "$micro_bin" ]; then
+    micro_bin="$(command -v micro 2>/dev/null || true)"
+fi
+
+if [ -z "$micro_bin" ]; then
+    exit 1
+fi
 
 # Open the current file in kitty with micro editor and glow preview
-kitty --class todo --title todo sh -c "micro '$current_file' && glow '$current_file' && echo 'Done - press enter'; read"
+kitty --class todo --title todo sh -c '"$1" "$2" && glow "$2" && echo "Done - press enter"; read' sh "$micro_bin" "$current_file"

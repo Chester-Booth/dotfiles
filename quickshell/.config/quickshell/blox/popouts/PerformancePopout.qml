@@ -405,10 +405,9 @@ Rectangle {
         property string currentText: ""
         property string currentId: ""
         property var options: []
-        property string visualId: currentId
         property int selectedIndex: {
             for (let i = 0; i < options.length; i++) {
-                if (options[i].id === visualId)
+                if (options[i].id === currentId)
                     return i;
 
             }
@@ -418,7 +417,6 @@ Rectangle {
         signal selected(string id)
 
         spacing: 4
-        onCurrentIdChanged: visualId = currentId
 
         RowLayout {
             Layout.fillWidth: true
@@ -486,7 +484,7 @@ Rectangle {
                         Text {
                             anchors.centerIn: parent
                             text: modelData.icon
-                            color: modelData.id === slider.visualId ? Theme.yellow : Theme.foreground
+                            color: modelData.id === slider.currentId ? Theme.yellow : Theme.foreground
                             font.family: Theme.fontFamily
                             font.pixelSize: 14
                         }
@@ -498,7 +496,6 @@ Rectangle {
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
-                                slider.visualId = modelData.id;
                                 slider.selected(modelData.id);
                             }
                         }

@@ -17,14 +17,14 @@ qmlformat:
 
 shfmt:
 	@if command -v shfmt >/dev/null 2>&1; then \
-		find bin hyprland quickshell systemd -type f \( -name '*.sh' -o -name 'dotfiles-doctor' \) -print0 | xargs -0 -r shfmt -w; \
+		find bin hyprland quickshell systemd system-etc -type f \( -name '*.sh' -o -name 'dotfiles-doctor' \) -print0 | xargs -0 -r shfmt -w; \
 	else \
 		echo 'skip shfmt: command not found'; \
 	fi
 
 shellcheck:
 	@if command -v shellcheck >/dev/null 2>&1; then \
-		find bin hyprland quickshell systemd -type f \( -name '*.sh' -o -name 'dotfiles-doctor' \) -print0 | xargs -0 -r shellcheck; \
+		find bin hyprland quickshell systemd system-etc -type f \( -name '*.sh' -o -name 'dotfiles-doctor' \) -print0 | xargs -0 -r shellcheck; \
 	else \
 		echo 'skip shellcheck: command not found'; \
 	fi

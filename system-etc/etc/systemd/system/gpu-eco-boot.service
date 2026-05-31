@@ -1,0 +1,11 @@
+[Unit]
+Description=Set GPU to eco mode at boot
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/gpu-pci-remove
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

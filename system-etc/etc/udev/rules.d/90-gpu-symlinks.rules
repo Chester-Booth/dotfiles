@@ -1,0 +1,5 @@
+# AMD iGPU (Radeon 780M) - PCI 64:00.0
+KERNEL=="card*", SUBSYSTEM=="drm", KERNELS=="0000:64:00.0", SYMLINK+="dri/amd-igpu"
+
+# NVIDIA dGPU (RTX 4060) - PCI 01:00.0
+KERNEL=="card*", SUBSYSTEM=="drm", KERNELS=="0000:01:00.0", SYMLINK+="dri/nvidia-dgpu"

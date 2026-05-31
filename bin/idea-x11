@@ -1,0 +1,5 @@
+#!/bin/bash
+unset WAYLAND_DISPLAY
+export GDK_BACKEND=x11
+export _JAVA_AWT_WM_NONREPARENTING=1
+exec /home/blox/.local/share/JetBrains/idea-IU-252.27397.103/bin/idea "$@"

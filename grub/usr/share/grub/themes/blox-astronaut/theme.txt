@@ -1,0 +1,86 @@
+# Blox Astronaut GRUB theme
+#
+# Derived from the sddm-astronaut-theme by Keyitdev:
+# https://github.com/Keyitdev/sddm-astronaut-theme
+# The source SDDM theme is GPL-3.0-or-later and is vendored in this repo under
+# sddm/usr/share/sddm/themes/sddm-astronaut-theme.
+
+desktop-image: "background.png"
+desktop-color: "#21222C"
+
+title-text: ""
+message-font: "Minecraft Seven Regular 16"
+message-color: "#FCFCFF"
+message-bg-color: "#242455"
+terminal-font: "Minecraft Seven Regular 16"
+terminal-box: "terminal_box_*.png"
+terminal-left: "1919"
+terminal-top: "0"
+terminal-width: "1"
+terminal-height: "1"
+terminal-border: "0"
+
++ label {
+	left = "0"
+	top = "5%"
+	width = "768"
+	height = "86"
+	text = "BOOT"
+	align = "center"
+	font = "Minecraft Five Regular 52"
+	color = "#FCFCFF"
+}
+
++ label {
+	left = "0"
+	top = "18%"
+	width = "768"
+	height = "34"
+	text = "SELECT SYSTEM"
+	align = "center"
+	font = "Minecraft Ten Regular 24"
+	color = "#FCFCFF"
+}
+
++ boot_menu {
+	left = "74"
+	top = "43%"
+	width = "620"
+	height = "260"
+	item_font = "Minecraft Seven Regular 16"
+	item_color = "#FCFCFF"
+	selected_item_font = "Minecraft Seven Regular 16"
+	selected_item_color = "#B4D8FF"
+	icon_width = "0"
+	icon_height = "0"
+	item_icon_space = "0"
+	item_height = "40"
+	item_padding = "12"
+	item_spacing = "8"
+	scrollbar = false
+}
+
++ progress_bar {
+	id = "__timeout__"
+	left = "74"
+	top = "75%"
+	width = "620"
+	height = "20"
+	font = "Minecraft Seven Regular 16"
+	text_color = "#FCFCFF"
+	fg_color = "#B4D8FF"
+	bg_color = "#24245566"
+	border_color = "#00000000"
+	text = "@TIMEOUT_NOTIFICATION_SHORT@"
+}
+
++ label {
+	left = "0"
+	top = "93%"
+	width = "768"
+	height = "28"
+	text = "ENTER  BOOT      E  EDIT      C  CONSOLE"
+	align = "center"
+	font = "Minecraft Seven Regular 16"
+	color = "#FCFCFF"
+}

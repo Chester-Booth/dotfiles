@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+SDDM_SRC="$ROOT/sddm/usr/share/sddm/themes/sddm-astronaut-theme"
+SDDM_DST="/usr/share/sddm/themes/sddm-astronaut-theme"
+GRUB_SRC="$ROOT/grub/usr/share/grub/themes/blox-astronaut"
+GRUB_DST="/boot/grub/themes/blox-astronaut"
+GRUB_SHARE_DST="/usr/share/grub/themes/blox-astronaut"
+GRUB_DEFAULT_DROPIN_DIR="$ROOT/grub/etc/default/grub.d"
+GRUB_SCRIPT_DIR="$ROOT/grub/etc/grub.d"
+INITCPIO_HOOK_SRC="$ROOT/initcpio/hooks/blox-resume"
+INITCPIO_INSTALL_SRC="$ROOT/initcpio/install/blox-resume"
+
+if [[ $EUID -ne 0 ]]; then
+	printf 'Run as root: sudo %s\n' "$0" >&2
+	exit 1
+fi
+
+install -d -m 0755 /usr/share/sddm/themes /usr/share/grub/themes /boot/grub/themes /etc/default/grub.d /etc/initcpio/hooks /etc/initcpio/install
+
+if [[ -L "$SDDM_DST" ]]; then
+	rm "$SDDM_DST"
+elif [[ -e "$SDDM_DST" ]]; then
+	mv "$SDDM_DST" "${SDDM_DST}.bak-dotfiles-$(date +%Y%m%d%H%M%S)"
+fi
+install -d -m 0755 "$SDDM_DST"
+cp -r --preserve=mode,timestamps --no-preserve=ownership "$SDDM_SRC"/. "$SDDM_DST"/
+
+if [[ -e "$GRUB_SHARE_DST" && ! -L "$GRUB_SHARE_DST" ]]; then
+	mv "$GRUB_SHARE_DST" "${GRUB_SHARE_DST}.bak-dotfiles-$(date +%Y%m%d%H%M%S)"
+fi
+ln -sfn "$GRUB_SRC" "$GRUB_SHARE_DST"
+
+rm -rf "$GRUB_DST"
+install -d -m 0755 "$GRUB_DST"
+cp -r --no-preserve=ownership "$GRUB_SRC"/. "$GRUB_DST"/
+install -m 0644 "$GRUB_DEFAULT_DROPIN_DIR"/*.cfg /etc/default/grub.d/
+install -m 0755 "$GRUB_SCRIPT_DIR"/01_blox_theme_background "$GRUB_SCRIPT_DIR"/39_blox_linux_log_levels /etc/grub.d/
+install -m 0755 "$INITCPIO_HOOK_SRC" /etc/initcpio/hooks/blox-resume
+install -m 0755 "$INITCPIO_INSTALL_SRC" /etc/initcpio/install/blox-resume
+sed -i -E '/^[[:space:]]*HOOKS=/ s/blox-resume\\2/blox-resume /' /etc/mkinitcpio.conf
+if grep -Eq '(^|[[:space:]])HOOKS=.*(^|[[:space:]])resume([[:space:]]|[)])' /etc/mkinitcpio.conf; then
+	sed -i -E '/^[[:space:]]*HOOKS=/ s/(^|[[:space:]])resume([[:space:]]|[)])/\1blox-resume\2/' /etc/mkinitcpio.conf
+fi
+
+grub-mkconfig -o /boot/grub/grub.cfg
+sed -i \
+	-e "/echo[[:space:]]*'Loading Linux /d" \
+	-e "/echo[[:space:]]*'Loading initial ramdisk/d" \
+	/boot/grub/grub.cfg
+mkinitcpio -P
+
+printf 'SDDM theme copied: %s -> %s\n' "$SDDM_SRC" "$SDDM_DST"
+printf 'GRUB theme linked: %s -> %s\n' "$GRUB_SHARE_DST" "$GRUB_SRC"
+printf 'GRUB theme copied: %s -> %s\n' "$GRUB_SRC" "$GRUB_DST"
+printf 'GRUB default drop-ins installed: %s -> %s\n' "$GRUB_DEFAULT_DROPIN_DIR" /etc/default/grub.d
+printf 'GRUB scripts installed: %s -> %s\n' "$GRUB_SCRIPT_DIR" /etc/grub.d
+printf 'mkinitcpio quiet resume hook installed: %s\n' /etc/initcpio/hooks/blox-resume

@@ -73,7 +73,20 @@ systemctl --user enable --now icloud-bisync.timer
 
 Skip timers for services you do not use.
 
-## 6. Validate
+## 6. Boot Themes
+
+Copy the SDDM theme, link the system GRUB theme path back to the repo, copy the
+bootable GRUB theme into `/boot`, install the GRUB drop-ins/scripts, and
+regenerate GRUB:
+
+```sh
+sudo bin/install-boot-themes
+```
+
+See [BOOT_THEMES.md](BOOT_THEMES.md) for the SDDM base-theme license note and
+why the GRUB theme is copied rather than symlinked on this machine.
+
+## 7. Validate
 
 Run the repo checks:
 
@@ -91,7 +104,7 @@ make doctor
 links, ignored private env files, stale Waybar/Eww/Wofi boundaries, Hyprland,
 Quickshell IPC, and user timers.
 
-## 7. Start Or Reload
+## 8. Start Or Reload
 
 Reload Hyprland after link changes:
 
@@ -106,7 +119,7 @@ Start Quickshell with the live config:
 quickshell -p ~/.config/quickshell/blox
 ```
 
-## 8. Laptop Power Button
+## 9. Laptop Power Button
 
 Hyprland binds a short power-button press to the Quickshell power overlay. If
 systemd handles the key before Hyprland sees it, add this machine-level setting:

@@ -1,0 +1,34 @@
+#!/usr/bin/ash
+# shellcheck shell=dash
+# Based on Arch mkinitcpio's resume hook. The systemd resume probe is quieted so
+# normal cold boots do not print a harmless "could not resume" warning.
+
+run_hook() {
+	local noresume resume resumedev rootdelay
+
+	noresume="$(getarg noresume)"
+	if [ -n "$noresume" ]; then
+		return 0
+	fi
+
+	if [ -x /usr/lib/systemd/systemd-hibernate-resume ]; then
+		/usr/lib/systemd/systemd-hibernate-resume >/dev/null 2>&1
+		return 0
+	fi
+
+	resume="$(getarg resume)"
+	if [ -z "$resume" ]; then
+		return 0
+	fi
+
+	if [ ! -e /sys/power/resume ]; then
+		return 0
+	fi
+
+	rootdelay="$(getarg rootdelay)"
+	if resumedev="$(resolve_device "$resume" "$rootdelay")"; then
+		# shellcheck disable=SC3001
+		read -r major minor < <(stat -Lc '0x%t 0x%T' "$resumedev")
+		printf '%d:%d' "$major" "$minor" >/sys/power/resume
+	fi
+}

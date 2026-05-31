@@ -1,0 +1,6 @@
+#!/bin/sh
+cat <<'EOF'
+if background_image -m stretch ($root)/grub/themes/blox-astronaut/background.png; then
+	true
+fi
+EOF

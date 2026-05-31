@@ -1,7 +1,7 @@
 # Dotfiles
 
 Personal desktop dotfiles for Hyprland, Quickshell, shell tools, systemd user
-timers, and app configuration.
+timers, boot themes, and app configuration.
 
 ## Live Desktop
 
@@ -57,6 +57,12 @@ unit files, and Git whitespace. `make doctor` additionally checks live links,
 ignored private env files, stale Waybar/Eww/Wofi boundaries, runtime tools,
 Hyprland, Quickshell IPC, and user timers. `make format` runs mutating
 formatters.
+
+## Boot Themes
+
+The active SDDM theme is vendored under `sddm/`, and the matching GRUB theme is
+under `grub/`. See [docs/BOOT_THEMES.md](docs/BOOT_THEMES.md) for license notes
+and install details.
 
 ## Install
 

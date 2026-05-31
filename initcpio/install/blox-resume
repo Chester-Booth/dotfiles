@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Based on Arch mkinitcpio's resume install hook.
+
+build() {
+	local systemd_ver
+
+	map add_module 'crypto-lzo' 'crypto-lz4'
+
+	if command -v systemctl &>/dev/null; then
+		IFS=' .-~^' read -r _ systemd_ver _ < <(SYSTEMD_COLORS=0 systemctl --version)
+		if ((systemd_ver >= 255)); then
+			add_binary /usr/lib/systemd/systemd-hibernate-resume
+		fi
+	fi
+
+	add_runscript
+}
+
+help() {
+	cat <<'HELPEOF'
+Initializes swsusp resume support like mkinitcpio's resume hook, but suppresses
+the harmless cold-boot "could not resume" message from systemd-hibernate-resume.
+HELPEOF
+}

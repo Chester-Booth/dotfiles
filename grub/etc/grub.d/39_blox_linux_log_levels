@@ -1,0 +1,34 @@
+#!/bin/sh
+cat <<'EOF'
+submenu 'Arch Linux log level options' --class arch --class gnu-linux --class gnu --class os {
+	menuentry 'Arch Linux (hibernate resume)' --class arch --class gnu-linux --class gnu --class os {
+		set gfxpayload=text
+		insmod gzio
+		insmod part_gpt
+		insmod fat
+		search --no-floppy --fs-uuid --set=root 00DC-201B
+		linux /vmlinuz-linux root=UUID=d22117c8-6b07-420e-848a-ceba26ea2ecd rw rootflags=subvol=@ quiet nvidia-drm.modeset=0 resume=UUID=61fdcb9e-928c-49de-868b-dbb9aa965eb1
+		initrd /amd-ucode.img /initramfs-linux.img
+	}
+
+	menuentry 'Arch Linux (verbose, loglevel=3)' --class arch --class gnu-linux --class gnu --class os {
+		set gfxpayload=text
+		insmod gzio
+		insmod part_gpt
+		insmod fat
+		search --no-floppy --fs-uuid --set=root 00DC-201B
+		linux /vmlinuz-linux root=UUID=d22117c8-6b07-420e-848a-ceba26ea2ecd rw rootflags=subvol=@ loglevel=3 nvidia-drm.modeset=0
+		initrd /amd-ucode.img /initramfs-linux.img
+	}
+
+	menuentry 'Arch Linux (debug, loglevel=7)' --class arch --class gnu-linux --class gnu --class os {
+		set gfxpayload=text
+		insmod gzio
+		insmod part_gpt
+		insmod fat
+		search --no-floppy --fs-uuid --set=root 00DC-201B
+		linux /vmlinuz-linux root=UUID=d22117c8-6b07-420e-848a-ceba26ea2ecd rw rootflags=subvol=@ loglevel=7 systemd.log_level=debug nvidia-drm.modeset=0
+		initrd /amd-ucode.img /initramfs-linux.img
+	}
+}
+EOF

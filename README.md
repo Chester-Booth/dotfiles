@@ -3,10 +3,16 @@
 Personal desktop dotfiles for Hyprland, Quickshell, shell tools, systemd user
 timers, boot themes, and app configuration.
 
+Machine-level `/etc` drop-ins that are not tied to a single package tree live
+under `system-etc/etc`.
+
 ## Live Desktop
 
 - `hyprland/.config/hypr/hyprland.conf` is the Hyprland entrypoint and sources
   `hyprland/.config/hypr/conf.d/*.conf`.
+- `hyprland/.config/hypr/workspaces.conf`, `hdmi-override.conf`, `hdmi-mode.conf`,
+  and `generated/hyprsunset.conf` are tracked machine defaults consumed by the
+  live Hyprland config.
 - `quickshell/.config/quickshell/blox` is the live bar/overlay setup.
 - Top-level `waybar/`, `eww/`, and `wofi/` are intentionally stale and ignored
   so they can be revived later without affecting the live desktop.

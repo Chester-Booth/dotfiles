@@ -37,12 +37,31 @@ mkdir -p ~/.config/hypr ~/.config/quickshell ~/.local/bin
 
 ln -sfn "$PWD/hyprland/.config/hypr/hyprland.conf" ~/.config/hypr/hyprland.conf
 ln -sfn "$PWD/hyprland/.config/hypr/conf.d" ~/.config/hypr/conf.d
+ln -sfn "$PWD/hyprland/.config/hypr/workspaces.conf" ~/.config/hypr/workspaces.conf
+ln -sfn "$PWD/hyprland/.config/hypr/hdmi-override.conf" ~/.config/hypr/hdmi-override.conf
+ln -sfn "$PWD/hyprland/.config/hypr/hdmi-mode.conf" ~/.config/hypr/hdmi-mode.conf
+mkdir -p ~/.config/hypr/generated
+ln -sfn "$PWD/hyprland/.config/hypr/generated/hyprsunset.conf" ~/.config/hypr/generated/hyprsunset.conf
 ln -sfn "$PWD/quickshell/.config/quickshell/blox" ~/.config/quickshell/blox
 ln -sfn "$PWD/bin/battery-low-power" ~/.local/bin/battery-low-power
+ln -sfn "$PWD/bin/fprint-check.sh" ~/.local/bin/fprint-check.sh
+ln -sfn "$PWD/bin/fprint-reenroll.sh" ~/.local/bin/fprint-reenroll.sh
 ```
 
 Keep any stale `~/.config/waybar`, `~/.config/eww`, or `~/.config/wofi` links
 disconnected unless intentionally booting the old setup.
+
+Link or copy the optional user-level app/config files you want:
+
+```sh
+mkdir -p ~/.config/Code/User ~/.config/xsettingsd ~/.local/share/flatpak/overrides
+ln -sfn "$PWD/code/.config/Code/User/chatLanguageModels.json" ~/.config/Code/User/chatLanguageModels.json
+ln -sfn "$PWD/xsettingsd/.config/xsettingsd/xsettingsd.conf" ~/.config/xsettingsd/xsettingsd.conf
+ln -sfn "$PWD/flatpak/.local/share/flatpak/overrides/global" ~/.local/share/flatpak/overrides/global
+
+mkdir -p ~/.docker
+ln -sfn "$PWD/docker/home/.docker/daemon.json" ~/.docker/daemon.json
+```
 
 ## 4. Private Env
 
@@ -86,7 +105,21 @@ sudo bin/install-boot-themes
 See [BOOT_THEMES.md](BOOT_THEMES.md) for the SDDM base-theme license note and
 why the GRUB theme is copied rather than symlinked on this machine.
 
-## 7. Validate
+## 7. Machine Config
+
+Machine-level config that is not part of a package-specific tree is mirrored
+under `system-etc/etc`. Review it before applying on another host:
+
+```sh
+sudo cp -a system-etc/etc/. /etc/
+sudo systemctl daemon-reload
+sudo systemctl enable --now gpu-eco-boot.service
+```
+
+The NVIDIA, SDDM, fingerprint, PAM, udev, and logind files in this tree are
+machine-specific.
+
+## 8. Validate
 
 Run the repo checks:
 
@@ -104,7 +137,7 @@ make doctor
 links, ignored private env files, stale Waybar/Eww/Wofi boundaries, Hyprland,
 Quickshell IPC, and user timers.
 
-## 8. Start Or Reload
+## 9. Start Or Reload
 
 Reload Hyprland after link changes:
 
@@ -119,7 +152,7 @@ Start Quickshell with the live config:
 quickshell -p ~/.config/quickshell/blox
 ```
 
-## 9. Laptop Power Button
+## 10. Laptop Power Button
 
 Hyprland binds a short power-button press to the Quickshell power overlay. If
 systemd handles the key before Hyprland sees it, add this machine-level setting:

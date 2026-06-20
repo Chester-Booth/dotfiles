@@ -51,6 +51,18 @@ echo "$total $idle_total" > "$cache"
 power_uw="$(cat /sys/class/power_supply/BAT*/power_now 2>/dev/null | head -1)"
 [ -n "${power_uw:-}" ] && power_w="$(awk "BEGIN {printf \"%.1f\", $power_uw/1000000}")" || power_w="N/A"
 
+uptime_seconds="$(cut -d. -f1 /proc/uptime 2>/dev/null || echo 0)"
+uptime_days=$((uptime_seconds / 86400))
+uptime_hours=$(((uptime_seconds % 86400) / 3600))
+uptime_minutes=$(((uptime_seconds % 3600) / 60))
+if [ "$uptime_days" -gt 0 ]; then
+    uptime_label="${uptime_days}d ${uptime_hours}h"
+elif [ "$uptime_hours" -gt 0 ]; then
+    uptime_label="${uptime_hours}h ${uptime_minutes}m"
+else
+    uptime_label="${uptime_minutes}m"
+fi
+
 read -r mem_total mem_avail < <(awk '/MemTotal:|MemAvailable:/ {print $2}' /proc/meminfo | xargs)
 ram_used="$(awk "BEGIN {printf \"%.1f\", ($mem_total-$mem_avail)/1048576}")"
 ram_total="$(awk "BEGIN {printf \"%.1f\", $mem_total/1048576}")"
@@ -104,6 +116,7 @@ jq -nc \
     --arg cpuTemp "$cpu_temp" \
     --arg cpuClock "$cpu_clock" \
     --arg powerW "$power_w" \
+    --arg uptimeLabel "$uptime_label" \
     --arg ramUsed "$ram_used" \
     --arg ramTotal "$ram_total" \
     --arg swapUsed "$swap_used" \
@@ -126,6 +139,7 @@ jq -nc \
       cpuClock:$cpuClock,
       cpuUtil:$cpuUtil,
       powerW:$powerW,
+      uptimeLabel:$uptimeLabel,
       ramUsed:$ramUsed,
       ramTotal:$ramTotal,
       ramPercent:$ramPercent,

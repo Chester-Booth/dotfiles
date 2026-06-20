@@ -111,6 +111,7 @@
       "cpuClock": "string",
       "cpuUtil": "number",
       "powerW": "string",
+      "uptimeLabel": "string",
       "ramUsed": "string",
       "ramTotal": "string",
       "ramPercent": "number",

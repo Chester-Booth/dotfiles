@@ -133,9 +133,9 @@ Rectangle {
             }
 
             DetailPill {
-                icon: "󰢮"
-                label: "GPU"
-                value: root.status.gpuOn ? ((root.status.gpuUtil || "0") + "% " + (root.status.gpuTemp ? root.status.gpuTemp + "°C" : "")) : "iGPU"
+                icon: "󰔟"
+                label: "Uptime"
+                value: root.status.uptimeLabel || "N/A"
                 accent: Theme.teal
             }
 

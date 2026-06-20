@@ -5,8 +5,8 @@ include "/home/blox/.gtkrc-2.0.mine"
 gtk-theme-name="Graphite-Dark-compact"
 gtk-icon-theme-name="Adwaita"
 gtk-font-name="Google Sans 11"
-gtk-cursor-theme-name="posy-black"
-gtk-cursor-theme-size=24
+gtk-cursor-theme-name="Bibata-Modern-Classic"
+gtk-cursor-theme-size=20
 gtk-toolbar-style=GTK_TOOLBAR_ICONS
 gtk-toolbar-icon-size=GTK_ICON_SIZE_LARGE_TOOLBAR
 gtk-button-images=0

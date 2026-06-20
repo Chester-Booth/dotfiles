@@ -54,9 +54,14 @@ disconnected unless intentionally booting the old setup.
 Link or copy the optional user-level app/config files you want:
 
 ```sh
-mkdir -p ~/.config/Code/User ~/.config/xsettingsd ~/.local/share/flatpak/overrides
+mkdir -p ~/.config/Code/User ~/.config/gtk-3.0 ~/.config/gtk-4.0 ~/.config/xsettingsd ~/.config/environment.d ~/.local/share/flatpak/overrides ~/.local/share/icons/default
 ln -sfn "$PWD/code/.config/Code/User/chatLanguageModels.json" ~/.config/Code/User/chatLanguageModels.json
+ln -sfn "$PWD/gtk/.config/gtk-3.0/settings.ini" ~/.config/gtk-3.0/settings.ini
+ln -sfn "$PWD/gtk/.config/gtk-4.0/settings.ini" ~/.config/gtk-4.0/settings.ini
+ln -sfn "$PWD/gtk/home/.gtkrc-2.0" ~/.gtkrc-2.0
 ln -sfn "$PWD/xsettingsd/.config/xsettingsd/xsettingsd.conf" ~/.config/xsettingsd/xsettingsd.conf
+ln -sfn "$PWD/environment/.config/environment.d/10-hyprland-appearance.conf" ~/.config/environment.d/10-hyprland-appearance.conf
+ln -sfn "$PWD/icons/.local/share/icons/default/index.theme" ~/.local/share/icons/default/index.theme
 ln -sfn "$PWD/flatpak/.local/share/flatpak/overrides/global" ~/.local/share/flatpak/overrides/global
 
 mkdir -p ~/.docker

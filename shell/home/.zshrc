@@ -66,6 +66,7 @@ alias fastfetch='fastfetch --logo none'
 alias m='micro'
 alias cpwd='printf "%s" "$PWD" | wl-copy'
 alias cd..="cd .."
+alias codex="codex --yolo"
 
 # git alias
 alias gs='git status --short'

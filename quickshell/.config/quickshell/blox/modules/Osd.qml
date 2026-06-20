@@ -348,6 +348,7 @@ Scope {
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 8
+                            visible: !root.noticeMode
 
                             Text {
                                 Layout.fillWidth: true
@@ -364,6 +365,34 @@ Scope {
                                 color: root.volumeOverdriven ? Theme.red : root.muted ? Theme.yellow : Theme.muted
                                 font.family: Theme.fontFamily
                                 font.pixelSize: 11
+                                elide: Text.ElideRight
+                                Layout.maximumWidth: 150
+                            }
+
+                        }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 1
+                            visible: root.noticeMode
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: root.label
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: 12
+                                font.bold: true
+                                elide: Text.ElideRight
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: root.valueText
+                                color: Theme.muted
+                                font.family: Theme.fontFamily
+                                font.pixelSize: 11
+                                elide: Text.ElideRight
                             }
 
                         }

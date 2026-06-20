@@ -101,6 +101,11 @@ guard_micro_before_power_action() {
     return 1
 }
 
+save_kitty_tabs_before_power_action() {
+    command -v ktr >/dev/null 2>&1 || return 0
+    ktr save --all >/dev/null 2>&1 || true
+}
+
 case "$action" in
     lock)
         guard_awake_before_lock || exit 0
@@ -108,18 +113,22 @@ case "$action" in
         ;;
     sleep)
         guard_micro_before_power_action || exit 1
+        save_kitty_tabs_before_power_action
         exec systemctl suspend-then-hibernate
         ;;
     shutdown)
         guard_micro_before_power_action || exit 1
+        save_kitty_tabs_before_power_action
         exec systemctl poweroff
         ;;
     reboot)
         guard_micro_before_power_action || exit 1
+        save_kitty_tabs_before_power_action
         exec systemctl reboot
         ;;
     hibernate)
         guard_micro_before_power_action || exit 1
+        save_kitty_tabs_before_power_action
         exec systemctl hibernate
         ;;
     *)

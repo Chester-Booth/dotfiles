@@ -57,7 +57,8 @@
         "markdown": false,
         "scminput": false,
         "c": true,
-        "python": true
+        "python": true,
+        "cpp": true
     },
     "kotlin.languageServer.enabled": false,
     "kotlin.debugAdapter.enabled": false,
@@ -112,6 +113,8 @@
     },
     "terminal.integrated.tabs.enabled": false,
     "workbench.editor.enablePreview": false,
-    "remoteHub.commitDirectlyWarning": "off"
+    "remoteHub.commitDirectlyWarning": "off",
+    "debug.onTaskErrors": "debugAnyway",
+    "github.copilot.nextEditSuggestions.eagerness": "low"
 
 }

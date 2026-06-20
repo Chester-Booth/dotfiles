@@ -33,10 +33,13 @@ icon="󰁹"
 class="normal"
 
 if [[ "$status" == "Charging" ]]; then
-    icon="󰂄"
+    icons=(󰢟 󰢜 󰂆 󰂇 󰂈 󰢝 󰂉 󰢞 󰂊 󰂋 󰂅)
+    index=$((capacity / 10))
+    (( index > 10 )) && index=10
+    icon="${icons[$index]}"
     class="charging"
 elif [[ "$status" == "Full" || "$status" == "Not charging" ]]; then
-    icon="󰚥"
+    icon="󰂅"
     class="plugged"
 elif (( capacity <= 10 )); then
     icon="󰂃"

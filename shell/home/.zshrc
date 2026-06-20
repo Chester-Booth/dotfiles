@@ -10,6 +10,8 @@ fi
 
 
 # history
+: "${HISTFILE:=${XDG_STATE_HOME:-$HOME/.local/state}/zsh/history}"
+mkdir -p "${HISTFILE:h}"
 setopt share_history
 setopt hist_ignore_dups
 HISTSIZE=10000

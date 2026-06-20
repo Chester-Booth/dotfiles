@@ -2,11 +2,21 @@
 
 gpu_notifications_enabled=1
 gpu_notice="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/blox/scripts/osd/notice.sh"
+gpu_idle_attempts=40
+gpu_idle_delay=0.25
+gpu_unload_attempts=8
+gpu_unload_delay=0.35
 
 for gpu_arg in "$@"; do
 	case "$gpu_arg" in
 	--quiet | --no-notify)
 		gpu_notifications_enabled=0
+		;;
+	--idle-attempts=*)
+		gpu_idle_attempts="${gpu_arg#*=}"
+		;;
+	--idle-delay=*)
+		gpu_idle_delay="${gpu_arg#*=}"
 		;;
 	esac
 done
@@ -34,8 +44,8 @@ gpu_nodes_in_use() {
 }
 
 wait_for_gpu_nodes_idle() {
-	local attempts="${1:-10}"
-	local delay="${2:-0.2}"
+	local attempts="${1:-$gpu_idle_attempts}"
+	local delay="${2:-$gpu_idle_delay}"
 	local i
 
 	for ((i = 0; i < attempts; i++)); do
@@ -50,6 +60,22 @@ wait_for_gpu_nodes_idle() {
 
 module_loaded() {
 	lsmod | awk '{print $1}' | grep -qx "$1"
+}
+
+unload_module() {
+	local module="$1"
+	local i
+
+	for ((i = 0; i < gpu_unload_attempts; i++)); do
+		if ! module_loaded "$module"; then
+			return 0
+		fi
+
+		sudo rmmod "$module" 2>/dev/null || true
+		sleep "$gpu_unload_delay"
+	done
+
+	! module_loaded "$module"
 }
 
 gpu_notify() {

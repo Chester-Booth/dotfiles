@@ -21,7 +21,7 @@ if ! wait_for_gpu_nodes_idle; then
 fi
 
 for module in nvidia_uvm nvidia_drm nvidia_modeset nvidia; do
-	if module_loaded "$module" && ! sudo rmmod "$module"; then
+	if module_loaded "$module" && ! unload_module "$module"; then
 		gpu_notify -u normal -e "GPU Manager" "Failed to unload ${module}; leaving the GPU powered on." -i dialog-warning
 		exit 1
 	fi

@@ -51,6 +51,14 @@
             "refreshRatesOnStartup": true
          }
       },
+      "clipboard": {
+         "preferences": {
+            "monitoring": true,
+            "encryption": true,
+            "eraseOnStartup": false,
+            "ignorePasswords": true
+         }
+      },
       "files": {
          "entrypoints": {
             "search": {

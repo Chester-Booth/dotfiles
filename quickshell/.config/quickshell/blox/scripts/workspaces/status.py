@@ -64,11 +64,32 @@ def priority_client(clients):
     )
 
 
+SPECIAL_WORKSPACE = "special:magic"
+
+
+def workspace_name(workspace):
+    return str((workspace or {}).get("name", ""))
+
+
+def special_workspace_active(active_workspace, monitors):
+    if workspace_name(active_workspace) == SPECIAL_WORKSPACE:
+        return True
+
+    focused_monitor = next((monitor for monitor in monitors if monitor.get("focused")), None)
+    if focused_monitor:
+        return workspace_name(focused_monitor.get("specialWorkspace")) == SPECIAL_WORKSPACE
+
+    return any(
+        workspace_name(monitor.get("specialWorkspace")) == SPECIAL_WORKSPACE
+        for monitor in monitors
+    )
+
+
 active = hypr_json("activeworkspace") or {}
 clients = hypr_json("clients") or []
+monitors = hypr_json("monitors") or []
 
 active_id = active.get("id")
-active_name = str(active.get("name", ""))
 by_workspace = {}
 urgent = set()
 
@@ -112,10 +133,10 @@ for workspace_id in sorted(workspace_ids):
         "tooltip": f"Workspace {workspace_id}" + (f"\\n{app}\\n{title}" if app or title else ""),
     })
 
-special_active = active_name.startswith("special")
+special_active = special_workspace_active(active, monitors)
 special_clients = [
     client for client in clients
-    if str((client.get("workspace") or {}).get("name", "")).startswith("special")
+    if workspace_name(client.get("workspace")) == SPECIAL_WORKSPACE
 ]
 print(json.dumps({
     "main": items,

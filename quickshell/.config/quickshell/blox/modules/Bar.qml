@@ -179,12 +179,24 @@ Scope {
         battery.refresh();
     }
 
+    function pluggedIn() {
+        const status = battery.json || {};
+        return status.class === "charging" || status.class === "plugged";
+    }
+
+    function railInterval(batteryVisible, acVisible, batteryHidden, acHidden) {
+        if (barVisible)
+            return pluggedIn() ? acVisible : batteryVisible;
+
+        return pluggedIn() ? acHidden : batteryHidden;
+    }
+
     function setControlPolling(visible) {
-        audio.interval = visible ? 2000 : 30000;
+        audio.interval = visible ? 2000 : railInterval(30000, 15000, 120000, 60000);
         brightness.interval = visible ? 2000 : 30000;
         bluetooth.interval = visible ? 2000 : 30000;
-        network.interval = visible ? 2000 : 30000;
-        notifications.interval = visible ? 2000 : 15000;
+        network.interval = visible ? 2000 : railInterval(30000, 15000, 120000, 60000);
+        notifications.interval = visible ? 2000 : railInterval(15000, 10000, 60000, 30000);
         touchpad.interval = visible ? 2000 : 15000;
         privacy.interval = visible ? 5000 : 30000;
         if (visible)
@@ -196,6 +208,10 @@ Scope {
         const controlPanels = ["audio", "network", "bluetooth", "brightness", "notifications", "privacy"];
         setControlPolling(controlPanels.indexOf(openPanel) >= 0);
         caffeine.interval = openPanel === "caffeine" ? 1000 : caffeine.json.active ? 5000 : 30000;
+        workspaces.interval = railInterval(300000, 120000, 600000, 300000);
+        gpu.interval = openPanel === "system" ? gpu.interval : railInterval(60000, 30000, 300000, 60000);
+        fan.interval = openPanel === "system" ? fan.interval : railInterval(60000, 30000, 300000, 60000);
+        battery.interval = openPanel === "system" ? battery.interval : railInterval(30000, 15000, 60000, 30000);
         if (openPanel === "caffeine")
             caffeine.refresh();
         if (openPanel === "todo")
@@ -221,9 +237,9 @@ Scope {
 
     function setPerformancePolling(visible) {
         systemInfo.interval = visible ? 1000 : 60000;
-        battery.interval = visible ? 1000 : 30000;
-        fan.interval = visible ? 2000 : 60000;
-        gpu.interval = visible ? 2000 : 60000;
+        battery.interval = visible ? 1000 : railInterval(30000, 15000, 60000, 30000);
+        fan.interval = visible ? 2000 : railInterval(60000, 30000, 300000, 60000);
+        gpu.interval = visible ? 2000 : railInterval(60000, 30000, 300000, 60000);
         if (visible)
             refreshPerformanceStatus();
 
@@ -806,7 +822,9 @@ Scope {
         if (!barOpen)
             closeDrawers();
 
+        updatePanelPolling();
     }
+    onBarVisibleChanged: updatePanelPolling()
     onOpenPanelChanged: updatePanelPolling()
 
     IpcHandler {
@@ -871,7 +889,7 @@ Scope {
         id: calendarEvents
 
         command: [root.scriptRoot + "/calendar/events.sh", root.selectedCalendarDate || root.currentIsoDate()]
-        interval: 600000
+        interval: 3.6e+06
     }
 
     ScriptPoller {
@@ -886,6 +904,7 @@ Scope {
 
         command: [root.scriptRoot + "/status/battery.sh"]
         interval: 30000
+        onJsonChanged: root.updatePanelPolling()
     }
 
     ScriptPoller {

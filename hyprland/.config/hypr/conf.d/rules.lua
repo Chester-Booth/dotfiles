@@ -1,0 +1,76 @@
+-- Ignore maximise requests from apps.
+hl.window_rule({ match = { class = ".*" }, suppress_event = "maximize" })
+
+-- Fix some dragging issues with XWayland.
+hl.window_rule({
+    match = { class = "^$", title = "^$", xwayland = true, float = true, fullscreen = false, pin = false },
+    no_focus = true,
+})
+
+-- Round floating dialogs/popups while keeping tiled windows square.
+hl.window_rule({ match = { float = true }, rounding = 8 })
+
+-- Keep external-monitor workspaces fully opaque, even when inactive.
+for workspace = 11, 22 do
+    hl.window_rule({ match = { workspace = tostring(workspace) }, opacity = "1.0 override 1.0 override 1.0 override" })
+end
+
+hl.window_rule({ match = { class = "^(thunar)$" }, float = true, size = { 800, 600 } })
+hl.window_rule({ match = { class = "^(Thunar)$" }, float = true, size = { 800, 600 } })
+
+-- File dialogs float and are centred.
+hl.window_rule({ match = { title = "^(Open File|Open Files|Save File|Save As|Save Workspace|Select Folder|Open Folder|File Upload)$" }, float = true, size = { 800, 600 } })
+hl.window_rule({ match = { title = "^(Open File|Open Files|Save File|Save As|Select Folder|Open Folder|File Upload)$" }, center = true })
+hl.window_rule({
+    match = {
+        class = "^(xdg-desktop-portal-gtk)$",
+        title = "^(Open File|Open Files|Save File|Save As|Select Folder|Open Folder|File Upload).*Zen Browser$",
+    },
+    float = true,
+    center = true,
+    size = { 800, 600 },
+})
+hl.window_rule({ match = { title = "^(File Operation Progress|Copying Files|Moving Files|Deleting Files)$" }, float = true, center = true })
+
+-- Git clone dialog floats and is centred.
+hl.window_rule({ match = { title = "^Choose a folder to clone .+ into$" }, float = true, center = true, size = { 800, 600 } })
+
+hl.window_rule({ match = { class = "^(org.pulseaudio.pavucontrol)$" }, float = true, size = { 600, 400 } })
+hl.window_rule({ match = { class = "^(blueman-manager)$" }, float = true, size = { 800, 600 } })
+hl.window_rule({ match = { class = "^(zen)$", title = "^(Library)$" }, float = true, size = { 800, 600 } })
+hl.window_rule({ match = { class = "^(nm-connection-editor)$" }, float = true, size = { 800, 600 } })
+hl.window_rule({ match = { class = "^(nmtui)$", title = "^(nmtui)$" }, float = true, size = { 800, 600 } })
+hl.window_rule({ match = { class = "^(todo)$", title = "^(todo)$" }, float = true, size = { 400, 300 }, pin = true, move = { 1100, 520 } })
+hl.window_rule({ match = { class = "^(quickshell_todo)$", title = "^(quickshell_todo)$" }, float = true, pin = true })
+hl.window_rule({ match = { class = "^(update)$", title = "^(update)$" }, float = true, size = { 860, 570 } })
+hl.window_rule({ match = { class = "^(update-list)$", title = "^(update-list)$" }, float = true, size = { 400, 600 } })
+
+hl.window_rule({ match = { title = "^(Fingerprint Enrollment)$" }, float = true, size = { 400, 600 } })
+hl.window_rule({ match = { title = "^(Open folder as vault)$" }, float = true, size = { 800, 100 } })
+
+hl.window_rule({ match = { class = "^(org.gnome.gedit)" }, float = true })
+hl.window_rule({ match = { class = "^(org.gnome.gedit)$" }, size = { 800, 600 } })
+
+hl.window_rule({ match = { class = "^(micro-active)$" }, float = true, size = { 480, 480 }, move = { "((monitor_w*0.74))", "((monitor_h*0.06))" } })
+
+hl.window_rule({ match = { class = "^(nvidia-settings)$" }, float = true })
+hl.window_rule({ match = { class = "^(nvidia-settings)$" }, size = { 800, 600 } })
+
+hl.window_rule({ match = { title = "^(Picture-in-Picture)$" }, float = true, pin = true, move = { "((monitor_w*0.69))", "((monitor_h*0.06))" } })
+
+hl.window_rule({ match = { workspace = "name:special:magic" }, size = { 600, 500 }, float = true, move = { "((monitor_w*0.05))", "((monitor_h*0.07))" } })
+
+-- Apps launch in correct locations.
+hl.window_rule({ match = { class = "^(jetbrains-idea-ce)$", float = false }, workspace = "2 silent" })
+hl.window_rule({ match = { class = "^(jetbrains-idea)$", float = false }, workspace = "2 silent" })
+hl.window_rule({ match = { class = "^(discord)$" }, workspace = "5 silent" })
+
+hl.config({
+    xwayland = {
+        force_zero_scaling = true,
+    },
+})
+
+hl.layer_rule({ match = { namespace = "wofi" }, blur = true, ignore_alpha = 0.5 })
+hl.layer_rule({ match = { namespace = "swaync-control-center" }, blur = true, ignore_alpha = 0.2 })
+hl.layer_rule({ match = { namespace = "swaync-notification-window" }, blur = true, ignore_alpha = 0.2 })

@@ -35,11 +35,11 @@ Create or refresh the live links:
 ```sh
 mkdir -p ~/.config/hypr ~/.config/quickshell ~/.local/bin
 
-ln -sfn "$PWD/hyprland/.config/hypr/hyprland.conf" ~/.config/hypr/hyprland.conf
+ln -sfn "$PWD/hyprland/.config/hypr/hyprland.lua" ~/.config/hypr/hyprland.lua
 ln -sfn "$PWD/hyprland/.config/hypr/conf.d" ~/.config/hypr/conf.d
-ln -sfn "$PWD/hyprland/.config/hypr/workspaces.conf" ~/.config/hypr/workspaces.conf
-ln -sfn "$PWD/hyprland/.config/hypr/hdmi-override.conf" ~/.config/hypr/hdmi-override.conf
-ln -sfn "$PWD/hyprland/.config/hypr/hdmi-mode.conf" ~/.config/hypr/hdmi-mode.conf
+ln -sfn "$PWD/hyprland/.config/hypr/workspaces.lua" ~/.config/hypr/workspaces.lua
+ln -sfn "$PWD/hyprland/.config/hypr/hdmi-override.lua" ~/.config/hypr/hdmi-override.lua
+ln -sfn "$PWD/hyprland/.config/hypr/hdmi-mode.lua" ~/.config/hypr/hdmi-mode.lua
 mkdir -p ~/.config/hypr/generated
 ln -sfn "$PWD/hyprland/.config/hypr/generated/hyprsunset.conf" ~/.config/hypr/generated/hyprsunset.conf
 ln -sfn "$PWD/quickshell/.config/quickshell/blox" ~/.config/quickshell/blox

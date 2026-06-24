@@ -8,9 +8,9 @@ under `system-etc/etc`.
 
 ## Live Desktop
 
-- `hyprland/.config/hypr/hyprland.conf` is the Hyprland entrypoint and sources
-  `hyprland/.config/hypr/conf.d/*.conf`.
-- `hyprland/.config/hypr/workspaces.conf`, `hdmi-override.conf`, `hdmi-mode.conf`,
+- `hyprland/.config/hypr/hyprland.lua` is the Hyprland entrypoint and requires
+  `hyprland/.config/hypr/conf.d/*.lua`.
+- `hyprland/.config/hypr/workspaces.lua`, `hdmi-override.lua`, `hdmi-mode.lua`,
   and `generated/hyprsunset.conf` are tracked machine defaults consumed by the
   live Hyprland config.
 - `quickshell/.config/quickshell/blox` is the live bar/overlay setup.

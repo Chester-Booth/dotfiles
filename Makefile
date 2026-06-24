@@ -1,13 +1,13 @@
 SHELL := /usr/bin/env bash
 QS := quickshell/.config/quickshell/blox
 
-.PHONY: check format lint doctor qmlformat shfmt shellcheck py-compile validate-status systemd-verify diff-check
+.PHONY: check format lint doctor qmlformat shfmt shellcheck lua-check py-compile validate-status systemd-verify diff-check
 
-check: py-compile validate-status systemd-verify diff-check
+check: lua-check py-compile validate-status systemd-verify diff-check
 
 format: qmlformat shfmt
 
-lint: shellcheck py-compile validate-status systemd-verify diff-check
+lint: shellcheck lua-check py-compile validate-status systemd-verify diff-check
 
 doctor:
 	@bin/dotfiles-doctor
@@ -27,6 +27,13 @@ shellcheck:
 		find bin hyprland quickshell systemd system-etc -type f \( -name '*.sh' -o -name 'dotfiles-doctor' \) -print0 | xargs -0 -r shellcheck; \
 	else \
 		echo 'skip shellcheck: command not found'; \
+	fi
+
+lua-check:
+	@if command -v luac >/dev/null 2>&1; then \
+		find hyprland -type f -name '*.lua' -print0 | xargs -0 -r -n1 luac -p; \
+	else \
+		echo 'skip lua-check: luac command not found'; \
 	fi
 
 py-compile:

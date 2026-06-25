@@ -28,8 +28,8 @@
 @define-color danger-border alpha(@red, 0.78);
 
 * {
-    font-family: "MartianMono Nerd Font Propo";
-    font-size: 12px;
+    font-family: sans-serif;
+    font-size: 13px;
     color: @text;
     text-shadow: none;
     box-shadow: none;
@@ -57,7 +57,7 @@ blankwindow,
 
 .control-center .control-center-list-placeholder {
     color: @text-muted;
-    font-size: 12px;
+    font-size: 13px;
     opacity: 1;
 }
 
@@ -82,7 +82,7 @@ blankwindow,
 
 .widget-title > label {
     color: @text;
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 700;
     letter-spacing: 0;
 }
@@ -115,6 +115,11 @@ blankwindow,
     text-shadow: none;
 }
 
+.widget-title button label,
+.widget-title > button label {
+    font-family: "MartianMono Nerd Font Propo";
+}
+
 .widget-title button:hover,
 .widget-title button:focus,
 .widget-title button:active,
@@ -130,7 +135,7 @@ blankwindow,
 .widget-label > label,
 .widget-dnd label {
     color: @text-dim;
-    font-size: 11px;
+    font-size: 12px;
 }
 
 .widget-dnd {
@@ -227,6 +232,7 @@ blankwindow,
 }
 
 .widget-buttons-grid flowboxchild > button label {
+    font-family: "MartianMono Nerd Font Propo";
     color: @text-dim;
     font-size: 16px;
 }
@@ -378,26 +384,26 @@ blankwindow,
 
 .control-center .notification-row .notification-background .notification .notification-content .summary,
 .floating-notifications.background .notification-background .notification .notification-content .summary {
-    font-family: "MartianMono Nerd Font Propo";
+    font-family: sans-serif;
     color: @text;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 700;
 }
 
 .control-center .notification-row .notification-background .notification .notification-content .time,
 .floating-notifications.background .notification-background .notification .notification-content .time {
-    font-family: "MartianMono Nerd Font Propo";
+    font-family: sans-serif;
     color: @text-muted;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 500;
     margin-right: 8px;
 }
 
 .control-center .notification-row .notification-background .notification .notification-content .body,
 .floating-notifications.background .notification-background .notification .notification-content .body {
-    font-family: "Google Sans Display";
+    font-family: sans-serif;
     color: @text-dim;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 400;
     margin-top: 4px;
 }

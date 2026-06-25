@@ -309,6 +309,10 @@ blankwindow,
     padding: 4px 0;
 }
 
+.floating-notifications .notification-row .notification-background {
+    padding: 4px 4px 4px 0;
+}
+
 .notification-row .notification-background .notification,
 .control-center .notification-row .notification-background .notification,
 .floating-notifications .notification-row .notification-background .notification {

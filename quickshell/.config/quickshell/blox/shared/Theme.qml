@@ -19,4 +19,5 @@ Singleton {
     readonly property int buttonSize: 30
     readonly property int radius: 4
     readonly property string fontFamily: "MartianMono Nerd Font Propo"
+    readonly property string bodyFontFamily: "sans-serif"
 }

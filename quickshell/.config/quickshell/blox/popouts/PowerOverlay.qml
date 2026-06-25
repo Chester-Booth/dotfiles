@@ -44,8 +44,8 @@ Rectangle {
             text: "Power"
             color: Theme.foreground
             opacity: root.overlayOpen ? 1 : 0
-            font.family: Theme.fontFamily
-            font.pixelSize: 20
+            font.family: Theme.bodyFontFamily
+            font.pixelSize: 22
             font.bold: true
             horizontalAlignment: Text.AlignHCenter
 
@@ -159,8 +159,8 @@ Rectangle {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: modelData.command === "update-shutdown" ? modelData.label + "\n" + root.updateSummary : modelData.label
                             color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: 12
+                            font.family: Theme.bodyFontFamily
+                            font.pixelSize: 13
                             font.bold: true
                             horizontalAlignment: Text.AlignHCenter
                         }

@@ -60,8 +60,8 @@ Rectangle {
                     width: parent.width
                     text: root.title
                     color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 14
+                    font.family: Theme.bodyFontFamily
+                    font.pixelSize: 16
                     font.bold: true
                     elide: Text.ElideRight
                 }
@@ -71,8 +71,8 @@ Rectangle {
                     visible: root.subtitle.length > 0
                     text: root.subtitle
                     color: Theme.muted
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 10
+                    font.family: Theme.bodyFontFamily
+                    font.pixelSize: 11
                     elide: Text.ElideRight
                 }
             }
@@ -118,8 +118,8 @@ Rectangle {
             width: parent.width
             text: root.body
             color: Theme.foreground
-            font.family: Theme.fontFamily
-            font.pixelSize: 12
+            font.family: Theme.bodyFontFamily
+            font.pixelSize: 13
             wrapMode: Text.Wrap
         }
 
@@ -163,8 +163,8 @@ Rectangle {
 
                             text: modelData.label || ""
                             color: modelData.danger ? Theme.red : Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: 11
+                            font.family: Theme.bodyFontFamily
+                            font.pixelSize: 12
                             font.bold: true
                         }
                     }
@@ -234,8 +234,8 @@ Rectangle {
                 anchors.left: parent.left
                 text: "Duration"
                 color: Theme.muted
-                font.family: Theme.fontFamily
-                font.pixelSize: 9
+                font.family: Theme.bodyFontFamily
+                font.pixelSize: 11
             }
 
             Text {
@@ -249,8 +249,8 @@ Rectangle {
                     return "";
                 }
                 color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: 9
+                font.family: Theme.bodyFontFamily
+                font.pixelSize: 10
             }
 
         }

@@ -36,8 +36,8 @@ Rectangle {
             width: parent.width
             text: root.title
             color: Theme.blue
-            font.family: Theme.fontFamily
-            font.pixelSize: 12
+            font.family: Theme.bodyFontFamily
+            font.pixelSize: 14
             font.bold: true
             elide: Text.ElideRight
             visible: text.length > 0
@@ -70,8 +70,8 @@ Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                     text: modelData.text || ""
                     color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 12
+                    font.family: Theme.bodyFontFamily
+                    font.pixelSize: 13
                     elide: Text.ElideRight
                     visible: !modelData.isSeparator
                 }

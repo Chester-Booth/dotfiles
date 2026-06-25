@@ -189,8 +189,8 @@ Rectangle {
                         Layout.fillWidth: true
                         text: root.title
                         color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: 13
+                        font.family: Theme.bodyFontFamily
+                        font.pixelSize: 15
                         font.bold: true
                     }
 
@@ -198,8 +198,8 @@ Rectangle {
                         Layout.fillWidth: true
                         text: root.subtitle()
                         color: Theme.muted
-                        font.family: Theme.fontFamily
-                        font.pixelSize: 10
+                        font.family: Theme.bodyFontFamily
+                        font.pixelSize: 11
                         elide: Text.ElideRight
                     }
 
@@ -284,8 +284,8 @@ Rectangle {
                 Layout.fillWidth: true
                 text: root.body
                 color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: 11
+                font.family: Theme.bodyFontFamily
+                font.pixelSize: 12
                 wrapMode: Text.Wrap
                 maximumLineCount: 4
                 elide: Text.ElideRight
@@ -300,8 +300,8 @@ Rectangle {
                     Layout.fillWidth: true
                     text: "Microphone"
                     color: Theme.muted
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 10
+                    font.family: Theme.bodyFontFamily
+                    font.pixelSize: 12
                     font.bold: true
                 }
 
@@ -326,8 +326,8 @@ Rectangle {
                     Layout.fillWidth: true
                     text: "Bluetooth"
                     color: Theme.muted
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 10
+                    font.family: Theme.bodyFontFamily
+                    font.pixelSize: 12
                     font.bold: true
                 }
 
@@ -507,8 +507,8 @@ Rectangle {
             anchors.centerIn: parent
             text: chip.label
             color: chip.danger ? Theme.red : Theme.foreground
-            font.family: Theme.fontFamily
-            font.pixelSize: 10
+            font.family: Theme.bodyFontFamily
+            font.pixelSize: 11
             font.bold: true
         }
 
@@ -549,8 +549,8 @@ Rectangle {
                 Layout.fillWidth: true
                 text: segment.title
                 color: Theme.muted
-                font.family: Theme.fontFamily
-                font.pixelSize: 10
+                font.family: Theme.bodyFontFamily
+                font.pixelSize: 12
                 font.bold: true
             }
 

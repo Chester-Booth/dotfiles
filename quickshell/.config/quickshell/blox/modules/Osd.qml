@@ -354,8 +354,8 @@ Scope {
                                 Layout.fillWidth: true
                                 text: root.label
                                 color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: 12
+                                font.family: Theme.bodyFontFamily
+                                font.pixelSize: 14
                                 font.bold: true
                                 elide: Text.ElideRight
                             }
@@ -363,8 +363,8 @@ Scope {
                             Text {
                                 text: root.valueText
                                 color: root.volumeOverdriven ? Theme.red : root.muted ? Theme.yellow : Theme.muted
-                                font.family: Theme.fontFamily
-                                font.pixelSize: 11
+                                font.family: Theme.bodyFontFamily
+                                font.pixelSize: 12
                                 elide: Text.ElideRight
                                 Layout.maximumWidth: 150
                             }
@@ -380,8 +380,8 @@ Scope {
                                 Layout.fillWidth: true
                                 text: root.label
                                 color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: 12
+                                font.family: Theme.bodyFontFamily
+                                font.pixelSize: 14
                                 font.bold: true
                                 elide: Text.ElideRight
                             }
@@ -390,8 +390,8 @@ Scope {
                                 Layout.fillWidth: true
                                 text: root.valueText
                                 color: Theme.muted
-                                font.family: Theme.fontFamily
-                                font.pixelSize: 11
+                                font.family: Theme.bodyFontFamily
+                                font.pixelSize: 12
                                 elide: Text.ElideRight
                             }
 

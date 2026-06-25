@@ -130,8 +130,8 @@ Rectangle {
                 Layout.fillWidth: true
                 text: root.title + "  " + (root.index + 1) + "/" + root.count
                 color: Theme.blue
-                font.family: Theme.fontFamily
-                font.pixelSize: 13
+                font.family: Theme.bodyFontFamily
+                font.pixelSize: 15
                 font.bold: true
                 horizontalAlignment: Text.AlignRight
                 elide: Text.ElideRight
@@ -170,8 +170,8 @@ Rectangle {
                     color: Theme.foreground
                     selectedTextColor: Theme.background
                     selectionColor: Theme.blue
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 12
+                    font.family: Theme.bodyFontFamily
+                    font.pixelSize: 13
                     focus: root.editing
                     activeFocusOnPress: root.editing
                     onActiveFocusChanged: {

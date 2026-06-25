@@ -108,8 +108,8 @@ Rectangle {
                 Layout.fillWidth: true
                 text: Qt.formatDate(root.shownDate(), "MMMM yyyy")
                 color: Theme.blue
-                font.family: Theme.fontFamily
-                font.pixelSize: 14
+                font.family: Theme.bodyFontFamily
+                font.pixelSize: 16
                 font.bold: true
                 horizontalAlignment: Text.AlignHCenter
 
@@ -152,20 +152,25 @@ Rectangle {
         }
 
         GridLayout {
+            id: monthGrid
+
+            readonly property real cellWidth: (width - columnSpacing * 6) / 7
+
             Layout.fillWidth: true
             columns: 7
             rowSpacing: 4
             columnSpacing: 4
 
             Repeater {
-                model: ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
+                model: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
                 Text {
                     Layout.fillWidth: true
+                    Layout.preferredWidth: monthGrid.cellWidth
                     text: modelData
                     color: Theme.muted
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 10
+                    font.family: Theme.bodyFontFamily
+                    font.pixelSize: 12
                     horizontalAlignment: Text.AlignHCenter
                 }
 
@@ -183,6 +188,7 @@ Rectangle {
                     readonly property bool selected: inMonth && root.sameDay(cellDate, root.selectedDate)
 
                     Layout.fillWidth: true
+                    Layout.preferredWidth: monthGrid.cellWidth
                     Layout.preferredHeight: 34
                     radius: 5
                     color: selected ? Theme.blue : today ? Theme.surfaceAlt : dayMouse.containsMouse && inMonth ? Theme.surfaceAlt : Theme.surface
@@ -192,8 +198,8 @@ Rectangle {
                         anchors.centerIn: parent
                         text: parent.inMonth ? parent.dayNumber : ""
                         color: parent.selected ? Theme.background : parent.today ? Theme.yellow : Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: 11
+                        font.family: Theme.bodyFontFamily
+                        font.pixelSize: 12
                         font.bold: parent.today || parent.selected
                     }
 
@@ -222,8 +228,8 @@ Rectangle {
             Layout.fillWidth: true
             text: Qt.formatDate(root.selectedDate, "dddd dd MMM")
             color: Theme.foreground
-            font.family: Theme.fontFamily
-            font.pixelSize: 12
+            font.family: Theme.bodyFontFamily
+            font.pixelSize: 14
             font.bold: true
         }
 
@@ -237,8 +243,8 @@ Rectangle {
                 visible: root.events.length === 0
                 text: root.eventsText
                 color: Theme.muted
-                font.family: Theme.fontFamily
-                font.pixelSize: 11
+                font.family: Theme.bodyFontFamily
+                font.pixelSize: 12
                 horizontalAlignment: Text.AlignHCenter
             }
 
@@ -263,8 +269,8 @@ Rectangle {
                             text: root.eventTime(modelData)
                             visible: text.length > 0
                             color: Theme.blue
-                            font.family: Theme.fontFamily
-                            font.pixelSize: 11
+                            font.family: Theme.bodyFontFamily
+                            font.pixelSize: 12
                             font.bold: true
                         }
 
@@ -272,8 +278,8 @@ Rectangle {
                             Layout.fillWidth: true
                             text: root.eventTitle(modelData)
                             color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: 11
+                            font.family: Theme.bodyFontFamily
+                            font.pixelSize: 12
                             elide: Text.ElideRight
                         }
 
@@ -314,8 +320,8 @@ Rectangle {
                     anchors.rightMargin: 10
                     text: root.newEventTitle
                     color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 11
+                    font.family: Theme.bodyFontFamily
+                    font.pixelSize: 12
                     activeFocusOnPress: true
                     verticalAlignment: TextInput.AlignVCenter
                     clip: true
@@ -333,8 +339,8 @@ Rectangle {
                     visible: eventInput.text.length === 0
                     text: "New event title"
                     color: Theme.muted
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 11
+                    font.family: Theme.bodyFontFamily
+                    font.pixelSize: 12
                 }
 
             }

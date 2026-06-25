@@ -292,8 +292,8 @@ Rectangle {
                     Layout.fillWidth: true
                     text: pill.label
                     color: Theme.muted
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 8
+                    font.family: Theme.bodyFontFamily
+                    font.pixelSize: 9
                     elide: Text.ElideRight
                 }
 
@@ -301,8 +301,8 @@ Rectangle {
                     Layout.fillWidth: true
                     text: pill.value
                     color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 10
+                    font.family: Theme.bodyFontFamily
+                    font.pixelSize: 11
                     font.bold: true
                     elide: Text.ElideRight
                 }
@@ -353,16 +353,16 @@ Rectangle {
                 Text {
                     text: metric.label
                     color: Theme.muted
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 9
+                    font.family: Theme.bodyFontFamily
+                    font.pixelSize: 10
                 }
 
                 Text {
                     Layout.fillWidth: true
                     text: metric.detail
                     color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 10
+                    font.family: Theme.bodyFontFamily
+                    font.pixelSize: 11
                     font.bold: true
                     horizontalAlignment: Text.AlignRight
                     elide: Text.ElideRight
@@ -424,16 +424,16 @@ Rectangle {
             Text {
                 text: slider.title
                 color: Theme.muted
-                font.family: Theme.fontFamily
-                font.pixelSize: 9
+                font.family: Theme.bodyFontFamily
+                font.pixelSize: 11
             }
 
             Text {
                 Layout.fillWidth: true
                 text: slider.currentText
                 color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: 9
+                font.family: Theme.bodyFontFamily
+                font.pixelSize: 10
                 horizontalAlignment: Text.AlignRight
                 elide: Text.ElideRight
             }

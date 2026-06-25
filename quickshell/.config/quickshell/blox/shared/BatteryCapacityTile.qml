@@ -38,7 +38,7 @@ Rectangle {
         font.pixelSize: 13
         fontSizeMode: Text.Fit
         minimumPixelSize: 9
-        font.bold: true
+        font.bold: false
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
         wrapMode: Text.NoWrap

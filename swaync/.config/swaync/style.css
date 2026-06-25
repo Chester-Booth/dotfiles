@@ -23,6 +23,8 @@
 @define-color accent @blue;
 @define-color accent-soft alpha(@blue, 0.16);
 @define-color accent-strong alpha(@blue, 0.34);
+@define-color warm-active alpha(@yellow, 0.16);
+@define-color warm-active-hover alpha(@yellow, 0.22);
 @define-color danger-card #3a2027;
 @define-color danger-card-hover #4a2831;
 @define-color danger-border alpha(@red, 0.78);
@@ -142,28 +144,64 @@ blankwindow,
     background: @card;
     border: 1px solid @border;
     border-radius: 7px;
-    padding: 9px;
+    padding: 8px 9px 9px 9px;
 }
 
 .widget-dnd switch {
-    background: @background;
-    border: 1px solid @border;
-    border-radius: 14px;
-    min-width: 42px;
-    min-height: 24px;
+    background: @surface;
+    background-color: @surface;
+    background-image: url("dnd-switch-icons.svg");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 112px 26px;
+    border: none;
+    border-radius: 999px;
+    box-shadow: inset 0 0 0 1px @border;
+    min-width: 112px;
+    min-height: 32px;
+    padding: 3px;
 }
 
 .widget-dnd switch:checked {
-    background: @accent-soft;
-    border-color: @accent-strong;
+    background: @surface;
+    background-color: @surface;
+    background-image: url("dnd-switch-icons.svg");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 112px 26px;
+    box-shadow: inset 0 0 0 1px @border;
 }
 
 .widget-dnd switch slider {
-    background: @surface-alt;
-    border: 1px solid @accent;
+    background: alpha(@surface-alt, 0.42);
+    background-color: alpha(@surface-alt, 0.42);
+    background-image: none;
+    border: none;
     border-radius: 999px;
-    min-width: 18px;
-    min-height: 18px;
+    box-shadow: none;
+    min-width: 53px;
+    min-height: 26px;
+}
+
+.widget-dnd switch:checked slider {
+    background: @warm-active;
+    background-color: @warm-active;
+}
+
+.widget-dnd switch:hover slider {
+    background: alpha(@surface-alt, 0.52);
+    background-color: alpha(@surface-alt, 0.52);
+}
+
+.widget-dnd switch:checked:hover slider {
+    background: @warm-active-hover;
+    background-color: @warm-active-hover;
+}
+
+.widget-dnd switch image,
+.widget-dnd switch label {
+    color: @yellow;
+    font-family: "MartianMono Nerd Font Propo";
 }
 
 .widget-mpris .widget-mpris-player {

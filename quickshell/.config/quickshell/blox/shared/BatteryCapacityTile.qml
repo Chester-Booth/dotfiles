@@ -25,7 +25,8 @@ Rectangle {
     width: Theme.buttonSize
     height: expanded ? Theme.buttonSize : 0
     radius: Theme.radius
-    color: "transparent"
+    color: mouse.containsMouse ? Theme.surfaceAlt : "transparent"
+    opacity: mouse.containsMouse ? 0.68 : 1
     visible: expanded
     clip: true
 
@@ -46,7 +47,10 @@ Rectangle {
     }
 
     MouseArea {
+        id: mouse
+
         anchors.fill: parent
+        hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         onClicked: root.collapse()
     }

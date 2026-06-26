@@ -209,7 +209,6 @@ main() {
 	warn_cmd nmcli
 	warn_cmd bluetoothctl
 	warn_cmd brightnessctl
-	warn_cmd swaync-client
 	warn_cmd asusctl
 	warn_cmd hyprshot
 

@@ -27,7 +27,7 @@ hl.gesture({
     fingers = 3,
     direction = "down",
     action = function()
-        hl.exec_cmd("swaync-client -t -sw")
+        hl.exec_cmd("quickshell ipc -c blox call notifications toggle")
     end,
 })
 

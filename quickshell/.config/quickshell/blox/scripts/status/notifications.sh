@@ -1,35 +1,20 @@
 #!/usr/bin/env bash
 set -u
 
-if ! command -v swaync-client >/dev/null 2>&1; then
-    jq -nc '{"icon":"󰂜","class":"none","tooltip":"swaync-client unavailable"}'
+owner="$(busctl --user --no-pager --list 2>/dev/null | awk '$1 == "org.freedesktop.Notifications" { print $3; exit }')"
+
+if [[ -z "${owner:-}" || "$owner" == "-" ]]; then
+    jq -nc '{"icon":"󰂜","class":"none","count":0,"dnd":false,"inhibited":false,"tooltip":"No notification daemon registered"}'
     exit 0
 fi
 
-count="$(swaync-client -c 2>/dev/null || echo 0)"
-dnd="$(swaync-client -D 2>/dev/null || echo false)"
-inhibited="$(swaync-client -I 2>/dev/null || echo false)"
-
-has_notification=false
-[[ "$count" =~ ^[0-9]+$ && "$count" -gt 0 ]] && has_notification=true
-
 icon="󰂜"
 class="none"
-if [[ "$dnd" == "true" && "$inhibited" == "true" && "$has_notification" == "true" ]]; then
-    icon="󰂛"; class="dnd-inhibited-notification"
-elif [[ "$dnd" == "true" && "$inhibited" == "true" ]]; then
-    icon="󰪑"; class="dnd-inhibited-none"
-elif [[ "$inhibited" == "true" && "$has_notification" == "true" ]]; then
-    icon="󰂛"; class="inhibited-notification"
-elif [[ "$inhibited" == "true" ]]; then
-    icon="󰪑"; class="inhibited-none"
-elif [[ "$dnd" == "true" && "$has_notification" == "true" ]]; then
-    icon="󰂠"; class="dnd-notification"
-elif [[ "$dnd" == "true" ]]; then
-    icon="󰪓"; class="dnd-none"
-elif [[ "$has_notification" == "true" ]]; then
-    icon="󱅫"; class="notification"
+tooltip="Notifications provided by ${owner}"
+
+if [[ "$owner" == "quickshell" ]]; then
+    tooltip="Notifications provided by Quickshell"
 fi
 
-jq -nc --arg icon "$icon" --arg class "$class" --arg dnd "$dnd" --arg inhibited "$inhibited" --argjson count "${count:-0}" \
-    '{icon:$icon,class:$class,count:$count,dnd:($dnd=="true"),inhibited:($inhibited=="true"),tooltip:("\($count) notifications\nDND: \($dnd)\nInhibited: \($inhibited)")}'
+jq -nc --arg icon "$icon" --arg class "$class" --arg tooltip "$tooltip" \
+    '{icon:$icon,class:$class,count:0,dnd:false,inhibited:false,tooltip:$tooltip}'

@@ -6,8 +6,8 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
+import Quickshell.Services.Notifications
 import Quickshell.Services.SystemTray
-import Quickshell.Wayland
 
 Scope {
     id: root
@@ -38,9 +38,21 @@ Scope {
     property string trayMenuTitle: ""
     property real trayMenuY: 8
     property bool trayMenuOpen: false
+    property var notificationItems: notificationServer.trackedNotifications.values
+    property var toastItems: []
+    property bool notificationToastsEnabled: true
+    property bool notificationDnd: false
+    property bool notificationInitialSyncComplete: false
+    property int activeMprisPlayerIndex: -1
+    property real notificationPanelY: 0
+    property double notificationToggleAllowedAt: 0
 
     function togglePanel(panel, centerY) {
         openHoverPanel(panel, centerY);
+    }
+
+    function diagLog(event, detail) {
+        console.log("[blox.bar] " + new Date().toISOString() + " " + event + " " + (detail || ""));
     }
 
     function closePanel() {
@@ -137,6 +149,110 @@ Scope {
         trayMenuTitle = "";
     }
 
+    function notificationStatus() {
+        const count = notificationItems ? notificationItems.length : 0;
+        return {
+            "icon": notificationDnd ? "󰂛" : count > 0 ? "󰂚" : "󰂜",
+            "class": notificationDnd ? "dnd" : count > 0 ? "notification" : "none",
+            "count": count,
+            "dnd": notificationDnd,
+            "inhibited": false,
+            "tooltip": (count === 1 ? "1 notification" : count + " notifications") + "\nDND: " + (notificationDnd ? "true" : "false")
+        };
+    }
+
+    function clearNotifications() {
+        const items = notificationItems ? notificationItems.slice() : [];
+        diagLog("notifications.clear", "count=" + items.length);
+        for (let i = 0; i < items.length; i++)
+            items[i].dismiss();
+        toastItems = [];
+    }
+
+    function openNotifications(centerY) {
+        const now = Date.now();
+        const targetY = centerY !== undefined && centerY > 0 ? centerY : notificationPanelY > 0 ? notificationPanelY : openPanelY > 0 ? openPanelY : 120;
+        diagLog("notifications.open", "requestedY=" + centerY + " cachedY=" + notificationPanelY + " openPanelY=" + openPanelY + " targetY=" + targetY + " now=" + now + " allowedAt=" + notificationToggleAllowedAt);
+        if (openPanel === "notifications") {
+            diagLog("notifications.open.noop", "already open");
+            return ;
+        }
+        if (now < notificationToggleAllowedAt) {
+            diagLog("notifications.open.blocked", "remainingMs=" + Math.round(notificationToggleAllowedAt - now));
+            return ;
+        }
+
+        notificationToggleAllowedAt = now + 750;
+        toastItems = [];
+        openHoverPanel("notifications", targetY);
+    }
+
+    function toggleNotifications() {
+        const now = Date.now();
+        diagLog("notifications.toggle", "openPanel=" + openPanel + " now=" + now + " allowedAt=" + notificationToggleAllowedAt);
+        if (now < notificationToggleAllowedAt) {
+            diagLog("notifications.toggle.blocked", "remainingMs=" + Math.round(notificationToggleAllowedAt - now));
+            return ;
+        }
+
+        if (openPanel === "notifications") {
+            notificationToggleAllowedAt = now + 750;
+            closePanel();
+        } else {
+            openNotifications();
+        }
+    }
+
+    function addNotificationToast(notification) {
+        if (!notificationToastsEnabled || notificationDnd || openPanel === "notifications") {
+            diagLog("notifications.toast.skip", "enabled=" + notificationToastsEnabled + " dnd=" + notificationDnd + " openPanel=" + openPanel);
+            return ;
+        }
+
+        const timeout = notification.expireTimeout && notification.expireTimeout > 0 ? notification.expireTimeout : 6000;
+        diagLog("notifications.toast.add", "app=" + (notification.appName || "") + " urgency=" + notification.urgency + " timeout=" + timeout);
+        const items = toastItems ? toastItems.slice() : [];
+        items.unshift({
+            "notification": notification,
+            "timeout": Math.max(3500, Math.min(12000, timeout))
+        });
+        toastItems = items.slice(0, 4);
+    }
+
+    function markNotificationCentreOnly(notification) {
+        if (!notification)
+            return ;
+
+        notification.tracked = true;
+        notification.bloxToastKnown = true;
+        if (!notification.bloxReceivedAt)
+            notification.bloxReceivedAt = Date.now();
+    }
+
+    function markExistingNotificationsCentreOnly(reason) {
+        const items = notificationItems ? notificationItems.slice() : [];
+        diagLog("notifications.initialSync", "reason=" + reason + " count=" + items.length);
+        for (let i = 0; i < items.length; i++)
+            markNotificationCentreOnly(items[i]);
+        notificationInitialSyncComplete = true;
+    }
+
+    function removeNotificationToast(notification) {
+        diagLog("notifications.toast.remove", "app=" + (notification && notification.appName ? notification.appName : ""));
+        const items = toastItems ? toastItems.filter((item) => item.notification !== notification) : [];
+        toastItems = items;
+    }
+
+    function focusNotificationSource(notification) {
+        if (!notification)
+            return ;
+
+        diagLog("notifications.activate", "app=" + (notification.appName || "") + " desktop=" + (notification.desktopEntry || "") + " summary=" + (notification.summary || ""));
+        actionArgs.running = false;
+        actionArgs.command = ["env", "BLOX_NOTIFICATION_APP_NAME=" + (notification.appName || ""), "BLOX_NOTIFICATION_DESKTOP_ENTRY=" + (notification.desktopEntry || ""), "BLOX_NOTIFICATION_SUMMARY=" + (notification.summary || ""), "/home/blox/.config/hypr/scripts/focus-notification-source-workspace.sh"];
+        actionArgs.running = true;
+    }
+
     function toggleExtras() {
         closePanel();
         closeTrayMenu();
@@ -165,7 +281,6 @@ Scope {
         brightness.refresh();
         bluetooth.refresh();
         network.refresh();
-        notifications.refresh();
         touchpad.refresh();
         privacy.refresh();
         battery.refresh();
@@ -196,7 +311,6 @@ Scope {
         brightness.interval = visible ? 2000 : 30000;
         bluetooth.interval = visible ? 2000 : 30000;
         network.interval = visible ? 2000 : railInterval(30000, 15000, 120000, 60000);
-        notifications.interval = visible ? 2000 : railInterval(15000, 10000, 60000, 30000);
         touchpad.interval = visible ? 2000 : 15000;
         privacy.interval = visible ? 5000 : 30000;
         if (visible)
@@ -603,7 +717,7 @@ Scope {
             return (network.json.tooltip || "Network unavailable") + "\n\n" + (bluetooth.json.tooltip || "Bluetooth unavailable");
 
         if (openPanel === "notifications")
-            return notifications.json.tooltip || "Notification status unavailable";
+            return root.notificationStatus().tooltip;
 
         if (openPanel === "touchpad")
             return touchpad.json.tooltip || "Touchpad status unavailable";
@@ -751,14 +865,8 @@ Scope {
 
         if (current === "notifications")
             return [{
-            "label": "Open notification centre",
-            "command": "swaync-client -op -sw"
-        }, {
-            "label": notifications.json.dnd ? "Disable DND" : "Enable DND",
-            "command": "swaync-client -d -sw"
-        }, {
             "label": "Clear notifications",
-            "command": "swaync-client -C -sw"
+            "command": "__clear_notifications"
         }];
 
         if (current === "caffeine")
@@ -826,6 +934,48 @@ Scope {
     }
     onBarVisibleChanged: updatePanelPolling()
     onOpenPanelChanged: updatePanelPolling()
+    Component.onCompleted: {
+        diagLog("component.completed", "bar loaded");
+        notificationInitialSyncTimer.restart();
+    }
+
+    Timer {
+        id: notificationInitialSyncTimer
+
+        interval: 1200
+        repeat: false
+        onTriggered: root.markExistingNotificationsCentreOnly("startup")
+    }
+
+    NotificationServer {
+        id: notificationServer
+
+        keepOnReload: true
+        persistenceSupported: true
+        bodySupported: true
+        bodyMarkupSupported: true
+        bodyImagesSupported: true
+        imageSupported: true
+        actionsSupported: true
+        actionIconsSupported: true
+        inlineReplySupported: true
+
+        onNotification: (notification) => {
+            const knownForToast = notification.bloxToastKnown === true;
+            root.diagLog("notifications.received", "app=" + (notification.appName || "") + " summary=" + (notification.summary || "") + " urgency=" + notification.urgency + " known=" + knownForToast + " initialSync=" + root.notificationInitialSyncComplete);
+            notification.tracked = true;
+            if (!notification.bloxReceivedAt)
+                notification.bloxReceivedAt = Date.now();
+            notification.bloxToastKnown = true;
+            if (!knownForToast && root.notificationInitialSyncComplete)
+                root.addNotificationToast(notification);
+            else
+                root.diagLog("notifications.toast.suppress", "known=" + knownForToast + " initialSync=" + root.notificationInitialSyncComplete + " app=" + (notification.appName || ""));
+            notification.closed.connect(() => {
+                root.removeNotificationToast(notification);
+            });
+        }
+    }
 
     IpcHandler {
         function open() : string {
@@ -848,6 +998,36 @@ Scope {
         }
 
         target: "power"
+    }
+
+    IpcHandler {
+        function open() : string {
+            root.openNotifications();
+            return "open";
+        }
+
+        function toggle() : string {
+            root.toggleNotifications();
+            return root.openPanel === "notifications" ? "open" : "closed";
+        }
+
+        function close() : string {
+            root.closePanel();
+            return "closed";
+        }
+
+        function dnd() : string {
+            root.notificationDnd = !root.notificationDnd;
+            root.toastItems = [];
+            return root.notificationDnd ? "enabled" : "disabled";
+        }
+
+        function clear() : string {
+            root.clearNotifications();
+            return "cleared";
+        }
+
+        target: "notifications"
     }
 
     ScriptPoller {
@@ -933,13 +1113,6 @@ Scope {
 
         command: [root.scriptRoot + "/status/bluetooth.sh"]
         interval: 30000
-    }
-
-    ScriptPoller {
-        id: notifications
-
-        command: [root.scriptRoot + "/status/notifications.sh"]
-        interval: 15000
     }
 
     ScriptPoller {
@@ -1261,7 +1434,7 @@ Scope {
                     SystemRailSection {
                         audioStatus: audio.json
                         networkStatus: network.json
-                        notificationsStatus: notifications.json
+                        notificationsStatus: root.notificationStatus()
                         touchpadStatus: touchpad.json
                         fanStatus: fan.json
                         gpuStatus: gpu.json
@@ -1270,10 +1443,17 @@ Scope {
                         panelHeight: panel.height
                         batteryExpanded: root.batteryExpanded
                         onPanelClicked: (panel, centerY) => {
+                            if (panel === "notifications")
+                                root.notificationPanelY = centerY;
                             return root.togglePanel(panel, centerY);
                         }
                         onPanelHovered: (panel, centerY, source) => {
+                            if (panel === "notifications")
+                                root.notificationPanelY = centerY;
                             return root.hoverButtonEntered(panel, centerY, source);
+                        }
+                        onNotificationsPositionChanged: (centerY) => {
+                            root.notificationPanelY = centerY;
                         }
                         onPanelExited: (source) => {
                             return root.hoverButtonExited(source);
@@ -1281,6 +1461,7 @@ Scope {
                         onRunCommand: (command) => {
                             return root.run(command);
                         }
+                        onClearNotifications: root.clearNotifications()
                         onCloseDrawers: root.closeDrawers()
                         onToggleBatteryExpanded: root.batteryExpanded = !root.batteryExpanded
                         onCollapseBattery: root.batteryExpanded = false
@@ -1413,6 +1594,9 @@ Scope {
                 basicCurrentId: root.openPanel === "caffeine" ? (caffeine.json.mode || "off") : ""
                 basicHeaderActionIcon: root.panelHeaderActionIcon()
                 basicHeaderActionCommand: root.panelHeaderActionCommand()
+                notificationsModel: root.notificationItems || []
+                notificationDnd: root.notificationDnd
+                activeMprisPlayerIndex: root.activeMprisPlayerIndex
                 onHoverEntered: root.popoutEntered()
                 onHoverExited: root.popoutExited()
                 onInputLockChanged: (locked) => {
@@ -1420,6 +1604,16 @@ Scope {
                 }
                 onClosePanel: root.closePanel()
                 onCloseTrayMenu: root.closeTrayMenu()
+                onClearNotifications: root.clearNotifications()
+                onToggleNotificationDnd: {
+                    root.notificationDnd = !root.notificationDnd;
+                    if (root.notificationDnd)
+                        root.toastItems = [];
+                }
+                onActivateNotification: (notification) => root.focusNotificationSource(notification)
+                onSelectMprisPlayer: (index) => {
+                    root.activeMprisPlayerIndex = index;
+                }
                 onPreviousTodo: {
                     root.run(root.scriptRoot + "/todo/cycle.sh -1");
                     todoRefreshDelay.restart();
@@ -1477,10 +1671,49 @@ Scope {
                         updates.refresh();
                         return ;
                     }
+                    if (command === "__clear_notifications") {
+                        root.clearNotifications();
+                        if (!keepOpen)
+                            root.closePanel();
+                        return ;
+                    }
                     root.run(command);
                     if (!keepOpen)
                         root.closePanel();
 
+                }
+            }
+
+            PanelWindow {
+                id: notificationToastWindow
+
+                screen: modelData
+                implicitWidth: notificationToasts.width
+                implicitHeight: Math.max(1, notificationToasts.implicitHeight + 12)
+                exclusiveZone: 0
+                focusable: false
+                visible: true
+                color: "transparent"
+
+                anchors {
+                    right: true
+                    bottom: true
+                }
+
+                NotificationToastStack {
+                    id: notificationToasts
+
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 12
+                    visible: root.notificationToastsEnabled && root.toastItems.length > 0 && !root.notificationDnd
+                    toasts: root.toastItems
+                    onDismiss: (notification, closeNotification) => {
+                        root.removeNotificationToast(notification);
+                        if (notification && closeNotification)
+                            notification.dismiss();
+                    }
+                    onActivate: (notification) => root.focusNotificationSource(notification)
                 }
             }
 

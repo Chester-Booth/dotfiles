@@ -12,6 +12,7 @@ PopupWindow {
     property real anchorY: 8
     property real contentWidth: 0
     property real contentHeight: 0
+    property real slideOffset: 10
     property bool open: false
     property bool rendered: false
     property bool keyboardFocus: false
@@ -57,7 +58,7 @@ PopupWindow {
 
         width: root.contentWidth
         height: root.contentHeight
-        x: -10
+        x: -root.slideOffset
         opacity: 0
         scale: 0.985
         transformOrigin: Item.Left
@@ -125,7 +126,7 @@ PopupWindow {
             target: contentHost
             property: "x"
             from: contentHost.x
-            to: -10
+            to: -root.slideOffset
             duration: 130
             easing.type: Easing.InCubic
         }

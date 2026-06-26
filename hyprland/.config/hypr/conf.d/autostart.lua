@@ -10,7 +10,6 @@ hl.on("hyprland.start", function()
     -- 3. Other apps.
     hl.exec_cmd("quickshell --no-duplicate --path ~/.config/quickshell/blox")
     hl.exec_cmd("hyprpaper")
-    hl.exec_cmd("swaync")
     hl.exec_cmd("blueman-applet")
     hl.exec_cmd("hypridle")
     hl.exec_cmd("systemctl --user restart swayosd")

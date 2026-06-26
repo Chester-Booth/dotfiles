@@ -42,6 +42,10 @@ Item {
     property string basicCurrentId: ""
     property string basicHeaderActionIcon: ""
     property string basicHeaderActionCommand: ""
+    property var notificationsModel: []
+    property real maxNotificationHeight: 720
+    property bool notificationDnd: false
+    property int activeMprisPlayerIndex: 0
 
     signal hoverEntered()
     signal hoverExited()
@@ -62,6 +66,10 @@ Item {
     signal systemAction(string command, bool keepOpen)
     signal selectSystemPanel(string panel)
     signal basicAction(string command, bool keepOpen)
+    signal clearNotifications()
+    signal toggleNotificationDnd()
+    signal activateNotification(var notification)
+    signal selectMprisPlayer(int index)
 
     HoverPopupWindow {
         id: notesWindow
@@ -214,10 +222,33 @@ Item {
 
     HoverPopupWindow {
         anchorWindow: root.panelWindow
+        anchorY: Math.max(8, Math.min(root.panelHeight - notificationCenter.height - 8, root.openPanelY - notificationCenter.height / 2))
+        contentWidth: notificationCenter.width
+        contentHeight: notificationCenter.height
+        open: root.openPanel === "notifications"
+        onHoverEntered: root.hoverEntered()
+        onHoverExited: root.hoverExited()
+
+        NotificationCenterPopout {
+            id: notificationCenter
+
+            notifications: root.notificationsModel
+            dnd: root.notificationDnd
+            activePlayerIndex: root.activeMprisPlayerIndex
+            maxPopoutHeight: Math.min(720, Math.max(240, root.panelHeight - 16))
+            onClearAll: root.clearNotifications()
+            onToggleDnd: root.toggleNotificationDnd()
+            onActivate: (notification) => root.activateNotification(notification)
+            onSelectPlayer: (index) => root.selectMprisPlayer(index)
+        }
+    }
+
+    HoverPopupWindow {
+        anchorWindow: root.panelWindow
         anchorY: Math.max(8, Math.min(root.panelHeight - basicPopout.height - 8, root.openPanelY - basicPopout.height / 2))
         contentWidth: 320
         contentHeight: basicPopout.height
-        open: ["updates", "notifications", "privacy", "caffeine"].indexOf(root.openPanel) >= 0
+        open: ["updates", "privacy", "caffeine"].indexOf(root.openPanel) >= 0
         onHoverEntered: root.hoverEntered()
         onHoverExited: root.hoverExited()
 

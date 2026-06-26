@@ -19,7 +19,9 @@ Item {
     signal panelClicked(string panel, real centerY)
     signal panelHovered(string panel, real centerY, string source)
     signal panelExited(string source)
+    signal notificationsPositionChanged(real centerY)
     signal runCommand(string command)
+    signal clearNotifications()
     signal closeDrawers()
     signal toggleBatteryExpanded()
     signal collapseBattery()
@@ -71,13 +73,19 @@ Item {
         }
 
         PanelRailButton {
+            id: notificationButton
+
             icon: root.notificationsStatus && root.notificationsStatus.icon ? root.notificationsStatus.icon : "󰂜"
             accent: root.notificationsStatus && root.notificationsStatus.dnd ? Theme.yellow : root.notificationsStatus && root.notificationsStatus.count > 0 ? Theme.blue : Theme.foreground
             panel: "notifications"
             active: root.openPanel === "notifications"
-            onPanelClicked: {
+            Component.onCompleted: Qt.callLater(function() {
+                root.notificationsPositionChanged(root.mapCenterY(notificationButton.y + notificationButton.height / 2));
+            })
+            onYChanged: root.notificationsPositionChanged(root.mapCenterY(notificationButton.y + notificationButton.height / 2))
+            onPanelClicked: (panel, centerY) => {
                 root.closeDrawers();
-                root.runCommand("swaync-client -op -sw");
+                return root.panelClicked(panel, root.mapCenterY(centerY));
             }
             onPanelHovered: (panel, centerY, source) => {
                 return root.panelHovered(panel, root.mapCenterY(centerY), source);
@@ -85,7 +93,7 @@ Item {
             onPanelExited: (source) => {
                 return root.panelExited(source);
             }
-            onRightClicked: root.runCommand("swaync-client -d -sw")
+            onRightClicked: root.clearNotifications()
         }
 
         RailButton {

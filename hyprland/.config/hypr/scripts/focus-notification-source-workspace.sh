@@ -2,9 +2,9 @@
 
 set -euo pipefail
 
-app_name="${SWAYNC_APP_NAME:-}"
-desktop_entry="${SWAYNC_DESKTOP_ENTRY:-}"
-summary="${SWAYNC_SUMMARY:-}"
+app_name="${BLOX_NOTIFICATION_APP_NAME:-}"
+desktop_entry="${BLOX_NOTIFICATION_DESKTOP_ENTRY:-}"
+summary="${BLOX_NOTIFICATION_SUMMARY:-}"
 
 if [[ -z "$app_name" && -z "$desktop_entry" ]]; then
     exit 0

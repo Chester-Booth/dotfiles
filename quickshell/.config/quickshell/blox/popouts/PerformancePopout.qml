@@ -190,7 +190,7 @@ Rectangle {
                 detail: (root.status.swapUsed || "?") + "/" + (root.status.swapTotal || "?") + " GB"
                 percent: root.clamp(root.numberValue(root.status.swapPercent, 0), 0, 100)
                 accent: Theme.mauve
-                visible: root.status.vramTotal
+                visible: !!root.status.vramTotal
                 Layout.preferredHeight: visible ? 45 : 0
             }
 

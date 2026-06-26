@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -u
 
+lock_file="${XDG_RUNTIME_DIR:-/tmp}/quickshell-kbd-backlight.watch.lock"
+exec 9>"$lock_file"
+flock -n 9 || exit 0
+
 service="org.freedesktop.UPower"
 path="/org/freedesktop/UPower/KbdBacklight"
 interface="org.freedesktop.UPower.KbdBacklight"

@@ -224,7 +224,7 @@ Rectangle {
         height: visible ? labelRow.height + control.height + spacing : 0
         onCurrentIdChanged: visualId = currentId
 
-        Row {
+        Item {
             id: labelRow
 
             width: parent.width

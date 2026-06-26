@@ -275,7 +275,15 @@ Scope {
 
         command: [root.scriptRoot + "/osd/watch-keyboard-backlight.sh"]
         running: true
-        onExited: restartKeyboardWatcher.restart()
+        onExited: (exitCode) => {
+            if (exitCode !== 0)
+                restartKeyboardWatcher.restart();
+        }
+
+        Component.onDestruction: {
+            if (running)
+                signal(15);
+        }
 
         stdout: SplitParser {
             splitMarker: "\n"

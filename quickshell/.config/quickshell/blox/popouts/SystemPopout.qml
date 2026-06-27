@@ -23,11 +23,13 @@ Rectangle {
     property int visualAudioVolume: audioVolume
     property int visualBrightnessPercent: brightnessPercent
     property string visualBlueLightMode: blueLightMode
+    property int activeMprisPlayerIndex: -1
     readonly property bool audioOverdriven: currentMode() === "audio" && !audioMuted && audioVolume > 100
     readonly property bool visualAudioOverdriven: currentMode() === "audio" && !audioMuted && visualAudioVolume > 100
 
     signal action(string command, bool keepOpen)
     signal sectionSelected(string panel)
+    signal selectMprisPlayer(int index)
 
     function currentMode() {
         return mode === "mic" ? "bluetooth" : mode;
@@ -246,6 +248,13 @@ Rectangle {
                 }
             }
 
+            MediaPlayer {
+                Layout.fillWidth: true
+                visible: root.currentMode() === "audio"
+                activePlayerIndex: root.activeMprisPlayerIndex
+                onSelectPlayer: (index) => root.selectMprisPlayer(index)
+            }
+
             LevelSlider {
                 Layout.fillWidth: true
                 visible: root.currentMode() === "brightness"
@@ -283,6 +292,7 @@ Rectangle {
 
             Text {
                 Layout.fillWidth: true
+                visible: root.body.length > 0
                 text: root.body
                 color: Theme.foreground
                 font.family: Theme.bodyFontFamily

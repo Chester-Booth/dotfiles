@@ -1,7 +1,6 @@
 import "../shared"
 import QtQuick
 import QtQuick.Controls
-import Quickshell.Services.Mpris
 import Quickshell.Services.Notifications
 
 Rectangle {
@@ -10,46 +9,13 @@ Rectangle {
     property var notifications: []
     property real maxPopoutHeight: 720
     property bool dnd: false
-    property int activePlayerIndex: -1
     property int clearAnimationRevision: 0
-    property var mediaPlayers: []
     property double nowMs: Date.now()
     readonly property int notificationListChromeHeight: 240
 
     signal clearAll()
     signal toggleDnd()
     signal activate(var notification)
-    signal selectPlayer(int index)
-
-    function players() {
-        return root.mediaPlayers || [];
-    }
-
-    function refreshPlayers() {
-        root.mediaPlayers = Mpris.players && Mpris.players.values ? Mpris.players.values : [];
-    }
-
-    function effectivePlayerIndex() {
-        const players = root.players();
-        if (players.length === 0)
-            return -1;
-
-        if (root.activePlayerIndex >= 0 && root.activePlayerIndex < players.length)
-            return root.activePlayerIndex;
-
-        for (let i = 0; i < players.length; i++) {
-            if (players[i].isPlaying)
-                return i;
-        }
-
-        return 0;
-    }
-
-    function activePlayer() {
-        const index = root.effectivePlayerIndex();
-        const players = root.players();
-        return index >= 0 && index < players.length ? players[index] : null;
-    }
 
     function orderedNotifications() {
         const items = root.notifications ? root.notifications.slice() : [];
@@ -83,16 +49,6 @@ Rectangle {
         return app + " • " + root.ageText(notification);
     }
 
-    function selectRelativePlayer(delta) {
-        const players = root.players();
-        if (players.length < 2)
-            return ;
-
-        const current = root.effectivePlayerIndex();
-        const next = (current + delta + players.length) % players.length;
-        root.selectPlayer(next);
-    }
-
     function notificationIcon(notification) {
         if (!notification)
             return "󰂜";
@@ -116,16 +72,6 @@ Rectangle {
         return Theme.blue;
     }
 
-    function timeText(seconds) {
-        if (!seconds || seconds < 0 || !isFinite(seconds))
-            return "0:00";
-
-        const total = Math.max(0, Math.floor(seconds));
-        const minutes = Math.floor(total / 60);
-        const rest = total % 60;
-        return minutes + ":" + (rest < 10 ? "0" : "") + rest;
-    }
-
     function plainText(text) {
         return String(text || "").replace(/<[^>]*>/g, "");
     }
@@ -137,26 +83,11 @@ Rectangle {
     border.color: Theme.surfaceAlt
     border.width: 1
 
-    Component.onCompleted: refreshPlayers()
-
     Timer {
         interval: 30000
         running: true
         repeat: true
         onTriggered: root.nowMs = Date.now()
-    }
-
-    Connections {
-        target: Mpris.players
-        function onValuesChanged() {
-            root.refreshPlayers();
-        }
-        function onObjectInsertedPost() {
-            root.refreshPlayers();
-        }
-        function onObjectRemovedPost() {
-            root.refreshPlayers();
-        }
     }
 
     Column {
@@ -312,46 +243,6 @@ Rectangle {
             }
         }
 
-        MediaCard {
-            width: parent.width
-            player: root.activePlayer()
-            playerIndex: root.effectivePlayerIndex()
-        }
-
-        Row {
-            width: parent.width
-            height: visible ? 10 : 0
-            visible: root.players().length > 1
-            spacing: 6
-            layoutDirection: Qt.LeftToRight
-
-            Item {
-                width: Math.max(0, (parent.width - dotRepeater.count * 6 - Math.max(0, dotRepeater.count - 1) * parent.spacing) / 2)
-                height: 1
-            }
-
-            Repeater {
-                id: dotRepeater
-
-                model: root.players().length
-
-                Rectangle {
-                    width: 6
-                    height: 6
-                    radius: 999
-                    anchors.verticalCenter: parent.verticalCenter
-                    color: index === root.effectivePlayerIndex() ? Theme.blue : Theme.surfaceAlt
-
-                    MouseArea {
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.selectPlayer(index)
-                    }
-                }
-            }
-        }
-
         Rectangle {
             width: parent.width
             height: 1
@@ -429,229 +320,6 @@ Rectangle {
         }
     }
 
-    component MediaCard: Rectangle {
-        id: media
-
-        property var player
-        property int playerIndex: -1
-        property real visualPosition: player && player.positionSupported ? player.position : 0
-        property real wheelAccumulatedX: 0
-        property double wheelSwitchAllowedAt: 0
-        readonly property bool hasPlayer: !!player
-        readonly property real lengthValue: hasPlayer && player.lengthSupported ? Math.max(0, player.length) : 0
-        readonly property real progress: lengthValue > 0 ? Math.max(0, Math.min(1, visualPosition / lengthValue)) : 0
-
-        height: hasPlayer ? 108 : 0
-        visible: hasPlayer
-        radius: 8
-        color: Theme.surface
-        border.color: Theme.surfaceAlt
-        border.width: 1
-        clip: true
-        onPlayerChanged: visualPosition = player && player.positionSupported ? player.position : 0
-        onPlayerIndexChanged: {
-            if (hasPlayer)
-                switchAnimation.restart();
-        }
-
-        SequentialAnimation {
-            id: switchAnimation
-
-            PropertyAction {
-                target: mediaBody
-                property: "opacity"
-                value: 0.28
-            }
-
-            PropertyAction {
-                target: mediaBody
-                property: "scale"
-                value: 0.985
-            }
-
-            ParallelAnimation {
-                NumberAnimation {
-                    target: mediaBody
-                    property: "opacity"
-                    to: 1
-                    duration: 150
-                    easing.type: Easing.OutCubic
-                }
-
-                NumberAnimation {
-                    target: mediaBody
-                    property: "scale"
-                    to: 1
-                    duration: 170
-                    easing.type: Easing.OutCubic
-                }
-            }
-        }
-
-        Timer {
-            interval: 1000
-            running: media.hasPlayer && media.player.isPlaying && media.lengthValue > 0
-            repeat: true
-            onTriggered: media.visualPosition = Math.min(media.lengthValue, media.visualPosition + 1)
-        }
-
-        Connections {
-            target: media.player
-            function onPositionChanged() {
-                media.visualPosition = media.player.position;
-            }
-            function onTrackChanged() {
-                media.visualPosition = media.player.positionSupported ? media.player.position : 0;
-            }
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            z: 20
-            acceptedButtons: Qt.NoButton
-            hoverEnabled: true
-            onWheel: (wheel) => {
-                const pixelX = wheel.pixelDelta.x || 0;
-                const pixelY = wheel.pixelDelta.y || 0;
-                const angleX = wheel.angleDelta.x || 0;
-                const angleY = wheel.angleDelta.y || 0;
-                const horizontal = Math.abs(pixelX) >= Math.abs(pixelY) && pixelX !== 0 ? pixelX * 8 : Math.abs(angleX) >= Math.abs(angleY) ? angleX : 0;
-                const now = Date.now();
-                if (horizontal === 0)
-                    return ;
-
-                wheel.accepted = true;
-                media.wheelAccumulatedX += horizontal;
-                if (Math.abs(media.wheelAccumulatedX) < 80 || now < media.wheelSwitchAllowedAt)
-                    return ;
-
-                if (media.wheelAccumulatedX > 0)
-                    root.selectRelativePlayer(-1);
-                else
-                    root.selectRelativePlayer(1);
-
-                media.wheelAccumulatedX = 0;
-                media.wheelSwitchAllowedAt = now + 260;
-            }
-        }
-
-        Row {
-            id: mediaBody
-
-            anchors.fill: parent
-            anchors.margins: 8
-            spacing: 10
-            transformOrigin: Item.Center
-
-            Rectangle {
-                width: height
-                height: parent.height
-                radius: 6
-                color: Theme.background
-                border.color: Qt.rgba(1, 1, 1, 0.10)
-                border.width: 1
-                clip: true
-
-                Image {
-                    id: albumImage
-
-                    anchors.fill: parent
-                    anchors.margins: 1
-                    source: media.player && media.player.trackArtUrl ? media.player.trackArtUrl : ""
-                    fillMode: Image.PreserveAspectCrop
-                    visible: status === Image.Ready
-                }
-
-                Text {
-                    anchors.centerIn: parent
-                    visible: !albumImage.visible
-                    text: "󰎆"
-                    color: Theme.muted
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 24
-                }
-            }
-
-            Column {
-                width: parent.width - parent.spacing - parent.children[0].width
-                spacing: 5
-                anchors.verticalCenter: parent.verticalCenter
-
-                Text {
-                    width: parent.width
-                    text: media.player && media.player.trackTitle ? media.player.trackTitle : media.player ? media.player.identity : ""
-                    color: Theme.foreground
-                    font.family: Theme.bodyFontFamily
-                    font.pixelSize: 14
-                    font.bold: true
-                    elide: Text.ElideRight
-                }
-
-                Text {
-                    width: parent.width
-                    text: media.player && media.player.trackArtist ? media.player.trackArtist : media.player && media.player.trackAlbum ? media.player.trackAlbum : ""
-                    color: Theme.muted
-                    font.family: Theme.bodyFontFamily
-                    font.pixelSize: 12
-                    elide: Text.ElideRight
-                }
-
-                Item {
-                    width: parent.width
-                    height: 14
-
-                    Text {
-                        anchors.left: parent.left
-                        text: root.timeText(media.visualPosition)
-                        color: Theme.muted
-                        font.family: Theme.bodyFontFamily
-                        font.pixelSize: 10
-                    }
-
-                    Text {
-                        anchors.right: parent.right
-                        text: root.timeText(media.lengthValue)
-                        color: Theme.muted
-                        font.family: Theme.bodyFontFamily
-                        font.pixelSize: 10
-                        horizontalAlignment: Text.AlignRight
-                    }
-                }
-
-                Rectangle {
-                    id: progressTrack
-
-                    width: parent.width
-                    height: 10
-                    radius: 999
-                    color: Theme.background
-                    border.color: Qt.rgba(1, 1, 1, 0.08)
-                    border.width: 1
-
-                    Rectangle {
-                        width: Math.max(parent.height, Math.round((parent.width - 2) * media.progress))
-                        height: parent.height - 2
-                        x: 1
-                        y: 1
-                        radius: 999
-                        color: Theme.blue
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        enabled: media.player && media.player.canSeek && media.lengthValue > 0
-                        hoverEnabled: true
-                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                        onClicked: {
-                            const ratio = Math.max(0, Math.min(1, mouse.x / width));
-                            media.player.position = ratio * media.lengthValue;
-                            media.visualPosition = media.player.position;
-                        }
-                    }
-                }
-            }
-        }
-    }
 
     component NotificationCard: Rectangle {
         id: card

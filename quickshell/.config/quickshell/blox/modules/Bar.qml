@@ -503,7 +503,7 @@ Scope {
 
     function systemPanelBody() {
         if (openPanel === "audio")
-            return (audio.json.tooltip || "Audio unavailable") + "\n\nVolume " + (audio.json.volume || 0) + "%";
+            return "";
 
         if (openPanel === "network")
             return network.json.tooltip || "Network unavailable";

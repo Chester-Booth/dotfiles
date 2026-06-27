@@ -214,9 +214,11 @@ Item {
             brightnessIcon: root.brightnessIcon
             brightnessPercent: root.brightnessPercent
             blueLightMode: root.blueLightMode
+            activeMprisPlayerIndex: root.activeMprisPlayerIndex
             scriptRoot: root.scriptRoot
             onAction: (command, keepOpen) => root.systemAction(command, keepOpen)
             onSectionSelected: (panel) => root.selectSystemPanel(panel)
+            onSelectMprisPlayer: (index) => root.selectMprisPlayer(index)
         }
     }
 
@@ -234,12 +236,10 @@ Item {
 
             notifications: root.notificationsModel
             dnd: root.notificationDnd
-            activePlayerIndex: root.activeMprisPlayerIndex
             maxPopoutHeight: Math.min(720, Math.max(240, root.panelHeight - 16))
             onClearAll: root.clearNotifications()
             onToggleDnd: root.toggleNotificationDnd()
             onActivate: (notification) => root.activateNotification(notification)
-            onSelectPlayer: (index) => root.selectMprisPlayer(index)
         }
     }
 

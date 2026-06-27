@@ -10,7 +10,7 @@ if [[ -z "$show" ]]; then
 elif [[ "$powered" != "yes" ]]; then
     jq -nc '{"icon":"󰂲","class":"disabled","tooltip":"Bluetooth off"}'
 elif [[ -n "$connected" ]]; then
-    jq -nc --arg connected "$connected" '{"icon":"󰂱","class":"connected","tooltip":("Connected:\n" + $connected)}'
+    jq -nc --arg connected "$connected" '{"icon":"󰂱","class":"connected","tooltip":("Connected: " + $connected)}'
 else
     jq -nc '{"icon":"󰂯","class":"on","tooltip":"Bluetooth on"}'
 fi

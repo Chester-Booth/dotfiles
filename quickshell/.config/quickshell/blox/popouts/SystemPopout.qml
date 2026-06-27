@@ -14,6 +14,8 @@ Rectangle {
     property string audioIcon: "󰕾"
     property bool audioMuted: false
     property bool micMuted: false
+    property bool networkEnabled: true
+    property bool bluetoothEnabled: true
     property string wifiIcon: "󰤩"
     property string wifiText: "Wi-Fi"
     property string bluetoothIcon: "󰂯"
@@ -24,13 +26,11 @@ Rectangle {
     property int visualAudioVolume: audioVolume
     property int visualBrightnessPercent: brightnessPercent
     property string visualBlueLightMode: blueLightMode
-    property int activeMprisPlayerIndex: -1
     readonly property bool audioOverdriven: currentMode() === "audio" && !audioMuted && audioVolume > 100
     readonly property bool visualAudioOverdriven: currentMode() === "audio" && !audioMuted && visualAudioVolume > 100
 
     signal action(string command, bool keepOpen)
     signal sectionSelected(string panel)
-    signal selectMprisPlayer(int index)
 
     function currentMode() {
         return mode === "mic" ? "bluetooth" : mode;
@@ -81,27 +81,9 @@ Rectangle {
             return brightnessPercent + "% • " + (blueLightActive ? "Active" : "Inactive");
 
         if (currentMode() === "bluetooth")
-            return (micMuted ? "Mic muted" : "Mic open") + "  |  " + body.split("\n").slice(0, -1).join(" ");
+            return body.split("\n").join(" ");
 
         return body.split("\n")[0];
-    }
-
-    function micActions() {
-        return actions.filter((item) => {
-            return String(item.label || "").toLowerCase().indexOf("mic") >= 0;
-        });
-    }
-
-    function bluetoothActions() {
-        return actions.filter((item) => {
-            return String(item.label || "").toLowerCase().indexOf("mic") < 0;
-        });
-    }
-
-    function normalActions() {
-        return actions.filter((item) => {
-            return String(item.label || "").toLowerCase().indexOf("open app") < 0;
-        });
     }
 
     onAudioVolumeChanged: visualAudioVolume = audioVolume
@@ -213,7 +195,7 @@ Rectangle {
                     height: 30
                     radius: 7
                     color: cogMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
-                    visible: root.actionByLabel("open app") !== null && root.currentMode() !== "bluetooth"
+                    visible: root.actionByLabel("open app") !== null
 
                     Text {
                         anchors.centerIn: parent
@@ -249,11 +231,37 @@ Rectangle {
                 }
             }
 
-            MediaPlayer {
+            SlideToggle {
                 Layout.fillWidth: true
                 visible: root.currentMode() === "audio"
-                activePlayerIndex: root.activeMprisPlayerIndex
-                onSelectPlayer: (index) => root.selectMprisPlayer(index)
+                title: "Microphone"
+                currentText: root.micMuted ? "Muted" : "Open"
+                leftSelected: !root.micMuted
+                leftIcon: "󰍬"
+                rightIcon: "󰍭"
+                onToggled: root.action("pactl set-source-mute @DEFAULT_SOURCE@ toggle", true)
+            }
+
+            SlideToggle {
+                Layout.fillWidth: true
+                visible: root.currentMode() === "network"
+                title: "Wi-Fi"
+                currentText: root.networkEnabled ? "On" : "Off"
+                leftSelected: root.networkEnabled
+                leftIcon: "󰤯"
+                rightIcon: "󰤭"
+                onToggled: root.action("nmcli radio wifi " + (root.networkEnabled ? "off" : "on"), true)
+            }
+
+            SlideToggle {
+                Layout.fillWidth: true
+                visible: root.currentMode() === "bluetooth"
+                title: "Bluetooth"
+                currentText: root.bluetoothEnabled ? "On" : "Off"
+                leftSelected: root.bluetoothEnabled
+                leftIcon: "󰂯"
+                rightIcon: "󰂲"
+                onToggled: root.action("rfkill toggle bluetooth", true)
             }
 
             LevelSlider {
@@ -265,11 +273,6 @@ Rectangle {
                     root.visualBrightnessPercent = value;
                     root.action("brightnessctl -d amdgpu_bl1 set " + value + "%", true);
                 }
-            }
-
-            Item {
-                Layout.fillHeight: true
-                visible: root.currentMode() === "brightness"
             }
 
             SegmentControl {
@@ -301,7 +304,7 @@ Rectangle {
 
             Text {
                 Layout.fillWidth: true
-                visible: root.body.length > 0 && root.currentMode() !== "bluetooth" && root.currentMode() !== "brightness"
+                visible: root.body.length > 0 && root.currentMode() !== "network" && root.currentMode() !== "bluetooth" && root.currentMode() !== "brightness"
                 text: root.body
                 color: Theme.foreground
                 font.family: Theme.bodyFontFamily
@@ -309,83 +312,6 @@ Rectangle {
                 wrapMode: Text.Wrap
                 maximumLineCount: 4
                 elide: Text.ElideRight
-            }
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 8
-                visible: root.currentMode() === "bluetooth"
-
-                Text {
-                    Layout.fillWidth: true
-                    text: "Microphone"
-                    color: Theme.muted
-                    font.family: Theme.bodyFontFamily
-                    font.pixelSize: 12
-                    font.bold: true
-                }
-
-                Flow {
-                    Layout.fillWidth: true
-                    spacing: 8
-
-                    Repeater {
-                        model: root.micActions()
-
-                        ActionChip {
-                            label: modelData.label || ""
-                            danger: !!modelData.danger
-                            onClicked: root.action(modelData.command || "", !!modelData.keepOpen)
-                        }
-
-                    }
-
-                }
-
-                Text {
-                    Layout.fillWidth: true
-                    text: "Bluetooth"
-                    color: Theme.muted
-                    font.family: Theme.bodyFontFamily
-                    font.pixelSize: 12
-                    font.bold: true
-                }
-
-                Flow {
-                    Layout.fillWidth: true
-                    spacing: 8
-
-                    Repeater {
-                        model: root.bluetoothActions()
-
-                        ActionChip {
-                            label: modelData.label || ""
-                            danger: !!modelData.danger
-                            onClicked: root.action(modelData.command || "", !!modelData.keepOpen)
-                        }
-
-                    }
-
-                }
-
-            }
-
-            Flow {
-                Layout.fillWidth: true
-                spacing: 8
-                visible: root.currentMode() !== "bluetooth"
-
-                Repeater {
-                    model: root.normalActions()
-
-                    ActionChip {
-                        label: modelData.label || ""
-                        danger: !!modelData.danger
-                        onClicked: root.action(modelData.command || "", !!modelData.keepOpen)
-                    }
-
-                }
-
             }
 
         }
@@ -519,39 +445,103 @@ Rectangle {
 
     }
 
-    component ActionChip: Rectangle {
-        id: chip
+    component SlideToggle: ColumnLayout {
+        id: toggle
 
-        property string label: ""
-        property bool danger: false
+        property string title: ""
+        property string currentText: ""
+        property bool leftSelected: true
+        property string leftIcon: ""
+        property string rightIcon: ""
 
-        signal clicked()
+        signal toggled()
 
-        width: Math.max(46, chipLabel.implicitWidth + 20)
-        height: 32
-        radius: 8
-        color: chipMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
-        border.color: danger ? Theme.red : Theme.surfaceAlt
-        border.width: 1
+        spacing: 4
 
-        Text {
-            id: chipLabel
+        RowLayout {
+            Layout.fillWidth: true
 
-            anchors.centerIn: parent
-            text: chip.label
-            color: chip.danger ? Theme.red : Theme.foreground
-            font.family: Theme.bodyFontFamily
-            font.pixelSize: 11
-            font.bold: true
+            Text {
+                Layout.fillWidth: true
+                text: toggle.title
+                color: Theme.muted
+                font.family: Theme.bodyFontFamily
+                font.pixelSize: 12
+                font.bold: true
+            }
+
+            Text {
+                text: toggle.currentText
+                color: Theme.foreground
+                font.family: Theme.bodyFontFamily
+                font.pixelSize: 10
+                horizontalAlignment: Text.AlignRight
+                elide: Text.ElideRight
+            }
+
         }
 
-        MouseArea {
-            id: chipMouse
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 32
+            radius: 999
+            color: Theme.surface
+            border.color: Theme.surfaceAlt
+            border.width: 1
 
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: chip.clicked()
+            Rectangle {
+                width: (parent.width - 6) / 2
+                height: 26
+                radius: 13
+                x: toggle.leftSelected ? 3 : parent.width - width - 3
+                anchors.verticalCenter: parent.verticalCenter
+                color: "#66453d3d"
+
+                Behavior on x {
+                    NumberAnimation {
+                        duration: 120
+                        easing.type: Easing.OutCubic
+                    }
+                }
+            }
+
+            Item {
+                anchors.left: parent.left
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                width: parent.width / 2
+
+                Text {
+                    anchors.centerIn: parent
+                    text: toggle.leftIcon
+                    color: toggle.leftSelected ? Theme.blue : Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 14
+                }
+            }
+
+            Item {
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                width: parent.width / 2
+
+                Text {
+                    anchors.centerIn: parent
+                    text: toggle.rightIcon
+                    color: toggle.leftSelected ? Theme.foreground : Theme.yellow
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 14
+                }
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: toggle.toggled()
+            }
+
         }
 
     }

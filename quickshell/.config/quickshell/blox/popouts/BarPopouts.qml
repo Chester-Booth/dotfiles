@@ -29,6 +29,8 @@ Item {
     property string audioIcon: "󰕾"
     property bool audioMuted: false
     property bool micMuted: false
+    property bool networkEnabled: true
+    property bool bluetoothEnabled: true
     property string wifiIcon: "󰤩"
     property string wifiText: "Wi-Fi"
     property string bluetoothIcon: "󰂯"
@@ -167,6 +169,28 @@ Item {
     }
 
     HoverPopupWindow {
+        id: mediaWindow
+
+        anchorWindow: root.panelWindow
+        anchorY: Math.max(8, systemWindow.anchorY - mediaPlayer.implicitHeight - 8)
+        contentWidth: 330
+        contentHeight: mediaPlayer.implicitHeight
+        open: root.openPanel === "audio"
+        onHoverEntered: root.hoverEntered()
+        onHoverExited: root.hoverExited()
+
+        MediaPlayer {
+            id: mediaPlayer
+
+            width: 330
+            activePlayerIndex: root.activeMprisPlayerIndex
+            onSelectPlayer: (index) => root.selectMprisPlayer(index)
+        }
+    }
+
+    HoverPopupWindow {
+        id: performanceWindow
+
         anchorWindow: root.panelWindow
         anchorY: Math.max(8, Math.min(root.panelHeight - performancePopout.height - 8, root.openPanelY - performancePopout.height / 2))
         contentWidth: performancePopout.width
@@ -187,6 +211,8 @@ Item {
     }
 
     HoverPopupWindow {
+        id: systemWindow
+
         anchorWindow: root.panelWindow
         anchorY: Math.max(8, Math.min(root.panelHeight - systemPopout.height - 8, root.openPanelY - systemPopout.height / 2))
         contentWidth: systemPopout.width
@@ -210,6 +236,8 @@ Item {
             audioIcon: root.audioIcon
             audioMuted: root.audioMuted
             micMuted: root.micMuted
+            networkEnabled: root.networkEnabled
+            bluetoothEnabled: root.bluetoothEnabled
             wifiIcon: root.wifiIcon
             wifiText: root.wifiText
             bluetoothIcon: root.bluetoothIcon
@@ -217,11 +245,9 @@ Item {
             brightnessPercent: root.brightnessPercent
             blueLightMode: root.blueLightMode
             blueLightActive: root.blueLightActive
-            activeMprisPlayerIndex: root.activeMprisPlayerIndex
             scriptRoot: root.scriptRoot
             onAction: (command, keepOpen) => root.systemAction(command, keepOpen)
             onSectionSelected: (panel) => root.selectSystemPanel(panel)
-            onSelectMprisPlayer: (index) => root.selectMprisPlayer(index)
         }
     }
 

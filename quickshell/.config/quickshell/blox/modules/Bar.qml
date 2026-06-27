@@ -484,7 +484,7 @@ Scope {
             return "Network";
 
         if (openPanel === "bluetooth")
-            return "Mic / Bluetooth";
+            return "Bluetooth";
 
         if (openPanel === "mic")
             return "Microphone";
@@ -509,7 +509,7 @@ Scope {
             return (network.json.tooltip || "Network unavailable").split("\n").slice(1).join("\n");
 
         if (openPanel === "bluetooth")
-            return (bluetooth.json.tooltip || "Bluetooth unavailable") + "\n" + (audio.json.micMuted ? "Microphone muted" : "Microphone open");
+            return bluetooth.json.tooltip || "Bluetooth unavailable";
 
         if (openPanel === "mic")
             return audio.json.micMuted ? "Microphone muted" : "Microphone open";
@@ -529,6 +529,10 @@ Scope {
     function systemPanelActions() {
         if (openPanel === "audio")
             return [{
+            "label": audio.json.micMuted ? "Unmute mic" : "Mute mic",
+            "command": "pactl set-source-mute @DEFAULT_SOURCE@ toggle",
+            "keepOpen": true
+        }, {
             "label": "Open app",
             "command": "pavucontrol -t 3"
         }];
@@ -549,15 +553,8 @@ Scope {
             "command": "rfkill toggle bluetooth",
             "keepOpen": true
         }, {
-            "label": audio.json.micMuted ? "Unmute mic" : "Mute mic",
-            "command": "pactl set-source-mute @DEFAULT_SOURCE@ toggle",
-            "keepOpen": true
-        }, {
             "label": "Open app",
             "command": "blueman-manager"
-        }, {
-            "label": "Mic settings",
-            "command": "pavucontrol -t 4"
         }];
 
         if (openPanel === "mic")
@@ -1591,6 +1588,8 @@ Scope {
                 audioIcon: audio.json.icon || "󰕾"
                 audioMuted: !!audio.json.muted
                 micMuted: !!audio.json.micMuted
+                networkEnabled: network.json.class !== "disabled"
+                bluetoothEnabled: bluetooth.json.class !== "disabled"
                 wifiIcon: network.json.icon || "󰤩"
                 wifiText: network.json.ssid || network.json.class || "Wi-Fi"
                 bluetoothIcon: bluetooth.json.icon || "󰂯"

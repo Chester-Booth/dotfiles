@@ -250,6 +250,7 @@ Rectangle {
                 color: Theme.muted
                 font.family: Theme.bodyFontFamily
                 font.pixelSize: 11
+                font.bold: true
             }
 
             Text {

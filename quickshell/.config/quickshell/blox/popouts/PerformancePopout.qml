@@ -75,27 +75,22 @@ Rectangle {
             Layout.fillWidth: true
             spacing: 9
 
-            Rectangle {
-                width: 34
-                height: 34
-                radius: 17
-                color: "#3324231b"
-                border.color: "#55f9e2af"
-                border.width: 1
+            Item {
+                width: 30
+                height: 30
 
                 Text {
                     anchors.centerIn: parent
                     text: "󰓅"
                     color: Theme.yellow
                     font.family: Theme.fontFamily
-                    font.pixelSize: 18
+                    font.pixelSize: 24
                 }
-
             }
 
             Item {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 34
+                Layout.preferredHeight: 30
 
                 Text {
                     anchors.left: parent.left
@@ -103,7 +98,7 @@ Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "Performance"
                     color: Theme.foreground
-                    font.family: Theme.fontFamily
+                    font.family: Theme.bodyFontFamily
                     font.pixelSize: 15
                     font.bold: true
                 }
@@ -426,6 +421,7 @@ Rectangle {
                 color: Theme.muted
                 font.family: Theme.bodyFontFamily
                 font.pixelSize: 11
+                font.bold: true
             }
 
             Text {

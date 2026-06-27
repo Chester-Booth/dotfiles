@@ -220,6 +220,20 @@ Rectangle {
             clip: true
             boundsBehavior: Flickable.StopAtBounds
 
+            WheelHandler {
+                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+
+                onWheel: (event) => {
+                    const pixelDelta = event.pixelDelta.y || 0;
+                    const angleDelta = event.angleDelta.y || 0;
+                    const delta = pixelDelta !== 0 ? pixelDelta : angleDelta / 2;
+
+                    const maximumContentY = Math.max(notificationList.originY, notificationList.originY + notificationList.contentHeight - notificationList.height);
+                    notificationList.contentY = Math.max(notificationList.originY, Math.min(maximumContentY, notificationList.contentY - delta * 4));
+                    event.accepted = true;
+                }
+            }
+
             Column {
                 id: listContent
 

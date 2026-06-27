@@ -10,12 +10,11 @@ hl.bind(mainMod .. " + Q", exec("/home/blox/.local/bin/ktr killactive"))
 hl.bind(mainMod .. " + L", exec("~/.config/quickshell/blox/scripts/power/safe.sh lock"))
 hl.bind(mainMod .. " + E", exec(programs.file_manager))
 hl.bind(mainMod .. " + F", hl.dsp.window.float())
-hl.bind(mainMod .. " + M", exec("kitty --class micro-active -e micro"))
+hl.bind(mainMod .. " + M", exec("kitty --class micro-active -e /home/blox/.local/bin/micro"))
 hl.bind(mainMod .. " + space", exec(programs.menu))
 hl.bind(mainMod .. " + N", exec("quickshell ipc -c blox call notifications toggle"))
 hl.bind(mainMod .. " + SHIFT + O", exec("~/.config/hypr/scripts/toggle-orca.sh"))
 hl.bind(mainMod .. " + P", hl.dsp.window.pseudo())
-hl.bind(mainMod .. " + J", hl.dsp.layout("togglesplit"))
 
 -- Move focus with mainMod + arrow keys.
 hl.bind(mainMod .. " + left", hl.dsp.focus({ direction = "l" }))

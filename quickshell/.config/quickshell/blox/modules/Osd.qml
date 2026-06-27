@@ -270,6 +270,46 @@ Scope {
         onTriggered: keyboardWatcher.running = true
     }
 
+    Timer {
+        id: restartAudioWatcher
+
+        interval: 2000
+        repeat: false
+        onTriggered: audioWatcher.running = true
+    }
+
+    Process {
+        id: audioWatcher
+
+        command: [root.scriptRoot + "/osd/watch-audio.sh"]
+        running: true
+        onExited: (exitCode) => {
+            if (exitCode !== 0)
+                restartAudioWatcher.restart();
+
+        }
+        Component.onDestruction: {
+            if (running)
+                signal(15);
+
+        }
+
+        stdout: SplitParser {
+            splitMarker: "\n"
+            onRead: (data) => {
+                let event = {
+                };
+                try {
+                    event = JSON.parse(data.trim());
+                } catch (error) {
+                    return ;
+                }
+                root.show("volume", event.volume, event.muted);
+            }
+        }
+
+    }
+
     Process {
         id: keyboardWatcher
 
@@ -278,11 +318,12 @@ Scope {
         onExited: (exitCode) => {
             if (exitCode !== 0)
                 restartKeyboardWatcher.restart();
-        }
 
+        }
         Component.onDestruction: {
             if (running)
                 signal(15);
+
         }
 
         stdout: SplitParser {

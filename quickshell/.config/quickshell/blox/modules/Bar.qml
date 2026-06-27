@@ -917,7 +917,7 @@ Scope {
                     visible: root.notificationToastsEnabled && root.toastItems.length > 0 && !root.notificationDnd
                     toasts: root.toastItems
                     onDismiss: (notification, closeNotification) => {
-                        root.removeNotificationToast(notification);
+                        notifications.removeToast(notification);
                         if (notification && closeNotification)
                             notification.dismiss();
 

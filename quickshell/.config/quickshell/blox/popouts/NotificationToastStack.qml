@@ -10,6 +10,7 @@ Item {
     readonly property int sidePadding: 12
     readonly property int visibleWidth: toastWidth + sidePadding * 2
     readonly property int dismissTravel: toastWidth + sidePadding
+    property var animatedToastIds: ({})
 
     signal dismiss(var notification, bool closeNotification)
     signal activate(var notification)
@@ -25,8 +26,29 @@ Item {
         return notification && notification.image ? notification.image : "";
     }
 
+    function takeEntranceAnimation(toastId) {
+        if (animatedToastIds[toastId] === true)
+            return false;
+
+        animatedToastIds[toastId] = true;
+        return true;
+    }
+
+    function pruneEntranceHistory() {
+        const retained = {};
+        const current = toasts || [];
+        for (let i = 0; i < current.length; i++) {
+            const toastId = current[i].toastId;
+            if (animatedToastIds[toastId] === true)
+                retained[toastId] = true;
+
+        }
+        animatedToastIds = retained;
+    }
+
     width: visibleWidth + dismissTravel
     implicitHeight: toastColumn.implicitHeight
+    onToastsChanged: pruneEntranceHistory()
 
     Column {
         id: toastColumn
@@ -45,6 +67,7 @@ Item {
                 property bool dismissing: false
                 property bool dragged: false
                 property bool closeNotificationOnDismiss: false
+                property bool animateHorizontalMovement: true
                 readonly property bool hasImage: root.imageFor(notification).length > 0
 
                 function finishDismiss(closeNotification) {
@@ -66,7 +89,11 @@ Item {
                 border.color: notification && notification.urgency === NotificationUrgency.Critical ? Theme.red : Theme.surfaceAlt
                 border.width: 1
                 Component.onCompleted: {
+                    animateHorizontalMovement = root.takeEntranceAnimation(modelData.toastId);
                     x = 0;
+                    if (!animateHorizontalMovement)
+                        Qt.callLater(() => animateHorizontalMovement = true);
+
                 }
 
                 Timer {
@@ -80,7 +107,7 @@ Item {
                 Timer {
                     id: expiryTimer
 
-                    interval: Math.max(3500, modelData.timeout || 6000)
+                    interval: modelData.expiresAt ? Math.max(1, modelData.expiresAt - Date.now()) : Math.max(3500, modelData.timeout || 6000)
                     repeat: false
                     running: !toast.dismissing
                     onTriggered: toast.finishDismiss(false)
@@ -208,7 +235,7 @@ Item {
                 }
 
                 Behavior on x {
-                    enabled: !toastMouse.drag.active
+                    enabled: toast.animateHorizontalMovement && !toastMouse.drag.active
 
                     NumberAnimation {
                         duration: 180

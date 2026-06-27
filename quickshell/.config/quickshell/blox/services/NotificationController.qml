@@ -15,6 +15,7 @@ Scope {
     property var toasts: []
     property bool initialSyncComplete: false
     property double toggleAllowedAt: 0
+    property int nextToastId: 0
 
     signal openRequested(real centreY)
     signal closeRequested()
@@ -71,10 +72,13 @@ Scope {
             return ;
 
         const timeout = notification.expireTimeout && notification.expireTimeout > 0 ? notification.expireTimeout : 6000;
+        const boundedTimeout = Math.max(3500, Math.min(12000, timeout));
         const next = toasts ? toasts.slice() : [];
         next.unshift({
+            "toastId": ++nextToastId,
             "notification": notification,
-            "timeout": Math.max(3500, Math.min(12000, timeout))
+            "timeout": boundedTimeout,
+            "expiresAt": Date.now() + boundedTimeout
         });
         toasts = next.slice(0, 4);
     }

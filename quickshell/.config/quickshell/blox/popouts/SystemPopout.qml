@@ -80,7 +80,7 @@ Rectangle {
             return brightnessPercent + "%";
 
         if (currentMode() === "bluetooth")
-            return (micMuted ? "Mic muted" : "Mic open") + "  |  " + body.split("\n")[0];
+            return (micMuted ? "Mic muted" : "Mic open") + "  |  " + body.split("\n").slice(0, -1).join(" ");
 
         return body.split("\n")[0];
     }
@@ -292,7 +292,7 @@ Rectangle {
 
             Text {
                 Layout.fillWidth: true
-                visible: root.body.length > 0
+                visible: root.body.length > 0 && root.currentMode() !== "bluetooth"
                 text: root.body
                 color: Theme.foreground
                 font.family: Theme.bodyFontFamily

@@ -506,7 +506,7 @@ Scope {
             return "";
 
         if (openPanel === "network")
-            return network.json.tooltip || "Network unavailable";
+            return (network.json.tooltip || "Network unavailable").split("\n").slice(1).join("\n");
 
         if (openPanel === "bluetooth")
             return (bluetooth.json.tooltip || "Bluetooth unavailable") + "\n" + (audio.json.micMuted ? "Microphone muted" : "Microphone open");
@@ -515,7 +515,7 @@ Scope {
             return audio.json.micMuted ? "Microphone muted" : "Microphone open";
 
         if (openPanel === "brightness")
-            return brightness.json.tooltip || "Brightness unavailable";
+            return (brightness.json.tooltip || "Brightness unavailable").split("\n").slice(1).join("\n");
 
         if (openPanel === "system")
             return "Fan\n" + (systemInfo.json.profile || "Unknown") + "\n\nGPU\n" + (systemInfo.json.gpuLabel || "GPU unavailable");
@@ -699,7 +699,7 @@ Scope {
             return updateBody();
 
         if (openPanel === "caffeine")
-            return caffeine.json.tooltip || "Awake status unavailable";
+            return "";
 
         if (openPanel === "bluetooth")
             return bluetooth.json.tooltip || "Bluetooth status unavailable";

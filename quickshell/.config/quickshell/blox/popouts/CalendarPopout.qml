@@ -96,6 +96,8 @@ Rectangle {
                 height: 30
                 radius: 5
                 color: prevMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
+                border.color: Theme.surfaceAlt
+                border.width: 1
 
                 Text {
                     anchors.centerIn: parent
@@ -141,6 +143,8 @@ Rectangle {
                 height: 30
                 radius: 5
                 color: nextMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
+                border.color: Theme.surfaceAlt
+                border.width: 1
 
                 Text {
                     anchors.centerIn: parent

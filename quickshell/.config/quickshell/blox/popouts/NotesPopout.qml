@@ -98,6 +98,8 @@ Rectangle {
                     visible: modelData.icon !== ""
                     radius: 5
                     color: (root.editing && (modelData.action === "prev" || modelData.action === "next")) ? "transparent" : noteMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
+                    border.color: Theme.surfaceAlt
+                    border.width: 1
                     opacity: (root.editing && (modelData.action === "prev" || modelData.action === "next")) ? 0.35 : 1
 
                     Text {

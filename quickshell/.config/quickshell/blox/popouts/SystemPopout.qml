@@ -212,6 +212,8 @@ Rectangle {
                     height: 30
                     radius: 7
                     color: cogMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
+                    border.color: Theme.surfaceAlt
+                    border.width: 1
                     visible: root.actionByLabel("open app") !== null
 
                     Text {

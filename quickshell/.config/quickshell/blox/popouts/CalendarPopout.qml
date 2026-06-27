@@ -11,6 +11,7 @@ Rectangle {
     property var events: []
     property string eventsText: ""
     property string eventsError: ""
+    property bool eventsLoading: false
     property string newEventTitle: ""
     property int addRevision: 0
     property bool addBusy: false
@@ -259,7 +260,7 @@ Rectangle {
             }
 
             Repeater {
-                model: root.events
+                model: root.eventsLoading ? [] : root.events
 
                 Rectangle {
                     Layout.fillWidth: true

@@ -28,6 +28,8 @@ Item {
     property date clockDate
     property string selectedCalendarDate: ""
     property var calendarStatus
+    readonly property string effectiveCalendarDate: selectedCalendarDate || Qt.formatDate(clockDate, "yyyy-MM-dd")
+    readonly property bool calendarLoading: !calendarStatus || calendarStatus.date !== effectiveCalendarDate
     property var systemStatus
     property bool performanceActionBusy: false
     property string performanceActionError: ""
@@ -189,9 +191,10 @@ Item {
             addRevision: root.calendarAddRevision
             addBusy: root.calendarAddBusy
             addError: root.calendarAddError
-            events: root.calendarStatus && root.calendarStatus.events ? root.calendarStatus.events : []
-            eventsText: root.calendarStatus && root.calendarStatus.raw ? root.calendarStatus.raw : "No events"
-            eventsError: root.calendarStatus && root.calendarStatus.ok === false ? (root.calendarStatus.error || "Calendar request failed") : ""
+            eventsLoading: root.calendarLoading
+            events: !root.calendarLoading && root.calendarStatus.events ? root.calendarStatus.events : []
+            eventsText: root.calendarLoading ? "Loading…" : root.calendarStatus.raw || "No events"
+            eventsError: !root.calendarLoading && root.calendarStatus.ok === false ? (root.calendarStatus.error || "Calendar request failed") : ""
             onResetMonth: root.resetCalendarMonth()
             onSelected: (day) => {
                 return root.selectCalendarDate(day);

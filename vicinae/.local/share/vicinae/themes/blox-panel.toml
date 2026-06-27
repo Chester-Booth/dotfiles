@@ -1,9 +1,9 @@
-# Blox Panel - matches the Quickshell bar, popouts, and SwayNC surfaces.
+# Blox Panel - matches the Quickshell bar, popouts, and notification surfaces.
 
 [meta]
 version = 1
 name = "Blox Panel"
-description = "Dark panel theme matching the Quickshell bar, popouts, and SwayNC."
+description = "Dark panel theme matching the Quickshell bar, popouts, and notifications."
 variant = "dark"
 inherits = "vicinae-dark"
 

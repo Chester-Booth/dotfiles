@@ -682,6 +682,16 @@ Scope {
         return "";
     }
 
+    function panelHeaderStatus() {
+        if (openPanel !== "caffeine" || !caffeine.json.active)
+            return "";
+
+        if (caffeine.json.mode === "indefinite")
+            return "∞";
+
+        return caffeine.json.label || "";
+    }
+
     function panelBody() {
         if (openPanel === "power")
             return "Session actions use the guarded power backend, including the micro guard.";
@@ -1595,6 +1605,7 @@ Scope {
                 basicCurrentId: root.openPanel === "caffeine" ? (caffeine.json.mode || "off") : ""
                 basicHeaderActionIcon: root.panelHeaderActionIcon()
                 basicHeaderActionCommand: root.panelHeaderActionCommand()
+                basicHeaderStatus: root.panelHeaderStatus()
                 notificationsModel: root.notificationItems || []
                 notificationDnd: root.notificationDnd
                 activeMprisPlayerIndex: root.activeMprisPlayerIndex

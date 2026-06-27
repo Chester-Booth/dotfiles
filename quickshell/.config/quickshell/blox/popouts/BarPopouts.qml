@@ -43,6 +43,7 @@ Item {
     property string basicCurrentId: ""
     property string basicHeaderActionIcon: ""
     property string basicHeaderActionCommand: ""
+    property string basicHeaderStatus: ""
     property var notificationsModel: []
     property real maxNotificationHeight: 720
     property bool notificationDnd: false
@@ -265,6 +266,7 @@ Item {
             currentId: root.basicCurrentId
             headerActionIcon: root.basicHeaderActionIcon
             headerActionCommand: root.basicHeaderActionCommand
+            headerStatus: root.basicHeaderStatus
             onAction: (command, keepOpen) => root.basicAction(command, keepOpen)
         }
     }

@@ -11,11 +11,12 @@ Rectangle {
     property string currentId: ""
     property string headerActionIcon: ""
     property string headerActionCommand: ""
+    property string headerStatus: ""
 
     signal action(string command, bool keepOpen)
 
     width: 340
-    height: Math.min(520, Math.max(140, content.implicitHeight + 28))
+    height: Math.min(520, Math.max(root.title === "Awake" ? 110 : 140, content.implicitHeight + 28))
     radius: 8
     color: Theme.background
     border.color: Theme.surfaceAlt
@@ -26,7 +27,7 @@ Rectangle {
 
         anchors.fill: parent
         anchors.margins: 12
-        implicitHeight: headerRow.height + bodyText.implicitHeight + (root.title === "Awake" ? awakeSlider.height : actionFlow.implicitHeight) + 20
+        implicitHeight: headerRow.height + bodyText.implicitHeight + (root.title === "Awake" ? awakeSlider.height + 6 : actionFlow.implicitHeight + 20)
 
         Item {
             id: headerRow
@@ -52,7 +53,7 @@ Rectangle {
                 anchors.left: titleIcon.right
                 anchors.leftMargin: 8
                 anchors.right: headerAction.left
-                anchors.rightMargin: headerAction.visible ? 8 : 0
+                anchors.rightMargin: headerAction.visible || headerStatusText.visible ? 8 : 0
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 1
 
@@ -80,10 +81,11 @@ Rectangle {
             Rectangle {
                 id: headerAction
 
-                anchors.right: parent.right
+                anchors.right: headerStatusText.visible ? headerStatusText.left : parent.right
+                anchors.rightMargin: visible && headerStatusText.visible ? 8 : 0
                 anchors.verticalCenter: parent.verticalCenter
                 visible: root.headerActionCommand.length > 0
-                width: 28
+                width: visible ? 28 : 0
                 height: 28
                 radius: 6
                 color: headerActionMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
@@ -106,6 +108,19 @@ Rectangle {
                     cursorShape: Qt.PointingHandCursor
                     onClicked: root.action(root.headerActionCommand, true)
                 }
+            }
+
+            Text {
+                id: headerStatusText
+
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                visible: root.headerStatus.length > 0
+                text: root.headerStatus
+                color: Theme.foreground
+                font.family: Theme.bodyFontFamily
+                font.pixelSize: root.headerStatus === "∞" ? 20 : 12
+                font.bold: true
             }
 
         }
@@ -193,8 +208,7 @@ Rectangle {
 
             anchors.left: parent.left
             anchors.right: parent.right
-            anchors.top: bodyText.bottom
-            anchors.topMargin: 10
+            anchors.bottom: parent.bottom
             visible: root.title === "Awake"
             currentId: root.currentId || "off"
             options: root.actions

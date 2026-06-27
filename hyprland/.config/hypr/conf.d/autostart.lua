@@ -13,7 +13,7 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("blueman-applet")
     hl.exec_cmd("hypridle")
     hl.exec_cmd("systemctl --user restart swayosd")
-    hl.exec_cmd("hyprsunset")
+    hl.exec_cmd("~/.config/quickshell/blox/scripts/display/blue-light-mode.sh")
     hl.exec_cmd("vicinae server")
     hl.exec_cmd("zen-browser")
 

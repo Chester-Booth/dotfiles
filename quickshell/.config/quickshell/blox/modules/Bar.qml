@@ -1587,6 +1587,7 @@ Scope {
                 brightnessIcon: brightness.json.icon || "󰃠"
                 brightnessPercent: brightness.json.percent || 0
                 blueLightMode: brightness.json.blueLightMode || "auto"
+                blueLightActive: !!brightness.json.blueLightActive
                 basicTitle: root.panelTitle()
                 basicSubtitle: root.panelSubtitle()
                 basicBody: root.panelBody()

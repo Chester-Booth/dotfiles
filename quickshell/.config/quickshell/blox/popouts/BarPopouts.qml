@@ -35,6 +35,7 @@ Item {
     property string brightnessIcon: "󰃠"
     property int brightnessPercent: 0
     property string blueLightMode: "auto"
+    property bool blueLightActive: false
     property string basicTitle: ""
     property string basicSubtitle: ""
     property string basicBody: ""
@@ -214,6 +215,7 @@ Item {
             brightnessIcon: root.brightnessIcon
             brightnessPercent: root.brightnessPercent
             blueLightMode: root.blueLightMode
+            blueLightActive: root.blueLightActive
             activeMprisPlayerIndex: root.activeMprisPlayerIndex
             scriptRoot: root.scriptRoot
             onAction: (command, keepOpen) => root.systemAction(command, keepOpen)

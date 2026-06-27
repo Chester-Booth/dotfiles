@@ -2,7 +2,7 @@
 set -u
 
 state_file="${XDG_CACHE_HOME:-$HOME/.cache}/quickshell/blue-light-mode"
-config_file="${XDG_CONFIG_HOME:-$HOME/.config}/hypr/generated/hyprsunset.conf"
+config_file="${XDG_CACHE_HOME:-$HOME/.cache}/quickshell/hyprsunset/hypr/hyprsunset.conf"
 
 mode="auto"
 [[ -r "$state_file" ]] && read -r mode <"$state_file"

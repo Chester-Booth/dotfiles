@@ -1,17 +1,28 @@
 #!/usr/bin/env bash
 set -u
 
-mode="${1:-auto}"
 state_dir="${XDG_CACHE_HOME:-$HOME/.cache}/quickshell"
 state_file="$state_dir/blue-light-mode"
-config_file="${XDG_CONFIG_HOME:-$HOME/.config}/hypr/generated/hyprsunset.conf"
+generated_config="${XDG_CONFIG_HOME:-$HOME/.config}/hypr/generated/hyprsunset.conf"
+runtime_config_home="$state_dir/hyprsunset"
+config_file="$runtime_config_home/hypr/hyprsunset.conf"
 blue_light_osd="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/blox/scripts/osd/blue-light.sh"
+mode="${1:-}"
 
-mkdir -p "$state_dir"
+if [[ -z "$mode" ]] && [[ -r "$state_file" ]]; then
+	read -r mode <"$state_file"
+fi
+mode="${mode:-auto}"
+
+mkdir -p "$state_dir" "$(dirname "$config_file")" "$(dirname "$generated_config")"
 
 restart_filter() {
 	pkill -x hyprsunset >/dev/null 2>&1 || true
-	hyprsunset >/dev/null 2>&1 &
+	for _ in {1..20}; do
+		pgrep -x hyprsunset >/dev/null 2>&1 || break
+		sleep 0.05
+	done
+	XDG_CONFIG_HOME="$runtime_config_home" hyprsunset >/dev/null 2>&1 &
 }
 
 write_config() {
@@ -26,7 +37,7 @@ max-gamma = 150
 
 profile {
     time = 00:00
-    temperature = 5500
+    temperature = 4500
 }
 EOF
 		;;
@@ -66,6 +77,8 @@ profile {
 EOF
 		;;
 	esac
+
+	cp "$config_file" "$generated_config"
 }
 
 case "$mode" in

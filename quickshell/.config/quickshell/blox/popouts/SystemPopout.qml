@@ -20,6 +20,7 @@ Rectangle {
     property string brightnessIcon: "󰃠"
     property int brightnessPercent: 0
     property string blueLightMode: "auto"
+    property bool blueLightActive: false
     property int visualAudioVolume: audioVolume
     property int visualBrightnessPercent: brightnessPercent
     property string visualBlueLightMode: blueLightMode
@@ -77,7 +78,7 @@ Rectangle {
             return audioMuted ? "Muted" : audioVolume + "%";
 
         if (currentMode() === "brightness")
-            return brightnessPercent + "%";
+            return brightnessPercent + "% • " + (blueLightActive ? "Active" : "Inactive");
 
         if (currentMode() === "bluetooth")
             return (micMuted ? "Mic muted" : "Mic open") + "  |  " + body.split("\n").slice(0, -1).join(" ");
@@ -266,6 +267,11 @@ Rectangle {
                 }
             }
 
+            Item {
+                Layout.fillHeight: true
+                visible: root.currentMode() === "brightness"
+            }
+
             SegmentControl {
                 Layout.fillWidth: true
                 visible: root.currentMode() === "brightness"
@@ -273,13 +279,16 @@ Rectangle {
                 currentId: root.visualBlueLightMode
                 options: [{
                     "id": "off",
-                    "icon": "󰃞"
+                    "icon": "󰃞",
+                    "label": "Off"
                 }, {
                     "id": "auto",
-                    "icon": "󰖙"
+                    "icon": "󰖙",
+                    "label": "Auto"
                 }, {
                     "id": "on",
-                    "icon": "󰖔"
+                    "icon": "󰖔",
+                    "label": "On"
                 }]
                 onSelected: (id) => {
                     if (id === root.visualBlueLightMode)
@@ -292,7 +301,7 @@ Rectangle {
 
             Text {
                 Layout.fillWidth: true
-                visible: root.body.length > 0 && root.currentMode() !== "bluetooth"
+                visible: root.body.length > 0 && root.currentMode() !== "bluetooth" && root.currentMode() !== "brightness"
                 text: root.body
                 color: Theme.foreground
                 font.family: Theme.bodyFontFamily
@@ -553,6 +562,14 @@ Rectangle {
         property string title: ""
         property string currentId: ""
         property var options: []
+        property string currentText: {
+            for (let i = 0; i < options.length; i++) {
+                if (options[i].id === currentId)
+                    return options[i].label || "";
+
+            }
+            return "";
+        }
         property int selectedIndex: {
             for (let i = 0; i < options.length; i++) {
                 if (options[i].id === currentId)
@@ -576,6 +593,15 @@ Rectangle {
                 font.family: Theme.bodyFontFamily
                 font.pixelSize: 12
                 font.bold: true
+            }
+
+            Text {
+                text: segment.currentText
+                color: Theme.foreground
+                font.family: Theme.bodyFontFamily
+                font.pixelSize: 10
+                horizontalAlignment: Text.AlignRight
+                elide: Text.ElideRight
             }
 
         }

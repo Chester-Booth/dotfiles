@@ -32,6 +32,7 @@
       }
    },
    "favorites": [
+      "applications:t3code",
       "files:search"
    ],
    "providers": {
@@ -43,6 +44,11 @@
                "/var/lib/flatpak/exports/share/applications",
                "/usr/share/applications"
             ]
+         },
+         "entrypoints": {
+            "t3code": {
+               "alias": "t3"
+            }
          }
       },
       "calculator": {

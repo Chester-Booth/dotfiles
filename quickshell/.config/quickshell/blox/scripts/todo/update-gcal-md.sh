@@ -13,39 +13,39 @@ auth_notification_sent=0
 mkdir -p "$CACHE_DIR"
 
 notify_auth_expired() {
-    if [ "$auth_notification_sent" -eq 1 ]; then
-        return
-    fi
-    auth_notification_sent=1
+	if [ "$auth_notification_sent" -eq 1 ]; then
+		return
+	fi
+	auth_notification_sent=1
 
-    if command -v systemd-run >/dev/null 2>&1; then
-        systemd-run --user --quiet --collect \
-            --unit=gcalcli-auth-notify \
-            "$SCRIPT_DIR/gcalcli-auth-notify.sh" >/dev/null 2>&1 && return
-    fi
+	if command -v systemd-run >/dev/null 2>&1; then
+		systemd-run --user --quiet --collect \
+			--unit=gcalcli-auth-notify \
+			"$SCRIPT_DIR/gcalcli-auth-notify.sh" >/dev/null 2>&1 && return
+	fi
 
-    "$SCRIPT_DIR/gcalcli-auth-notify.sh" >/dev/null 2>&1 &
+	"$SCRIPT_DIR/gcalcli-auth-notify.sh" >/dev/null 2>&1 &
 }
 
 # --- PROCESSING FUNCTION ---
 process_gcal() {
-    # $1 = "offline", "expired", "online", or "error"
-    # $2 = error message (if "error")
-    local status=$1
-    local err_msg=$2
-    
-    # We pipe input into this block
-    # 1. Update regex to [0-9;]*35m to capture both Normal (0;35m) and Bold (1;35m)
-    # 2. Note: Current events become Red (31m) and lose their Purple tag. We handle this in awk.
-    # 3. Remove all angle brackets (< and >) as they break the output
-    sed -E \
-        -e 's/<br\/?>//g' \
-        -e 's/[<>]//g' \
-        -e 's/\x1b\[[0-9;]*35m/▒/g' \
-        -e 's/\x1b\[[0-9;]*36m/▕/g' \
-        -e 's/\x1b\[[0-9;]*m//g' \
-        -e 's/(▒|▕)/\n\1/g' | \
-    awk -v nowh="$NOW_HOUR" -v nowd="$NOW_DATE" -v stat="$status" -v err="$err_msg" '
+	# $1 = "offline", "expired", "online", or "error"
+	# $2 = error message (if "error")
+	local status=$1
+	local err_msg=$2
+
+	# We pipe input into this block
+	# 1. Update regex to [0-9;]*35m to capture both Normal (0;35m) and Bold (1;35m)
+	# 2. Note: Current events become Red (31m) and lose their Purple tag. We handle this in awk.
+	# 3. Remove all angle brackets (< and >) as they break the output
+	sed -E \
+		-e 's/<br\/?>//g' \
+		-e 's/[<>]//g' \
+		-e 's/\x1b\[[0-9;]*35m/▒/g' \
+		-e 's/\x1b\[[0-9;]*36m/▕/g' \
+		-e 's/\x1b\[[0-9;]*m//g' \
+		-e 's/(▒|▕)/\n\1/g' |
+		awk -v nowh="$NOW_HOUR" -v nowd="$NOW_DATE" -v stat="$status" -v err="$err_msg" '
     function ltrim(s) { sub(/^[ \t]+/, "", s); return s }
     function rtrim(s) { sub(/[ \t]+$/, "", s); return s }
     function print_buffer() { if (buffer != "") { print buffer; buffer = "" } }
@@ -151,59 +151,59 @@ process_gcal() {
 # --- FETCH AND GENERATE ---
 
 generate_file() {
-    local cmd_args="$1"
-    local cache_file="$2"
-    local out_file="$3"
-    local temp_raw
-    local temp_err
-    local args
-    read -r -a args <<< "$cmd_args"
+	local cmd_args="$1"
+	local cache_file="$2"
+	local out_file="$3"
+	local temp_raw
+	local temp_err
+	local args
+	read -r -a args <<<"$cmd_args"
 
-    # Capture stderr to detect token expiration errors
-    temp_err=$(mktemp)
-    if temp_raw=$(gcalcli agenda --military --details=end --details=location --width=300 "${args[@]}" 2>"$temp_err"); then
-        if [ -n "$temp_raw" ]; then
-            echo "$temp_raw" > "$cache_file"
-            echo "$temp_raw" | process_gcal "online" "" > "$out_file"
-            rm -f "$temp_err"
-            return
-        fi
-    fi
+	# Capture stderr to detect token expiration errors
+	temp_err=$(mktemp)
+	if temp_raw=$(timeout 25s gcalcli agenda --military --details=end --details=location --width=300 "${args[@]}" 2>"$temp_err"); then
+		if [ -n "$temp_raw" ]; then
+			echo "$temp_raw" >"$cache_file"
+			echo "$temp_raw" | process_gcal "online" "" >"$out_file"
+			rm -f "$temp_err"
+			return
+		fi
+	fi
 
-    # Check if the error was a token expiration/revocation, a Wi-Fi error, or something else
-    local status="offline"
-    local ext_err=""
-    if [ -f "$temp_err" ] && [ -s "$temp_err" ]; then
-        if grep -q "invalid_grant.*Token has been expired or revoked" "$temp_err"; then
-            # 1. Auth/Expired Token Error (explicitly handled)
-            status="expired"
-            notify_auth_expired
-        elif grep -qEi "ServerNotFoundError|gaierror|Network is unreachable|Name or service not known|Connection refused|Timeout|ConnectionError|Failed to establish a new connection|NewConnectionError|nodename nor servname provided" "$temp_err"; then
-            # 2. Wi-Fi/No Internet Error (explicitly handled)
-            status="offline"
-        else
-            # 3. Arbitrary/New Error - Extracted from the last non-empty line of the stack trace
-            status="error"
-            ext_err=$(awk 'NF' "$temp_err" | tail -n 1)
-            # If the output somehow didn't have any non-empty lines, silently fallback to offline
-            if [ -z "$ext_err" ]; then
-                status="offline"
-            fi
-        fi
-    fi
-    rm -f "$temp_err"
+	# Check if the error was a token expiration/revocation, a Wi-Fi error, or something else
+	local status="offline"
+	local ext_err=""
+	if [ -f "$temp_err" ] && [ -s "$temp_err" ]; then
+		if grep -q "invalid_grant.*Token has been expired or revoked" "$temp_err"; then
+			# 1. Auth/Expired Token Error (explicitly handled)
+			status="expired"
+			notify_auth_expired
+		elif grep -qEi "ServerNotFoundError|gaierror|Network is unreachable|Name or service not known|Connection refused|Timeout|ConnectionError|Failed to establish a new connection|NewConnectionError|nodename nor servname provided" "$temp_err"; then
+			# 2. Wi-Fi/No Internet Error (explicitly handled)
+			status="offline"
+		else
+			# 3. Arbitrary/New Error - Extracted from the last non-empty line of the stack trace
+			status="error"
+			ext_err=$(awk 'NF' "$temp_err" | tail -n 1)
+			# If the output somehow didn't have any non-empty lines, silently fallback to offline
+			if [ -z "$ext_err" ]; then
+				status="offline"
+			fi
+		fi
+	fi
+	rm -f "$temp_err"
 
-    if [ -f "$cache_file" ]; then
-        cat "$cache_file" | process_gcal "$status" "$ext_err" > "$out_file"
-    else
-        if [ "$status" = "expired" ]; then
-            echo "󱦃 No Data" > "$out_file"
-        elif [ "$status" = "error" ]; then
-            echo " $ext_err" > "$out_file"
-        else
-            echo "󰖪 No Data" > "$out_file"
-        fi
-    fi
+	if [ -f "$cache_file" ]; then
+		cat "$cache_file" | process_gcal "$status" "$ext_err" >"$out_file"
+	else
+		if [ "$status" = "expired" ]; then
+			echo "󱦃 No Data" >"$out_file"
+		elif [ "$status" = "error" ]; then
+			echo " $ext_err" >"$out_file"
+		else
+			echo "󰖪 No Data" >"$out_file"
+		fi
+	fi
 }
 
 # 1. Daily Agenda
@@ -212,19 +212,19 @@ generate_file "today tomorrow" "$CACHE_DIR/day.cache" "$DAY_OUT"
 # 2. Weekly Agenda
 # Mon-Fri: show current week (today->sunday)
 # Sat-Sun: show next week (today->next sunday)
-DAY_OF_WEEK=$(date +%u)  # 1=Monday, 7=Sunday
+DAY_OF_WEEK=$(date +%u) # 1=Monday, 7=Sunday
 if [ "$DAY_OF_WEEK" -ge 6 ]; then
-    # Weekend: show through next Sunday
-    # Calculate next Sunday's date (7 days from now if Sunday, 8 days if Saturday)
-    if [ "$DAY_OF_WEEK" -eq 7 ]; then
-        # Today is Sunday, next Sunday is +7 days
-        NEXT_SUNDAY=$(date -d "+7 days" +%Y-%m-%d)
-    else
-        # Today is Saturday, next Sunday is +8 days
-        NEXT_SUNDAY=$(date -d "+8 days" +%Y-%m-%d)
-    fi
-    generate_file "today $NEXT_SUNDAY" "$CACHE_DIR/week.cache" "$WEEK_OUT"
+	# Weekend: show through next Sunday
+	# Calculate next Sunday's date (7 days from now if Sunday, 8 days if Saturday)
+	if [ "$DAY_OF_WEEK" -eq 7 ]; then
+		# Today is Sunday, next Sunday is +7 days
+		NEXT_SUNDAY=$(date -d "+7 days" +%Y-%m-%d)
+	else
+		# Today is Saturday, next Sunday is +8 days
+		NEXT_SUNDAY=$(date -d "+8 days" +%Y-%m-%d)
+	fi
+	generate_file "today $NEXT_SUNDAY" "$CACHE_DIR/week.cache" "$WEEK_OUT"
 else
-    # Weekday: show through this Sunday
-    generate_file "today sunday" "$CACHE_DIR/week.cache" "$WEEK_OUT"
+	# Weekday: show through this Sunday
+	generate_file "today sunday" "$CACHE_DIR/week.cache" "$WEEK_OUT"
 fi

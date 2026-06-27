@@ -16,14 +16,26 @@ Item {
     property string trayMenuTitle: ""
     property var todoStatus
     property int notesSaveRevision: 0
+    property bool notesSaveBusy: false
+    property string notesSaveError: ""
+    property string notesStatusError: ""
+    property bool generatedRefreshBusy: false
+    property string generatedRefreshError: ""
+    property int calendarAddRevision: 0
+    property bool calendarAddBusy: false
+    property string calendarAddError: ""
     property var batteryStatus
     property date clockDate
     property string selectedCalendarDate: ""
     property var calendarStatus
     property var systemStatus
+    property bool performanceActionBusy: false
+    property string performanceActionError: ""
+    property string performanceStatusError: ""
     property string scriptRoot: ""
     property string systemTitle: ""
     property string systemBody: ""
+    property string systemStatusError: ""
     property var systemActions: []
     property int audioVolume: 0
     property string audioIcon: "󰕾"
@@ -41,6 +53,7 @@ Item {
     property string basicTitle: ""
     property string basicSubtitle: ""
     property string basicBody: ""
+    property string basicStatusError: ""
     property var basicActions: []
     property string basicCurrentId: ""
     property string basicHeaderActionIcon: ""
@@ -49,7 +62,7 @@ Item {
     property var notificationsModel: []
     property real maxNotificationHeight: 720
     property bool notificationDnd: false
-    property int activeMprisPlayerIndex: 0
+    property string activeMprisPlayer: ""
 
     signal hoverEntered()
     signal hoverExited()
@@ -73,13 +86,17 @@ Item {
     signal clearNotifications()
     signal toggleNotificationDnd()
     signal activateNotification(var notification)
-    signal selectMprisPlayer(int index)
+    signal selectMprisPlayer(string playerName)
+
+    function popupY(height, requestedY) {
+        return Math.max(8, Math.min(panelHeight - height - 8, requestedY - height / 2));
+    }
 
     HoverPopupWindow {
         id: notesWindow
 
         anchorWindow: root.panelWindow
-        anchorY: Math.max(8, Math.min(root.panelHeight - notesPopout.height - 8, root.openPanelY - notesPopout.height / 2))
+        anchorY: root.popupY(notesPopout.height, root.openPanelY)
         contentWidth: notesPopout.width
         contentHeight: notesPopout.height
         persistentKeyboardFocus: notesPopout.editing
@@ -90,6 +107,7 @@ Item {
         onVisibleChanged: {
             if (!visible)
                 root.inputLockChanged(false);
+
         }
 
         NotesPopout {
@@ -101,25 +119,35 @@ Item {
             index: root.todoStatus && root.todoStatus.index !== undefined ? root.todoStatus.index : 0
             count: root.todoStatus && root.todoStatus.count !== undefined ? root.todoStatus.count : 1
             saveRevision: root.notesSaveRevision
+            saveBusy: root.notesSaveBusy
+            saveError: root.notesSaveError
+            statusError: root.notesStatusError
+            refreshBusy: root.generatedRefreshBusy
+            refreshError: root.generatedRefreshError
             maxPopoutWidth: root.screenWidth > 0 ? root.screenWidth * 0.75 : 680
             maxPopoutHeight: root.panelHeight > 0 ? root.panelHeight * 0.75 : 760
             onPrevious: root.previousTodo()
             onNext: root.nextTodo()
-            onRefresh: (file) => root.refreshTodo(file)
-            onSave: (file, body) => root.saveTodo(file, body)
+            onRefresh: (file) => {
+                return root.refreshTodo(file);
+            }
+            onSave: (file, body) => {
+                return root.saveTodo(file, body);
+            }
             onEditingChanged: root.inputLockChanged(editing)
             onFocusRequested: {
                 root.inputLockChanged(true);
                 notesWindow.requestKeyboardFocus();
             }
         }
+
     }
 
     HoverPopupWindow {
         id: trayWindow
 
         anchorWindow: root.panelWindow
-        anchorY: Math.max(8, Math.min(root.panelHeight - trayMenuPopout.height - 8, root.trayMenuY - trayMenuPopout.height / 2))
+        anchorY: root.popupY(trayMenuPopout.height, root.trayMenuY)
         contentWidth: trayMenuPopout.width
         contentHeight: trayMenuPopout.height
         open: root.trayMenuOpen
@@ -133,13 +161,14 @@ Item {
             title: root.trayMenuTitle
             onTriggered: root.closeTrayMenu()
         }
+
     }
 
     HoverPopupWindow {
         id: calendarWindow
 
         anchorWindow: root.panelWindow
-        anchorY: Math.max(8, Math.min(root.panelHeight - calendarPopout.height - 8, root.openPanelY - calendarPopout.height / 2))
+        anchorY: root.popupY(calendarPopout.height, root.openPanelY)
         contentWidth: calendarPopout.width
         contentHeight: calendarPopout.height
         focusOnPress: true
@@ -149,6 +178,7 @@ Item {
         onVisibleChanged: {
             if (!visible)
                 root.inputLockChanged(false);
+
         }
 
         CalendarPopout {
@@ -156,16 +186,27 @@ Item {
 
             baseDate: root.clockDate
             selectedDate: root.selectedCalendarDate ? new Date(root.selectedCalendarDate + "T00:00:00") : root.clockDate
+            addRevision: root.calendarAddRevision
+            addBusy: root.calendarAddBusy
+            addError: root.calendarAddError
             events: root.calendarStatus && root.calendarStatus.events ? root.calendarStatus.events : []
             eventsText: root.calendarStatus && root.calendarStatus.raw ? root.calendarStatus.raw : "No events"
+            eventsError: root.calendarStatus && root.calendarStatus.ok === false ? (root.calendarStatus.error || "Calendar request failed") : ""
             onResetMonth: root.resetCalendarMonth()
-            onSelected: (day) => root.selectCalendarDate(day)
-            onAddEvent: (day, title) => root.addCalendarEvent(day, title)
-            onOpenEvent: (title) => root.openCalendarEvent(title)
+            onSelected: (day) => {
+                return root.selectCalendarDate(day);
+            }
+            onAddEvent: (day, title) => {
+                return root.addCalendarEvent(day, title);
+            }
+            onOpenEvent: (title) => {
+                return root.openCalendarEvent(title);
+            }
             onFocusRequested: {
                 calendarWindow.requestKeyboardFocus();
             }
         }
+
     }
 
     HoverPopupWindow {
@@ -183,16 +224,19 @@ Item {
             id: mediaPlayer
 
             width: 330
-            activePlayerIndex: root.activeMprisPlayerIndex
-            onSelectPlayer: (index) => root.selectMprisPlayer(index)
+            activePlayerName: root.activeMprisPlayer
+            onSelectPlayer: (playerName) => {
+                return root.selectMprisPlayer(playerName);
+            }
         }
+
     }
 
     HoverPopupWindow {
         id: performanceWindow
 
         anchorWindow: root.panelWindow
-        anchorY: Math.max(8, Math.min(root.panelHeight - performancePopout.height - 8, root.openPanelY - performancePopout.height / 2))
+        anchorY: root.popupY(performancePopout.height, root.openPanelY)
         contentWidth: performancePopout.width
         contentHeight: performancePopout.height
         open: root.openPanel === "system"
@@ -203,18 +247,26 @@ Item {
         PerformancePopout {
             id: performancePopout
 
-            status: root.systemStatus || ({})
-            batteryStatus: root.batteryStatus || ({})
+            status: root.systemStatus || ({
+            })
+            batteryStatus: root.batteryStatus || ({
+            })
             scriptRoot: root.scriptRoot
-            onAction: (command) => root.performanceAction(command)
+            actionBusy: root.performanceActionBusy
+            actionError: root.performanceActionError
+            statusError: root.performanceStatusError
+            onAction: (command) => {
+                return root.performanceAction(command);
+            }
         }
+
     }
 
     HoverPopupWindow {
         id: systemWindow
 
         anchorWindow: root.panelWindow
-        anchorY: Math.max(8, Math.min(root.panelHeight - systemPopout.height - 8, root.openPanelY - systemPopout.height / 2))
+        anchorY: root.popupY(systemPopout.height, root.openPanelY)
         contentWidth: systemPopout.width
         contentHeight: systemPopout.height
         open: ["audio", "network", "bluetooth", "brightness"].indexOf(root.openPanel) >= 0
@@ -223,6 +275,7 @@ Item {
         onVisibleChanged: {
             if (!visible && ["audio", "network", "bluetooth", "brightness"].indexOf(root.openPanel) >= 0)
                 root.closePanel();
+
         }
 
         SystemPopout {
@@ -230,6 +283,7 @@ Item {
 
             title: root.systemTitle
             body: root.systemBody
+            statusError: root.systemStatusError
             actions: root.systemActions
             mode: root.openPanel
             audioVolume: root.audioVolume
@@ -246,14 +300,19 @@ Item {
             blueLightMode: root.blueLightMode
             blueLightActive: root.blueLightActive
             scriptRoot: root.scriptRoot
-            onAction: (command, keepOpen) => root.systemAction(command, keepOpen)
-            onSectionSelected: (panel) => root.selectSystemPanel(panel)
+            onAction: (command, keepOpen) => {
+                return root.systemAction(command, keepOpen);
+            }
+            onSectionSelected: (panel) => {
+                return root.selectSystemPanel(panel);
+            }
         }
+
     }
 
     HoverPopupWindow {
         anchorWindow: root.panelWindow
-        anchorY: Math.max(8, Math.min(root.panelHeight - notificationCenter.height - 8, root.openPanelY - notificationCenter.height / 2))
+        anchorY: root.popupY(notificationCenter.height, root.openPanelY)
         contentWidth: notificationCenter.width
         contentHeight: notificationCenter.height
         open: root.openPanel === "notifications"
@@ -268,13 +327,16 @@ Item {
             maxPopoutHeight: Math.min(720, Math.max(240, root.panelHeight - 16))
             onClearAll: root.clearNotifications()
             onToggleDnd: root.toggleNotificationDnd()
-            onActivate: (notification) => root.activateNotification(notification)
+            onActivate: (notification) => {
+                return root.activateNotification(notification);
+            }
         }
+
     }
 
     HoverPopupWindow {
         anchorWindow: root.panelWindow
-        anchorY: Math.max(8, Math.min(root.panelHeight - basicPopout.height - 8, root.openPanelY - basicPopout.height / 2))
+        anchorY: root.popupY(basicPopout.height, root.openPanelY)
         contentWidth: 320
         contentHeight: basicPopout.height
         open: ["updates", "privacy", "caffeine"].indexOf(root.openPanel) >= 0
@@ -288,12 +350,17 @@ Item {
             title: root.basicTitle
             subtitle: root.basicSubtitle
             body: root.basicBody
+            statusError: root.basicStatusError
             actions: root.basicActions
             currentId: root.basicCurrentId
             headerActionIcon: root.basicHeaderActionIcon
             headerActionCommand: root.basicHeaderActionCommand
             headerStatus: root.basicHeaderStatus
-            onAction: (command, keepOpen) => root.basicAction(command, keepOpen)
+            onAction: (command, keepOpen) => {
+                return root.basicAction(command, keepOpen);
+            }
         }
+
     }
+
 }

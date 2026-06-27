@@ -32,7 +32,7 @@ log() {
 }
 
 gpu_is_on() {
-	lspci -s 01:00.0 2>/dev/null | grep -q "VGA"
+	[[ -n "$(lspci -s 01:00.0 2>/dev/null)" ]]
 }
 
 sleep 3

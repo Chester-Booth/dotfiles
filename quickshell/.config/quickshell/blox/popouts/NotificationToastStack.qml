@@ -14,9 +14,6 @@ Item {
     signal dismiss(var notification, bool closeNotification)
     signal activate(var notification)
 
-    width: visibleWidth + dismissTravel
-    implicitHeight: toastColumn.implicitHeight
-
     function accentFor(notification) {
         if (notification && notification.urgency === NotificationUrgency.Critical)
             return Theme.red;
@@ -24,13 +21,12 @@ Item {
         return Theme.blue;
     }
 
-    function plainText(text) {
-        return String(text || "").replace(/<[^>]*>/g, "");
-    }
-
     function imageFor(notification) {
         return notification && notification.image ? notification.image : "";
     }
+
+    width: visibleWidth + dismissTravel
+    implicitHeight: toastColumn.implicitHeight
 
     Column {
         id: toastColumn
@@ -51,15 +47,6 @@ Item {
                 property bool closeNotificationOnDismiss: false
                 readonly property bool hasImage: root.imageFor(notification).length > 0
 
-                x: root.dismissTravel
-                width: root.toastWidth
-                height: toastBody.implicitHeight + 18
-                opacity: dismissing ? 0 : 1
-                radius: 8
-                color: Theme.surface
-                border.color: notification && notification.urgency === NotificationUrgency.Critical ? Theme.red : Theme.surfaceAlt
-                border.width: 1
-
                 function finishDismiss(closeNotification) {
                     if (dismissing)
                         return ;
@@ -70,19 +57,16 @@ Item {
                     dismissTimer.restart();
                 }
 
-                Behavior on x {
-                    enabled: !toastMouse.drag.active
-                    NumberAnimation {
-                        duration: 180
-                        easing.type: Easing.OutCubic
-                    }
-                }
-
-                Behavior on opacity {
-                    NumberAnimation {
-                        duration: 160
-                        easing.type: Easing.OutCubic
-                    }
+                x: root.dismissTravel
+                width: root.toastWidth
+                height: toastBody.implicitHeight + 18
+                opacity: dismissing ? 0 : 1
+                radius: 8
+                color: Theme.surface
+                border.color: notification && notification.urgency === NotificationUrgency.Critical ? Theme.red : Theme.surfaceAlt
+                border.width: 1
+                Component.onCompleted: {
+                    x = 0;
                 }
 
                 Timer {
@@ -100,10 +84,6 @@ Item {
                     repeat: false
                     running: !toast.dismissing
                     onTriggered: toast.finishDismiss(false)
-                }
-
-                Component.onCompleted: {
-                    x = 0;
                 }
 
                 Row {
@@ -126,6 +106,7 @@ Item {
                             fillMode: Image.PreserveAspectCrop
                             clip: true
                         }
+
                     }
 
                     Column {
@@ -138,29 +119,10 @@ Item {
                             width: parent.width
                             spacing: 8
 
-                            Column {
+                            NotificationHeader {
                                 width: parent.width - closeButton.width - 8
-                                spacing: 1
-
-                                Text {
-                                    width: parent.width
-                                    text: toast.notification ? toast.notification.summary : ""
-                                    color: Theme.foreground
-                                    font.family: Theme.bodyFontFamily
-                                    font.pixelSize: 13
-                                    font.bold: true
-                                    elide: Text.ElideRight
-                                }
-
-                                Text {
-                                    width: parent.width
-                                    visible: toast.notification && toast.notification.appName.length > 0
-                                    text: toast.notification ? toast.notification.appName : ""
-                                    color: Theme.muted
-                                    font.family: Theme.bodyFontFamily
-                                    font.pixelSize: 10
-                                    elide: Text.ElideRight
-                                }
+                                summary: toast.notification ? toast.notification.summary : ""
+                                meta: toast.notification ? toast.notification.appName : ""
                             }
 
                             Rectangle {
@@ -178,30 +140,28 @@ Item {
                                     font.family: Theme.fontFamily
                                     font.pixelSize: 12
                                 }
+
                             }
+
                         }
 
-                        Text {
+                        NotificationBody {
                             width: parent.width
-                            visible: toast.notification && toast.notification.body.length > 0
-                            text: root.plainText(toast.notification ? toast.notification.body : "")
-                            color: Theme.foreground
+                            body: toast.notification ? toast.notification.body : ""
                             opacity: 0.84
-                            font.family: Theme.bodyFontFamily
-                            font.pixelSize: 12
-                            wrapMode: Text.Wrap
                             maximumLineCount: 2
-                            elide: Text.ElideRight
                         }
+
                     }
+
                 }
 
-	                MouseArea {
-	                    id: toastMouse
+                MouseArea {
+                    id: toastMouse
 
-	                    anchors.fill: parent
-	                    anchors.rightMargin: 42
-	                    z: 2
+                    anchors.fill: parent
+                    anchors.rightMargin: 42
+                    z: 2
                     acceptedButtons: Qt.LeftButton
                     drag.target: toast
                     drag.axis: Drag.XAxis
@@ -213,13 +173,13 @@ Item {
                     }
                     onPositionChanged: (mouse) => {
                         toast.dragged = toast.dragged || Math.abs(toast.x) > 8;
-	                    }
-	                    onReleased: {
-	                        if (toast.x > 28)
-	                            toast.finishDismiss(true);
-	                        else
-	                            toast.x = 0;
-	                    }
+                    }
+                    onReleased: {
+                        if (toast.x > 28)
+                            toast.finishDismiss(true);
+                        else
+                            toast.x = 0;
+                    }
                     onCanceled: {
                         toast.x = 0;
                     }
@@ -228,10 +188,9 @@ Item {
                             mouse.accepted = true;
                             return ;
                         }
-
-	                        root.activate(toast.notification);
-	                    }
-	                }
+                        root.activate(toast.notification);
+                    }
+                }
 
                 MouseArea {
                     id: closeMouse
@@ -247,7 +206,29 @@ Item {
                     cursorShape: Qt.PointingHandCursor
                     onClicked: toast.finishDismiss(true)
                 }
+
+                Behavior on x {
+                    enabled: !toastMouse.drag.active
+
+                    NumberAnimation {
+                        duration: 180
+                        easing.type: Easing.OutCubic
+                    }
+
+                }
+
+                Behavior on opacity {
+                    NumberAnimation {
+                        duration: 160
+                        easing.type: Easing.OutCubic
+                    }
+
+                }
+
             }
+
         }
+
     }
+
 }

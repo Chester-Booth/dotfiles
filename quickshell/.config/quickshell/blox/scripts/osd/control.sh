@@ -186,7 +186,9 @@ touchpad_enabled() {
 set_touchpad() {
 	local enabled="$1"
 
-	hyprctl keyword "device[$touchpad_device]:enabled" "$enabled" >/dev/null || return 1
+	[[ "$enabled" == "true" || "$enabled" == "false" ]] || return 1
+	[[ "$touchpad_device" =~ ^[a-zA-Z0-9_.:-]+$ ]] || return 1
+	hyprctl eval "hl.device({ name = \"$touchpad_device\", enabled = $enabled })" >/dev/null || return 1
 	mkdir -p "$(dirname "$touchpad_state_file")"
 	printf '%s\n' "$enabled" >"$touchpad_state_file"
 }
@@ -208,12 +210,19 @@ volume-down)
 	pactl set-sink-volume @DEFAULT_SINK@ -"${2:-2}%" || exit 1
 	show_volume
 	;;
+volume-set)
+	pactl set-sink-volume @DEFAULT_SINK@ "${2:-0}%" || exit 1
+	show_volume
+	;;
 volume-mute)
 	pactl set-sink-mute @DEFAULT_SINK@ toggle || exit 1
 	show_volume
 	;;
 mic-mute)
 	pactl set-source-mute @DEFAULT_SOURCE@ toggle || exit 1
+	show_mic
+	;;
+mic-show)
 	show_mic
 	;;
 brightness-up)

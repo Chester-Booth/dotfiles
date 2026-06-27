@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -u
 
-lock_file="${XDG_RUNTIME_DIR:-/tmp}/quickshell-kbd-backlight.watch.lock"
+runtime_dir="${XDG_RUNTIME_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/quickshell}"
+lock_file="$runtime_dir/keyboard-backlight.lock"
+mkdir -p "$runtime_dir"
 exec 9>"$lock_file"
 flock -n 9 || exit 75
 

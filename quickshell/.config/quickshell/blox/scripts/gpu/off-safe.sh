@@ -8,7 +8,7 @@ source "$script_dir/common.sh" "$@"
 
 if ! gpu_lock; then
 	notify_gpu_busy
-	exit 0
+	exit 75
 fi
 
 if ! gpu_is_on; then

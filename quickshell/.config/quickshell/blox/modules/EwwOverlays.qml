@@ -14,9 +14,8 @@ Scope {
         if (command.length === 0)
             return ;
 
-        action.running = false;
-        action.command = ["sh", "-c", command];
-        action.running = true;
+        Quickshell.execDetached(["sh", "-c", command]);
+        actionRefreshDelay.restart();
     }
 
     function activeWorkspaceEmpty() {
@@ -53,10 +52,11 @@ Scope {
         interval: 60000
     }
 
-    Process {
-        id: action
+    Timer {
+        id: actionRefreshDelay
 
-        onExited: root.refreshOverlays()
+        interval: 500
+        onTriggered: root.refreshOverlays()
     }
 
     Process {

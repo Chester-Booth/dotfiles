@@ -12,8 +12,7 @@ Item {
     property var networkStatus
     property var notificationsStatus
     property var touchpadStatus
-    property var fanStatus
-    property var gpuStatus
+    property var systemStatus
     property var batteryStatus
 
     signal panelClicked(string panel, real centerY)
@@ -108,12 +107,12 @@ Item {
         }
 
         PanelRailButton {
-            icon: root.fanStatus && root.fanStatus.class === "Performance" ? "󱑬" : root.fanStatus && root.fanStatus.class === "Quiet" ? "󰠝" : "󱜝"
-            accent: root.fanStatus && root.fanStatus.class === "Performance" ? Theme.red : Theme.foreground
+            icon: root.systemStatus && root.systemStatus.profile === "Performance" ? "󱑬" : root.systemStatus && root.systemStatus.profile === "Quiet" ? "󰠝" : "󱜝"
+            accent: root.systemStatus && root.systemStatus.profile === "Performance" ? Theme.red : Theme.foreground
             panel: "system"
             source: "fan"
             active: root.openPanel === "system"
-            visible: root.fanStatus && root.fanStatus.class !== undefined && root.fanStatus.class !== "Quiet"
+            visible: root.systemStatus && root.systemStatus.profile !== undefined && root.systemStatus.profile !== "Quiet"
             onPanelClicked: (panel, centerY) => {
                 return root.panelClicked(panel, root.mapCenterY(centerY));
             }
@@ -126,12 +125,12 @@ Item {
         }
 
         PanelRailButton {
-            icon: root.gpuStatus && root.gpuStatus.alt === "eco" ? "󰌪" : root.gpuStatus && root.gpuStatus.alt === "gaming" ? "󰪫" : root.gpuStatus && root.gpuStatus.alt === "high-refresh" ? "" : "󰢮"
-            accent: root.gpuStatus && root.gpuStatus.alt === "eco" ? Theme.green : Theme.yellow
+            icon: root.systemStatus && root.systemStatus.gpuMode === "eco" ? "󰌪" : root.systemStatus && root.systemStatus.gpuMode === "gaming" ? "󰪫" : root.systemStatus && root.systemStatus.gpuMode === "high-refresh" ? "" : "󰢮"
+            accent: root.systemStatus && root.systemStatus.gpuMode === "eco" ? Theme.green : Theme.yellow
             panel: "system"
             source: "gpu"
             active: root.openPanel === "system"
-            visible: root.gpuStatus && root.gpuStatus.alt !== undefined && root.gpuStatus.alt !== "eco"
+            visible: root.systemStatus && root.systemStatus.gpuMode !== undefined && root.systemStatus.gpuMode !== "eco"
             onPanelClicked: (panel, centerY) => {
                 return root.panelClicked(panel, root.mapCenterY(centerY));
             }

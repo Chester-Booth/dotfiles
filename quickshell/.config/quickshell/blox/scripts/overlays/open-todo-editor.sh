@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -u
 
-STATE_FILE="/tmp/eww-todo-current"
+STATE_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell/overlays/todo-current"
 DEFAULT_FILE="$HOME/Documents/todo/1-todo.md"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_X=60
@@ -15,16 +15,16 @@ MIN_H=80
 MICRO_BIN="${MICRO_BIN:-$HOME/.local/bin/micro}"
 
 if [ ! -x "$MICRO_BIN" ]; then
-    MICRO_BIN="$(command -v micro 2>/dev/null || true)"
+	MICRO_BIN="$(command -v micro 2>/dev/null || true)"
 fi
 
 if [ -z "$MICRO_BIN" ]; then
-    exit 1
+	exit 1
 fi
 
 current_file="$DEFAULT_FILE"
 if [ -f "$STATE_FILE" ]; then
-    current_file="$(cat "$STATE_FILE" 2>/dev/null || printf '%s\n' "$DEFAULT_FILE")"
+	current_file="$(cat "$STATE_FILE" 2>/dev/null || printf '%s\n' "$DEFAULT_FILE")"
 fi
 
 content="$("$SCRIPT_DIR/todo-content.sh")"
@@ -36,17 +36,17 @@ target_w=$((max_chars * CHAR_WIDTH + PADDING_X))
 target_h=$((line_count * LINE_HEIGHT + PADDING_Y))
 
 if [ "$target_w" -lt "$MIN_W" ]; then
-    target_w="$MIN_W"
+	target_w="$MIN_W"
 fi
 
 if [ "$target_h" -lt "$MIN_H" ]; then
-    target_h="$MIN_H"
+	target_h="$MIN_H"
 fi
 
 read_window_address() {
-    local pid="$1"
+	local pid="$1"
 
-    hyprctl -j clients 2>/dev/null | jq -r --argjson pid "$pid" '
+	hyprctl -j clients 2>/dev/null | jq -r --argjson pid "$pid" '
         [.[] | select(.pid == $pid and .class == "quickshell_todo") | .address]
         | first // empty
     ' 2>/dev/null
@@ -57,19 +57,28 @@ kitty_pid=$!
 window_address=""
 
 for _ in $(seq 1 50); do
-    window_address="$(read_window_address "$kitty_pid")"
-    if [ -n "$window_address" ]; then
-        break
-    fi
+	window_address="$(read_window_address "$kitty_pid")"
+	if [ -n "$window_address" ]; then
+		break
+	fi
 
-    sleep 0.1
+	sleep 0.1
 done
 
 if [ -z "$window_address" ]; then
-    exit 0
+	exit 0
 fi
 
 sleep 0.15
-hyprctl --batch "dispatch setfloating address:$window_address; dispatch focuswindow address:$window_address; dispatch resizeactive exact $target_w $target_h; dispatch moveactive exact $TARGET_X $TARGET_Y" >/dev/null 2>&1 || true
+position_window() {
+	local selector="address:$window_address"
+
+	hyprctl dispatch "hl.dsp.window.float({ action = \"enable\", window = \"$selector\" })" >/dev/null 2>&1 || true
+	hyprctl dispatch "hl.dsp.focus({ window = \"$selector\" })" >/dev/null 2>&1 || true
+	hyprctl dispatch "hl.dsp.window.resize({ x = $target_w, y = $target_h, window = \"$selector\" })" >/dev/null 2>&1 || true
+	hyprctl dispatch "hl.dsp.window.move({ x = $TARGET_X, y = $TARGET_Y, window = \"$selector\" })" >/dev/null 2>&1 || true
+}
+
+position_window
 sleep 0.05
-hyprctl --batch "dispatch setfloating address:$window_address; dispatch focuswindow address:$window_address; dispatch resizeactive exact $target_w $target_h; dispatch moveactive exact $TARGET_X $TARGET_Y" >/dev/null 2>&1 || true
+position_window

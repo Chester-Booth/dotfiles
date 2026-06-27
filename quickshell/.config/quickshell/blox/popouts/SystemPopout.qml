@@ -8,6 +8,7 @@ Rectangle {
     property string mode: ""
     property string title: ""
     property string body: ""
+    property string statusError: ""
     property var actions: []
     property string scriptRoot: ""
     property int audioVolume: 0
@@ -96,6 +97,22 @@ Rectangle {
     border.color: Theme.surfaceAlt
     border.width: 1
 
+    Timer {
+        id: audioApplyDelay
+
+        interval: 80
+        repeat: false
+        onTriggered: root.action(root.scriptRoot + "/control.sh audio-set " + root.visualAudioVolume, true)
+    }
+
+    Timer {
+        id: brightnessApplyDelay
+
+        interval: 80
+        repeat: false
+        onTriggered: root.action(root.scriptRoot + "/control.sh brightness-set " + root.visualBrightnessPercent, true)
+    }
+
     RowLayout {
         id: content
 
@@ -161,7 +178,7 @@ Rectangle {
                         enabled: root.currentMode() === "audio"
                         hoverEnabled: true
                         cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                        onClicked: root.action("pactl set-sink-mute @DEFAULT_SINK@ toggle", true)
+                        onClicked: root.action(root.scriptRoot + "/control.sh audio-toggle", true)
                     }
 
                 }
@@ -227,41 +244,80 @@ Rectangle {
                 accent: root.visualAudioOverdriven ? Theme.red : Theme.blue
                 onChanged: (value) => {
                     root.visualAudioVolume = value;
-                    root.action("pactl set-sink-volume @DEFAULT_SINK@ " + value + "%", true);
+                    audioApplyDelay.restart();
                 }
             }
 
-            SlideToggle {
+            PillSelector {
                 Layout.fillWidth: true
                 visible: root.currentMode() === "audio"
                 title: "Microphone"
-                currentText: root.micMuted ? "Muted" : "Open"
-                leftSelected: !root.micMuted
-                leftIcon: "󰍬"
-                rightIcon: "󰍭"
-                onToggled: root.action("pactl set-source-mute @DEFAULT_SOURCE@ toggle", true)
+                currentText: visualId === "muted" ? "Muted" : "Open"
+                currentId: root.micMuted ? "muted" : "open"
+                selectedAccent: visualId === "open" ? Theme.blue : Theme.yellow
+                optimistic: true
+                options: [{
+                    "id": "open",
+                    "icon": "󰍬",
+                    "label": "Open"
+                }, {
+                    "id": "muted",
+                    "icon": "󰍭",
+                    "label": "Muted"
+                }]
+                onSelected: (id) => {
+                    if (id !== currentId)
+                        root.action(root.scriptRoot + "/control.sh mic " + id, true);
+
+                }
             }
 
-            SlideToggle {
+            PillSelector {
                 Layout.fillWidth: true
                 visible: root.currentMode() === "network"
                 title: "Wi-Fi"
-                currentText: root.networkEnabled ? "On" : "Off"
-                leftSelected: root.networkEnabled
-                leftIcon: "󰤯"
-                rightIcon: "󰤭"
-                onToggled: root.action("nmcli radio wifi " + (root.networkEnabled ? "off" : "on"), true)
+                currentText: visualId === "on" ? "On" : "Off"
+                currentId: root.networkEnabled ? "on" : "off"
+                selectedAccent: visualId === "on" ? Theme.blue : Theme.yellow
+                optimistic: true
+                options: [{
+                    "id": "on",
+                    "icon": "󰤯",
+                    "label": "On"
+                }, {
+                    "id": "off",
+                    "icon": "󰤭",
+                    "label": "Off"
+                }]
+                onSelected: (id) => {
+                    if (id !== currentId)
+                        root.action(root.scriptRoot + "/control.sh wifi " + id, true);
+
+                }
             }
 
-            SlideToggle {
+            PillSelector {
                 Layout.fillWidth: true
                 visible: root.currentMode() === "bluetooth"
                 title: "Bluetooth"
-                currentText: root.bluetoothEnabled ? "On" : "Off"
-                leftSelected: root.bluetoothEnabled
-                leftIcon: "󰂯"
-                rightIcon: "󰂲"
-                onToggled: root.action("rfkill toggle bluetooth", true)
+                currentText: visualId === "on" ? "On" : "Off"
+                currentId: root.bluetoothEnabled ? "on" : "off"
+                selectedAccent: visualId === "on" ? Theme.blue : Theme.yellow
+                optimistic: true
+                options: [{
+                    "id": "on",
+                    "icon": "󰂯",
+                    "label": "On"
+                }, {
+                    "id": "off",
+                    "icon": "󰂲",
+                    "label": "Off"
+                }]
+                onSelected: (id) => {
+                    if (id !== currentId)
+                        root.action(root.scriptRoot + "/control.sh bluetooth " + id, true);
+
+                }
             }
 
             LevelSlider {
@@ -271,15 +327,16 @@ Rectangle {
                 accent: Theme.yellow
                 onChanged: (value) => {
                     root.visualBrightnessPercent = value;
-                    root.action("brightnessctl -d amdgpu_bl1 set " + value + "%", true);
+                    brightnessApplyDelay.restart();
                 }
             }
 
-            SegmentControl {
+            PillSelector {
                 Layout.fillWidth: true
                 visible: root.currentMode() === "brightness"
                 title: "Blue light"
                 currentId: root.visualBlueLightMode
+                optimistic: true
                 options: [{
                     "id": "off",
                     "icon": "󰃞",
@@ -297,16 +354,15 @@ Rectangle {
                     if (id === root.visualBlueLightMode)
                         return ;
 
-                    root.visualBlueLightMode = id;
                     root.action(root.scriptRoot + "/display/blue-light-mode.sh " + id, true);
                 }
             }
 
             Text {
                 Layout.fillWidth: true
-                visible: root.body.length > 0 && root.currentMode() !== "network" && root.currentMode() !== "bluetooth" && root.currentMode() !== "brightness"
-                text: root.body
-                color: Theme.foreground
+                visible: root.statusError.length > 0 || (root.body.length > 0 && root.currentMode() !== "network" && root.currentMode() !== "bluetooth" && root.currentMode() !== "brightness")
+                text: root.statusError.length > 0 ? "Status error: " + root.statusError + (root.body.length > 0 ? "\n" + root.body : "") : root.body
+                color: root.statusError.length > 0 ? Theme.red : Theme.foreground
                 font.family: Theme.bodyFontFamily
                 font.pixelSize: 12
                 wrapMode: Text.Wrap
@@ -384,6 +440,7 @@ Rectangle {
                     height: parent.height
                     color: parent.color
                 }
+
             }
 
             Rectangle {
@@ -434,230 +491,14 @@ Rectangle {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onPressed: (mouse) => slider.changed(valueAt(mouse.x))
+                onPressed: (mouse) => {
+                    return slider.changed(valueAt(mouse.x));
+                }
                 onPositionChanged: (mouse) => {
                     if (pressed)
                         slider.changed(valueAt(mouse.x));
-                }
-            }
-
-        }
-
-    }
-
-    component SlideToggle: ColumnLayout {
-        id: toggle
-
-        property string title: ""
-        property string currentText: ""
-        property bool leftSelected: true
-        property string leftIcon: ""
-        property string rightIcon: ""
-
-        signal toggled()
-
-        spacing: 4
-
-        RowLayout {
-            Layout.fillWidth: true
-
-            Text {
-                Layout.fillWidth: true
-                text: toggle.title
-                color: Theme.muted
-                font.family: Theme.bodyFontFamily
-                font.pixelSize: 12
-                font.bold: true
-            }
-
-            Text {
-                text: toggle.currentText
-                color: Theme.foreground
-                font.family: Theme.bodyFontFamily
-                font.pixelSize: 10
-                horizontalAlignment: Text.AlignRight
-                elide: Text.ElideRight
-            }
-
-        }
-
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 32
-            radius: 999
-            color: Theme.surface
-            border.color: Theme.surfaceAlt
-            border.width: 1
-
-            Rectangle {
-                width: (parent.width - 6) / 2
-                height: 26
-                radius: 13
-                x: toggle.leftSelected ? 3 : parent.width - width - 3
-                anchors.verticalCenter: parent.verticalCenter
-                color: "#66453d3d"
-
-                Behavior on x {
-                    NumberAnimation {
-                        duration: 120
-                        easing.type: Easing.OutCubic
-                    }
-                }
-            }
-
-            Item {
-                anchors.left: parent.left
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
-                width: parent.width / 2
-
-                Text {
-                    anchors.centerIn: parent
-                    text: toggle.leftIcon
-                    color: toggle.leftSelected ? Theme.blue : Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 14
-                }
-            }
-
-            Item {
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
-                width: parent.width / 2
-
-                Text {
-                    anchors.centerIn: parent
-                    text: toggle.rightIcon
-                    color: toggle.leftSelected ? Theme.foreground : Theme.yellow
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 14
-                }
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: toggle.toggled()
-            }
-
-        }
-
-    }
-
-    component SegmentControl: ColumnLayout {
-        id: segment
-
-        property string title: ""
-        property string currentId: ""
-        property var options: []
-        property string currentText: {
-            for (let i = 0; i < options.length; i++) {
-                if (options[i].id === currentId)
-                    return options[i].label || "";
-
-            }
-            return "";
-        }
-        property int selectedIndex: {
-            for (let i = 0; i < options.length; i++) {
-                if (options[i].id === currentId)
-                    return i;
-
-            }
-            return 0;
-        }
-
-        signal selected(string id)
-
-        spacing: 4
-
-        RowLayout {
-            Layout.fillWidth: true
-
-            Text {
-                Layout.fillWidth: true
-                text: segment.title
-                color: Theme.muted
-                font.family: Theme.bodyFontFamily
-                font.pixelSize: 12
-                font.bold: true
-            }
-
-            Text {
-                text: segment.currentText
-                color: Theme.foreground
-                font.family: Theme.bodyFontFamily
-                font.pixelSize: 10
-                horizontalAlignment: Text.AlignRight
-                elide: Text.ElideRight
-            }
-
-        }
-
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 32
-            radius: 16
-            color: Theme.surface
-            border.color: Theme.surfaceAlt
-            border.width: 1
-            clip: true
-
-            Rectangle {
-                x: 3 + segment.selectedIndex * ((parent.width - 6) / Math.max(1, segment.options.length))
-                y: 3
-                width: (parent.width - 6) / Math.max(1, segment.options.length)
-                height: parent.height - 6
-                radius: 13
-                color: "#66453d3d"
-
-                Behavior on x {
-                    NumberAnimation {
-                        duration: 150
-                        easing.type: Easing.OutCubic
-                    }
 
                 }
-
-            }
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.margins: 3
-                spacing: 0
-
-                Repeater {
-                    model: segment.options
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        radius: 13
-                        color: segmentMouse.containsMouse ? "#333b3c4a" : "transparent"
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: modelData.icon
-                            color: modelData.id === segment.currentId ? Theme.yellow : Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: 14
-                        }
-
-                        MouseArea {
-                            id: segmentMouse
-
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: segment.selected(modelData.id)
-                        }
-
-                    }
-
-                }
-
             }
 
         }

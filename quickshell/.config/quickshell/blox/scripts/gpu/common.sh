@@ -22,14 +22,16 @@ for gpu_arg in "$@"; do
 done
 
 gpu_lock() {
-	local lock_file="${XDG_RUNTIME_DIR:-/tmp}/gpu-power.lock"
+	local runtime_dir="${XDG_RUNTIME_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/quickshell}"
+	local lock_file="$runtime_dir/gpu-power.lock"
 
+	mkdir -p "$runtime_dir"
 	exec 9>"$lock_file"
 	flock -n 9
 }
 
 gpu_is_on() {
-	lspci -s 01:00.0 2>/dev/null | grep -q "VGA"
+	[[ -n "$(lspci -s 01:00.0 2>/dev/null)" ]]
 }
 
 gpu_nodes_in_use() {

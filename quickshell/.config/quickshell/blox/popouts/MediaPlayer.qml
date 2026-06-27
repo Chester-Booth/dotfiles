@@ -5,11 +5,11 @@ import Quickshell.Services.Mpris
 Column {
     id: root
 
-    property int activePlayerIndex: -1
+    property string activePlayerName: ""
     property var mediaPlayers: []
     readonly property bool hasPlayers: root.players().length > 0
 
-    signal selectPlayer(int index)
+    signal selectPlayer(string playerName)
 
     function players() {
         return root.mediaPlayers || [];
@@ -24,9 +24,11 @@ Column {
         if (players.length === 0)
             return -1;
 
-        if (root.activePlayerIndex >= 0 && root.activePlayerIndex < players.length)
-            return root.activePlayerIndex;
+        for (let i = 0; i < players.length; i++) {
+            if (players[i].dbusName === root.activePlayerName)
+                return i;
 
+        }
         for (let i = 0; i < players.length; i++) {
             if (players[i].isPlaying)
                 return i;
@@ -47,7 +49,7 @@ Column {
             return ;
 
         const next = (root.effectivePlayerIndex() + delta + players.length) % players.length;
-        root.selectPlayer(next);
+        root.selectPlayer(players[next].dbusName);
     }
 
     function timeText(seconds) {
@@ -341,7 +343,7 @@ Column {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: root.selectPlayer(index)
+                    onClicked: root.selectPlayer(modelData.dbusName)
                 }
 
             }

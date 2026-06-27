@@ -10,21 +10,19 @@ Rectangle {
     property var batteryStatus: ({
     })
     property string scriptRoot: ""
+    property bool actionBusy: false
+    property string actionError: ""
+    property string statusError: ""
+    readonly property string visibleError: actionError.length > 0 ? actionError : statusError
 
     signal action(string command)
 
     function fanCommand(profile) {
-        return "asusctl profile set " + profile.toLowerCase() + "; " + scriptRoot + "/osd/fan-profile.sh " + profile.toLowerCase();
+        return scriptRoot + "/control.sh fan-profile " + profile.toLowerCase();
     }
 
     function gpuCommand(mode) {
-        const paths = {
-            "gaming": "/gpu/modes/gpu144.sh",
-            "performance": "/gpu/modes/gpu60.sh",
-            "high-refresh": "/gpu/modes/igpu144.sh",
-            "eco": "/gpu/modes/igpu60.sh"
-        };
-        return scriptRoot + paths[mode];
+        return scriptRoot + "/gpu/set-mode.sh " + mode;
     }
 
     function numberValue(value, fallback) {
@@ -60,7 +58,7 @@ Rectangle {
     }
 
     width: 268
-    height: status.vramTotal ? 526 : 474
+    height: (status.vramTotal ? 526 : 474) + (visibleError.length > 0 ? 26 : 0)
     radius: 8
     color: Theme.background
     border.color: Theme.surfaceAlt
@@ -86,6 +84,7 @@ Rectangle {
                     font.family: Theme.fontFamily
                     font.pixelSize: 24
                 }
+
             }
 
             Item {
@@ -195,8 +194,9 @@ Rectangle {
             Layout.fillWidth: true
             spacing: 6
 
-            SliderControl {
+            PillSelector {
                 Layout.fillWidth: true
+                enabled: !root.actionBusy
                 title: "Fan profile"
                 currentText: root.status.profile || "Unknown"
                 currentId: root.fanProfileId()
@@ -218,8 +218,9 @@ Rectangle {
                 }
             }
 
-            SliderControl {
+            PillSelector {
                 Layout.fillWidth: true
+                enabled: !root.actionBusy
                 title: "GPU mode"
                 currentText: root.status.gpuLabel || "Unknown"
                 currentId: root.status.gpuMode || "eco"
@@ -245,6 +246,16 @@ Rectangle {
                 }
             }
 
+        }
+
+        Text {
+            Layout.fillWidth: true
+            visible: root.visibleError.length > 0
+            text: root.visibleError
+            color: Theme.red
+            font.family: Theme.bodyFontFamily
+            font.pixelSize: 11
+            wrapMode: Text.Wrap
         }
 
     }
@@ -381,119 +392,6 @@ Rectangle {
                         NumberAnimation {
                             duration: 180
                             easing.type: Easing.OutCubic
-                        }
-
-                    }
-
-                }
-
-            }
-
-        }
-
-    }
-
-    component SliderControl: ColumnLayout {
-        id: slider
-
-        property string title: ""
-        property string currentText: ""
-        property string currentId: ""
-        property var options: []
-        property int selectedIndex: {
-            for (let i = 0; i < options.length; i++) {
-                if (options[i].id === currentId)
-                    return i;
-
-            }
-            return 0;
-        }
-
-        signal selected(string id)
-
-        spacing: 4
-
-        RowLayout {
-            Layout.fillWidth: true
-
-            Text {
-                text: slider.title
-                color: Theme.muted
-                font.family: Theme.bodyFontFamily
-                font.pixelSize: 11
-                font.bold: true
-            }
-
-            Text {
-                Layout.fillWidth: true
-                text: slider.currentText
-                color: Theme.foreground
-                font.family: Theme.bodyFontFamily
-                font.pixelSize: 10
-                horizontalAlignment: Text.AlignRight
-                elide: Text.ElideRight
-            }
-
-        }
-
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 32
-            radius: 16
-            color: Theme.surface
-            border.color: Theme.surfaceAlt
-            border.width: 1
-            clip: true
-
-            Rectangle {
-                x: 3 + slider.selectedIndex * ((parent.width - 6) / Math.max(1, slider.options.length))
-                y: 3
-                width: (parent.width - 6) / Math.max(1, slider.options.length)
-                height: parent.height - 6
-                radius: 13
-                color: "#66453d3d"
-
-                Behavior on x {
-                    NumberAnimation {
-                        duration: 150
-                        easing.type: Easing.OutCubic
-                    }
-
-                }
-
-            }
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.margins: 3
-                spacing: 0
-
-                Repeater {
-                    model: slider.options
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        radius: 13
-                        color: sliderMouse.containsMouse ? "#333b3c4a" : "transparent"
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: modelData.icon
-                            color: modelData.id === slider.currentId ? Theme.yellow : Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: 14
-                        }
-
-                        MouseArea {
-                            id: sliderMouse
-
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                slider.selected(modelData.id);
-                            }
                         }
 
                     }

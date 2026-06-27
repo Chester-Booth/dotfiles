@@ -5,134 +5,137 @@ action="${1:-}"
 caffeine_state="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell/caffeine.json"
 
 notify() {
-    notify-send -u critical -i dialog-warning "Power action blocked" "$1"
+	notify-send -u critical -i dialog-warning "Power action blocked" "$1"
 }
 
 awake_active() {
-    local deadline
+	local deadline
 
-    [[ -f "$caffeine_state" ]] || return 1
-    deadline="$(jq -r '.deadline // 0' "$caffeine_state" 2>/dev/null || echo 0)"
+	[[ -f "$caffeine_state" ]] || return 1
+	deadline="$(jq -r '.deadline // 0' "$caffeine_state" 2>/dev/null || echo 0)"
 
-    if [[ "$deadline" == "-1" ]]; then
-        return 0
-    fi
+	if [[ "$deadline" == "-1" ]]; then
+		return 0
+	fi
 
-    [[ "$deadline" =~ ^[0-9]+$ ]] && (( deadline > $(date +%s) ))
+	[[ "$deadline" =~ ^[0-9]+$ ]] && ((deadline > $(date +%s)))
 }
 
 guard_awake_before_lock() {
-    awake_active || return 0
-    pkill -x hypridle >/dev/null 2>&1 || true
-    notify-send -u normal -i dialog-information "Lock blocked" "Awake is active, so Hyprlock was not started."
-    return 1
+	awake_active || return 0
+	pkill -x hypridle >/dev/null 2>&1 || true
+	notify-send -u normal -i dialog-information "Lock blocked" "Awake is active, so Hyprlock was not started."
+	return 1
 }
 
 children_of() {
-    local parent="$1"
-    local child
+	local parent="$1"
+	local child
 
-    pgrep -P "$parent" 2>/dev/null | while read -r child; do
-        printf '%s\n' "$child"
-        children_of "$child"
-    done
+	pgrep -P "$parent" 2>/dev/null | while read -r child; do
+		printf '%s\n' "$child"
+		children_of "$child"
+	done
 }
 
 process_is_micro() {
-    local pid="$1"
-    local comm=""
-    local cmdline=""
+	local pid="$1"
+	local comm=""
+	local cmdline=""
 
-    [[ -r "/proc/$pid/comm" ]] && comm="$(<"/proc/$pid/comm")"
-    [[ "$comm" == "micro" ]] && return 0
+	[[ -r "/proc/$pid/comm" ]] && comm="$(<"/proc/$pid/comm")"
+	[[ "$comm" == "micro" ]] && return 0
 
-    if [[ -r "/proc/$pid/cmdline" ]]; then
-        cmdline="$(tr '\0' ' ' <"/proc/$pid/cmdline")"
-        [[ "$cmdline" =~ (^|[[:space:]/])micro([[:space:]]|$) ]] && return 0
-    fi
+	if [[ -r "/proc/$pid/cmdline" ]]; then
+		cmdline="$(tr '\0' ' ' <"/proc/$pid/cmdline")"
+		[[ "$cmdline" =~ (^|[[:space:]/])micro([[:space:]]|$) ]] && return 0
+	fi
 
-    return 1
+	return 1
 }
 
 special_micro_sessions() {
-    local client_pid workspace title pid
+	local client_pid workspace title pid
 
-    hyprctl clients -j 2>/dev/null |
-        jq -r '
+	hyprctl clients -j 2>/dev/null |
+		jq -r '
             .[]
             | select((.workspace.name | tostring | startswith("special")))
             | select(((.class // "") | ascii_downcase) == "kitty" or ((.initialClass // "") | ascii_downcase) == "kitty")
             | [.pid, .workspace.name, (.title // "kitty")] | @tsv
         ' 2>/dev/null |
-        while IFS=$'\t' read -r client_pid workspace title; do
-            [[ -n "$client_pid" ]] || continue
+		while IFS=$'\t' read -r client_pid workspace title; do
+			[[ -n "$client_pid" ]] || continue
 
-            if process_is_micro "$client_pid"; then
-                printf '%s\t%s\n' "$workspace" "$title"
-                continue
-            fi
+			if process_is_micro "$client_pid"; then
+				printf '%s\t%s\n' "$workspace" "$title"
+				continue
+			fi
 
-            while read -r pid; do
-                if process_is_micro "$pid"; then
-                    printf '%s\t%s\n' "$workspace" "$title"
-                    break
-                fi
-            done < <(children_of "$client_pid")
-        done
+			while read -r pid; do
+				if process_is_micro "$pid"; then
+					printf '%s\t%s\n' "$workspace" "$title"
+					break
+				fi
+			done < <(children_of "$client_pid")
+		done
 }
 
 guard_micro_before_power_action() {
-    local sessions first_workspace count message
+	local sessions first_workspace count message special_name
 
-    sessions="$(special_micro_sessions | sort -u)"
-    [[ -n "$sessions" ]] || return 0
+	sessions="$(special_micro_sessions | sort -u)"
+	[[ -n "$sessions" ]] || return 0
 
-    count="$(printf '%s\n' "$sessions" | sed '/^$/d' | wc -l)"
-    first_workspace="$(printf '%s\n' "$sessions" | awk -F '\t' 'NR == 1 { print $1 }')"
+	count="$(printf '%s\n' "$sessions" | sed '/^$/d' | wc -l)"
+	first_workspace="$(printf '%s\n' "$sessions" | awk -F '\t' 'NR == 1 { print $1 }')"
 
-    if [[ "$count" -eq 1 ]]; then
-        message="micro is open in ${first_workspace}. Save or close it before ${action}."
-    else
-        message="${count} micro sessions are open in special workspaces. Save or close them before ${action}."
-    fi
+	if [[ "$count" -eq 1 ]]; then
+		message="micro is open in ${first_workspace}. Save or close it before ${action}."
+	else
+		message="${count} micro sessions are open in special workspaces. Save or close them before ${action}."
+	fi
 
-    notify "$message"
-    [[ -n "$first_workspace" ]] && hyprctl dispatch togglespecialworkspace "${first_workspace#special:}" >/dev/null 2>&1 || true
-    return 1
+	notify "$message"
+	special_name="${first_workspace#special:}"
+	if [[ "$special_name" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
+		hyprctl dispatch "hl.dsp.workspace.toggle_special(\"$special_name\")" >/dev/null 2>&1 || true
+	fi
+	return 1
 }
 
 save_kitty_tabs_before_power_action() {
-    command -v ktr >/dev/null 2>&1 || return 0
-    ktr save --all >/dev/null 2>&1 || true
+	command -v ktr >/dev/null 2>&1 || return 0
+	ktr save --all >/dev/null 2>&1 || true
 }
 
 case "$action" in
-    lock)
-        guard_awake_before_lock || exit 0
-        exec hyprlock
-        ;;
-    sleep)
-        guard_micro_before_power_action || exit 1
-        save_kitty_tabs_before_power_action
-        exec systemctl suspend-then-hibernate
-        ;;
-    shutdown)
-        guard_micro_before_power_action || exit 1
-        save_kitty_tabs_before_power_action
-        exec systemctl poweroff
-        ;;
-    reboot)
-        guard_micro_before_power_action || exit 1
-        save_kitty_tabs_before_power_action
-        exec systemctl reboot
-        ;;
-    hibernate)
-        guard_micro_before_power_action || exit 1
-        save_kitty_tabs_before_power_action
-        exec systemctl hibernate
-        ;;
-    *)
-        notify "Unknown power action: ${action:-empty}"
-        exit 2
-        ;;
+lock)
+	guard_awake_before_lock || exit 0
+	exec hyprlock
+	;;
+sleep)
+	guard_micro_before_power_action || exit 1
+	save_kitty_tabs_before_power_action
+	exec systemctl suspend-then-hibernate
+	;;
+shutdown)
+	guard_micro_before_power_action || exit 1
+	save_kitty_tabs_before_power_action
+	exec systemctl poweroff
+	;;
+reboot)
+	guard_micro_before_power_action || exit 1
+	save_kitty_tabs_before_power_action
+	exec systemctl reboot
+	;;
+hibernate)
+	guard_micro_before_power_action || exit 1
+	save_kitty_tabs_before_power_action
+	exec systemctl hibernate
+	;;
+*)
+	notify "Unknown power action: ${action:-empty}"
+	exit 2
+	;;
 esac

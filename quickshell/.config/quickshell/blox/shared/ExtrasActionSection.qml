@@ -82,7 +82,7 @@ Item {
             }
             onRightClicked: root.runCommand(root.scriptRoot + "/display/hyprsunset-toggle.sh")
             onWheeled: (delta) => {
-                return root.runCommand("brightnessctl -d amdgpu_bl1 set " + (delta > 0 ? "+2%" : "2%-"));
+                return root.runCommand(root.scriptRoot + "/control.sh brightness-" + (delta > 0 ? "up" : "down") + " 2");
             }
         }
 

@@ -6,7 +6,6 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
-import Quickshell.Services.Notifications
 import Quickshell.Services.SystemTray
 
 Scope {
@@ -29,26 +28,58 @@ Scope {
     property bool popoutHovered: false
     property bool extrasHovered: false
     property bool inputPopupLocked: false
-    property bool blinkOn: true
+    property alias blinkOn: workspaceController.blinkOn
     property string selectedCalendarDate: ""
-    property int notesSaveRevision: 0
-    property string alertWorkspaceIds: ","
-    property string alertWindowAddress: ""
+    property alias calendarAddRevision: barActions.calendarAddRevision
+    property alias calendarAddBusy: barActions.calendarAddBusy
+    property alias calendarAddError: barActions.calendarAddError
+    property alias notesSaveRevision: barActions.notesSaveRevision
+    property alias notesSaveBusy: barActions.notesSaveBusy
+    property alias notesSaveError: barActions.notesSaveError
+    property alias generatedRefreshBusy: barActions.generatedRefreshBusy
+    property alias generatedRefreshError: barActions.generatedRefreshError
     property var trayMenuHandle: null
     property string trayMenuTitle: ""
     property real trayMenuY: 8
     property bool trayMenuOpen: false
-    property var notificationItems: notificationServer.trackedNotifications.values
-    property var toastItems: []
-    property bool notificationToastsEnabled: true
-    property bool notificationDnd: false
-    property bool notificationInitialSyncComplete: false
-    property int activeMprisPlayerIndex: -1
+    property alias notificationItems: notifications.items
+    property alias toastItems: notifications.toasts
+    property alias notificationToastsEnabled: notifications.toastsEnabled
+    property alias notificationDnd: uiState.notificationDnd
+    property alias activeMprisPlayer: uiState.activeMprisPlayer
     property real notificationPanelY: 0
-    property double notificationToggleAllowedAt: 0
+    property var activeScreen: Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
+    property alias performanceActionBusy: barActions.performanceBusy
+    property alias performanceActionError: barActions.performanceError
+    property alias workspaces: barStatus.workspaces
+    property alias systemInfo: barStatus.system
+    property alias todo: barStatus.todo
+    property alias calendarEvents: barStatus.calendar
+    property alias updates: barStatus.updates
+    property alias battery: barStatus.battery
+    property alias audio: barStatus.audio
+    property alias brightness: barStatus.brightness
+    property alias network: barStatus.network
+    property alias bluetooth: barStatus.bluetooth
+    property alias touchpad: barStatus.touchpad
+    property alias privacy: barStatus.privacy
+    property alias caffeine: barStatus.caffeine
 
     function togglePanel(panel, centerY) {
         openHoverPanel(panel, centerY);
+    }
+
+    function syncActiveScreenToFocus() {
+        if (!Hyprland.focusedMonitor)
+            return ;
+
+        for (let i = 0; i < Quickshell.screens.length; i++) {
+            const screen = Quickshell.screens[i];
+            if (Hyprland.monitorFor(screen) === Hyprland.focusedMonitor) {
+                activeScreen = screen;
+                return ;
+            }
+        }
     }
 
     function diagLog(event, detail) {
@@ -150,97 +181,11 @@ Scope {
     }
 
     function notificationStatus() {
-        const count = notificationItems ? notificationItems.length : 0;
-        return {
-            "icon": notificationDnd ? "󰂛" : count > 0 ? "󰂚" : "󰂜",
-            "class": notificationDnd ? "dnd" : count > 0 ? "notification" : "none",
-            "count": count,
-            "dnd": notificationDnd,
-            "inhibited": false,
-            "tooltip": (count === 1 ? "1 notification" : count + " notifications") + "\nDND: " + (notificationDnd ? "true" : "false")
-        };
+        return notifications.status();
     }
 
     function clearNotifications() {
-        const items = notificationItems ? notificationItems.slice() : [];
-        diagLog("notifications.clear", "count=" + items.length);
-        for (let i = 0; i < items.length; i++)
-            items[i].dismiss();
-        toastItems = [];
-    }
-
-    function openNotifications(centerY) {
-        const now = Date.now();
-        const targetY = centerY !== undefined && centerY > 0 ? centerY : notificationPanelY > 0 ? notificationPanelY : openPanelY > 0 ? openPanelY : 120;
-        diagLog("notifications.open", "requestedY=" + centerY + " cachedY=" + notificationPanelY + " openPanelY=" + openPanelY + " targetY=" + targetY + " now=" + now + " allowedAt=" + notificationToggleAllowedAt);
-        if (openPanel === "notifications") {
-            diagLog("notifications.open.noop", "already open");
-            return ;
-        }
-        if (now < notificationToggleAllowedAt) {
-            diagLog("notifications.open.blocked", "remainingMs=" + Math.round(notificationToggleAllowedAt - now));
-            return ;
-        }
-
-        notificationToggleAllowedAt = now + 750;
-        toastItems = [];
-        openHoverPanel("notifications", targetY);
-    }
-
-    function toggleNotifications() {
-        const now = Date.now();
-        diagLog("notifications.toggle", "openPanel=" + openPanel + " now=" + now + " allowedAt=" + notificationToggleAllowedAt);
-        if (now < notificationToggleAllowedAt) {
-            diagLog("notifications.toggle.blocked", "remainingMs=" + Math.round(notificationToggleAllowedAt - now));
-            return ;
-        }
-
-        if (openPanel === "notifications") {
-            notificationToggleAllowedAt = now + 750;
-            closePanel();
-        } else {
-            openNotifications();
-        }
-    }
-
-    function addNotificationToast(notification) {
-        if (!notificationToastsEnabled || notificationDnd || openPanel === "notifications") {
-            diagLog("notifications.toast.skip", "enabled=" + notificationToastsEnabled + " dnd=" + notificationDnd + " openPanel=" + openPanel);
-            return ;
-        }
-
-        const timeout = notification.expireTimeout && notification.expireTimeout > 0 ? notification.expireTimeout : 6000;
-        diagLog("notifications.toast.add", "app=" + (notification.appName || "") + " urgency=" + notification.urgency + " timeout=" + timeout);
-        const items = toastItems ? toastItems.slice() : [];
-        items.unshift({
-            "notification": notification,
-            "timeout": Math.max(3500, Math.min(12000, timeout))
-        });
-        toastItems = items.slice(0, 4);
-    }
-
-    function markNotificationCentreOnly(notification) {
-        if (!notification)
-            return ;
-
-        notification.tracked = true;
-        notification.bloxToastKnown = true;
-        if (!notification.bloxReceivedAt)
-            notification.bloxReceivedAt = Date.now();
-    }
-
-    function markExistingNotificationsCentreOnly(reason) {
-        const items = notificationItems ? notificationItems.slice() : [];
-        diagLog("notifications.initialSync", "reason=" + reason + " count=" + items.length);
-        for (let i = 0; i < items.length; i++)
-            markNotificationCentreOnly(items[i]);
-        notificationInitialSyncComplete = true;
-    }
-
-    function removeNotificationToast(notification) {
-        diagLog("notifications.toast.remove", "app=" + (notification && notification.appName ? notification.appName : ""));
-        const items = toastItems ? toastItems.filter((item) => item.notification !== notification) : [];
-        toastItems = items;
+        notifications.clear();
     }
 
     function focusNotificationSource(notification) {
@@ -248,9 +193,7 @@ Scope {
             return ;
 
         diagLog("notifications.activate", "app=" + (notification.appName || "") + " desktop=" + (notification.desktopEntry || "") + " summary=" + (notification.summary || ""));
-        actionArgs.running = false;
-        actionArgs.command = ["env", "BLOX_NOTIFICATION_APP_NAME=" + (notification.appName || ""), "BLOX_NOTIFICATION_DESKTOP_ENTRY=" + (notification.desktopEntry || ""), "BLOX_NOTIFICATION_SUMMARY=" + (notification.summary || ""), "/home/blox/.config/hypr/scripts/focus-notification-source-workspace.sh"];
-        actionArgs.running = true;
+        runArgs(["env", "BLOX_NOTIFICATION_APP_NAME=" + (notification.appName || ""), "BLOX_NOTIFICATION_DESKTOP_ENTRY=" + (notification.desktopEntry || ""), "BLOX_NOTIFICATION_SUMMARY=" + (notification.summary || ""), "/home/blox/.config/hypr/scripts/focus-notification-source-workspace.sh"]);
     }
 
     function toggleExtras() {
@@ -276,66 +219,6 @@ Scope {
         extrasOpen = false;
     }
 
-    function refreshControlStatus() {
-        audio.refresh();
-        brightness.refresh();
-        bluetooth.refresh();
-        network.refresh();
-        touchpad.refresh();
-        privacy.refresh();
-        battery.refresh();
-        caffeine.refresh();
-    }
-
-    function refreshPerformanceStatus() {
-        fan.refresh();
-        gpu.refresh();
-        systemInfo.refresh();
-        battery.refresh();
-    }
-
-    function pluggedIn() {
-        const status = battery.json || {};
-        return status.class === "charging" || status.class === "plugged";
-    }
-
-    function railInterval(batteryVisible, acVisible, batteryHidden, acHidden) {
-        if (barVisible)
-            return pluggedIn() ? acVisible : batteryVisible;
-
-        return pluggedIn() ? acHidden : batteryHidden;
-    }
-
-    function setControlPolling(visible) {
-        audio.interval = visible ? 2000 : railInterval(30000, 15000, 120000, 60000);
-        brightness.interval = visible ? 2000 : 30000;
-        bluetooth.interval = visible ? 2000 : 30000;
-        network.interval = visible ? 2000 : railInterval(30000, 15000, 120000, 60000);
-        touchpad.interval = visible ? 2000 : 15000;
-        privacy.interval = visible ? 5000 : 30000;
-        if (visible)
-            refreshControlStatus();
-
-    }
-
-    function updatePanelPolling() {
-        const controlPanels = ["audio", "network", "bluetooth", "brightness", "notifications", "privacy"];
-        setControlPolling(controlPanels.indexOf(openPanel) >= 0);
-        caffeine.interval = openPanel === "caffeine" ? 1000 : caffeine.json.active ? 5000 : 30000;
-        workspaces.interval = railInterval(300000, 120000, 600000, 300000);
-        gpu.interval = openPanel === "system" ? gpu.interval : railInterval(60000, 30000, 300000, 60000);
-        fan.interval = openPanel === "system" ? fan.interval : railInterval(60000, 30000, 300000, 60000);
-        battery.interval = openPanel === "system" ? battery.interval : railInterval(30000, 15000, 60000, 30000);
-        if (openPanel === "caffeine")
-            caffeine.refresh();
-        if (openPanel === "todo")
-            todo.refresh();
-        else if (openPanel === "calendar")
-            calendarEvents.refresh();
-        else if (openPanel === "updates")
-            updates.refresh();
-    }
-
     function openTrayMenu(item, centerY) {
         closePanel();
         extrasOpen = true;
@@ -350,121 +233,39 @@ Scope {
     }
 
     function setPerformancePolling(visible) {
-        systemInfo.interval = visible ? 1000 : 60000;
-        battery.interval = visible ? 1000 : railInterval(30000, 15000, 60000, 30000);
-        fan.interval = visible ? 2000 : railInterval(60000, 30000, 300000, 60000);
-        gpu.interval = visible ? 2000 : railInterval(60000, 30000, 300000, 60000);
-        if (visible)
-            refreshPerformanceStatus();
-
-    }
-
-    function activeWorkspaceId() {
-        const items = workspaceItems();
-        for (let i = 0; i < items.length; i++) {
-            if (items[i].active)
-                return items[i].id;
-
-        }
-        return -1;
-    }
-
-    function focusedWorkspaceId() {
-        return Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : activeWorkspaceId();
+        barStatus.performanceVisible = visible;
     }
 
     function workspaceAlert(id) {
-        return alertWorkspaceIds.indexOf("," + id + ",") >= 0;
+        return workspaceController.hasAlert(id);
     }
 
-    function addWorkspaceAlert(id, address) {
-        if (id <= 0)
-            return ;
-
-        if (!workspaceAlert(id))
-            alertWorkspaceIds += id + ",";
-
-        if (address !== undefined && address.length > 0)
-            alertWindowAddress = address;
-
-        urgentSwitchDelay.restart();
+    function focusWorkspace(id) {
+        workspaceController.focusWorkspace(id);
     }
 
-    function clearWorkspaceAlert(id) {
-        alertWorkspaceIds = alertWorkspaceIds.replace("," + id + ",", ",");
-    }
-
-    function focusWindow(address) {
-        if (address !== undefined && address.length > 0)
-            Hyprland.dispatch("focuswindow address:" + address);
-
-    }
-
-    function lookupWindowWorkspace(address) {
-        if (address === undefined || address.length === 0 || activationLookup.running)
-            return ;
-
-        activationLookup.command = ["python3", root.scriptRoot + "/workspaces/window-for-address.py", address];
-        activationLookup.running = true;
-    }
-
-    function activateWorkspaceItem(item) {
-        Hyprland.dispatch("workspace " + item.id);
-        focusWindow(item.urgentAddress || alertWindowAddress);
-        clearWorkspaceAlert(item.id);
-        alertWindowAddress = "";
-        workspaces.refresh();
+    function toggleSpecialWorkspace(name) {
+        workspaceController.toggleSpecialWorkspace(name);
     }
 
     function run(command) {
-        if (command.length === 0)
-            return ;
-
-        action.running = false;
-        action.command = ["sh", "-c", command];
-        action.running = true;
+        barActions.run(command);
     }
 
     function runArgs(args) {
-        if (args.length === 0)
-            return ;
+        barActions.runArgs(args);
+    }
 
-        actionArgs.running = false;
-        actionArgs.command = args;
-        actionArgs.running = true;
+    function runPerformance(command) {
+        barActions.runPerformance(command);
     }
 
     function powerCommand(kind) {
-        if (kind === "update-shutdown")
-            return "kitty --class update-shutdown --title update-shutdown sh -c '" + root.scriptRoot + "/update/run.sh; " + root.scriptRoot + "/power/safe.sh shutdown'";
-
-        return root.scriptRoot + "/power/safe.sh " + kind;
+        return content.powerCommand(kind);
     }
 
     function updateSummary() {
-        const text = updates.json.tooltip || "";
-        const match = text.match(/([0-9]+)\s+repo updates,\s+([0-9]+)\s+AUR updates/);
-        if (match)
-            return (parseInt(match[1]) + parseInt(match[2])) + " updates";
-
-        if (updates.json.class === "zero")
-            return "0 updates";
-
-        return text || "Check updates";
-    }
-
-    function updateBody() {
-        const text = updates.json.tooltip || "";
-        const match = text.match(/([0-9]+)\s+repo updates,\s+([0-9]+)\s+AUR updates/i);
-        if (match) {
-            const repo = parseInt(match[1]);
-            const yay = parseInt(match[2]);
-            return repo + " repo updates, " + yay + " yay updates\n" + (repo + yay) + " total updates";
-        }
-        if (updates.json.class === "zero")
-            return "0 repo updates, 0 yay updates\n0 total updates";
-
-        return text || "Update status unavailable";
+        return content.updateSummary();
     }
 
     function currentIsoDate() {
@@ -477,103 +278,15 @@ Scope {
     }
 
     function systemPanelTitle() {
-        if (openPanel === "audio")
-            return "Audio";
-
-        if (openPanel === "network")
-            return "Network";
-
-        if (openPanel === "bluetooth")
-            return "Bluetooth";
-
-        if (openPanel === "mic")
-            return "Microphone";
-
-        if (openPanel === "brightness")
-            return "Display";
-
-        if (openPanel === "system")
-            return "Performance";
-
-        if (openPanel === "battery")
-            return "Battery";
-
-        return panelTitle();
+        return content.systemPanelTitle();
     }
 
     function systemPanelBody() {
-        if (openPanel === "audio")
-            return "";
-
-        if (openPanel === "network")
-            return (network.json.tooltip || "Network unavailable").split("\n").slice(1).join("\n");
-
-        if (openPanel === "bluetooth")
-            return bluetooth.json.tooltip || "Bluetooth unavailable";
-
-        if (openPanel === "mic")
-            return audio.json.micMuted ? "Microphone muted" : "Microphone open";
-
-        if (openPanel === "brightness")
-            return (brightness.json.tooltip || "Brightness unavailable").split("\n").slice(1).join("\n");
-
-        if (openPanel === "system")
-            return "Fan\n" + (systemInfo.json.profile || "Unknown") + "\n\nGPU\n" + (systemInfo.json.gpuLabel || "GPU unavailable");
-
-        if (openPanel === "battery")
-            return battery.json.tooltip || "Battery unavailable";
-
-        return panelBody();
+        return content.systemPanelBody();
     }
 
     function systemPanelActions() {
-        if (openPanel === "audio")
-            return [{
-            "label": audio.json.micMuted ? "Unmute mic" : "Mute mic",
-            "command": "pactl set-source-mute @DEFAULT_SOURCE@ toggle",
-            "keepOpen": true
-        }, {
-            "label": "Open app",
-            "command": "pavucontrol -t 3"
-        }];
-
-        if (openPanel === "network")
-            return [{
-            "label": network.json.class === "disabled" ? "Enable" : "Disable",
-            "command": "nmcli radio wifi " + (network.json.class === "disabled" ? "on" : "off"),
-            "keepOpen": true
-        }, {
-            "label": "Open app",
-            "command": root.scriptRoot + "/network/toggle-applet.sh"
-        }];
-
-        if (openPanel === "bluetooth")
-            return [{
-            "label": bluetooth.json.class === "disabled" ? "Enable" : "Toggle",
-            "command": "rfkill toggle bluetooth",
-            "keepOpen": true
-        }, {
-            "label": "Open app",
-            "command": "blueman-manager"
-        }];
-
-        if (openPanel === "mic")
-            return [{
-            "label": audio.json.micMuted ? "Unmute" : "Mute",
-            "command": "pactl set-source-mute @DEFAULT_SOURCE@ toggle",
-            "keepOpen": true
-        }, {
-            "label": "Open app",
-            "command": "pavucontrol -t 4"
-        }];
-
-        if (openPanel === "brightness")
-            return [];
-
-        if (openPanel === "system")
-            return [];
-
-        return panelActions();
+        return content.systemPanelActions();
     }
 
     function workspaceItems() {
@@ -581,407 +294,139 @@ Scope {
     }
 
     function updateIcon() {
-        const cls = updates.json.class || updates.json.alt || "zero";
-        if (cls === "error")
-            return "";
-
-        if (cls === "zero")
-            return "󰅠";
-
-        if (cls === "lessfifty")
-            return "󰅢";
-
-        return "󰧠";
-    }
-
-    function shortDayName(date) {
-        const days = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
-        return days[date.getDay()];
-    }
-
-    function twoDigit(value) {
-        return value < 10 ? "0" + value : String(value);
+        return content.updateIcon();
     }
 
     function railClockText() {
-        const date = clock.date;
-        if (clockDateMode)
-            return shortDayName(date) + "\n" + twoDigit(date.getDate()) + "\n" + twoDigit(date.getMonth() + 1) + "\n" + twoDigit(date.getFullYear() % 100);
-
-        const hour = date.getHours() % 12 || 12;
-        return twoDigit(hour) + "\n" + twoDigit(date.getMinutes()) + "\n" + twoDigit(date.getSeconds());
+        return content.railClockText();
     }
 
     function panelTitle() {
-        const titles = {
-            "audio": "Audio",
-            "battery": "Battery",
-            "bluetooth": "Bluetooth",
-            "brightness": "Brightness",
-            "calendar": "Calendar",
-            "extras": "Extras",
-            "fan": "Fan",
-            "gpu": "GPU",
-            "network": "Network",
-            "notifications": "Notifications",
-            "power": "Power",
-            "privacy": "Privacy",
-            "caffeine": "Awake",
-            "todo": "Todo",
-            "updates": "Updates"
-        };
-        return titles[openPanel] || "";
-    }
-
-    function elapsedText(ms, nowMs) {
-        if (!ms || ms <= 0)
-            return "Not fetched yet";
-
-        const elapsed = Math.max(0, Math.floor((nowMs - ms) / 1000));
-        if (elapsed < 5)
-            return "Fetched just now";
-
-        if (elapsed < 60)
-            return "Fetched " + elapsed + "s ago";
-
-        const minutes = Math.floor(elapsed / 60);
-        if (minutes < 60)
-            return "Fetched " + minutes + "m ago";
-
-        const hours = Math.floor(minutes / 60);
-        if (hours < 24)
-            return "Fetched " + hours + "h ago";
-
-        return "Fetched " + Math.floor(hours / 24) + "d ago";
+        return content.panelTitle();
     }
 
     function panelSubtitle() {
-        if (openPanel === "updates")
-            return elapsedText(updates.lastUpdatedMs, clock.date.getTime());
-
-        if (openPanel === "caffeine")
-            return caffeine.json.active ? (caffeine.json.hypridleRunning ? "Awake warning" : "Hypridle paused") : "Hypridle active";
-
-        return "";
+        return content.panelSubtitle();
     }
 
     function panelHeaderActionIcon() {
-        if (openPanel === "updates")
-            return "󰑐";
-
-        return "";
+        return content.panelHeaderActionIcon();
     }
 
     function panelHeaderActionCommand() {
-        if (openPanel === "updates")
-            return "__refresh_updates";
-
-        return "";
+        return content.panelHeaderActionCommand();
     }
 
     function panelHeaderStatus() {
-        if (openPanel !== "caffeine" || !caffeine.json.active)
-            return "";
-
-        if (caffeine.json.mode === "indefinite")
-            return "∞";
-
-        return caffeine.json.label || "";
+        return content.panelHeaderStatus();
     }
 
     function panelBody() {
-        if (openPanel === "power")
-            return "Session actions use the guarded power backend, including the micro guard.";
-
-        if (openPanel === "todo")
-            return todo.json.tooltip || "Todo status unavailable";
-
-        if (openPanel === "calendar")
-            return Qt.formatDateTime(clock.date, "dddd, dd MMMM yyyy");
-
-        if (openPanel === "extras")
-            return "Tray/menu placeholder\n" + (updates.json.tooltip || "Update status unavailable") + "\n" + (bluetooth.json.tooltip || "Bluetooth unavailable") + "\n" + (audio.json.micMuted ? "Mic muted" : "Mic open") + "\n" + (brightness.json.tooltip || "Brightness unavailable") + "\n" + (privacy.json.tooltip || "Privacy unavailable");
-
-        if (openPanel === "updates")
-            return updateBody();
-
-        if (openPanel === "caffeine")
-            return "";
-
-        if (openPanel === "bluetooth")
-            return bluetooth.json.tooltip || "Bluetooth status unavailable";
-
-        if (openPanel === "brightness")
-            return brightness.json.tooltip || "Brightness status unavailable";
-
-        if (openPanel === "privacy")
-            return privacy.json.tooltip || "Privacy status unavailable";
-
-        if (openPanel === "audio")
-            return audio.json.tooltip || "Audio status unavailable";
-
-        if (openPanel === "network")
-            return (network.json.tooltip || "Network unavailable") + "\n\n" + (bluetooth.json.tooltip || "Bluetooth unavailable");
-
-        if (openPanel === "notifications")
-            return root.notificationStatus().tooltip;
-
-        if (openPanel === "touchpad")
-            return touchpad.json.tooltip || "Touchpad status unavailable";
-
-        if (openPanel === "fan")
-            return fan.json.tooltip || "Fan status unavailable";
-
-        if (openPanel === "gpu")
-            return gpu.json.tooltip || "GPU status unavailable";
-
-        if (openPanel === "battery")
-            return battery.json.tooltip || "Battery status unavailable";
-
-        return "";
+        return content.panelBody();
     }
 
     function panelActions(panel) {
-        const current = panel || openPanel;
-        if (current === "power")
-            return [{
-            "label": "Lock",
-            "command": root.scriptRoot + "/power/safe.sh lock"
-        }, {
-            "label": "Sleep",
-            "command": root.scriptRoot + "/power/safe.sh sleep"
-        }, {
-            "label": "Hibernate",
-            "command": root.scriptRoot + "/power/safe.sh hibernate"
-        }, {
-            "label": "Reboot",
-            "command": root.scriptRoot + "/power/safe.sh reboot",
-            "danger": true
-        }, {
-            "label": "Shut down",
-            "command": root.scriptRoot + "/power/safe.sh shutdown",
-            "danger": true
-        }];
+        return content.panelActions(panel);
+    }
 
-        if (current === "todo")
-            return [{
-            "label": "Cycle file",
-            "command": root.scriptRoot + "/todo/cycle.sh"
-        }, {
-            "label": "Open editor",
-            "command": root.scriptRoot + "/todo/open.sh"
-        }];
-
-        if (current === "calendar")
-            return [{
-            "label": "Open calendar",
-            "command": "xdg-open 'https://calendar.google.com/calendar/u/0/r/week'"
-        }];
-
-        if (current === "extras")
-            return [{
-            "label": "Run updates",
-            "command": "kitty --class update --title update sh -c '" + root.scriptRoot + "/update/run.sh; echo Done - press enter; read'"
-        }, {
-            "label": "List updates",
-            "command": "kitty --class update-list --title update-list sh -c '" + root.scriptRoot + "/update/list.sh'"
-        }, {
-            "label": bluetooth.json.class === "disabled" ? "Enable Bluetooth" : "Toggle Bluetooth",
-            "command": "rfkill toggle bluetooth"
-        }, {
-            "label": "Bluetooth manager",
-            "command": "blueman-manager"
-        }, {
-            "label": audio.json.micMuted ? "Unmute microphone" : "Mute microphone",
-            "command": "pactl set-source-mute @DEFAULT_SOURCE@ toggle"
-        }, {
-            "label": "Microphone settings",
-            "command": "pavucontrol -t 4"
-        }, {
-            "label": "Brightness up",
-            "command": "brightnessctl -d amdgpu_bl1 set +5%"
-        }, {
-            "label": "Brightness down",
-            "command": "brightnessctl -d amdgpu_bl1 set 5%-"
-        }, {
-            "label": "Toggle sunset",
-            "command": root.scriptRoot + "/display/hyprsunset-toggle.sh"
-        }];
-
-        if (current === "updates")
-            return [{
-            "icon": "󰇚",
-            "label": "Run updates",
-            "command": "kitty --class update --title update sh -c '" + root.scriptRoot + "/update/run.sh; echo Done - press enter; read'"
-        }, {
-            "icon": "",
-            "label": "List updates",
-            "command": "kitty --class update-list --title update-list sh -c '" + root.scriptRoot + "/update/list.sh'"
-        }];
-
-        if (current === "bluetooth")
-            return [{
-            "label": bluetooth.json.class === "disabled" ? "Enable Bluetooth" : "Toggle Bluetooth",
-            "command": "rfkill toggle bluetooth"
-        }, {
-            "label": "Bluetooth manager",
-            "command": "blueman-manager"
-        }];
-
-        if (current === "brightness")
-            return [{
-            "label": "Brightness up",
-            "command": "brightnessctl -d amdgpu_bl1 set +5%"
-        }, {
-            "label": "Brightness down",
-            "command": "brightnessctl -d amdgpu_bl1 set 5%-"
-        }, {
-            "label": "Toggle sunset",
-            "command": root.scriptRoot + "/display/hyprsunset-toggle.sh"
-        }];
-
-        if (current === "audio")
-            return [{
-            "label": audio.json.muted ? "Unmute output" : "Mute output",
-            "command": "pactl set-sink-mute @DEFAULT_SINK@ toggle"
-        }, {
-            "label": "Volume up",
-            "command": "pactl set-sink-volume @DEFAULT_SINK@ +5%"
-        }, {
-            "label": "Volume down",
-            "command": "pactl set-sink-volume @DEFAULT_SINK@ -5%"
-        }, {
-            "label": "Audio settings",
-            "command": "pavucontrol -t 3"
-        }];
-
-        if (current === "network")
-            return [{
-            "label": network.json.class === "disabled" ? "Enable Wi-Fi" : "Toggle Wi-Fi",
-            "command": "nmcli radio wifi " + (network.json.class === "disabled" ? "on" : "off")
-        }, {
-            "label": "Network applet",
-            "command": root.scriptRoot + "/network/toggle-applet.sh"
-        }, {
-            "label": bluetooth.json.class === "disabled" ? "Enable Bluetooth" : "Toggle Bluetooth",
-            "command": "rfkill toggle bluetooth"
-        }, {
-            "label": "Bluetooth manager",
-            "command": "blueman-manager"
-        }];
-
-        if (current === "notifications")
-            return [{
-            "label": "Clear notifications",
-            "command": "__clear_notifications"
-        }];
-
-        if (current === "caffeine")
-            return [{
-            "id": "off",
-            "icon": "󰒲",
-            "label": "Off",
-            "command": root.scriptRoot + "/status/caffeine.sh off",
-            "keepOpen": true
-        }, {
-            "id": "30m",
-            "icon": "󰔟",
-            "label": "30 mins",
-            "command": root.scriptRoot + "/status/caffeine.sh 30m",
-            "keepOpen": true
-        }, {
-            "id": "1h",
-            "icon": "󰞌",
-            "label": "1 hr",
-            "command": root.scriptRoot + "/status/caffeine.sh 1h",
-            "keepOpen": true
-        }, {
-            "id": "indefinite",
-            "icon": "󰒳",
-            "label": "Indefinite",
-            "command": root.scriptRoot + "/status/caffeine.sh indefinite",
-            "keepOpen": true
-        }];
-
-        if (current === "fan")
-            return [{
-            "label": "Performance",
-            "command": "asusctl profile set performance; " + root.scriptRoot + "/osd/fan-profile.sh performance"
-        }, {
-            "label": "Balanced",
-            "command": "asusctl profile set balanced; " + root.scriptRoot + "/osd/fan-profile.sh balanced"
-        }, {
-            "label": "Quiet",
-            "command": "asusctl profile set quiet; " + root.scriptRoot + "/osd/fan-profile.sh quiet"
-        }];
-
-        if (current === "gpu")
-            return [{
-            "label": "Gaming: GPU + 144Hz",
-            "command": root.scriptRoot + "/gpu/modes/gpu144.sh"
-        }, {
-            "label": "Performance: GPU + 60Hz",
-            "command": root.scriptRoot + "/gpu/modes/gpu60.sh"
-        }, {
-            "label": "High refresh: iGPU + 144Hz",
-            "command": root.scriptRoot + "/gpu/modes/igpu144.sh"
-        }, {
-            "label": "Eco: iGPU + 60Hz",
-            "command": root.scriptRoot + "/gpu/modes/igpu60.sh"
-        }];
-
-        return [];
+    function statusError(panel) {
+        const pollers = {
+            "audio": audio,
+            "network": network,
+            "bluetooth": bluetooth,
+            "brightness": brightness,
+            "privacy": privacy,
+            "caffeine": caffeine,
+            "updates": updates,
+            "todo": todo,
+            "calendar": calendarEvents,
+            "system": systemInfo,
+            "battery": battery,
+            "touchpad": touchpad
+        };
+        const poller = pollers[panel];
+        return poller && !poller.ok ? poller.lastError : "";
     }
 
     onBarOpenChanged: {
         if (!barOpen)
             closeDrawers();
 
-        updatePanelPolling();
     }
-    onBarVisibleChanged: updatePanelPolling()
-    onOpenPanelChanged: updatePanelPolling()
     Component.onCompleted: {
         diagLog("component.completed", "bar loaded");
-        notificationInitialSyncTimer.restart();
+        syncActiveScreenToFocus();
     }
 
-    Timer {
-        id: notificationInitialSyncTimer
-
-        interval: 1200
-        repeat: false
-        onTriggered: root.markExistingNotificationsCentreOnly("startup")
+    UiState {
+        id: uiState
     }
 
-    NotificationServer {
-        id: notificationServer
+    NotificationController {
+        id: notifications
 
-        keepOnReload: true
-        persistenceSupported: true
-        bodySupported: true
-        bodyMarkupSupported: true
-        bodyImagesSupported: true
-        imageSupported: true
-        actionsSupported: true
-        actionIconsSupported: true
-        inlineReplySupported: true
-
-        onNotification: (notification) => {
-            const knownForToast = notification.bloxToastKnown === true;
-            root.diagLog("notifications.received", "app=" + (notification.appName || "") + " summary=" + (notification.summary || "") + " urgency=" + notification.urgency + " known=" + knownForToast + " initialSync=" + root.notificationInitialSyncComplete);
-            notification.tracked = true;
-            if (!notification.bloxReceivedAt)
-                notification.bloxReceivedAt = Date.now();
-            notification.bloxToastKnown = true;
-            if (!knownForToast && root.notificationInitialSyncComplete)
-                root.addNotificationToast(notification);
-            else
-                root.diagLog("notifications.toast.suppress", "known=" + knownForToast + " initialSync=" + root.notificationInitialSyncComplete + " app=" + (notification.appName || ""));
-            notification.closed.connect(() => {
-                root.removeNotificationToast(notification);
-            });
+        openPanel: root.openPanel
+        openPanelY: root.openPanelY
+        panelY: root.notificationPanelY
+        dnd: root.notificationDnd
+        onOpenRequested: (centreY) => {
+            return root.openHoverPanel("notifications", centreY);
         }
+        onCloseRequested: root.closePanel()
+        onDndToggleRequested: root.notificationDnd = !root.notificationDnd
+    }
+
+    WorkspaceController {
+        id: workspaceController
+
+        scriptRoot: root.scriptRoot
+        items: root.workspaceItems()
+        onStatusRefreshRequested: workspaces.refresh()
+        onPrivacyRefreshRequested: privacy.refresh()
+        onFocusedMonitorChanged: root.syncActiveScreenToFocus()
+    }
+
+    BarStatus {
+        id: barStatus
+
+        scriptRoot: root.scriptRoot
+        barVisible: root.barVisible
+        openPanel: root.openPanel
+        selectedCalendarDate: root.selectedCalendarDate
+        todayIso: root.currentIsoDate()
+    }
+
+    BarActions {
+        id: barActions
+
+        scriptRoot: root.scriptRoot
+        onControlRefreshRequested: barStatus.refreshControl()
+        onPerformanceRefreshRequested: barStatus.refreshPerformance()
+        onTodoRefreshRequested: todoRefreshDelay.restart()
+        onCalendarRefreshRequested: calendarEvents.refresh()
+    }
+
+    BarContent {
+        id: content
+
+        openPanel: root.openPanel
+        scriptRoot: root.scriptRoot
+        now: clock.date
+        clockDateMode: root.clockDateMode
+        updates: root.updates.json
+        updatesLastUpdatedMs: root.updates.lastUpdatedMs
+        todo: root.todo.json
+        calendar: root.calendarEvents.json
+        bluetooth: root.bluetooth.json
+        audio: root.audio.json
+        brightness: root.brightness.json
+        network: root.network.json
+        privacy: root.privacy.json
+        touchpad: root.touchpad.json
+        system: root.systemInfo.json
+        battery: root.battery.json
+        caffeine: root.caffeine.json
+        notificationTooltip: root.notificationStatus().tooltip
     }
 
     IpcHandler {
@@ -1007,283 +452,12 @@ Scope {
         target: "power"
     }
 
-    IpcHandler {
-        function open() : string {
-            root.openNotifications();
-            return "open";
-        }
-
-        function toggle() : string {
-            root.toggleNotifications();
-            return root.openPanel === "notifications" ? "open" : "closed";
-        }
-
-        function close() : string {
-            root.closePanel();
-            return "closed";
-        }
-
-        function dnd() : string {
-            root.notificationDnd = !root.notificationDnd;
-            root.toastItems = [];
-            return root.notificationDnd ? "enabled" : "disabled";
-        }
-
-        function clear() : string {
-            root.clearNotifications();
-            return "cleared";
-        }
-
-        target: "notifications"
-    }
-
-    ScriptPoller {
-        id: workspaces
-
-        command: [root.scriptRoot + "/workspaces/status.py"]
-        interval: 300000
-    }
-
-    ScriptPoller {
-        id: gpu
-
-        command: [root.scriptRoot + "/status/gpu.sh"]
-        interval: 60000
-    }
-
-    ScriptPoller {
-        id: fan
-
-        command: [root.scriptRoot + "/status/fan.sh"]
-        interval: 60000
-    }
-
-    ScriptPoller {
-        id: systemInfo
-
-        command: [root.scriptRoot + "/status/system.sh"]
-        interval: 60000
-    }
-
-    ScriptPoller {
-        id: todo
-
-        command: [root.scriptRoot + "/todo/status.sh"]
-        interval: 60000
-    }
-
-    ScriptPoller {
-        id: calendarEvents
-
-        command: [root.scriptRoot + "/calendar/events.sh", root.selectedCalendarDate || root.currentIsoDate()]
-        interval: 3.6e+06
-    }
-
-    ScriptPoller {
-        id: updates
-
-        command: [root.scriptRoot + "/update/status.sh"]
-        interval: 3.6e+06
-    }
-
-    ScriptPoller {
-        id: battery
-
-        command: [root.scriptRoot + "/status/battery.sh"]
-        interval: 30000
-        onJsonChanged: root.updatePanelPolling()
-    }
-
-    ScriptPoller {
-        id: audio
-
-        command: [root.scriptRoot + "/status/audio.sh"]
-        interval: 30000
-    }
-
-    ScriptPoller {
-        id: brightness
-
-        command: [root.scriptRoot + "/status/brightness.sh"]
-        interval: 30000
-    }
-
-    ScriptPoller {
-        id: network
-
-        command: [root.scriptRoot + "/status/network.sh"]
-        interval: 30000
-    }
-
-    ScriptPoller {
-        id: bluetooth
-
-        command: [root.scriptRoot + "/status/bluetooth.sh"]
-        interval: 30000
-    }
-
-    ScriptPoller {
-        id: touchpad
-
-        command: [root.scriptRoot + "/status/touchpad.sh"]
-        interval: 2000
-    }
-
-    ScriptPoller {
-        id: privacy
-
-        command: [root.scriptRoot + "/status/privacy.sh"]
-        interval: 30000
-    }
-
-    ScriptPoller {
-        id: caffeine
-
-        command: [root.scriptRoot + "/status/caffeine.sh"]
-        interval: 30000
-    }
-
-    Process {
-        id: action
-
-        onExited: {
-            root.refreshControlStatus();
-            root.refreshPerformanceStatus();
-        }
-    }
-
-    Process {
-        id: actionArgs
-
-        onExited: {
-            root.refreshControlStatus();
-            root.refreshPerformanceStatus();
-        }
-    }
-
-    Process {
-        id: saveNotes
-
-        onExited: (exitCode, exitStatus) => {
-            if (exitCode === 0 && exitStatus === 0)
-                root.notesSaveRevision += 1;
-
-            todoRefreshDelay.restart();
-        }
-    }
-
-    Process {
-        id: refreshGeneratedNotes
-
-        onExited: todoRefreshDelay.restart()
-    }
-
-    Process {
-        id: addCalendarEvent
-
-        onExited: calendarEvents.refresh()
-    }
-
-    Process {
-        id: activationLookup
-
-        stdout: StdioCollector {
-            onStreamFinished: {
-                let info = {
-                };
-                try {
-                    info = this.text.trim().length > 0 ? JSON.parse(this.text.trim()) : {
-                    };
-                } catch (error) {
-                    info = {
-                    };
-                }
-                const workspaceId = parseInt(info.workspace);
-                const address = info.address || "";
-                if (!isNaN(workspaceId) && workspaceId !== root.focusedWorkspaceId())
-                    root.addWorkspaceAlert(workspaceId, address);
-
-            }
-        }
-
-    }
-
-    Connections {
-        function onRawEvent(event) {
-            workspaces.refresh();
-            if (event.name === "workspace" || event.name === "workspacev2") {
-                const activeId = parseInt(event.data.split(",")[0]);
-                if (!isNaN(activeId))
-                    clearWorkspaceAlert(activeId);
-
-            } else if (event.name === "openwindow") {
-                const parts = event.data.split(",");
-                const address = parts[0] || "";
-                const workspaceId = parseInt(parts[1]);
-                if (!isNaN(workspaceId))
-                    addWorkspaceAlert(workspaceId, address);
-
-                privacy.refresh();
-            } else if (event.name === "urgent") {
-                alertWindowAddress = event.data || "";
-                lookupWindowWorkspace(alertWindowAddress);
-                urgentSwitchDelay.restart();
-            } else if (event.name === "closewindow")
-                privacy.refresh();
-            else if (event.name === "activewindowv2")
-                lookupWindowWorkspace(event.data || "");
-        }
-
-        target: Hyprland
-    }
-
-    Timer {
-        interval: 550
-        repeat: true
-        running: true
-        onTriggered: root.blinkOn = !root.blinkOn
-    }
-
-    Timer {
-        id: urgentSwitchDelay
-
-        interval: 120
-        repeat: false
-        onTriggered: {
-            const items = root.workspaceItems();
-            for (let i = 0; i < items.length; i++) {
-                if ((items[i].urgent || root.workspaceAlert(items[i].id)) && !items[i].active) {
-                    root.activateWorkspaceItem(items[i]);
-                    break;
-                } else if ((items[i].urgent || root.workspaceAlert(items[i].id)) && items[i].active) {
-                    root.focusWindow(items[i].urgentAddress || root.alertWindowAddress);
-                    root.clearWorkspaceAlert(items[i].id);
-                    root.alertWindowAddress = "";
-                    workspaces.refresh();
-                    break;
-                }
-            }
-        }
-    }
-
     Timer {
         id: todoRefreshDelay
 
         interval: 120
         repeat: false
         onTriggered: todo.refresh()
-    }
-
-    Timer {
-        id: systemRefreshDelay
-
-        interval: 1000
-        repeat: false
-        onTriggered: {
-            fan.refresh();
-            gpu.refresh();
-            systemInfo.refresh();
-        }
     }
 
     Timer {
@@ -1307,6 +481,10 @@ Scope {
             id: panel
 
             required property var modelData
+
+            function claimScreen() {
+                root.activeScreen = modelData;
+            }
 
             function extrasLeft() {
                 Qt.callLater(function() {
@@ -1337,7 +515,10 @@ Scope {
                 height: Math.ceil(parent.height / 5)
                 acceptedButtons: Qt.NoButton
                 hoverEnabled: true
-                onEntered: root.edgeTriggerHovered = true
+                onEntered: {
+                    panel.claimScreen();
+                    root.edgeTriggerHovered = true;
+                }
                 onExited: root.edgeTriggerHovered = false
             }
 
@@ -1348,7 +529,12 @@ Scope {
                 color: Theme.background
 
                 HoverHandler {
-                    onHoveredChanged: root.railSurfaceHovered = hovered
+                    onHoveredChanged: {
+                        if (hovered)
+                            panel.claimScreen();
+
+                        root.railSurfaceHovered = hovered;
+                    }
                 }
 
                 MouseArea {
@@ -1389,7 +575,7 @@ Scope {
                             blinking: (modelData.urgent || root.workspaceAlert(modelData.id)) && root.blinkOn
                             onActivate: {
                                 root.closeDrawers();
-                                Hyprland.dispatch("workspace " + modelData.id);
+                                root.focusWorkspace(modelData.id);
                                 workspaces.refresh();
                             }
                         }
@@ -1400,7 +586,7 @@ Scope {
                         workspace: workspaces.json.special
                         onActivate: {
                             root.closeDrawers();
-                            Hyprland.dispatch("togglespecialworkspace magic");
+                            root.toggleSpecialWorkspace("magic");
                             workspaces.refresh();
                         }
                     }
@@ -1443,8 +629,7 @@ Scope {
                         networkStatus: network.json
                         notificationsStatus: root.notificationStatus()
                         touchpadStatus: touchpad.json
-                        fanStatus: fan.json
-                        gpuStatus: gpu.json
+                        systemStatus: systemInfo.json
                         batteryStatus: battery.json
                         openPanel: root.openPanel
                         panelHeight: panel.height
@@ -1452,11 +637,13 @@ Scope {
                         onPanelClicked: (panel, centerY) => {
                             if (panel === "notifications")
                                 root.notificationPanelY = centerY;
+
                             return root.togglePanel(panel, centerY);
                         }
                         onPanelHovered: (panel, centerY, source) => {
                             if (panel === "notifications")
                                 root.notificationPanelY = centerY;
+
                             return root.hoverButtonEntered(panel, centerY, source);
                         }
                         onNotificationsPositionChanged: (centerY) => {
@@ -1553,7 +740,7 @@ Scope {
 
             PowerOverlayWindow {
                 targetScreen: modelData
-                open: root.openPanel === "power"
+                open: root.activeScreen === modelData && root.openPanel === "power"
                 updateSummary: root.updateSummary()
                 onAction: (kind) => {
                     return root.run(root.powerCommand(kind));
@@ -1565,14 +752,22 @@ Scope {
                 panelWindow: panel
                 panelHeight: panel.height
                 screenWidth: panel.screen ? panel.screen.width : 0
-                openPanel: root.openPanel
+                openPanel: root.activeScreen === modelData ? root.openPanel : ""
                 openPanelY: root.openPanelY
                 trayMenuY: root.trayMenuY
-                trayMenuOpen: root.trayMenuOpen
+                trayMenuOpen: root.activeScreen === modelData && root.trayMenuOpen
                 trayMenuHandle: root.trayMenuHandle
                 trayMenuTitle: root.trayMenuTitle
                 todoStatus: todo.json
                 notesSaveRevision: root.notesSaveRevision
+                notesSaveBusy: root.notesSaveBusy
+                notesSaveError: root.notesSaveError
+                notesStatusError: root.statusError("todo")
+                generatedRefreshBusy: root.generatedRefreshBusy
+                generatedRefreshError: root.generatedRefreshError
+                calendarAddRevision: root.calendarAddRevision
+                calendarAddBusy: root.calendarAddBusy
+                calendarAddError: root.calendarAddError
                 batteryStatus: battery.json
                 clockDate: clock.date
                 selectedCalendarDate: root.selectedCalendarDate
@@ -1580,9 +775,13 @@ Scope {
                 })
                 systemStatus: systemInfo.json || ({
                 })
+                performanceActionBusy: root.performanceActionBusy
+                performanceActionError: root.performanceActionError
+                performanceStatusError: root.statusError("system")
                 scriptRoot: root.scriptRoot
                 systemTitle: root.systemPanelTitle()
                 systemBody: root.systemPanelBody()
+                systemStatusError: root.statusError(root.openPanel)
                 systemActions: root.systemPanelActions()
                 audioVolume: audio.json.volume || 0
                 audioIcon: audio.json.icon || "󰕾"
@@ -1600,6 +799,7 @@ Scope {
                 basicTitle: root.panelTitle()
                 basicSubtitle: root.panelSubtitle()
                 basicBody: root.panelBody()
+                basicStatusError: root.statusError(root.openPanel)
                 basicActions: root.panelActions()
                 basicCurrentId: root.openPanel === "caffeine" ? (caffeine.json.mode || "off") : ""
                 basicHeaderActionIcon: root.panelHeaderActionIcon()
@@ -1607,7 +807,7 @@ Scope {
                 basicHeaderStatus: root.panelHeaderStatus()
                 notificationsModel: root.notificationItems || []
                 notificationDnd: root.notificationDnd
-                activeMprisPlayerIndex: root.activeMprisPlayerIndex
+                activeMprisPlayer: root.activeMprisPlayer
                 onHoverEntered: root.popoutEntered()
                 onHoverExited: root.popoutExited()
                 onInputLockChanged: (locked) => {
@@ -1620,10 +820,13 @@ Scope {
                     root.notificationDnd = !root.notificationDnd;
                     if (root.notificationDnd)
                         root.toastItems = [];
+
                 }
-                onActivateNotification: (notification) => root.focusNotificationSource(notification)
-                onSelectMprisPlayer: (index) => {
-                    root.activeMprisPlayerIndex = index;
+                onActivateNotification: (notification) => {
+                    return root.focusNotificationSource(notification);
+                }
+                onSelectMprisPlayer: (playerName) => {
+                    root.activeMprisPlayer = playerName;
                 }
                 onPreviousTodo: {
                     root.run(root.scriptRoot + "/todo/cycle.sh -1");
@@ -1634,14 +837,10 @@ Scope {
                     todoRefreshDelay.restart();
                 }
                 onRefreshTodo: {
-                    refreshGeneratedNotes.running = false;
-                    refreshGeneratedNotes.command = [root.scriptRoot + "/todo/generated-refresh.sh"];
-                    refreshGeneratedNotes.running = true;
+                    barActions.refreshGeneratedNotes();
                 }
                 onSaveTodo: (file, body) => {
-                    saveNotes.running = false;
-                    saveNotes.command = ["python3", "-c", "from pathlib import Path; import sys; Path(sys.argv[1]).write_text(sys.argv[2])", file, body];
-                    saveNotes.running = true;
+                    barActions.saveNotes(file, body);
                 }
                 onResetCalendarMonth: root.resetCalendarMonth()
                 onSelectCalendarDate: (day) => {
@@ -1649,17 +848,14 @@ Scope {
                     calendarEvents.refresh();
                 }
                 onAddCalendarEvent: (day, title) => {
-                    addCalendarEvent.running = false;
-                    addCalendarEvent.command = [root.scriptRoot + "/calendar/add-event.sh", day, title];
-                    addCalendarEvent.running = true;
+                    barActions.addCalendarEvent(day, title);
                 }
                 onOpenCalendarEvent: {
                     const date = root.selectedCalendarDate ? new Date(root.selectedCalendarDate + "T00:00:00") : clock.date;
                     root.run("xdg-open 'https://calendar.google.com/calendar/u/0/r/week/" + date.getFullYear() + "/" + (date.getMonth() + 1) + "/" + date.getDate() + "'");
                 }
                 onPerformanceAction: (command) => {
-                    root.run(command);
-                    systemRefreshDelay.restart();
+                    root.runPerformance(command);
                 }
                 onPerformanceVisibleChanged: (visible) => {
                     return root.setPerformancePolling(visible);
@@ -1686,6 +882,7 @@ Scope {
                         root.clearNotifications();
                         if (!keepOpen)
                             root.closePanel();
+
                         return ;
                     }
                     root.run(command);
@@ -1703,7 +900,7 @@ Scope {
                 implicitHeight: Math.max(1, notificationToasts.implicitHeight + 12)
                 exclusiveZone: 0
                 focusable: false
-                visible: true
+                visible: root.activeScreen === modelData && root.notificationToastsEnabled && root.toastItems.length > 0 && !root.notificationDnd
                 color: "transparent"
 
                 anchors {
@@ -1723,9 +920,13 @@ Scope {
                         root.removeNotificationToast(notification);
                         if (notification && closeNotification)
                             notification.dismiss();
+
                     }
-                    onActivate: (notification) => root.focusNotificationSource(notification)
+                    onActivate: (notification) => {
+                        return root.focusNotificationSource(notification);
+                    }
                 }
+
             }
 
         }

@@ -10,7 +10,11 @@ Rectangle {
     property date selectedDate: new Date()
     property var events: []
     property string eventsText: ""
+    property string eventsError: ""
     property string newEventTitle: ""
+    property int addRevision: 0
+    property bool addBusy: false
+    property string addError: ""
     readonly property int eventCount: Math.max(1, events.length)
     readonly property int visibleEventCount: Math.max(1, events.length)
     readonly property int eventRowHeight: 42
@@ -21,8 +25,9 @@ Rectangle {
     readonly property int monthGridHeight: 246
     readonly property int selectedDateHeight: 15
     readonly property int inputHeight: 34
+    readonly property int addStatusHeight: addError.length > 0 ? 18 : 0
     readonly property int agendaHeight: root.events.length === 0 ? 18 : visibleEventCount * eventRowHeight + Math.max(0, visibleEventCount - 1) * eventRowSpacing
-    readonly property int desiredHeight: contentMargins + contentSpacing + headerHeight + monthGridHeight + selectedDateHeight + agendaHeight + inputHeight
+    readonly property int desiredHeight: contentMargins + contentSpacing + headerHeight + monthGridHeight + selectedDateHeight + agendaHeight + inputHeight + addStatusHeight
 
     signal selected(string day)
     signal addEvent(string day, string title)
@@ -65,6 +70,11 @@ Rectangle {
         return line.replace(/^[A-Z][a-z][a-z]\s+[A-Z][a-z][a-z]\s+[0-9]{1,2}\s*/, "");
     }
 
+    onAddRevisionChanged: {
+        if (addRevision > 0)
+            newEventTitle = "";
+
+    }
     width: 420
     height: Math.max(420, desiredHeight)
     radius: 8
@@ -242,7 +252,7 @@ Rectangle {
                 Layout.fillWidth: true
                 visible: root.events.length === 0
                 text: root.eventsText
-                color: Theme.muted
+                color: root.eventsError.length > 0 ? Theme.red : Theme.muted
                 font.family: Theme.bodyFontFamily
                 font.pixelSize: 12
                 horizontalAlignment: Text.AlignHCenter
@@ -328,6 +338,7 @@ Rectangle {
                     onActiveFocusChanged: {
                         if (activeFocus)
                             root.focusRequested();
+
                     }
                     onTextChanged: root.newEventTitle = text
                 }
@@ -352,10 +363,11 @@ Rectangle {
                 color: addMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
                 border.color: Theme.surfaceAlt
                 border.width: 1
+                opacity: addMouse.enabled ? 1 : 0.55
 
                 Text {
                     anchors.centerIn: parent
-                    text: "+"
+                    text: root.addBusy ? "…" : "+"
                     color: Theme.green
                     font.family: Theme.fontFamily
                     font.pixelSize: 16
@@ -366,16 +378,27 @@ Rectangle {
                     id: addMouse
 
                     anchors.fill: parent
+                    enabled: !root.addBusy && root.newEventTitle.trim().length > 0
                     hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
+                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                     onClicked: {
-                        root.addEvent(root.isoDate(root.selectedDate), root.newEventTitle);
-                        root.newEventTitle = "";
+                        root.addEvent(root.isoDate(root.selectedDate), root.newEventTitle.trim());
                     }
                 }
 
             }
 
+        }
+
+        Text {
+            Layout.fillWidth: true
+            Layout.preferredHeight: root.addStatusHeight
+            visible: root.addError.length > 0
+            text: root.addError
+            color: Theme.red
+            font.family: Theme.bodyFontFamily
+            font.pixelSize: 11
+            wrapMode: Text.Wrap
         }
 
     }

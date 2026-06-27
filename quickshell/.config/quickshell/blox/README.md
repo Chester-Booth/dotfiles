@@ -32,7 +32,8 @@ Layout:
 - `shell.qml` - Quickshell entrypoint.
 - `modules/` - top-level shell surfaces, including the left rail and Eww-style todo/calendar overlays.
 - `shared/` - theme and reusable UI pieces.
-- `services/` - polling/process wrappers for script-backed state.
+- `services/` - status polling, persisted UI state, action execution, notification,
+  workspace, and derived-content controllers.
 - `popouts/` - click-open panel surfaces.
 - `scripts/status/` - JSON status producers for the rail and popouts.
 - `scripts/{calendar,display,gpu,network,power,todo,update,workspaces}/` - action and domain backends.

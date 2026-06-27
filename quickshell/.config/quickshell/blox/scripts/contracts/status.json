@@ -16,6 +16,7 @@
       "icon": "string",
       "class": "string",
       "capacity": ["number", "string"],
+      "status": "string",
       "tooltip": "string"
     }
   },
@@ -42,31 +43,12 @@
     "required": {
       "date": "string",
       "events": "array",
-      "raw": "string"
+      "raw": "string",
+      "ok": "boolean",
+      "error": "string"
     },
     "items": {
       "events": "string"
-    }
-  },
-  "fan": {
-    "command": ["status/fan.sh"],
-    "required": {
-      "text": "string",
-      "alt": "string",
-      "class": "string",
-      "tooltip": "string"
-    }
-  },
-  "gpu": {
-    "command": ["status/gpu.sh"],
-    "required": {
-      "text": "string",
-      "alt": "string",
-      "class": "string",
-      "tooltip": "string"
-    },
-    "enum": {
-      "class": ["eco", "high-refresh", "performance", "gaming"]
     }
   },
   "network": {
@@ -95,10 +77,13 @@
     }
   },
   "privacy": {
-    "command": ["status/privacy.sh"],
+    "command": ["status/privacy.py"],
     "required": {
       "icon": "string",
       "class": "string",
+      "active": "boolean",
+      "microphoneCount": "number",
+      "videoCount": "number",
       "tooltip": "string"
     }
   },

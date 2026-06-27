@@ -11,12 +11,18 @@ Rectangle {
     property int index: 0
     property int count: 1
     property int saveRevision: 0
+    property bool saveBusy: false
+    property string saveError: ""
+    property bool refreshBusy: false
+    property string refreshError: ""
+    property string statusError: ""
     property bool editing: false
     property real maxPopoutWidth: 680
     property real maxPopoutHeight: 760
     readonly property string fileName: file.substring(file.lastIndexOf("/") + 1)
     readonly property bool generated: ["2-gcal.md", "80-today.md", "81-week.md", "99-gcal.md", "99-gcal_week.md"].indexOf(fileName) >= 0
     readonly property string contentText: editing ? editor.text : body
+    readonly property string actionError: saveError.length > 0 ? saveError : refreshError.length > 0 ? refreshError : statusError
     readonly property int lineCount: Math.max(1, contentText.split("\n").length + (editing ? 1 : 0))
     readonly property int longestLine: {
         const lines = contentText.split("\n");
@@ -37,7 +43,9 @@ Rectangle {
             return ;
 
         focusRequested();
-        Qt.callLater(() => editor.forceActiveFocus());
+        Qt.callLater(() => {
+            return editor.forceActiveFocus();
+        });
     }
 
     onEditingChanged: {
@@ -46,14 +54,15 @@ Rectangle {
     onGeneratedChanged: {
         if (generated)
             editing = false;
+
     }
     onSaveRevisionChanged: {
         if (saveRevision > 0)
             editing = false;
-    }
 
+    }
     width: Math.min(maxPopoutWidth, Math.max(320, longestLine * 7 + 96))
-    height: Math.min(maxPopoutHeight, Math.max(96, (editing ? lineCount * 15 : editor.contentHeight) + 74))
+    height: Math.min(maxPopoutHeight, Math.max(96, (editing ? lineCount * 15 : editor.contentHeight) + 74 + (actionError.length > 0 ? 24 : 0)))
     radius: 8
     color: Theme.background
     border.color: Theme.surfaceAlt
@@ -76,10 +85,10 @@ Rectangle {
                     "icon": "›",
                     "action": "next"
                 }, {
-                    "icon": root.generated ? "󰑐" : root.editing ? "󰈈" : "󰏫",
+                    "icon": root.generated ? (root.refreshBusy ? "…" : "󰑐") : root.editing ? "󰈈" : "󰏫",
                     "action": root.generated ? "refresh" : "edit"
                 }, {
-                    "icon": root.editing ? "󰆓" : "",
+                    "icon": root.editing ? (root.saveBusy ? "…" : "󰆓") : "",
                     "action": "save"
                 }]
 
@@ -103,8 +112,9 @@ Rectangle {
                         id: noteMouse
 
                         anchors.fill: parent
+                        enabled: !(modelData.action === "save" && root.saveBusy) && !(modelData.action === "refresh" && root.refreshBusy)
                         hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
+                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                         onClicked: {
                             if (root.editing && (modelData.action === "prev" || modelData.action === "next"))
                                 return ;
@@ -139,6 +149,16 @@ Rectangle {
 
         }
 
+        Text {
+            Layout.fillWidth: true
+            visible: root.actionError.length > 0
+            text: root.actionError
+            color: Theme.red
+            font.family: Theme.bodyFontFamily
+            font.pixelSize: 11
+            wrapMode: Text.Wrap
+        }
+
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -150,6 +170,17 @@ Rectangle {
 
             Flickable {
                 id: notesScroll
+
+                function ensureVisible(rect) {
+                    if (rect.y < contentY)
+                        contentY = rect.y;
+                    else if (rect.y + rect.height > contentY + height)
+                        contentY = rect.y + rect.height - height;
+                    if (rect.x < contentX)
+                        contentX = rect.x;
+                    else if (rect.x + rect.width > contentX + width)
+                        contentX = rect.x + rect.width - width;
+                }
 
                 anchors.fill: parent
                 anchors.margins: 4
@@ -177,10 +208,7 @@ Rectangle {
                     onActiveFocusChanged: {
                         if (activeFocus && root.editing)
                             root.focusRequested();
-                    }
-                    TapHandler {
-                        acceptedButtons: Qt.LeftButton
-                        onTapped: root.focusEditor()
+
                     }
                     onCursorRectangleChanged: {
                         if (!root.editing)
@@ -188,19 +216,14 @@ Rectangle {
 
                         notesScroll.ensureVisible(cursorRectangle);
                     }
+
+                    TapHandler {
+                        acceptedButtons: Qt.LeftButton
+                        onTapped: root.focusEditor()
+                    }
+
                 }
 
-                function ensureVisible(rect) {
-                    if (rect.y < contentY)
-                        contentY = rect.y;
-                    else if (rect.y + rect.height > contentY + height)
-                        contentY = rect.y + rect.height - height;
-
-                    if (rect.x < contentX)
-                        contentX = rect.x;
-                    else if (rect.x + rect.width > contentX + width)
-                        contentX = rect.x + rect.width - width;
-                }
             }
 
         }

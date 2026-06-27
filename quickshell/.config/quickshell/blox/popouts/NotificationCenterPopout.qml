@@ -72,10 +72,6 @@ Rectangle {
         return Theme.blue;
     }
 
-    function plainText(text) {
-        return String(text || "").replace(/<[^>]*>/g, "");
-    }
-
     width: 360
     height: Math.min(root.maxPopoutHeight, Math.max(220, content.implicitHeight + 26))
     radius: 8
@@ -113,6 +109,7 @@ Rectangle {
                     font.family: Theme.fontFamily
                     font.pixelSize: 18
                 }
+
             }
 
             Column {
@@ -138,73 +135,30 @@ Rectangle {
                     font.pixelSize: 11
                     elide: Text.ElideRight
                 }
+
             }
 
-            Rectangle {
+            PillSelector {
                 id: dndSwitch
 
                 width: 112
                 height: 32
-                radius: 999
-                color: Theme.surface
-                border.color: Theme.surfaceAlt
-                border.width: 1
+                showHeader: false
+                currentId: root.dnd ? "dnd" : "normal"
+                selectedAccent: Theme.yellow
+                options: [{
+                    "id": "normal",
+                    "icon": "󰂜",
+                    "label": "Notifications"
+                }, {
+                    "id": "dnd",
+                    "icon": "󰂛",
+                    "label": "Do not disturb"
+                }]
+                onSelected: (id) => {
+                    if (id !== currentId)
+                        root.toggleDnd();
 
-                Rectangle {
-                    width: 53
-                    height: 26
-                    radius: 13
-                    x: root.dnd ? parent.width - width - 3 : 3
-                    anchors.verticalCenter: parent.verticalCenter
-                    color: "#66453d3d"
-
-                    Behavior on x {
-                        NumberAnimation {
-                            duration: 120
-                            easing.type: Easing.OutCubic
-                        }
-                    }
-                }
-
-                Item {
-                    anchors.left: parent.left
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
-                    width: parent.width / 2
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: "󰂜"
-                        color: root.dnd ? Theme.foreground : Theme.yellow
-                        font.family: Theme.fontFamily
-                        font.pixelSize: 12
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                }
-
-                Item {
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
-                    width: parent.width / 2
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: "󰂛"
-                        color: root.dnd ? Theme.yellow : Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: 12
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.toggleDnd()
                 }
             }
 
@@ -238,9 +192,12 @@ Rectangle {
                     onClicked: {
                         if (root.notifications.length > 0)
                             root.clearAnimationRevision++;
+
                     }
                 }
+
             }
+
         }
 
         Rectangle {
@@ -252,8 +209,8 @@ Rectangle {
         Flickable {
             id: notificationList
 
-            property bool needsScrollbar: contentHeight > height
-            property int scrollbarGutter: needsScrollbar ? 16 : 0
+            readonly property bool needsScrollbar: listContent.implicitHeight > height
+            readonly property int scrollbarGutter: 16
             property int bottomScrollPadding: needsScrollbar ? 32 : 0
 
             width: parent.width
@@ -262,32 +219,6 @@ Rectangle {
             contentHeight: listContent.implicitHeight + bottomScrollPadding
             clip: true
             boundsBehavior: Flickable.StopAtBounds
-            ScrollBar.vertical: ScrollBar {
-                id: notificationScrollbar
-
-                width: 8
-                policy: notificationList.needsScrollbar ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
-                interactive: true
-
-                background: Rectangle {
-                    implicitWidth: 8
-                    radius: 999
-                    color: notificationScrollbar.hovered || notificationScrollbar.pressed ? Qt.rgba(1, 1, 1, 0.09) : Qt.rgba(1, 1, 1, 0.04)
-                }
-
-                contentItem: Rectangle {
-                    implicitWidth: 4
-                    radius: 999
-                    color: notificationScrollbar.pressed ? Theme.blue : notificationScrollbar.hovered ? Theme.foreground : Theme.surfaceAlt
-
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: 110
-                            easing.type: Easing.OutCubic
-                        }
-                    }
-                }
-            }
 
             Column {
                 id: listContent
@@ -315,11 +246,44 @@ Rectangle {
                         notification: modelData
                         clearRevision: root.clearAnimationRevision
                     }
-                }
-            }
-        }
-    }
 
+                }
+
+            }
+
+            ScrollBar.vertical: ScrollBar {
+                id: notificationScrollbar
+
+                width: 8
+                policy: notificationList.needsScrollbar ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+                interactive: true
+
+                background: Rectangle {
+                    implicitWidth: 8
+                    radius: 999
+                    color: notificationScrollbar.hovered || notificationScrollbar.pressed ? Qt.rgba(1, 1, 1, 0.09) : Qt.rgba(1, 1, 1, 0.04)
+                }
+
+                contentItem: Rectangle {
+                    implicitWidth: 4
+                    radius: 999
+                    color: notificationScrollbar.pressed ? Theme.blue : notificationScrollbar.hovered ? Theme.foreground : Theme.surfaceAlt
+
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: 110
+                            easing.type: Easing.OutCubic
+                        }
+
+                    }
+
+                }
+
+            }
+
+        }
+
+    }
 
     component NotificationCard: Rectangle {
         id: card
@@ -331,6 +295,14 @@ Rectangle {
         readonly property bool hasActions: notification && notification.actions && notification.actions.length > 0
         readonly property bool hasImage: notification && notification.image && notification.image.length > 0
 
+        function startRemove() {
+            if (removing)
+                return ;
+
+            removing = true;
+            removeTimer.restart();
+        }
+
         height: bodyColumn.implicitHeight + 18
         x: removing ? width * 0.18 : 0
         scale: removing ? 0.985 : 1
@@ -340,15 +312,6 @@ Rectangle {
         color: Theme.surface
         border.color: notification && notification.urgency === NotificationUrgency.Critical ? Theme.red : Theme.surfaceAlt
         border.width: 1
-
-        function startRemove() {
-            if (removing)
-                return ;
-
-            removing = true;
-            removeTimer.restart();
-        }
-
         onClearRevisionChanged: {
             if (clearRevision === seenClearRevision)
                 return ;
@@ -356,29 +319,7 @@ Rectangle {
             seenClearRevision = clearRevision;
             startRemove();
         }
-
         Component.onCompleted: seenClearRevision = clearRevision
-
-        Behavior on opacity {
-            NumberAnimation {
-                duration: 150
-                easing.type: Easing.OutCubic
-            }
-        }
-
-        Behavior on x {
-            NumberAnimation {
-                duration: 150
-                easing.type: Easing.OutCubic
-            }
-        }
-
-        Behavior on scale {
-            NumberAnimation {
-                duration: 150
-                easing.type: Easing.OutCubic
-            }
-        }
 
         Timer {
             id: removeTimer
@@ -388,6 +329,7 @@ Rectangle {
             onTriggered: {
                 if (card.notification)
                     card.notification.dismiss();
+
             }
         }
 
@@ -413,29 +355,10 @@ Rectangle {
                     width: parent.width
                     spacing: 8
 
-                    Column {
+                    NotificationHeader {
                         width: parent.width - closeButton.width - 8
-                        spacing: 1
-
-                        Text {
-                            width: parent.width
-                            text: card.notification ? card.notification.summary : ""
-                            color: Theme.foreground
-                            font.family: Theme.bodyFontFamily
-                            font.pixelSize: 13
-                            font.bold: true
-                            elide: Text.ElideRight
-                        }
-
-                        Text {
-                            width: parent.width
-                            visible: true
-                            text: root.notificationMeta(card.notification)
-                            color: Theme.muted
-                            font.family: Theme.bodyFontFamily
-                            font.pixelSize: 10
-                            elide: Text.ElideRight
-                        }
+                        summary: card.notification ? card.notification.summary : ""
+                        meta: root.notificationMeta(card.notification)
                     }
 
                     Rectangle {
@@ -463,22 +386,19 @@ Rectangle {
                             onClicked: {
                                 if (card.notification)
                                     card.startRemove();
+
                             }
                         }
+
                     }
+
                 }
 
-                Text {
+                NotificationBody {
                     width: parent.width
-                    visible: card.notification && card.notification.body.length > 0
-                    text: root.plainText(card.notification ? card.notification.body : "")
-                    color: Theme.foreground
+                    body: card.notification ? card.notification.body : ""
                     opacity: 0.86
-                    font.family: Theme.bodyFontFamily
-                    font.pixelSize: 12
-                    wrapMode: Text.Wrap
                     maximumLineCount: 4
-                    elide: Text.ElideRight
                 }
 
                 Image {
@@ -525,10 +445,41 @@ Rectangle {
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: modelData.invoke()
                             }
+
                         }
+
                     }
+
                 }
+
             }
+
         }
+
+        Behavior on opacity {
+            NumberAnimation {
+                duration: 150
+                easing.type: Easing.OutCubic
+            }
+
+        }
+
+        Behavior on x {
+            NumberAnimation {
+                duration: 150
+                easing.type: Easing.OutCubic
+            }
+
+        }
+
+        Behavior on scale {
+            NumberAnimation {
+                duration: 150
+                easing.type: Easing.OutCubic
+            }
+
+        }
+
     }
+
 }

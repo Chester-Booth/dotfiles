@@ -211,6 +211,7 @@ main() {
 	warn_cmd brightnessctl
 	warn_cmd asusctl
 	warn_cmd hyprshot
+	warn_cmd pw-dump
 
 	printf '\n'
 	check_git_clean

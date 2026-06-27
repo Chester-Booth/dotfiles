@@ -3,23 +3,31 @@
 set -u
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-notice="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/blox/scripts/osd/notice.sh"
 # shellcheck source=quickshell/.config/quickshell/blox/scripts/gpu/common.sh
 source "$script_dir/common.sh"
 
 if ! gpu_lock; then
 	notify_gpu_busy
-	exit 0
+	exit 75
 fi
 
 if ! gpu_is_on; then
-	"$notice" "GPU" "Powering on" "󰢮" "normal" 4500
-	sudo /usr/local/bin/gpu-pci-rescan
+	gpu_notify -u normal "GPU" "Powering on"
+	if ! sudo /usr/local/bin/gpu-pci-rescan; then
+		gpu_notify -u critical "GPU" "PCI rescan failed"
+		exit 1
+	fi
 	sleep 1.5
-	sudo modprobe nvidia 2>/dev/null
-	sudo modprobe nvidia_drm 2>/dev/null
-	sudo modprobe nvidia_modeset 2>/dev/null
-	sudo modprobe nvidia_uvm 2>/dev/null
+	for module in nvidia nvidia_drm nvidia_modeset nvidia_uvm; do
+		if ! sudo modprobe "$module" 2>/dev/null; then
+			gpu_notify -u critical "GPU" "Failed to load ${module}"
+			exit 1
+		fi
+	done
 	sleep 0.5
-	"$notice" "GPU" "NVIDIA GPU ready" "󰢮" "normal" 4500
+	if ! gpu_is_on; then
+		gpu_notify -u critical "GPU" "GPU did not appear after PCI rescan"
+		exit 1
+	fi
+	gpu_notify -u normal "GPU" "NVIDIA GPU ready"
 fi

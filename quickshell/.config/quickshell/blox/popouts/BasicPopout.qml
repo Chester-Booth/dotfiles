@@ -7,6 +7,7 @@ Rectangle {
     property string title: ""
     property string subtitle: ""
     property string body: ""
+    property string statusError: ""
     property var actions: []
     property string currentId: ""
     property string headerActionIcon: ""
@@ -76,6 +77,7 @@ Rectangle {
                     font.pixelSize: 11
                     elide: Text.ElideRight
                 }
+
             }
 
             Rectangle {
@@ -108,6 +110,7 @@ Rectangle {
                     cursorShape: Qt.PointingHandCursor
                     onClicked: root.action(root.headerActionCommand, true)
                 }
+
             }
 
             Text {
@@ -131,8 +134,8 @@ Rectangle {
             anchors.top: headerRow.bottom
             anchors.topMargin: 8
             width: parent.width
-            text: root.body
-            color: Theme.foreground
+            text: root.statusError.length > 0 ? "Status error: " + root.statusError + (root.body.length > 0 ? "\n\n" + root.body : "") : root.body
+            color: root.statusError.length > 0 ? Theme.red : Theme.foreground
             font.family: Theme.bodyFontFamily
             font.pixelSize: 13
             wrapMode: Text.Wrap
@@ -182,6 +185,7 @@ Rectangle {
                             font.pixelSize: 12
                             font.bold: true
                         }
+
                     }
 
                     MouseArea {
@@ -203,141 +207,25 @@ Rectangle {
 
         }
 
-        AwakeSlider {
+        PillSelector {
             id: awakeSlider
 
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             visible: root.title === "Awake"
+            title: "Duration"
             currentId: root.currentId || "off"
             options: root.actions
-            onSelected: (command) => root.action(command, true)
-        }
-
-    }
-
-    component AwakeSlider: Column {
-        id: slider
-
-        property string currentId: "off"
-        property var options: []
-        property string visualId: currentId
-        property int selectedIndex: {
-            for (let i = 0; i < options.length; i++) {
-                if ((options[i].id || "") === visualId)
-                    return i;
-
-            }
-            return 0;
-        }
-
-        signal selected(string command)
-
-        spacing: 4
-        height: visible ? labelRow.height + control.height + spacing : 0
-        onCurrentIdChanged: visualId = currentId
-
-        Item {
-            id: labelRow
-
-            width: parent.width
-            height: 12
-
-            Text {
-                anchors.left: parent.left
-                text: "Duration"
-                color: Theme.muted
-                font.family: Theme.bodyFontFamily
-                font.pixelSize: 11
-                font.bold: true
-            }
-
-            Text {
-                anchors.right: parent.right
-                text: {
-                    for (let i = 0; i < slider.options.length; i++) {
-                        if ((slider.options[i].id || "") === slider.visualId)
-                            return slider.options[i].label || "";
-
+            optimistic: true
+            onSelected: (id) => {
+                for (let i = 0; i < root.actions.length; i++) {
+                    if ((root.actions[i].id || "") === id) {
+                        root.action(root.actions[i].command || "", true);
+                        return ;
                     }
-                    return "";
                 }
-                color: Theme.foreground
-                font.family: Theme.bodyFontFamily
-                font.pixelSize: 10
             }
-
-        }
-
-        Rectangle {
-            id: control
-
-            width: parent.width
-            height: 32
-            radius: 16
-            color: Theme.surface
-            border.color: Theme.surfaceAlt
-            border.width: 1
-            clip: true
-
-            Rectangle {
-                x: 3 + slider.selectedIndex * ((parent.width - 6) / Math.max(1, slider.options.length))
-                y: 3
-                width: (parent.width - 6) / Math.max(1, slider.options.length)
-                height: parent.height - 6
-                radius: 13
-                color: "#66453d3d"
-
-                Behavior on x {
-                    NumberAnimation {
-                        duration: 150
-                        easing.type: Easing.OutCubic
-                    }
-
-                }
-
-            }
-
-            Row {
-                anchors.fill: parent
-                anchors.margins: 3
-
-                Repeater {
-                    model: slider.options
-
-                    Rectangle {
-                        width: (control.width - 6) / Math.max(1, slider.options.length)
-                        height: parent.height
-                        radius: 13
-                        color: optionMouse.containsMouse ? "#333b3c4a" : "transparent"
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: modelData.icon || ""
-                            color: (modelData.id || "") === slider.visualId ? Theme.yellow : Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: 14
-                        }
-
-                        MouseArea {
-                            id: optionMouse
-
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                slider.visualId = modelData.id || "";
-                                slider.selected(modelData.command || "");
-                            }
-                        }
-
-                    }
-
-                }
-
-            }
-
         }
 
     }

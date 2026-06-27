@@ -238,6 +238,7 @@ Rectangle {
                 visible: root.currentMode() === "audio"
                 value: root.visualAudioVolume
                 maxValue: 150
+                snapValue: 100
                 accent: root.visualAudioOverdriven ? Theme.red : Theme.blue
                 onChanged: (value) => {
                     root.visualAudioVolume = value;
@@ -409,8 +410,11 @@ Rectangle {
 
         property int value: 0
         property int maxValue: 100
+        property int snapValue: -1
+        property int snapDistance: 3
         property color accent: Theme.blue
         property color knobColor: accent === Theme.yellow ? "#b79a55" : accent === Theme.red ? "#ad4f63" : "#4f74ad"
+        property color overdriveTrackColor: Qt.rgba(Theme.surface.r * 0.82 + Theme.red.r * 0.18, Theme.surface.g * 0.82 + Theme.red.g * 0.18, Theme.surface.b * 0.82 + Theme.red.b * 0.18, 1)
 
         signal changed(int value)
 
@@ -421,6 +425,21 @@ Rectangle {
             Layout.preferredHeight: 14
             radius: 7
             color: Theme.surface
+
+            Rectangle {
+                anchors.right: parent.right
+                width: slider.snapValue >= 0 && slider.snapValue < slider.maxValue ? parent.width * (slider.maxValue - slider.snapValue) / slider.maxValue : 0
+                height: parent.height
+                radius: parent.radius
+                color: slider.overdriveTrackColor
+
+                Rectangle {
+                    anchors.left: parent.left
+                    width: Math.min(parent.radius, parent.width)
+                    height: parent.height
+                    color: parent.color
+                }
+            }
 
             Rectangle {
                 width: parent.width * Math.max(0, Math.min(slider.maxValue, slider.value)) / slider.maxValue
@@ -460,25 +479,20 @@ Rectangle {
 
             MouseArea {
                 function valueAt(xPos) {
-                    return Math.round(Math.max(0, Math.min(1, xPos / width)) * slider.maxValue);
+                    const value = Math.round(Math.max(0, Math.min(1, xPos / width)) * slider.maxValue);
+                    if (slider.snapValue >= 0 && Math.abs(value - slider.snapValue) <= slider.snapDistance)
+                        return slider.snapValue;
+
+                    return value;
                 }
 
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onPressed: (mouse) => {
-                    return slider.value = valueAt(mouse.x);
-                }
+                onPressed: (mouse) => slider.changed(valueAt(mouse.x))
                 onPositionChanged: (mouse) => {
-                    if (pressed) {
-                        slider.value = valueAt(mouse.x);
-                        slider.changed(slider.value);
-                    }
-                }
-                onPressedChanged: {
                     if (pressed)
-                        slider.changed(slider.value);
-
+                        slider.changed(valueAt(mouse.x));
                 }
             }
 

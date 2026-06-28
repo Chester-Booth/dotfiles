@@ -5,22 +5,131 @@ local function exec(cmd)
     return hl.dsp.exec_cmd(cmd)
 end
 
+local function resize_active_width(ratio)
+    return function()
+        local window = hl.get_active_window()
+        local monitor = window and window.monitor
+        if not monitor then
+            return
+        end
+
+        local workspace = window.workspace
+        if not window.floating and workspace and workspace.tiled_layout == "master" then
+            local window_centre = window.at.x + (window.size.x / 2)
+            local monitor_centre = monitor.x + (monitor.width / 2)
+            local master_ratio = window_centre < monitor_centre and ratio or (1 - ratio)
+
+            hl.dispatch(hl.dsp.layout(string.format("mfact exact %.2f", master_ratio)))
+            return
+        end
+
+        hl.dispatch(hl.dsp.window.resize({
+            x = math.floor(monitor.width * ratio),
+            y = window.size.y,
+            window = window,
+        }))
+    end
+end
+
+local function adjust_active_width(delta)
+    return function()
+        local window = hl.get_active_window()
+        local monitor = window and window.monitor
+        if not monitor then
+            return
+        end
+
+        local workspace = window.workspace
+        if not window.floating and workspace and workspace.tiled_layout == "master" then
+            local window_centre = window.at.x + (window.size.x / 2)
+            local monitor_centre = monitor.x + (monitor.width / 2)
+            local master_delta = window_centre < monitor_centre and delta or -delta
+
+            hl.dispatch(hl.dsp.layout(string.format("mfact %+.2f", master_delta)))
+            return
+        end
+
+        local current_ratio = window.size.x / monitor.width
+        local target_ratio = math.max(0.05, math.min(1, current_ratio + delta))
+        hl.dispatch(hl.dsp.window.resize({
+            x = math.floor(monitor.width * target_ratio),
+            y = window.size.y,
+            window = window,
+        }))
+    end
+end
+
+local function toggle_active_pin()
+    return function()
+        local window = hl.get_active_window()
+        if not window then
+            return
+        end
+
+        if window.pinned then
+            hl.dispatch(hl.dsp.window.pin({ action = "disable", window = window }))
+            hl.dispatch(hl.dsp.window.float({ action = "disable", window = window }))
+            return
+        end
+
+        if not window.floating then
+            hl.dispatch(hl.dsp.window.float({ action = "set", window = window }))
+        end
+
+        hl.dispatch(hl.dsp.window.pin({ action = "enable", window = window }))
+    end
+end
+
+local function swap_active_with_master()
+    local active = hl.get_active_window()
+    local monitor = active and active.monitor
+    local workspace = active and active.workspace
+    if not monitor or not workspace or active.floating or workspace.tiled_layout ~= "master" then
+        return
+    end
+
+    local active_centre = active.at.x + (active.size.x / 2)
+    local monitor_centre = monitor.x + (monitor.width / 2)
+    if active_centre >= monitor_centre then
+        hl.dispatch(hl.dsp.layout("swapwithmaster auto"))
+        return
+    end
+
+    local largest
+    local largest_area = -1
+    for _, window in ipairs(hl.get_workspace_windows(workspace)) do
+        local area = window.size.x * window.size.y
+        if not window.floating and window.stable_id ~= active.stable_id and area > largest_area then
+            largest = window
+            largest_area = area
+        end
+    end
+
+    if largest then
+        hl.dispatch(hl.dsp.window.swap({ target = largest, window = active }))
+    end
+end
+
 hl.bind(mainMod .. " + T", exec(programs.terminal))
 hl.bind(mainMod .. " + Q", exec("/home/blox/.local/bin/ktr killactive"))
 hl.bind(mainMod .. " + L", exec("~/.config/quickshell/blox/scripts/power/safe.sh lock"))
 hl.bind(mainMod .. " + E", exec(programs.file_manager))
-hl.bind(mainMod .. " + F", hl.dsp.window.float())
 hl.bind(mainMod .. " + M", exec("kitty --class micro-active -e /home/blox/.local/bin/micro"))
 hl.bind(mainMod .. " + space", exec(programs.menu))
 hl.bind(mainMod .. " + N", exec("quickshell ipc -c blox call notifications toggle"))
 hl.bind(mainMod .. " + SHIFT + O", exec("~/.config/hypr/scripts/toggle-orca.sh"))
-hl.bind(mainMod .. " + P", hl.dsp.window.pseudo())
 
 -- Move focus with mainMod + arrow keys.
 hl.bind(mainMod .. " + left", hl.dsp.focus({ direction = "l" }))
 hl.bind(mainMod .. " + right", hl.dsp.focus({ direction = "r" }))
 hl.bind(mainMod .. " + up", hl.dsp.focus({ direction = "u" }))
 hl.bind(mainMod .. " + down", hl.dsp.focus({ direction = "d" }))
+
+-- Move the active window with mainMod + SHIFT + arrow keys.
+hl.bind(mainMod .. " + SHIFT + left", hl.dsp.window.move({ direction = "l" }))
+hl.bind(mainMod .. " + SHIFT + right", hl.dsp.window.move({ direction = "r" }))
+hl.bind(mainMod .. " + SHIFT + up", hl.dsp.window.move({ direction = "u" }))
+hl.bind(mainMod .. " + SHIFT + down", hl.dsp.window.move({ direction = "d" }))
 
 -- Switch workspaces with mainMod + [0-9].
 for key = 1, 9 do
@@ -63,6 +172,18 @@ hl.bind(mainMod .. " + Tab", hl.dsp.focus({ workspace = "m+1" }), { repeating = 
 -- Move/resize windows with mainMod + LMB/RMB and dragging.
 hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true })
 hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
+
+-- Resize the active window to a percentage of its monitor width.
+hl.bind(mainMod .. " + code:87", resize_active_width(0.70))
+hl.bind(mainMod .. " + code:88", resize_active_width(0.50))
+hl.bind(mainMod .. " + code:89", resize_active_width(0.30))
+hl.bind(mainMod .. " + code:83", adjust_active_width(0.05), { repeating = true })
+hl.bind(mainMod .. " + code:85", adjust_active_width(-0.05), { repeating = true })
+hl.bind(mainMod .. " + code:90", toggle_active_pin())
+hl.bind(mainMod .. " + code:84", swap_active_with_master)
+hl.bind(mainMod .. " + code:79", hl.dsp.window.float({ action = "toggle" }))
+hl.bind(mainMod .. " + code:80", hl.dsp.window.fullscreen({ mode = "maximized", action = "toggle" }))
+hl.bind(mainMod .. " + code:81", hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle" }))
 
 -- Laptop multimedia keys for volume and LCD brightness.
 hl.bind("XF86AudioRaiseVolume", exec("~/.config/quickshell/blox/scripts/osd/control.sh volume-up 2"), { repeating = true, locked = true })

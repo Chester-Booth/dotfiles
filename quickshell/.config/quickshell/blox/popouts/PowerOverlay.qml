@@ -17,7 +17,7 @@ Rectangle {
 
     Rectangle {
         anchors.fill: parent
-        color: "#99000000"
+        color: Theme.withAlpha(Theme.background, 0.6)
         opacity: root.overlayOpen ? 1 : 0
 
         Behavior on opacity {
@@ -98,7 +98,7 @@ Rectangle {
                     id: buttonCard
 
                     radius: 8
-                    color: powerMouse.containsMouse ? "#ee3b3c4a" : "#dd1e1e1e"
+                    color: powerMouse.containsMouse ? Theme.withAlpha(Theme.surfaceAlt, 0.93) : Theme.withAlpha(Theme.surface, 0.87)
                     border.color: modelData.danger ? Theme.red : Theme.surfaceAlt
                     border.width: 1
                     opacity: 0
@@ -198,7 +198,7 @@ Rectangle {
                                 property: "y"
                                 from: buttonSlide.y
                                 to: 0
-                                duration: 150   
+                                duration: 150
                                 easing.type: Easing.OutCubic
                             }
                         }

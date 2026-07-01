@@ -32,4 +32,4 @@ Do not rely on tooltip string parsing for fields the QML needs.
 ## Editing Notes
 
 - Edit theme sources under `themes/` and stable target integration files only;
-- never edit generated files under `$XDG_STATE_HOME/blox-theme/`.
+  never edit generated files under `$XDG_STATE_HOME/blox-theme/`.

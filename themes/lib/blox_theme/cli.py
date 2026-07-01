@@ -10,8 +10,11 @@ from typing import Any
 
 from . import API_VERSION
 from .core import (
+    EXIT_APPLY,
     EXIT_DEPENDENCY,
+    EXIT_LOCKED,
     EXIT_OK,
+    EXIT_RELOAD_WARNING,
     EXIT_RENDER,
     EXIT_VALIDATION,
     canonical_json,
@@ -28,6 +31,18 @@ from .core import (
     themes_dir,
     validate_theme,
     write_render,
+)
+from .runtime import (
+    LockContended,
+    RuntimeFailure,
+    TARGET_NAMES,
+    apply_theme,
+    configured_targets,
+    current_generation,
+    loader_checks,
+    reconcile,
+    reset_target,
+    rollback,
 )
 
 
@@ -53,7 +68,7 @@ def emit(result: dict[str, Any], as_json: bool) -> None:
 
 
 def parser() -> argparse.ArgumentParser:
-    root = argparse.ArgumentParser(prog="themectl", description="Validate and render repository-owned themes without changing live configuration.")
+    root = argparse.ArgumentParser(prog="themectl", description="Validate, render, and atomically apply repository-owned themes.")
     subcommands = root.add_subparsers(dest="command", required=True)
 
     list_parser = subcommands.add_parser("list", help="list source themes")
@@ -68,6 +83,19 @@ def parser() -> argparse.ArgumentParser:
     render.add_argument("--json", action="store_true")
     doctor = subcommands.add_parser("doctor")
     doctor.add_argument("--json", action="store_true")
+    apply_parser = subcommands.add_parser("apply")
+    apply_parser.add_argument("theme")
+    apply_parser.add_argument("--targets", help="comma-separated Phase 2 targets")
+    apply_parser.add_argument("--json", action="store_true")
+    reconcile_parser = subcommands.add_parser("reconcile")
+    reconcile_parser.add_argument("--targets", help="comma-separated active targets")
+    reconcile_parser.add_argument("--json", action="store_true")
+    rollback_parser = subcommands.add_parser("rollback")
+    rollback_parser.add_argument("generation", nargs="?")
+    rollback_parser.add_argument("--json", action="store_true")
+    reset_parser = subcommands.add_parser("reset-target")
+    reset_parser.add_argument("target", choices=TARGET_NAMES)
+    reset_parser.add_argument("--json", action="store_true")
     return root
 
 
@@ -112,10 +140,44 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         warnings = ["jsonschema is not installed; using the bundled strict validator"] if not checks["jsonschema"]["ok"] else []
         if not checks["state_directory"]["ok"]:
             warnings.append("theme state directory does not exist yet; Phase 2 apply will create it")
+        active_targets: set[str] = set()
+        if checks["active_generation"]["ok"]:
+            try:
+                generation = current_generation()
+                checks["generation_integrity"] = {"ok": generation is not None, "generation": generation[0].name if generation else None}
+                active_targets = set(generation[1]["enabled_targets"]) if generation else set()
+            except RuntimeFailure as error:
+                checks["generation_integrity"] = {"ok": False, "error": str(error)}
+        for name, check in loader_checks().items():
+            if name == "vicinae_loader":
+                check["required"] = "vicinae" in active_targets
+            elif name == "kitty_generated_link":
+                check["required"] = "kitty" in active_targets
+            else:
+                check["required"] = True
+            checks[name] = check
+            if not check["ok"] and not check["required"]:
+                warnings.append(f"{name} is not installed because its generated target is inactive")
         errors = [name for name, check in checks.items() if not check["ok"] and check.get("required", True)]
         return envelope(command, checks, errors=[f"failed check: {name}" for name in errors], warnings=warnings), EXIT_DEPENDENCY if errors else EXIT_OK
 
-    path, theme, failure, code = checked_theme(command, args.theme, check_dependencies=command != "show")
+    if command in ("reconcile", "rollback", "reset-target"):
+        try:
+            if command == "reconcile":
+                selected = tuple(value.strip() for value in args.targets.split(",") if value.strip()) if args.targets else None
+                manifest, warnings = reconcile(selected)
+            elif command == "rollback":
+                manifest, warnings = rollback(args.generation)
+            else:
+                manifest, warnings = reset_target(args.target)
+        except LockContended as error:
+            return envelope(command, errors=[str(error)]), EXIT_LOCKED
+        except (OSError, RuntimeFailure) as error:
+            return envelope(command, errors=[str(error)]), EXIT_APPLY
+        data = {"generation": manifest["generation_id"], "theme_id": manifest["theme_id"], "active_targets": manifest["enabled_targets"]}
+        return envelope(command, data, warnings=warnings), EXIT_RELOAD_WARNING if warnings else EXIT_OK
+
+    path, theme, failure, code = checked_theme(command, args.theme, check_dependencies=command not in ("show", "apply"))
     if failure:
         return failure, code
     assert path is not None and theme is not None
@@ -126,6 +188,24 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     if command == "validate":
         data = {"id": theme["id"], "path": str(path), "valid": True}
         return envelope(command, data, warnings=checked.warnings), EXIT_OK
+
+    if command == "apply":
+        try:
+            selected = configured_targets(theme, args.targets)
+        except RuntimeFailure as error:
+            return envelope(command, errors=[str(error)]), EXIT_VALIDATION
+        checked = validate_theme(theme, check_dependencies=True, targets=set(selected))
+        if checked.errors:
+            return envelope(command, errors=checked.errors, warnings=checked.warnings), EXIT_VALIDATION
+        try:
+            manifest, warnings = apply_theme(path, theme, selected)
+        except LockContended as error:
+            return envelope(command, errors=[str(error)]), EXIT_LOCKED
+        except (OSError, RuntimeFailure, TypeError, ValueError) as error:
+            return envelope(command, errors=[str(error)]), EXIT_APPLY
+        data = {"generation": manifest["generation_id"], "theme_id": manifest["theme_id"], "changed_targets": list(selected), "active_targets": manifest["enabled_targets"]}
+        all_warnings = checked.warnings + warnings
+        return envelope(command, data, warnings=all_warnings), EXIT_RELOAD_WARNING if warnings else EXIT_OK
 
     try:
         files, render_warnings = render_theme(theme)

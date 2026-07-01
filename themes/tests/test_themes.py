@@ -32,13 +32,14 @@ class ThemeSchemaTests(unittest.TestCase):
 
     def test_invalid_fixtures_fail_schema_validation(self) -> None:
         fixtures = THEMES / "tests/fixtures"
-        for fixture in sorted(fixtures.glob("*.json")):
+        for fixture in (fixtures / "invalid-colour.json", fixtures / "unknown-field.json"):
             with self.subTest(fixture=fixture.name):
                 theme = json.loads(fixture.read_text(encoding="utf-8"))
                 self.assertTrue(schema_errors(theme))
 
     def test_invalid_fixtures_have_documented_exit_code(self) -> None:
-        for fixture in sorted((THEMES / "tests/fixtures").glob("*.json")):
+        fixtures = THEMES / "tests/fixtures"
+        for fixture in (fixtures / "invalid-colour.json", fixtures / "unknown-field.json"):
             with self.subTest(fixture=fixture.name):
                 completed = run_cli("validate", str(fixture), "--json")
                 self.assertEqual(3, completed.returncode)

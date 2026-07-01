@@ -387,7 +387,7 @@ Rectangle {
         width: 34
         height: 34
         radius: 8
-        color: active ? "#553b3c4a" : sectionMouse.containsMouse ? Theme.surfaceAlt : "transparent"
+        color: active ? Theme.withAlpha(Theme.surfaceAlt, 0.33) : sectionMouse.containsMouse ? Theme.surfaceAlt : "transparent"
 
         Text {
             anchors.centerIn: parent
@@ -416,7 +416,7 @@ Rectangle {
         property int snapValue: -1
         property int snapDistance: 3
         property color accent: Theme.blue
-        property color knobColor: accent === Theme.yellow ? "#b79a55" : accent === Theme.red ? "#ad4f63" : "#4f74ad"
+        property color knobColor: Qt.darker(accent, 1.4)
         property color overdriveTrackColor: Qt.rgba(Theme.surface.r * 0.82 + Theme.red.r * 0.18, Theme.surface.g * 0.82 + Theme.red.g * 0.18, Theme.surface.b * 0.82 + Theme.red.b * 0.18, 1)
 
         signal changed(int value)

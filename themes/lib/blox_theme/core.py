@@ -184,25 +184,26 @@ def _named_asset_exists(name: str, roots: tuple[Path, ...]) -> bool:
     return any((root / name).exists() for root in roots)
 
 
-def dependency_checks(theme: dict[str, Any]) -> CheckResult:
+def dependency_checks(theme: dict[str, Any], targets: set[str] | None = None) -> CheckResult:
     result = CheckResult()
+    enabled = lambda target: theme["targets"][target] and (targets is None or target in targets)
     wallpaper = Path(theme["wallpaper"]["path"]).expanduser()
-    if theme["targets"]["wallpaper"] and not wallpaper.is_file():
+    if enabled("wallpaper") and not wallpaper.is_file():
         result.errors.append(f"wallpaper does not exist: {wallpaper}")
 
     theme_roots = (Path.home() / ".local/share/themes", Path.home() / ".themes", Path("/usr/local/share/themes"), Path("/usr/share/themes"))
     icon_roots = (Path.home() / ".local/share/icons", Path.home() / ".icons", Path("/usr/local/share/icons"), Path("/usr/share/icons"))
-    if theme["targets"]["gtk"] and not _named_asset_exists(theme["gtk"]["base_theme"], theme_roots):
+    if enabled("gtk") and not _named_asset_exists(theme["gtk"]["base_theme"], theme_roots):
         result.errors.append(f"GTK base theme is not installed: {theme['gtk']['base_theme']}")
-    if (theme["targets"]["vicinae"] or theme["targets"]["gtk"]) and not _named_asset_exists(theme["icons"]["theme"], icon_roots):
+    if (enabled("vicinae") or enabled("gtk")) and not _named_asset_exists(theme["icons"]["theme"], icon_roots):
         result.errors.append(f"icon theme is not installed: {theme['icons']['theme']}")
     cursor = theme["cursor"]
-    if theme["targets"]["cursor"] and not _named_asset_exists(cursor["base"], icon_roots):
+    if enabled("cursor") and not _named_asset_exists(cursor["base"], icon_roots):
         severity = result.warnings if cursor["mode"] == "generated" else result.errors
         severity.append(f"cursor base is not installed: {cursor['base']}")
 
     font_targets = ("quickshell", "vicinae", "widgets", "gtk", "kitty", "btop", "micro", "glow", "code", "cursor_editor", "stylus", "powerlevel10k", "sddm", "grub")
-    fonts_enabled = any(theme["targets"][target] for target in font_targets)
+    fonts_enabled = any(enabled(target) for target in font_targets)
     if fonts_enabled and shutil.which("fc-match"):
         for role in ("ui", "mono", "panel"):
             requested = theme["fonts"][role]
@@ -214,7 +215,7 @@ def dependency_checks(theme: dict[str, Any]) -> CheckResult:
     return result
 
 
-def validate_theme(theme: dict[str, Any], check_dependencies: bool = True) -> CheckResult:
+def validate_theme(theme: dict[str, Any], check_dependencies: bool = True, targets: set[str] | None = None) -> CheckResult:
     result = CheckResult(errors=schema_errors(theme))
     if result.errors:
         return result
@@ -235,7 +236,7 @@ def validate_theme(theme: dict[str, Any], check_dependencies: bool = True) -> Ch
         if contrast_ratio(cursor.get("base_colour", colours["accent"]), cursor.get("outline_colour", colours["foreground"])) < 3:
             result.errors.append("generated cursor base/outline contrast requires 3.0:1")
     if check_dependencies:
-        dependencies = dependency_checks(theme)
+        dependencies = dependency_checks(theme, targets=targets)
         result.errors.extend(dependencies.errors)
         result.warnings.extend(dependencies.warnings)
     return result
@@ -305,6 +306,13 @@ border = "{c['border']}"
 accent = "{c['accent']}"
 accent_foreground = "{c['selection_foreground']}"
 
+[colors.main_window]
+border = "{c['border']}"
+footer = {{ background = "{c['surface']}" }}
+
+[colors.settings_window]
+border = "{c['border']}"
+
 [colors.accents]
 blue = "{c['info']}"
 green = "{c['success']}"
@@ -315,6 +323,9 @@ red = "{c['danger']}"
 yellow = "{c['warning']}"
 cyan = "{c['teal']}"
 
+[colors.shortcut]
+border = "{c['border']}"
+
 [colors.text]
 default = "{c['foreground']}"
 muted = "{c['muted']}"
@@ -323,16 +334,42 @@ success = "{c['success']}"
 placeholder = "{c['muted']}"
 selection = {{ background = "{c['selection_background']}", foreground = "{c['selection_foreground']}" }}
 
+[colors.text.links]
+default = "{c['info']}"
+visited = "{c['mauve']}"
+
 [colors.input]
 border = "{c['border']}"
 border_focus = "{c['accent']}"
 border_error = "{c['danger']}"
+
+[colors.button.primary]
+background = "{c['surface']}"
+foreground = "{c['foreground']}"
+hover = {{ background = "{c['surface_alt']}" }}
+focus = {{ outline = "{c['accent']}" }}
+
+[colors.list.item.hover]
+foreground = "{c['foreground']}"
+secondary_foreground = "{c['foreground']}"
 
 [colors.list.item.selection]
 background = "{c['surface_alt']}"
 foreground = "{c['foreground']}"
 secondary_background = "{c['surface']}"
 secondary_foreground = "{c['muted']}"
+
+[colors.grid.item]
+background = "{c['surface']}"
+hover = {{ outline = "{c['accent']}" }}
+selection = {{ outline = "{c['accent']}" }}
+
+[colors.scrollbars]
+background = "{c['surface_alt']}"
+
+[colors.loading]
+bar = "{c['accent']}"
+spinner = "{c['foreground']}"
 '''
 
 

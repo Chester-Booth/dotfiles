@@ -1,4 +1,5 @@
 import "../services"
+import "../shared"
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
@@ -171,7 +172,7 @@ Scope {
 
         width: content.implicitWidth + 40
         height: content.implicitHeight + 40
-        color: "#4d000000"
+        color: Theme.withAlpha(Theme.background, 0.3)
         radius: 0
 
         Text {
@@ -181,8 +182,8 @@ Scope {
             anchors.top: parent.top
             anchors.margins: 20
             text: box.text
-            color: "#ffffff"
-            font.family: "Google Sans Code NF"
+            color: Theme.foreground
+            font.family: Theme.bodyFontFamily
             font.pixelSize: 14
             wrapMode: Text.NoWrap
             horizontalAlignment: Text.AlignLeft

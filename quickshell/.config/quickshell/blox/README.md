@@ -36,7 +36,7 @@ Layout:
   workspace, and derived-content controllers.
 - `popouts/` - click-open panel surfaces.
 - `scripts/status/` - JSON status producers for the rail and popouts.
-- `scripts/{calendar,display,gpu,network,power,todo,update,workspaces}/` - action and domain backends.
+- `scripts/{calendar,display,gpu,network,power,theme,todo,update,workspaces}/` - action and domain backends.
 - `scripts/overlays/` - background todo/calendar overlay helpers.
 - `scripts/contracts/status.json` - expected JSON contracts for status-producing scripts.
 

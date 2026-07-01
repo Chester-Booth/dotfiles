@@ -21,7 +21,7 @@
    },
    "theme": {
       "dark": {
-         "name": "blox-panel",
+         "name": "blox-generated",
          "icon_theme": "Adwaita"
       }
    },

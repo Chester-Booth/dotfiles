@@ -1,13 +1,13 @@
 SHELL := /usr/bin/env bash
 QS := quickshell/.config/quickshell/blox
 
-.PHONY: check format lint doctor qmlformat shfmt shellcheck lua-check py-compile validate-status systemd-verify diff-check
+.PHONY: check format lint doctor qmlformat shfmt shellcheck lua-check py-compile validate-status validate-themes systemd-verify diff-check
 
-check: lua-check py-compile validate-status systemd-verify diff-check
+check: lua-check py-compile validate-status validate-themes systemd-verify diff-check
 
 format: qmlformat shfmt
 
-lint: shellcheck lua-check py-compile validate-status systemd-verify diff-check
+lint: shellcheck lua-check py-compile validate-status validate-themes systemd-verify diff-check
 
 doctor:
 	@bin/dotfiles-doctor
@@ -40,9 +40,15 @@ py-compile:
 	@while IFS= read -r -d '' file; do \
 		python3 -c 'import ast, pathlib, sys; path = pathlib.Path(sys.argv[1]); ast.parse(path.read_text(), filename=str(path))' "$$file"; \
 	done < <(find $(QS)/scripts -type f -name '*.py' -print0)
+	@while IFS= read -r -d '' file; do \
+		python3 -c 'import ast, pathlib, sys; path = pathlib.Path(sys.argv[1]); ast.parse(path.read_text(), filename=str(path))' "$$file"; \
+	done < <(find themes -type f -name '*.py' -print0)
 
 validate-status:
 	@$(QS)/scripts/validate-status.py --timeout 10
+
+validate-themes:
+	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s themes/tests -v
 
 systemd-verify:
 	@systemd-analyze --user verify systemd/*.service systemd/*.timer

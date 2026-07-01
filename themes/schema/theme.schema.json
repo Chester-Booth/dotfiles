@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://blox.local/schemas/theme-v1.json",
+  "title": "Blox theme",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "name", "variant", "targets", "fonts", "colours", "wallpaper", "gtk", "icons", "cursor", "terminal"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "minLength": 1, "maxLength": 64},
+    "name": {"type": "string", "minLength": 1, "maxLength": 80},
+    "variant": {"enum": ["dark", "light"]},
+    "targets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["quickshell", "vicinae", "widgets", "gtk", "cursor", "wallpaper", "kitty", "hyprland", "hyprlock", "btop", "micro", "glow", "code", "cursor_editor", "stylus", "powerlevel10k", "sddm", "grub"],
+      "properties": {
+        "quickshell": {"type": "boolean"}, "vicinae": {"type": "boolean"},
+        "widgets": {"type": "boolean"}, "gtk": {"type": "boolean"},
+        "cursor": {"type": "boolean"}, "wallpaper": {"type": "boolean"},
+        "kitty": {"type": "boolean"}, "hyprland": {"type": "boolean"},
+        "hyprlock": {"type": "boolean"}, "btop": {"type": "boolean"},
+        "micro": {"type": "boolean"}, "glow": {"type": "boolean"},
+        "code": {"type": "boolean"}, "cursor_editor": {"type": "boolean"},
+        "stylus": {"type": "boolean"}, "powerlevel10k": {"type": "boolean"},
+        "sddm": {"type": "boolean"}, "grub": {"type": "boolean"}
+      }
+    },
+    "fonts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["ui", "mono", "panel", "terminal_size", "editor_size", "gtk_size"],
+      "properties": {
+        "ui": {"type": "string", "minLength": 1}, "mono": {"type": "string", "minLength": 1},
+        "panel": {"type": "string", "minLength": 1},
+        "terminal_size": {"type": "number", "minimum": 6, "maximum": 48},
+        "editor_size": {"type": "number", "minimum": 6, "maximum": 48},
+        "gtk_size": {"type": "number", "minimum": 6, "maximum": 48}
+      }
+    },
+    "colours": {
+      "type": "object", "additionalProperties": false,
+      "required": ["background", "surface", "surface_alt", "foreground", "muted", "accent", "danger", "success", "warning", "info", "mauve", "teal", "selection_background", "selection_foreground", "border"],
+      "properties": {
+        "background": {"$ref": "#/$defs/colour"}, "surface": {"$ref": "#/$defs/colour"},
+        "surface_alt": {"$ref": "#/$defs/colour"}, "foreground": {"$ref": "#/$defs/colour"},
+        "muted": {"$ref": "#/$defs/colour"}, "accent": {"$ref": "#/$defs/colour"},
+        "danger": {"$ref": "#/$defs/colour"}, "success": {"$ref": "#/$defs/colour"},
+        "warning": {"$ref": "#/$defs/colour"}, "info": {"$ref": "#/$defs/colour"},
+        "mauve": {"$ref": "#/$defs/colour"}, "teal": {"$ref": "#/$defs/colour"},
+        "selection_background": {"$ref": "#/$defs/colour"}, "selection_foreground": {"$ref": "#/$defs/colour"},
+        "border": {"$ref": "#/$defs/colour"}
+      }
+    },
+    "wallpaper": {
+      "type": "object", "additionalProperties": false, "required": ["path", "fit"],
+      "properties": {"path": {"type": "string", "minLength": 1}, "fit": {"enum": ["cover", "contain", "tile"]}}
+    },
+    "gtk": {
+      "type": "object", "additionalProperties": false, "required": ["mode", "base_theme", "colour_source"],
+      "properties": {"mode": {"enum": ["generated", "installed"]}, "base_theme": {"type": "string", "minLength": 1}, "colour_source": {"enum": ["theme", "override"]}}
+    },
+    "icons": {"type": "object", "additionalProperties": false, "required": ["theme"], "properties": {"theme": {"type": "string", "minLength": 1}}},
+    "cursor": {
+      "type": "object", "additionalProperties": false, "required": ["mode", "base", "handedness", "sizes", "colour_source"],
+      "properties": {
+        "mode": {"enum": ["generated", "installed"]}, "base": {"type": "string", "minLength": 1},
+        "handedness": {"enum": ["right", "left"]},
+        "sizes": {"type": "array", "items": {"type": "integer", "minimum": 16, "maximum": 96}, "minItems": 1, "uniqueItems": true},
+        "colour_source": {"enum": ["theme", "override"]},
+        "base_colour": {"$ref": "#/$defs/colour"}, "outline_colour": {"$ref": "#/$defs/colour"},
+        "watch_background": {"$ref": "#/$defs/colour"}
+      }
+    },
+    "terminal": {
+      "type": "object", "additionalProperties": false, "required": ["canvas", "chrome_background", "ansi_source"],
+      "properties": {"canvas": {"$ref": "#/$defs/colour"}, "chrome_background": {"$ref": "#/$defs/colour"}, "ansi_source": {"enum": ["derived", "override"]}}
+    },
+    "generator": {"type": "object", "additionalProperties": false, "required": ["backend", "version", "wallpaper_sha256"], "properties": {"backend": {"type": "string"}, "version": {"type": "string"}, "wallpaper_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}},
+    "overrides": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "ansi": {"$ref": "#/$defs/ansi"},
+        "gtk": {"$ref": "#/$defs/semanticOverride"},
+        "vicinae": {"$ref": "#/$defs/semanticOverride"},
+        "hyprlock": {"$ref": "#/$defs/semanticOverride"}
+      }
+    }
+  },
+  "$defs": {
+    "colour": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"},
+    "ansi": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "color0": {"$ref": "#/$defs/colour"}, "color1": {"$ref": "#/$defs/colour"}, "color2": {"$ref": "#/$defs/colour"}, "color3": {"$ref": "#/$defs/colour"},
+        "color4": {"$ref": "#/$defs/colour"}, "color5": {"$ref": "#/$defs/colour"}, "color6": {"$ref": "#/$defs/colour"}, "color7": {"$ref": "#/$defs/colour"},
+        "color8": {"$ref": "#/$defs/colour"}, "color9": {"$ref": "#/$defs/colour"}, "color10": {"$ref": "#/$defs/colour"}, "color11": {"$ref": "#/$defs/colour"},
+        "color12": {"$ref": "#/$defs/colour"}, "color13": {"$ref": "#/$defs/colour"}, "color14": {"$ref": "#/$defs/colour"}, "color15": {"$ref": "#/$defs/colour"}
+      }
+    },
+    "semanticOverride": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "background": {"$ref": "#/$defs/colour"}, "surface": {"$ref": "#/$defs/colour"}, "surface_alt": {"$ref": "#/$defs/colour"},
+        "foreground": {"$ref": "#/$defs/colour"}, "muted": {"$ref": "#/$defs/colour"}, "accent": {"$ref": "#/$defs/colour"},
+        "danger": {"$ref": "#/$defs/colour"}, "success": {"$ref": "#/$defs/colour"}, "warning": {"$ref": "#/$defs/colour"},
+        "info": {"$ref": "#/$defs/colour"}, "mauve": {"$ref": "#/$defs/colour"}, "teal": {"$ref": "#/$defs/colour"},
+        "selection_background": {"$ref": "#/$defs/colour"}, "selection_foreground": {"$ref": "#/$defs/colour"}, "border": {"$ref": "#/$defs/colour"}
+      }
+    }
+  }
+}

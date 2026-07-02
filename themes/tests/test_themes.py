@@ -51,6 +51,19 @@ class ThemeSchemaTests(unittest.TestCase):
         result = validate_theme(theme, check_dependencies=False)
         self.assertTrue(any("contrast" in error for error in result.errors))
 
+    def test_gtk_override_source_requires_values(self) -> None:
+        _, theme = load_theme("blox-panel")
+        theme["gtk"]["colour_source"] = "override"
+        result = validate_theme(theme, check_dependencies=False)
+        self.assertTrue(any("overrides.gtk" in error for error in result.errors))
+        theme["overrides"] = {"gtk": {"accent": "#abcdef"}}
+        self.assertFalse(any("overrides.gtk" in error for error in validate_theme(theme, check_dependencies=False).errors))
+
+    def test_low_contrast_gtk_override_is_rejected(self) -> None:
+        _, theme = load_theme("blox-panel")
+        theme["overrides"] = {"gtk": {"foreground": theme["colours"]["background"]}}
+        self.assertTrue(any("GTK override" in error for error in validate_theme(theme, check_dependencies=False).errors))
+
     def test_schema_boundaries_and_unknown_nested_fields(self) -> None:
         _, source = load_theme("blox-panel")
         mutations = {
@@ -146,6 +159,50 @@ class RendererTests(unittest.TestCase):
         self.assertEqual(self.theme["colours"], theme["colours"])
         self.assertNotIn("#010203", files["vicinae/theme.toml"])
 
+    def test_generated_gtk_outputs_settings_css_and_limitations(self) -> None:
+        files, _ = render_theme(self.theme)
+        metadata = json.loads(files["gtk/metadata.json"])
+        self.assertTrue(metadata["generated_css"])
+        self.assertEqual("partial-user-css", metadata["libadwaita_support"])
+        self.assertIn("gtk-theme-name=Graphite-Dark-compact", files["gtk/gtk-3.0/settings.ini"])
+        self.assertIn("gtk-font-name=Google Sans 11", files["gtk/gtk-4.0/settings.ini"])
+        self.assertIn("@define-color blox_accent #89b4fa;", files["gtk/gtk-3.0/gtk.css"])
+        self.assertIn("switch:checked", files["gtk/gtk-4.0/gtk.css"])
+
+    def test_installed_gtk_mode_emits_no_generated_css(self) -> None:
+        theme = copy.deepcopy(self.theme)
+        theme["gtk"].update(mode="installed", base_theme="Adwaita")
+        files, _ = render_theme(theme)
+        self.assertNotIn("gtk/gtk-3.0/gtk.css", files)
+        self.assertNotIn("gtk/gtk-4.0/gtk.css", files)
+        self.assertIn("gtk-theme-name=Adwaita", files["gtk/gtk-3.0/settings.ini"])
+        self.assertFalse(json.loads(files["gtk/metadata.json"])["generated_css"])
+
+    def test_light_gtk_mode_emits_light_preference(self) -> None:
+        theme = copy.deepcopy(self.theme)
+        theme["variant"] = "light"
+        files, _ = render_theme(theme)
+        self.assertIn("gtk-application-prefer-dark-theme=0", files["gtk/gtk-3.0/settings.ini"])
+
+    def test_gtk_override_does_not_feed_back_into_other_targets(self) -> None:
+        theme = copy.deepcopy(self.theme)
+        theme["overrides"] = {"gtk": {"background": "#010203", "accent": "#abcdef"}}
+        files, _ = render_theme(theme)
+        self.assertIn("@define-color blox_bg #010203;", files["gtk/gtk-3.0/gtk.css"])
+        self.assertIn("@define-color blox_accent #abcdef;", files["gtk/gtk-4.0/gtk.css"])
+        self.assertEqual(self.theme["colours"], json.loads(files["quickshell/theme.json"])["colours"])
+
+    def test_generated_gtk_css_parses_in_both_toolkits(self) -> None:
+        files, _ = render_theme(self.theme)
+        with tempfile.TemporaryDirectory() as temporary:
+            for toolkit, name in (("gtk3", "gtk/gtk-3.0/gtk.css"), ("gtk4", "gtk/gtk-4.0/gtk.css")):
+                with self.subTest(toolkit=toolkit):
+                    path = Path(temporary) / f"{toolkit}.css"
+                    path.write_text(files[name], encoding="utf-8")
+                    completed = subprocess.run([sys.executable, str(THEMES / "tests/helpers/gtk_probe.py"), toolkit, "--css", str(path)], cwd=REPOSITORY, capture_output=True, text=True, check=False)
+                    self.assertEqual(0, completed.returncode, completed.stderr)
+                    self.assertEqual([], json.loads(completed.stdout)["errors"])
+
     def test_disabled_targets_are_not_rendered(self) -> None:
         theme = copy.deepcopy(self.theme)
         for target in theme["targets"]:
@@ -169,7 +226,7 @@ class RendererTests(unittest.TestCase):
             completed = run_cli("render", "blox-panel", "--output", str(output), "--json")
             self.assertEqual(0, completed.returncode, completed.stderr or completed.stdout)
             files = sorted(str(path.relative_to(output)) for path in output.rglob("*") if path.is_file())
-            self.assertEqual(["hypr/wallpaper.json", "kitty/theme.conf", "manifest.json", "quickshell/theme.json", "vicinae/theme.toml"], files)
+            self.assertEqual(["gtk/gtk-3.0/gtk.css", "gtk/gtk-3.0/settings.ini", "gtk/gtk-4.0/gtk.css", "gtk/gtk-4.0/settings.ini", "gtk/metadata.json", "hypr/wallpaper.json", "kitty/theme.conf", "manifest.json", "quickshell/theme.json", "vicinae/theme.toml"], files)
 
 
 class CliContractTests(unittest.TestCase):
@@ -197,6 +254,23 @@ class CliContractTests(unittest.TestCase):
             malformed = run_cli("show", str(malformed_path), "--json")
             self.assertEqual(3, malformed.returncode)
             self.assertFalse(json.loads(malformed.stdout)["ok"])
+
+    def test_preview_reports_gtk_restart_and_libadwaita_boundaries(self) -> None:
+        completed = run_cli("preview", "blox-panel", "--json")
+        self.assertEqual(0, completed.returncode)
+        response = json.loads(completed.stdout)
+        self.assertTrue(response["data"]["gtk"]["restart_required"])
+        self.assertEqual("partial-user-css", response["data"]["gtk"]["libadwaita_support"])
+        self.assertTrue(any("Libadwaita" in warning for warning in response["warnings"]))
+
+    def test_repository_does_not_force_gtk_theme_environment(self) -> None:
+        sources = (
+            REPOSITORY / "environment/.config/environment.d/10-hyprland-appearance.conf",
+            REPOSITORY / "hyprland/.config/hypr/conf.d/environment.lua",
+        )
+        for source in sources:
+            self.assertNotIn("GTK_THEME", source.read_text(encoding="utf-8"), source)
+        self.assertFalse((REPOSITORY / "systemd/user/xdg-desktop-portal-gtk.service.d/dark-theme.conf").exists())
 
     def test_usage_errors_exit_with_two(self) -> None:
         self.assertEqual(2, run_cli().returncode)

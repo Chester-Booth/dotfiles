@@ -16,7 +16,9 @@ REPOSITORY = THEMES.parent
 sys.path.insert(0, str(THEMES / "lib"))
 
 from blox_theme.core import load_theme, render_theme
-from blox_theme.runtime import ApplicationLock, LockContended, RuntimeFailure, TARGET_FILES, TARGET_NAMES, apply_theme, current_generation, kitty_theme_link, reconcile, reset_target, rollback, validate_generation, vicinae_theme_link
+from blox_theme.runtime import ApplicationLock, LockContended, RuntimeFailure, TARGET_FILES, TARGET_NAMES, apply_theme, current_generation, kitty_theme_link, reconcile, reset_target, rollback, setup_gtk, validate_generation, vicinae_theme_link
+
+PHASE2_TARGETS = ("quickshell", "vicinae", "kitty", "wallpaper")
 
 
 class FakeCommands:
@@ -72,6 +74,10 @@ class RuntimeTests(unittest.TestCase):
         self.assertTrue(vicinae_theme_link().is_symlink())
         self.assertEqual(self.state / "current/vicinae/theme.toml", Path(os.readlink(vicinae_theme_link())))
         self.assertTrue((self.root / "config/kitty/blox-theme.conf").is_symlink())
+        for version in ("3", "4"):
+            config = self.root / f"config/gtk-{version}.0"
+            self.assertEqual(self.state / f"current/gtk/gtk-{version}.0/settings.ini", Path(os.readlink(config / "settings.ini")))
+            self.assertEqual(self.state / f"current/gtk/gtk-{version}.0/gtk.css", Path(os.readlink(config / "blox-theme.css")))
         self.assertEqual([], list((self.state / "generations").glob(".candidate-*")))
         self.assertEqual(generation, (self.state / "current").resolve())
         flattened = [part for command in runner.commands for part in command]
@@ -87,6 +93,8 @@ class RuntimeTests(unittest.TestCase):
         self.assertNotEqual(before["quickshell/theme.json"], (after_path / "quickshell/theme.json").read_bytes())
         for name in ("vicinae/theme.toml", "kitty/theme.conf", "hypr/wallpaper.json"):
             self.assertEqual(before[name], (after_path / name).read_bytes(), name)
+        for name in TARGET_FILES["gtk"]:
+            self.assertEqual(before[name], (after_path / name).read_bytes(), name)
         self.assertEqual("phase2-alternate", manifest["target_sources"]["quickshell"]["theme_id"])
         self.assertEqual("blox-panel", manifest["target_sources"]["kitty"]["theme_id"])
 
@@ -94,10 +102,11 @@ class RuntimeTests(unittest.TestCase):
         self.apply_canonical()
         before_path, before_manifest = current_generation(self.state)
         before = {name: (before_path / name).read_bytes() for name in before_manifest["files"]}
-        apply_theme(self.alternate_path, self.alternate, TARGET_NAMES, run_command=FakeCommands())
+        apply_theme(self.alternate_path, self.alternate, PHASE2_TARGETS, run_command=FakeCommands())
         after_path, after_manifest = current_generation(self.state)
         self.assertEqual(set(before), set(after_manifest["files"]))
-        for name in before:
+        changed_files = {name for target in PHASE2_TARGETS for name in TARGET_FILES[target]}
+        for name in changed_files:
             self.assertNotEqual(before[name], (after_path / name).read_bytes(), name)
 
     def test_render_failure_cannot_expose_partial_generation(self) -> None:
@@ -151,6 +160,71 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(manifest, current_generation(self.state)[1])
         self.assertTrue(any("run:" in warning for warning in warnings))
 
+    def test_installed_gtk_mode_bypasses_css_and_updates_settings_links(self) -> None:
+        self.apply_canonical()
+        installed = json.loads(json.dumps(self.canonical))
+        installed["gtk"].update(mode="installed", base_theme="Adwaita")
+        runner = FakeCommands()
+        manifest, warnings = apply_theme(self.canonical_path, installed, ("gtk",), run_command=runner)
+        self.assertEqual([], warnings)
+        active = (self.state / "current").resolve()
+        self.assertNotIn("gtk/gtk-3.0/gtk.css", manifest["files"])
+        self.assertNotIn("gtk/gtk-4.0/gtk.css", manifest["files"])
+        for version in ("3", "4"):
+            config = self.root / f"config/gtk-{version}.0"
+            self.assertEqual(self.state / f"current/gtk/gtk-{version}.0/settings.ini", Path(os.readlink(config / "settings.ini")))
+            self.assertEqual(REPOSITORY / f"gtk/.config/gtk-{version}.0/blox-theme-empty.css", Path(os.readlink(config / "blox-theme.css")))
+            self.assertFalse((active / f"gtk/gtk-{version}.0/gtk.css").exists())
+        flattened = [part for command in runner.commands for part in command]
+        self.assertIn("Adwaita", flattened)
+        self.assertIn("prefer-dark", flattened)
+
+    def test_gtk_loader_conflict_aborts_without_switching(self) -> None:
+        self.apply_canonical()
+        before = os.readlink(self.state / "current")
+        loader = self.root / "config/gtk-3.0/gtk.css"
+        loader.unlink()
+        loader.write_text("owned", encoding="utf-8")
+        with self.assertRaisesRegex(RuntimeFailure, "conflicting GTK loader"):
+            apply_theme(self.canonical_path, self.canonical, ("gtk",), run_command=FakeCommands())
+        self.assertEqual(before, os.readlink(self.state / "current"))
+        self.assertEqual("owned", loader.read_text(encoding="utf-8"))
+
+    def test_explicit_gtk_setup_records_and_preserves_legacy_symlinks(self) -> None:
+        legacy_light = self.root / "legacy-light.css"
+        legacy_dark = self.root / "legacy-dark.css"
+        legacy_light.write_text("/* light */", encoding="utf-8")
+        legacy_dark.write_text("/* dark */", encoding="utf-8")
+        config = self.root / "config/gtk-4.0"
+        config.mkdir(parents=True)
+        (config / "gtk.css").symlink_to(legacy_light)
+        (config / "gtk-dark.css").symlink_to(legacy_dark)
+        integration = setup_gtk()
+        self.assertEqual(str(legacy_light), integration["loaders"]["4"]["gtk.css"]["target"])
+        self.assertEqual(REPOSITORY / "gtk/.config/gtk-4.0/gtk.css", Path(os.readlink(config / "gtk.css")))
+        self.assertEqual(legacy_light, Path(os.readlink(config / "blox-theme.css")))
+        self.assertEqual(legacy_dark, Path(os.readlink(config / "blox-theme-dark.css")))
+        self.assertFalse((self.state / "current").exists())
+        self.apply_canonical()
+
+    def test_gtk_setup_discards_broken_legacy_symlink_as_fallback(self) -> None:
+        config = self.root / "config/gtk-4.0"
+        config.mkdir(parents=True)
+        broken = self.root / "missing.css"
+        (config / "gtk.css").symlink_to(broken)
+        integration = setup_gtk()
+        self.assertEqual({"kind": "absent"}, integration["loaders"]["4"]["gtk.css"])
+        self.assertEqual(REPOSITORY / "gtk/.config/gtk-4.0/blox-theme-empty.css", Path(os.readlink(config / "blox-theme.css")))
+
+    def test_gtk_setup_refuses_regular_user_stylesheet(self) -> None:
+        config = self.root / "config/gtk-3.0"
+        config.mkdir(parents=True)
+        stylesheet = config / "gtk.css"
+        stylesheet.write_text("/* owned */", encoding="utf-8")
+        with self.assertRaisesRegex(RuntimeFailure, "regular GTK stylesheet"):
+            setup_gtk()
+        self.assertEqual("/* owned */", stylesheet.read_text(encoding="utf-8"))
+
     def test_reconcile_is_idempotent_and_does_not_render(self) -> None:
         self.apply_canonical()
         before = os.readlink(self.state / "current")
@@ -167,7 +241,7 @@ class RuntimeTests(unittest.TestCase):
         first, _ = self.apply_canonical()
         first_path = (self.state / "current").resolve()
         first_quickshell = (first_path / "quickshell/theme.json").read_bytes()
-        apply_theme(self.alternate_path, self.alternate, TARGET_NAMES, run_command=FakeCommands())
+        apply_theme(self.alternate_path, self.alternate, PHASE2_TARGETS, run_command=FakeCommands())
         runner = FakeCommands()
         restored, warnings = rollback(first["generation_id"], run_command=runner)
         self.assertEqual([], warnings)
@@ -194,6 +268,8 @@ class RuntimeTests(unittest.TestCase):
                 for link in (vicinae_theme_link(), kitty_theme_link()):
                     if link.is_symlink():
                         link.unlink()
+                for version in ("3", "4"):
+                    shutil.rmtree(self.root / f"config/gtk-{version}.0", ignore_errors=True)
                 self.apply_canonical()
                 runner = FakeCommands()
                 manifest, warnings = reset_target(target, run_command=runner)
@@ -212,7 +288,8 @@ class RuntimeTests(unittest.TestCase):
         for index in range(8):
             theme = self.canonical if index % 2 == 0 else self.alternate
             path = self.canonical_path if index % 2 == 0 else self.alternate_path
-            apply_theme(path, theme, TARGET_NAMES, run_command=FakeCommands())
+            targets = TARGET_NAMES if index % 2 == 0 else PHASE2_TARGETS
+            apply_theme(path, theme, targets, run_command=FakeCommands())
         generations = [path for path in (self.state / "generations").iterdir() if path.is_dir()]
         self.assertEqual(6, len(generations))
         self.assertIn((self.state / "current").resolve(), generations)
@@ -299,6 +376,11 @@ class RuntimeCliTests(unittest.TestCase):
             rollback_code, rolled_back = invoke("rollback", first)
             self.assertEqual(0, rollback_code)
             self.assertIn("quickshell", rolled_back["data"]["active_targets"])
+
+    def test_cli_setup_requires_confirmation(self) -> None:
+        completed = subprocess.run([str(THEMES / "bin/themectl"), "setup", "gtk", "--json"], cwd=REPOSITORY, check=False, capture_output=True, text=True)
+        self.assertEqual(2, completed.returncode)
+        self.assertFalse(json.loads(completed.stdout)["ok"])
 
 
 if __name__ == "__main__":

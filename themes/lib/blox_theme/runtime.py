@@ -22,6 +22,11 @@ TARGET_FILES = {
     "vicinae": ("vicinae/theme.toml",),
     "kitty": ("kitty/theme.conf",),
     "wallpaper": ("hypr/wallpaper.json",),
+    "gtk": ("gtk/gtk-3.0/settings.ini", "gtk/gtk-3.0/gtk.css", "gtk/gtk-4.0/settings.ini", "gtk/gtk-4.0/gtk.css", "gtk/metadata.json"),
+}
+TARGET_REQUIRED_FILES = {
+    **{target: files for target, files in TARGET_FILES.items() if target != "gtk"},
+    "gtk": ("gtk/gtk-3.0/settings.ini", "gtk/gtk-4.0/settings.ini", "gtk/metadata.json"),
 }
 TARGET_NAMES = tuple(TARGET_FILES)
 GENERATION_PATTERN = re.compile(r"^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$")
@@ -283,6 +288,82 @@ def kitty_include_line() -> str:
     return "globinclude blox-theme.conf"
 
 
+def gtk_config_path(version: str) -> Path:
+    config_home = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")).expanduser()
+    return config_home / f"gtk-{version}.0"
+
+
+def gtk_source_path(version: str, name: str) -> Path:
+    return repository_root() / f"gtk/.config/gtk-{version}.0/{name}"
+
+
+def gtk_integration_path(root: Path) -> Path:
+    return root / "integration/gtk-loaders.json"
+
+
+def _load_gtk_integration(root: Path) -> dict[str, Any] | None:
+    path = gtk_integration_path(root)
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise RuntimeFailure(f"GTK loader integration record is invalid: {path}") from error
+    if not isinstance(data, dict) or set(data) != {"schema_version", "loaders"} or data["schema_version"] != 1:
+        raise RuntimeFailure(f"GTK loader integration record is invalid: {path}")
+    if not isinstance(data["loaders"], dict) or set(data["loaders"]) != {"3", "4"}:
+        raise RuntimeFailure(f"GTK loader integration record is invalid: {path}")
+    for version in ("3", "4"):
+        entries = data["loaders"][version]
+        if not isinstance(entries, dict) or set(entries) != {"gtk.css", "gtk-dark.css"}:
+            raise RuntimeFailure(f"GTK loader integration record is invalid: {path}")
+        for entry in entries.values():
+            if not isinstance(entry, dict) or entry.get("kind") not in ("absent", "symlink"):
+                raise RuntimeFailure(f"GTK loader integration record is invalid: {path}")
+            if entry["kind"] == "symlink" and (set(entry) != {"kind", "target"} or not isinstance(entry["target"], str)):
+                raise RuntimeFailure(f"GTK loader integration record is invalid: {path}")
+            if entry["kind"] == "absent" and set(entry) != {"kind"}:
+                raise RuntimeFailure(f"GTK loader integration record is invalid: {path}")
+    return data
+
+
+def _capture_gtk_integration() -> dict[str, Any]:
+    loaders: dict[str, Any] = {}
+    for version in ("3", "4"):
+        entries = {}
+        for name in ("gtk.css", "gtk-dark.css"):
+            path = gtk_config_path(version) / name
+            if path.is_symlink():
+                entries[name] = {"kind": "symlink", "target": os.readlink(path)}
+            elif path.exists():
+                raise RuntimeFailure(f"refusing to replace regular GTK stylesheet: {path}")
+            else:
+                entries[name] = {"kind": "absent"}
+        loaders[version] = entries
+    return {"schema_version": 1, "loaders": loaders}
+
+
+def _save_gtk_integration(root: Path, data: dict[str, Any]) -> None:
+    path = gtk_integration_path(root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.parent / f".{path.name}.{uuid.uuid4().hex}.tmp"
+    _write_text(temporary, canonical_json(data))
+    os.replace(temporary, path)
+    _fsync_directory(path.parent)
+
+
+def _ensure_gtk_integration(root: Path, allow_existing: bool) -> dict[str, Any]:
+    existing = _load_gtk_integration(root)
+    if existing:
+        return existing
+    captured = _capture_gtk_integration()
+    has_existing = any(entry["kind"] != "absent" for entries in captured["loaders"].values() for entry in entries.values())
+    if has_existing and not allow_existing:
+        raise RuntimeFailure("existing GTK stylesheet loaders require explicit migration; run: themectl setup gtk --yes")
+    _save_gtk_integration(root, captured)
+    return captured
+
+
 def kitty_theme_link() -> Path:
     return kitty_config_path().parent / "blox-theme.conf"
 
@@ -313,6 +394,95 @@ def ensure_kitty_loader(root: Path) -> None:
     os.replace(temporary, link)
 
 
+def _replace_known_symlink(link: Path, expected: Path, allowed: Iterable[Path]) -> None:
+    allowed_targets = {str(path) for path in allowed}
+    if link.is_symlink():
+        current = os.readlink(link)
+        if current == str(expected):
+            return
+        if current not in allowed_targets:
+            raise RuntimeFailure(f"refusing to replace unexpected theme loader: {link}")
+    elif link.exists():
+        raise RuntimeFailure(f"refusing to replace conflicting theme loader: {link}")
+    link.parent.mkdir(parents=True, exist_ok=True)
+    temporary = link.parent / f".{link.name}.{uuid.uuid4().hex}.tmp"
+    temporary.symlink_to(expected)
+    os.replace(temporary, link)
+
+
+def _gtk_metadata(root: Path) -> dict[str, Any]:
+    path = root / "current/gtk/metadata.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise RuntimeFailure(f"GTK metadata is invalid: {path}") from error
+    if not isinstance(data, dict) or data.get("mode") not in ("generated", "installed") or not isinstance(data.get("generated_css"), bool):
+        raise RuntimeFailure(f"GTK metadata is invalid: {path}")
+    return data
+
+
+def ensure_gtk_loaders(root: Path, active: bool) -> None:
+    integration = _ensure_gtk_integration(root, allow_existing=False)
+    metadata = _gtk_metadata(root) if active else None
+    for version in ("3", "4"):
+        config = gtk_config_path(version)
+        source_settings = gtk_source_path(version, "settings.ini")
+        live_settings = config / "settings.ini"
+        generated_settings = root / f"current/gtk/gtk-{version}.0/settings.ini"
+        generated_css = root / f"current/gtk/gtk-{version}.0/gtk.css"
+
+        settings_target = generated_settings if active else source_settings
+        _replace_known_symlink(live_settings, settings_target, (source_settings, generated_settings))
+        for dark, loader_name, dynamic_name in ((False, "gtk.css", "blox-theme.css"), (True, "gtk-dark.css", "blox-theme-dark.css")):
+            source_loader = gtk_source_path(version, loader_name)
+            live_loader = config / loader_name
+            entry = integration["loaders"][version][loader_name]
+            original = Path(entry["target"]) if entry["kind"] == "symlink" else gtk_source_path(version, "blox-theme-empty-dark.css" if dark else "blox-theme-empty.css")
+            allowed_loaders = [source_loader]
+            if entry["kind"] == "symlink":
+                allowed_loaders.append(Path(entry["target"]))
+            _replace_known_symlink(live_loader, source_loader, allowed_loaders)
+            dynamic_css = config / dynamic_name
+            css_target = generated_css if active and metadata and metadata["generated_css"] else original
+            _replace_known_symlink(dynamic_css, css_target, (original, generated_css))
+
+
+def setup_gtk() -> dict[str, Any]:
+    root = state_dir()
+    with ApplicationLock(root):
+        integration = _ensure_gtk_integration(root, allow_existing=True)
+        changed = False
+        for version in ("3", "4"):
+            config = gtk_config_path(version)
+            for name, entry in integration["loaders"][version].items():
+                if entry["kind"] != "symlink":
+                    continue
+                target = Path(entry["target"])
+                resolved = target if target.is_absolute() else config / target
+                if not resolved.exists():
+                    _replace_known_symlink(config / name, gtk_source_path(version, name), (target, gtk_source_path(version, name)))
+                    integration["loaders"][version][name] = {"kind": "absent"}
+                    changed = True
+        if changed:
+            _save_gtk_integration(root, integration)
+        for version in ("3", "4"):
+            config = gtk_config_path(version)
+            for dark, loader_name, dynamic_name in ((False, "gtk.css", "blox-theme.css"), (True, "gtk-dark.css", "blox-theme-dark.css")):
+                if integration["loaders"][version][loader_name]["kind"] != "absent":
+                    continue
+                dynamic = config / dynamic_name
+                if dynamic.is_symlink():
+                    target = Path(os.readlink(dynamic))
+                    resolved = target if target.is_absolute() else config / target
+                    if not resolved.exists():
+                        fallback = gtk_source_path(version, "blox-theme-empty-dark.css" if dark else "blox-theme-empty.css")
+                        _replace_known_symlink(dynamic, fallback, (target, fallback))
+        record = current_generation(root)
+        active = bool(record and "gtk" in record[1]["enabled_targets"])
+        ensure_gtk_loaders(root, active)
+        return integration
+
+
 def _remove_managed_loader(link: Path, expected: Path) -> None:
     if not link.is_symlink():
         if link.exists():
@@ -337,6 +507,18 @@ def sync_dynamic_loaders(root: Path, enabled_targets: Iterable[str]) -> None:
         ensure_kitty_loader(root)
     else:
         _remove_managed_loader(kitty, kitty_expected)
+    if "gtk" in enabled:
+        ensure_gtk_loaders(root, True)
+    else:
+        generated_links = []
+        for version in ("3", "4"):
+            config = gtk_config_path(version)
+            generated_links.extend((
+                (config / "settings.ini", root / f"current/gtk/gtk-{version}.0/settings.ini"),
+                (config / "blox-theme.css", root / f"current/gtk/gtk-{version}.0/gtk.css"),
+            ))
+        if any(link.is_symlink() and os.readlink(link) == str(expected) for link, expected in generated_links):
+            ensure_gtk_loaders(root, False)
 
 
 def cleanup_managed_loaders(root: Path) -> None:
@@ -347,6 +529,11 @@ def cleanup_managed_loaders(root: Path) -> None:
     for link, expected in pairs:
         if link.is_symlink() and Path(os.readlink(link)) == expected:
             link.unlink()
+    if _load_gtk_integration(root):
+        try:
+            ensure_gtk_loaders(root, False)
+        except RuntimeFailure:
+            pass
 
 
 def verify_tracked_loaders(targets: Iterable[str]) -> None:
@@ -361,6 +548,43 @@ def verify_tracked_loaders(targets: Iterable[str]) -> None:
     if failures:
         details = "; ".join(f"{name}: {checks[name]['path']}" for name in failures)
         raise RuntimeFailure(f"tracked theme loader is missing ({details})")
+    if "gtk" in selected:
+        source_names = ("settings.ini", "gtk.css", "gtk-dark.css", "blox-theme-empty.css", "blox-theme-empty-dark.css")
+        missing = [str(gtk_source_path(version, name)) for version in ("3", "4") for name in source_names if not gtk_source_path(version, name).is_file()]
+        if missing:
+            raise RuntimeFailure(f"tracked GTK loader is missing: {', '.join(missing)}")
+        integration = _load_gtk_integration(state_dir())
+        if integration is None:
+            for version in ("3", "4"):
+                for name in ("gtk.css", "gtk-dark.css"):
+                    path = gtk_config_path(version) / name
+                    if path.exists() or path.is_symlink():
+                        raise RuntimeFailure("existing GTK stylesheet loaders require explicit migration; run: themectl setup gtk --yes")
+        for version in ("3", "4"):
+            config = gtk_config_path(version)
+            allowed = {
+                "settings.ini": (gtk_source_path(version, "settings.ini"), state_dir() / f"current/gtk/gtk-{version}.0/settings.ini"),
+                "blox-theme.css": (gtk_source_path(version, "blox-theme-empty.css"), state_dir() / f"current/gtk/gtk-{version}.0/gtk.css"),
+                "blox-theme-dark.css": (gtk_source_path(version, "blox-theme-empty-dark.css"), state_dir() / f"current/gtk/gtk-{version}.0/gtk.css"),
+            }
+            if integration:
+                light_original = integration["loaders"][version]["gtk.css"]
+                dark_original = integration["loaders"][version]["gtk-dark.css"]
+                if light_original["kind"] == "symlink":
+                    allowed["blox-theme.css"] += (Path(light_original["target"]),)
+                if dark_original["kind"] == "symlink":
+                    allowed["blox-theme-dark.css"] += (Path(dark_original["target"]),)
+            for loader_name in ("gtk.css", "gtk-dark.css"):
+                allowed_targets = [gtk_source_path(version, loader_name)]
+                if integration and integration["loaders"][version][loader_name]["kind"] == "symlink":
+                    allowed_targets.append(Path(integration["loaders"][version][loader_name]["target"]))
+                allowed[loader_name] = tuple(allowed_targets)
+            for name, targets_allowed in allowed.items():
+                path = config / name
+                if path.exists() and not path.is_symlink():
+                    raise RuntimeFailure(f"refusing to replace conflicting GTK loader: {path}")
+                if path.is_symlink() and os.readlink(path) not in {str(item) for item in targets_allowed}:
+                    raise RuntimeFailure(f"refusing to replace unexpected GTK loader: {path}")
 
 
 def loader_checks(root: Path | None = None) -> dict[str, dict[str, Any]]:
@@ -384,13 +608,36 @@ def loader_checks(root: Path | None = None) -> dict[str, dict[str, Any]]:
         startup_text = startup.read_text(encoding="utf-8")
     except OSError:
         startup_text = ""
-    return {
+    checks = {
         "quickshell_loader": {"ok": "watchChanges: true" in quickshell_text and "function loadJson" in quickshell_text, "path": str(quickshell)},
         "kitty_loader": {"ok": kitty_include_line() in kitty_text, "path": str(kitty), "expected": kitty_include_line()},
         "kitty_generated_link": {"ok": kitty_link.is_symlink() and Path(os.readlink(kitty_link)) == expected_kitty, "path": str(kitty_link), "expected": str(expected_kitty)},
         "vicinae_loader": {"ok": vicinae.is_symlink() and Path(os.readlink(vicinae)) == expected_vicinae, "path": str(vicinae), "expected": str(expected_vicinae)},
         "session_reconcile": {"ok": "scripts/theme/reconcile.sh" in startup_text, "path": str(startup)},
     }
+    for version in ("3", "4"):
+        light_loader = gtk_source_path(version, "gtk.css")
+        dark_loader = gtk_source_path(version, "gtk-dark.css")
+        live_light = gtk_config_path(version) / "gtk.css"
+        live_dark = gtk_config_path(version) / "gtk-dark.css"
+        checks[f"gtk{version}_loader"] = {"ok": light_loader.is_file() and dark_loader.is_file() and live_light.is_symlink() and Path(os.readlink(live_light)) == light_loader and live_dark.is_symlink() and Path(os.readlink(live_dark)) == dark_loader, "path": str(gtk_config_path(version)), "expected": f"gtk.css -> {light_loader}; gtk-dark.css -> {dark_loader}"}
+        metadata_path = root / "current/gtk/metadata.json"
+        if metadata_path.is_file():
+            try:
+                metadata = _gtk_metadata(root)
+                expected_css = root / f"current/gtk/gtk-{version}.0/gtk.css" if metadata["generated_css"] else gtk_source_path(version, "blox-theme-empty.css")
+            except RuntimeFailure:
+                expected_css = root / f"current/gtk/gtk-{version}.0/gtk.css"
+            settings = gtk_config_path(version) / "settings.ini"
+            css = gtk_config_path(version) / "blox-theme.css"
+            dark_css = gtk_config_path(version) / "blox-theme-dark.css"
+            expected_settings = root / f"current/gtk/gtk-{version}.0/settings.ini"
+            checks[f"gtk{version}_generated_links"] = {
+                "ok": settings.is_symlink() and os.readlink(settings) == str(expected_settings) and css.is_symlink() and os.readlink(css) == str(expected_css) and dark_css.is_symlink() and os.readlink(dark_css) == str(expected_css),
+                "path": str(gtk_config_path(version)),
+                "expected": f"settings.ini -> {expected_settings}; generated CSS links -> {expected_css}",
+            }
+    return checks
 
 
 def _reload_quickshell(mode: str, run_command: Callable[[list[str]], subprocess.CompletedProcess[str]]) -> str | None:
@@ -448,6 +695,35 @@ def _reload_kitty(run_command: Callable[[list[str]], subprocess.CompletedProcess
     return warnings
 
 
+def _reload_gtk(root: Path, mode: str, run_command: Callable[[list[str]], subprocess.CompletedProcess[str]]) -> list[str]:
+    if mode == "reset":
+        source = repository_root() / "themes/themes/blox-panel.json"
+        try:
+            theme = json.loads(source.read_text(encoding="utf-8"))
+            metadata = {"base_theme": theme["gtk"]["base_theme"], "font": f"{theme['fonts']['ui']} {theme['fonts']['gtk_size']}", "icon_theme": theme["icons"]["theme"], "variant": theme["variant"]}
+        except (OSError, json.JSONDecodeError, KeyError, TypeError) as error:
+            return [f"GTK reset metadata is invalid: {error}"]
+    else:
+        try:
+            generated = _gtk_metadata(root)
+            settings = (root / "current/gtk/gtk-4.0/settings.ini").read_text(encoding="utf-8")
+            values = dict(line.split("=", 1) for line in settings.splitlines() if "=" in line)
+            metadata = {"base_theme": generated["base_theme"], "font": values["gtk-font-name"], "icon_theme": values["gtk-icon-theme-name"], "variant": "dark" if values["gtk-application-prefer-dark-theme"] == "1" else "light"}
+        except (OSError, KeyError, ValueError, RuntimeFailure) as error:
+            return [f"GTK settings metadata is invalid: {error}"]
+    commands = (
+        ["gsettings", "set", "org.gnome.desktop.interface", "gtk-theme", metadata["base_theme"]],
+        ["gsettings", "set", "org.gnome.desktop.interface", "font-name", metadata["font"]],
+        ["gsettings", "set", "org.gnome.desktop.interface", "icon-theme", metadata["icon_theme"]],
+        ["gsettings", "set", "org.gnome.desktop.interface", "color-scheme", "prefer-dark" if metadata["variant"] == "dark" else "default"],
+    )
+    warnings = []
+    for command in commands:
+        if run_command(command).returncode != 0:
+            warnings.append(f"GTK setting update failed; run: {_command_text(command)}")
+    return warnings
+
+
 def run_reload_actions(root: Path, targets: Iterable[str], mode: str = "reload", run_command: Callable[[list[str]], subprocess.CompletedProcess[str]] = _run) -> list[str]:
     warnings = []
     for target in targets:
@@ -465,6 +741,8 @@ def run_reload_actions(root: Path, targets: Iterable[str], mode: str = "reload",
                 warnings.append(warning)
         elif target == "kitty":
             warnings.extend(_reload_kitty(run_command))
+        elif target == "gtk":
+            warnings.extend(_reload_gtk(root, mode, run_command))
     return warnings
 
 
@@ -485,7 +763,7 @@ def apply_theme(theme_path: Path, theme: dict[str, Any], targets: Iterable[str],
         previous_manifest = previous_record[1] if previous_record else None
         files, _ = renderer(theme)
         for target in selected:
-            missing = [name for name in TARGET_FILES[target] if name not in files]
+            missing = [name for name in TARGET_REQUIRED_FILES[target] if name not in files]
             if missing:
                 raise RuntimeFailure(f"renderer did not produce {target}: {', '.join(missing)}")
 
@@ -498,7 +776,8 @@ def apply_theme(theme_path: Path, theme: dict[str, Any], targets: Iterable[str],
             for target in selected:
                 _remove_target(candidate, target)
                 for name in TARGET_FILES[target]:
-                    _write_text(candidate / name, files[name])
+                    if name in files:
+                        _write_text(candidate / name, files[name])
             sources = _target_sources(previous_manifest, selected, theme_path, theme)
             enabled = sorted(target for target, names in TARGET_FILES.items() if any((candidate / name).is_file() for name in names))
             sources = {target: sources[target] for target in enabled}

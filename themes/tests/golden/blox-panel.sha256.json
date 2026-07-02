@@ -1,4 +1,9 @@
 {
+  "gtk/gtk-3.0/gtk.css": "87462d32e4eaec654243bdc1e82673dde68bb930844975e9c322661e82768a44",
+  "gtk/gtk-3.0/settings.ini": "1e6edac6c965dc593eeac0258b190d982ccf8e66a153a8591fef6570a85fdb44",
+  "gtk/gtk-4.0/gtk.css": "1cbaef8e305f0ff65861306c82693adb41304b3aea96b7e8c29f2579c781848f",
+  "gtk/gtk-4.0/settings.ini": "1e6edac6c965dc593eeac0258b190d982ccf8e66a153a8591fef6570a85fdb44",
+  "gtk/metadata.json": "d86700266621179d8a4b88896815b1106db93e5eda727b999668eb6eb5cf5929",
   "hypr/wallpaper.json": "85feb9f1bf42d9b220137b486f0f8c88eaa84855fa0cc93c992470497b6d6b23",
   "kitty/theme.conf": "249143af3909331b8a00cc59d0f460c3d1652c633e79088672fa1065a6f733e8",
   "quickshell/theme.json": "f120dc9b2f19f234082b83aa1f8c2426cd2f0a30b1dbb9a0b4542a83a4abb143",

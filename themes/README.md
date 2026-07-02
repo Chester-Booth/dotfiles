@@ -27,6 +27,7 @@ themectl apply THEME [--targets LIST] [--json]
 themectl reconcile [--targets LIST] [--json]
 themectl rollback [GENERATION] [--json]
 themectl reset-target TARGET [--json]
+themectl setup gtk --yes [--json]
 ```
 
 Without `--output`, `render` operates in memory. `preview`, `diff`, and `doctor`
@@ -42,6 +43,18 @@ The current generation and five previous generations are retained.
 without rendering. `rollback` activates a retained generation. `reset-target`
 creates a new generation without that target and restores its non-generated
 fallback. All mutating commands use a non-blocking application lock.
+
+## GTK target
+
+Generated GTK mode layers semantic GTK 3 and GTK 4 CSS over the selected base
+theme and supplies generated settings for the interface font, icon theme and
+dark preference. Installed mode changes settings but emits no generated CSS.
+
+Run `themectl setup gtk --yes` once if existing GTK user styles need migration.
+Setup records valid stylesheet symlinks as reset fallbacks, ignores broken
+legacy targets, and refuses regular user stylesheets. GTK applications must be
+restarted after changes. Libadwaita support is best-effort user CSS rather than
+full base-theme support; see [GTK compatibility](docs/gtk-compatibility.md).
 
 Every JSON response has `api_version`, `command`, `ok`, `status`, `data`,
 `warnings`, and `errors` fields.

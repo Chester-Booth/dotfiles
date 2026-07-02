@@ -16,6 +16,7 @@ from .core import (
     EXIT_OK,
     EXIT_RELOAD_WARNING,
     EXIT_RENDER,
+    EXIT_USAGE,
     EXIT_VALIDATION,
     canonical_json,
     contrast_ratio,
@@ -43,6 +44,7 @@ from .runtime import (
     reconcile,
     reset_target,
     rollback,
+    setup_gtk,
 )
 
 
@@ -96,6 +98,10 @@ def parser() -> argparse.ArgumentParser:
     reset_parser = subcommands.add_parser("reset-target")
     reset_parser.add_argument("target", choices=TARGET_NAMES)
     reset_parser.add_argument("--json", action="store_true")
+    setup_parser = subcommands.add_parser("setup")
+    setup_parser.add_argument("feature", choices=("gtk",))
+    setup_parser.add_argument("--yes", action="store_true", help="confirm the reversible loader migration")
+    setup_parser.add_argument("--json", action="store_true")
     return root
 
 
@@ -153,13 +159,29 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
                 check["required"] = "vicinae" in active_targets
             elif name == "kitty_generated_link":
                 check["required"] = "kitty" in active_targets
+            elif name in ("gtk3_loader", "gtk4_loader", "gtk3_generated_links", "gtk4_generated_links"):
+                check["required"] = "gtk" in active_targets
             else:
                 check["required"] = True
             checks[name] = check
             if not check["ok"] and not check["required"]:
                 warnings.append(f"{name} is not installed because its generated target is inactive")
+        if os.environ.get("GTK_THEME"):
+            checks["gtk_session_environment"] = {"ok": False, "required": False, "value": os.environ["GTK_THEME"]}
+            warnings.append("the current session still exports GTK_THEME; log out and back in for installed-theme mode to take full effect")
         errors = [name for name, check in checks.items() if not check["ok"] and check.get("required", True)]
         return envelope(command, checks, errors=[f"failed check: {name}" for name in errors], warnings=warnings), EXIT_DEPENDENCY if errors else EXIT_OK
+
+    if command == "setup":
+        if not args.yes:
+            return envelope(command, errors=["setup requires explicit confirmation with --yes"]), EXIT_USAGE
+        try:
+            integration = setup_gtk()
+        except LockContended as error:
+            return envelope(command, errors=[str(error)]), EXIT_LOCKED
+        except (OSError, RuntimeFailure) as error:
+            return envelope(command, errors=[str(error)]), EXIT_APPLY
+        return envelope(command, {"feature": "gtk", "integration": integration}), EXIT_OK
 
     if command in ("reconcile", "rollback", "reset-target"):
         try:
@@ -204,7 +226,12 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         except (OSError, RuntimeFailure, TypeError, ValueError) as error:
             return envelope(command, errors=[str(error)]), EXIT_APPLY
         data = {"generation": manifest["generation_id"], "theme_id": manifest["theme_id"], "changed_targets": list(selected), "active_targets": manifest["enabled_targets"]}
-        all_warnings = checked.warnings + warnings
+        operation_warnings = []
+        if "gtk" in selected:
+            operation_warnings.append("GTK changes apply to newly started applications; Libadwaita support is limited to best-effort user CSS")
+            if os.environ.get("GTK_THEME"):
+                operation_warnings.append("the current session still exports GTK_THEME; log out and back in to remove the legacy forced base theme")
+        all_warnings = checked.warnings + operation_warnings + warnings
         return envelope(command, data, warnings=all_warnings), EXIT_RELOAD_WARNING if warnings else EXIT_OK
 
     try:
@@ -234,6 +261,16 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         "contrast": pairs, "enabled_targets": [name for name, enabled in theme["targets"].items() if enabled],
         "rendered_files": list(files),
     }
+    if theme["targets"]["gtk"]:
+        data["gtk"] = {
+            "mode": theme["gtk"]["mode"],
+            "base_theme": theme["gtk"]["base_theme"],
+            "generated_css": theme["gtk"]["mode"] == "generated",
+            "restart_required": True,
+            "libadwaita_support": "partial-user-css",
+            "session_gtk_theme": os.environ.get("GTK_THEME"),
+        }
+        warnings.append("GTK changes require applications to restart; Libadwaita may ignore base-theme and widget overrides")
     return envelope(command, data, warnings=warnings), EXIT_OK
 
 

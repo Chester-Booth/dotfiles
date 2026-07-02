@@ -23,6 +23,7 @@ TARGET_FILES = {
     "kitty": ("kitty/theme.conf",),
     "wallpaper": ("hypr/wallpaper.json",),
     "gtk": ("gtk/gtk-3.0/settings.ini", "gtk/gtk-3.0/gtk.css", "gtk/gtk-4.0/settings.ini", "gtk/gtk-4.0/gtk.css", "gtk/metadata.json"),
+    "cursor": ("cursor/metadata.json",),
 }
 TARGET_REQUIRED_FILES = {
     **{target: files for target, files in TARGET_FILES.items() if target != "gtk"},
@@ -81,7 +82,7 @@ def configured_targets(theme: dict[str, Any], requested: str | Iterable[str] | N
         raise RuntimeFailure("at least one target is required")
     unknown = sorted(set(targets) - set(TARGET_NAMES))
     if unknown:
-        raise RuntimeFailure(f"unsupported Phase 2 target(s): {', '.join(unknown)}")
+        raise RuntimeFailure(f"unsupported runtime target(s): {', '.join(unknown)}")
     disabled = [target for target in targets if not theme["targets"][target]]
     if disabled:
         raise RuntimeFailure(f"target(s) disabled by theme: {', '.join(disabled)}")
@@ -299,6 +300,118 @@ def gtk_source_path(version: str, name: str) -> Path:
 
 def gtk_integration_path(root: Path) -> Path:
     return root / "integration/gtk-loaders.json"
+
+
+def cursor_icon_link() -> Path:
+    data_home = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")).expanduser()
+    return data_home / f"icons/blox-generated"
+
+
+def cursor_integration_path(root: Path) -> Path:
+    return root / "integration/cursor.json"
+
+
+def _load_cursor_integration(root: Path) -> dict[str, Any] | None:
+    path = cursor_integration_path(root)
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise RuntimeFailure(f"cursor integration record is invalid: {path}") from error
+    if not isinstance(data, dict) or set(data) != {"schema_version", "fallback"} or data["schema_version"] != 1:
+        raise RuntimeFailure(f"cursor integration record is invalid: {path}")
+    fallback = data["fallback"]
+    if not isinstance(fallback, dict) or set(fallback) != {"theme_name", "size"} or not isinstance(fallback["theme_name"], str) or not isinstance(fallback["size"], int):
+        raise RuntimeFailure(f"cursor integration record is invalid: {path}")
+    return data
+
+
+def _gsettings_value(result: subprocess.CompletedProcess[str], default: str) -> str:
+    if result.returncode:
+        return default
+    value = result.stdout.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+        value = value[1:-1]
+    return value or default
+
+
+def _ensure_cursor_integration(root: Path, run_command: Callable[[list[str]], subprocess.CompletedProcess[str]]) -> dict[str, Any]:
+    integration = _load_cursor_integration(root)
+    if integration is not None:
+        return integration
+    theme_result = run_command(["gsettings", "get", "org.gnome.desktop.interface", "cursor-theme"])
+    size_result = run_command(["gsettings", "get", "org.gnome.desktop.interface", "cursor-size"])
+    theme_name = _gsettings_value(theme_result, os.environ.get("XCURSOR_THEME", "Bibata-Modern-Classic"))
+    raw_size = _gsettings_value(size_result, os.environ.get("XCURSOR_SIZE", "24"))
+    try:
+        size = int(raw_size)
+    except ValueError:
+        size = 24
+    integration = {"schema_version": 1, "fallback": {"theme_name": theme_name, "size": size}}
+    path = cursor_integration_path(root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.parent / f".{path.name}.{uuid.uuid4().hex}.tmp"
+    _write_text(temporary, canonical_json(integration))
+    os.replace(temporary, path)
+    _fsync_directory(path.parent)
+    return integration
+
+
+def setup_cursor(run_command: Callable[[list[str]], subprocess.CompletedProcess[str]] = _run) -> dict[str, Any]:
+    from .cursor import CursorFailure, setup_toolchain
+
+    root = state_dir()
+    with ApplicationLock(root):
+        try:
+            toolchain = setup_toolchain()
+        except CursorFailure as error:
+            raise RuntimeFailure(str(error)) from error
+        integration = _ensure_cursor_integration(root, run_command)
+        return {"toolchain": toolchain, "integration": integration}
+
+
+def _cursor_metadata(root: Path) -> dict[str, Any]:
+    path = root / "current/cursor/metadata.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise RuntimeFailure(f"cursor metadata is invalid: {path}") from error
+    if not isinstance(data, dict) or data.get("mode") not in ("generated", "installed") or not isinstance(data.get("theme_name"), str) or not isinstance(data.get("size"), int):
+        raise RuntimeFailure(f"cursor metadata is invalid: {path}")
+    if data["mode"] == "generated" and not isinstance(data.get("cache_key"), str):
+        raise RuntimeFailure(f"cursor metadata is invalid: {path}")
+    return data
+
+
+def _managed_cursor_target(target: str, root: Path) -> bool:
+    path = Path(target)
+    try:
+        return path.parent.parent == root / "cursors" and path.name == "theme"
+    except (OSError, RuntimeError):
+        return False
+
+
+def ensure_cursor_loader(root: Path, active: bool) -> None:
+    link = cursor_icon_link()
+    metadata = _cursor_metadata(root) if active else None
+    generated = bool(metadata and metadata["mode"] == "generated")
+    if generated:
+        expected = root / f"cursors/{metadata['cache_key']}/theme"
+        if not expected.is_dir():
+            raise RuntimeFailure(f"generated cursor cache is missing: {expected}")
+        if link.is_symlink() and os.readlink(link) == str(expected):
+            return
+        if link.is_symlink() and not _managed_cursor_target(os.readlink(link), root):
+            raise RuntimeFailure(f"refusing to replace unexpected cursor link: {link}")
+        if link.exists() and not link.is_symlink():
+            raise RuntimeFailure(f"refusing to replace conflicting cursor theme: {link}")
+        link.parent.mkdir(parents=True, exist_ok=True)
+        temporary = link.parent / f".{link.name}.{uuid.uuid4().hex}.tmp"
+        temporary.symlink_to(expected)
+        os.replace(temporary, link)
+    elif link.is_symlink() and _managed_cursor_target(os.readlink(link), root):
+        link.unlink()
 
 
 def _load_gtk_integration(root: Path) -> dict[str, Any] | None:
@@ -519,6 +632,7 @@ def sync_dynamic_loaders(root: Path, enabled_targets: Iterable[str]) -> None:
             ))
         if any(link.is_symlink() and os.readlink(link) == str(expected) for link, expected in generated_links):
             ensure_gtk_loaders(root, False)
+    ensure_cursor_loader(root, "cursor" in enabled)
 
 
 def cleanup_managed_loaders(root: Path) -> None:
@@ -534,6 +648,10 @@ def cleanup_managed_loaders(root: Path) -> None:
             ensure_gtk_loaders(root, False)
         except RuntimeFailure:
             pass
+    try:
+        ensure_cursor_loader(root, False)
+    except RuntimeFailure:
+        pass
 
 
 def verify_tracked_loaders(targets: Iterable[str]) -> None:
@@ -615,6 +733,19 @@ def loader_checks(root: Path | None = None) -> dict[str, dict[str, Any]]:
         "vicinae_loader": {"ok": vicinae.is_symlink() and Path(os.readlink(vicinae)) == expected_vicinae, "path": str(vicinae), "expected": str(expected_vicinae)},
         "session_reconcile": {"ok": "scripts/theme/reconcile.sh" in startup_text, "path": str(startup)},
     }
+    try:
+        cursor_record = _load_cursor_integration(root)
+        cursor_metadata = _cursor_metadata(root) if (root / "current/cursor/metadata.json").is_file() else None
+        cursor_link = cursor_icon_link()
+        generated = bool(cursor_metadata and cursor_metadata["mode"] == "generated")
+        expected_cursor = root / f"cursors/{cursor_metadata['cache_key']}/theme" if generated else None
+        checks["cursor_setup"] = {"ok": cursor_record is not None, "path": str(cursor_integration_path(root)), "required": False, "recovery": "themes/bin/themectl setup cursor --yes"}
+        checks["cursor_generated_link"] = {
+            "ok": not generated or (cursor_link.is_symlink() and os.readlink(cursor_link) == str(expected_cursor) and expected_cursor.is_dir()),
+            "path": str(cursor_link), "expected": str(expected_cursor) if expected_cursor else None, "required": generated,
+        }
+    except RuntimeFailure as error:
+        checks["cursor_setup"] = {"ok": False, "path": str(cursor_integration_path(root)), "error": str(error), "required": False}
     for version in ("3", "4"):
         light_loader = gtk_source_path(version, "gtk.css")
         dark_loader = gtk_source_path(version, "gtk-dark.css")
@@ -724,6 +855,31 @@ def _reload_gtk(root: Path, mode: str, run_command: Callable[[list[str]], subpro
     return warnings
 
 
+def _reload_cursor(root: Path, mode: str, run_command: Callable[[list[str]], subprocess.CompletedProcess[str]]) -> list[str]:
+    if mode == "reset":
+        integration = _load_cursor_integration(root)
+        if integration is None:
+            return ["Cursor reset fallback is unavailable; run: themectl setup cursor --yes"]
+        metadata = integration["fallback"]
+    else:
+        try:
+            metadata = _cursor_metadata(root)
+        except RuntimeFailure as error:
+            return [str(error)]
+    name = metadata["theme_name"]
+    size = metadata["size"]
+    commands = (
+        ["gsettings", "set", "org.gnome.desktop.interface", "cursor-theme", name],
+        ["gsettings", "set", "org.gnome.desktop.interface", "cursor-size", str(size)],
+        ["hyprctl", "setcursor", name, str(size)],
+    )
+    warnings = []
+    for command in commands:
+        if run_command(command).returncode != 0:
+            warnings.append(f"Cursor setting update failed; run: {_command_text(command)}")
+    return warnings
+
+
 def run_reload_actions(root: Path, targets: Iterable[str], mode: str = "reload", run_command: Callable[[list[str]], subprocess.CompletedProcess[str]] = _run) -> list[str]:
     warnings = []
     for target in targets:
@@ -743,15 +899,17 @@ def run_reload_actions(root: Path, targets: Iterable[str], mode: str = "reload",
             warnings.extend(_reload_kitty(run_command))
         elif target == "gtk":
             warnings.extend(_reload_gtk(root, mode, run_command))
+        elif target == "cursor":
+            warnings.extend(_reload_cursor(root, mode, run_command))
     return warnings
 
 
-def apply_theme(theme_path: Path, theme: dict[str, Any], targets: Iterable[str], run_command: Callable[[list[str]], subprocess.CompletedProcess[str]] = _run, renderer: Callable[[dict[str, Any]], tuple[dict[str, str], list[str]]] = render_theme) -> tuple[dict[str, Any], list[str]]:
+def apply_theme(theme_path: Path, theme: dict[str, Any], targets: Iterable[str], run_command: Callable[[list[str]], subprocess.CompletedProcess[str]] = _run, renderer: Callable[[dict[str, Any]], tuple[dict[str, str], list[str]]] = render_theme, cursor_builder: Callable[[dict[str, Any], Path], tuple[Path, bool]] | None = None) -> tuple[dict[str, Any], list[str]]:
     root = state_dir()
     selected = tuple(targets)
     unknown = sorted(set(selected) - set(TARGET_NAMES))
     if unknown:
-        raise RuntimeFailure(f"unsupported Phase 2 target(s): {', '.join(unknown)}")
+        raise RuntimeFailure(f"unsupported runtime target(s): {', '.join(unknown)}")
     if not selected:
         raise RuntimeFailure("at least one target is required")
     verify_tracked_loaders(selected)
@@ -766,6 +924,19 @@ def apply_theme(theme_path: Path, theme: dict[str, Any], targets: Iterable[str],
             missing = [name for name in TARGET_REQUIRED_FILES[target] if name not in files]
             if missing:
                 raise RuntimeFailure(f"renderer did not produce {target}: {', '.join(missing)}")
+        if "cursor" in selected:
+            try:
+                metadata = json.loads(files["cursor/metadata.json"])
+                if metadata["mode"] == "generated":
+                    from .cursor import CursorFailure, build_cursor_cache
+
+                    try:
+                        (cursor_builder or build_cursor_cache)(metadata, root)
+                    except CursorFailure as error:
+                        raise RuntimeFailure(str(error)) from error
+            except (json.JSONDecodeError, KeyError, TypeError) as error:
+                raise RuntimeFailure(f"renderer produced invalid cursor metadata: {error}") from error
+            _ensure_cursor_integration(root, run_command)
 
         generation_id = _new_generation_id()
         candidate = generations / f".candidate-{uuid.uuid4().hex}"
@@ -877,7 +1048,7 @@ def rollback(generation_id: str | None = None, run_command: Callable[[list[str]]
 
 def reset_target(target: str, run_command: Callable[[list[str]], subprocess.CompletedProcess[str]] = _run) -> tuple[dict[str, Any], list[str]]:
     if target not in TARGET_NAMES:
-        raise RuntimeFailure(f"unsupported Phase 2 target: {target}")
+        raise RuntimeFailure(f"unsupported runtime target: {target}")
     root = state_dir()
     with ApplicationLock(root):
         record = current_generation(root)

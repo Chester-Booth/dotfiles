@@ -44,6 +44,7 @@ from .runtime import (
     reconcile,
     reset_target,
     rollback,
+    setup_cursor,
     setup_gtk,
 )
 from .generators import BACKENDS, GeneratorFailure, generate_theme, save_theme_source
@@ -88,7 +89,7 @@ def parser() -> argparse.ArgumentParser:
     doctor.add_argument("--json", action="store_true")
     apply_parser = subcommands.add_parser("apply")
     apply_parser.add_argument("theme")
-    apply_parser.add_argument("--targets", help="comma-separated Phase 2 targets")
+    apply_parser.add_argument("--targets", help="comma-separated runtime targets")
     apply_parser.add_argument("--json", action="store_true")
     reconcile_parser = subcommands.add_parser("reconcile")
     reconcile_parser.add_argument("--targets", help="comma-separated active targets")
@@ -100,7 +101,7 @@ def parser() -> argparse.ArgumentParser:
     reset_parser.add_argument("target", choices=TARGET_NAMES)
     reset_parser.add_argument("--json", action="store_true")
     setup_parser = subcommands.add_parser("setup")
-    setup_parser.add_argument("feature", choices=("gtk",))
+    setup_parser.add_argument("feature", choices=("gtk", "cursor"))
     setup_parser.add_argument("--yes", action="store_true", help="confirm the reversible loader migration")
     setup_parser.add_argument("--json", action="store_true")
     generate_parser = subcommands.add_parser("generate", help="generate an editable theme from a wallpaper")
@@ -160,7 +161,7 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
             pass
         warnings = ["jsonschema is not installed; using the bundled strict validator"] if not checks["jsonschema"]["ok"] else []
         if not checks["state_directory"]["ok"]:
-            warnings.append("theme state directory does not exist yet; Phase 2 apply will create it")
+            warnings.append("theme state directory does not exist yet; apply will create it")
         active_targets: set[str] = set()
         if checks["active_generation"]["ok"]:
             try:
@@ -176,11 +177,23 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
                 check["required"] = "kitty" in active_targets
             elif name in ("gtk3_loader", "gtk4_loader", "gtk3_generated_links", "gtk4_generated_links"):
                 check["required"] = "gtk" in active_targets
+            elif name == "cursor_setup":
+                check["required"] = "cursor" in active_targets
+            elif name == "cursor_generated_link":
+                check["required"] = bool(check.get("expected"))
             else:
                 check["required"] = True
             checks[name] = check
             if not check["ok"] and not check["required"]:
                 warnings.append(f"{name} is not installed because its generated target is inactive")
+        from .cursor import toolchain_check
+
+        cursor_toolchain = toolchain_check()
+        generated_cursor_active = bool(checks.get("cursor_generated_link", {}).get("expected"))
+        cursor_toolchain["required"] = generated_cursor_active
+        checks["cursor_toolchain"] = cursor_toolchain
+        if not cursor_toolchain["ok"] and not cursor_toolchain["required"]:
+            warnings.append(f"cursor toolchain is optional until a generated cursor is applied; run: {cursor_toolchain['recovery']}")
         if os.environ.get("GTK_THEME"):
             checks["gtk_session_environment"] = {"ok": False, "required": False, "value": os.environ["GTK_THEME"]}
             warnings.append("the current session still exports GTK_THEME; log out and back in for installed-theme mode to take full effect")
@@ -191,12 +204,12 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         if not args.yes:
             return envelope(command, errors=["setup requires explicit confirmation with --yes"]), EXIT_USAGE
         try:
-            integration = setup_gtk()
+            integration = setup_gtk() if args.feature == "gtk" else setup_cursor()
         except LockContended as error:
             return envelope(command, errors=[str(error)]), EXIT_LOCKED
         except (OSError, RuntimeFailure) as error:
             return envelope(command, errors=[str(error)]), EXIT_APPLY
-        return envelope(command, {"feature": "gtk", "integration": integration}), EXIT_OK
+        return envelope(command, {"feature": args.feature, "integration": integration}), EXIT_OK
 
     if command == "generate":
         try:
@@ -288,6 +301,8 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
             operation_warnings.append("GTK changes apply to newly started applications; Libadwaita support is limited to best-effort user CSS")
             if os.environ.get("GTK_THEME"):
                 operation_warnings.append("the current session still exports GTK_THEME; log out and back in to remove the legacy forced base theme")
+        if "cursor" in selected:
+            operation_warnings.append("cursor changes apply to new surfaces immediately; existing applications may require a restart")
         all_warnings = checked.warnings + operation_warnings + warnings
         return envelope(command, data, warnings=all_warnings), EXIT_RELOAD_WARNING if warnings else EXIT_OK
 
@@ -318,6 +333,29 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         "contrast": pairs, "enabled_targets": [name for name, enabled in theme["targets"].items() if enabled],
         "rendered_files": list(files),
     }
+    if theme["targets"]["cursor"]:
+        from .cursor import cursor_colours, cursor_metadata, toolchain_check, validate_cursor_cache
+
+        cursor = cursor_metadata(theme)
+        cursor_preview = {
+            "mode": cursor["mode"],
+            "theme_name": cursor["theme_name"],
+            "size": cursor["size"],
+            "states": ["left_ptr", "hand2", "text", "wait", "not-allowed", "move", "resize"],
+            "restart_required_for_existing_processes": True,
+        }
+        if cursor["mode"] == "generated":
+            cache = state_dir() / f"cursors/{cursor['cache_key']}"
+            cursor_preview.update({
+                "sizes": cursor["sizes"],
+                "handedness": cursor["handedness"],
+                "colours": cursor_colours(theme),
+                "cache_key": cursor["cache_key"],
+                "cache_hit": validate_cursor_cache(cache, cursor),
+                "toolchain": toolchain_check(),
+            })
+        data["cursor"] = cursor_preview
+        warnings.append("existing applications may retain the previous cursor until they restart or create new surfaces")
     if theme["targets"]["gtk"]:
         data["gtk"] = {
             "mode": theme["gtk"]["mode"],

@@ -22,10 +22,9 @@ EXIT_APPLY = 6
 EXIT_RELOAD_WARNING = 7
 EXIT_LOCKED = 8
 
-IMPLEMENTED_TARGETS = ("quickshell", "vicinae", "kitty", "wallpaper", "gtk")
+IMPLEMENTED_TARGETS = ("quickshell", "vicinae", "kitty", "wallpaper", "gtk", "cursor")
 DEFERRED_TARGETS = {
     "widgets": "widget profiles are implemented in Phase 9",
-    "cursor": "generated cursor rendering is implemented in Phase 5",
 }
 
 
@@ -197,9 +196,16 @@ def dependency_checks(theme: dict[str, Any], targets: set[str] | None = None) ->
     if (enabled("vicinae") or enabled("gtk")) and not _named_asset_exists(theme["icons"]["theme"], icon_roots):
         result.errors.append(f"icon theme is not installed: {theme['icons']['theme']}")
     cursor = theme["cursor"]
-    if enabled("cursor") and not _named_asset_exists(cursor["base"], icon_roots):
-        severity = result.warnings if cursor["mode"] == "generated" else result.errors
-        severity.append(f"cursor base is not installed: {cursor['base']}")
+    if enabled("cursor"):
+        if cursor["mode"] == "installed" and not _named_asset_exists(cursor["base"], icon_roots):
+            result.errors.append(f"cursor base is not installed: {cursor['base']}")
+        elif cursor["mode"] == "generated":
+            from .cursor import toolchain_check
+
+            check = toolchain_check()
+            if not check["ok"]:
+                severity = result.errors if targets is not None and "cursor" in targets else result.warnings
+                severity.append(f"cursor toolchain is not installed; run: {check['recovery']}")
 
     font_targets = ("quickshell", "vicinae", "widgets", "gtk", "kitty", "btop", "micro", "glow", "code", "cursor_editor", "stylus", "powerlevel10k", "sddm", "grub")
     fonts_enabled = any(enabled(target) for target in font_targets)
@@ -230,10 +236,9 @@ def validate_theme(theme: dict[str, Any], check_dependencies: bool = True, targe
         ratio = contrast_ratio(colours[foreground], colours[background])
         if ratio < minimum:
             result.errors.append(f"{foreground}/{background} contrast is {ratio:.2f}:1; requires {minimum:.1f}:1")
-    if theme["cursor"]["mode"] == "generated":
-        cursor = theme["cursor"]
-        if contrast_ratio(cursor.get("base_colour", colours["accent"]), cursor.get("outline_colour", colours["foreground"])) < 3:
-            result.errors.append("generated cursor base/outline contrast requires 3.0:1")
+    from .cursor import validate_cursor_theme
+
+    result.errors.extend(validate_cursor_theme(theme))
     generator = theme.get("generator")
     if generator:
         options = generator["options"]
@@ -413,13 +418,14 @@ def render_wallpaper(theme: dict[str, Any]) -> str:
 
 def render_gtk_settings(theme: dict[str, Any]) -> str:
     cursor_size = theme["cursor"]["sizes"][0]
+    cursor_name = "blox-generated" if theme["cursor"]["mode"] == "generated" else theme["cursor"]["base"]
     prefer_dark = 1 if theme["variant"] == "dark" else 0
     lines = [
         "[Settings]",
         f"gtk-theme-name={theme['gtk']['base_theme']}",
         f"gtk-icon-theme-name={theme['icons']['theme']}",
         f"gtk-font-name={theme['fonts']['ui']} {theme['fonts']['gtk_size']}",
-        f"gtk-cursor-theme-name={theme['cursor']['base']}",
+        f"gtk-cursor-theme-name={cursor_name}",
         f"gtk-cursor-theme-size={cursor_size}",
         f"gtk-application-prefer-dark-theme={prefer_dark}",
     ]
@@ -651,6 +657,10 @@ def render_theme(theme: dict[str, Any]) -> tuple[dict[str, str], list[str]]:
         files["hypr/wallpaper.json"] = render_wallpaper(theme)
     if targets["gtk"]:
         files.update(render_gtk(theme))
+    if targets["cursor"]:
+        from .cursor import cursor_metadata
+
+        files["cursor/metadata.json"] = canonical_json(cursor_metadata(theme))
     warnings = [message for target, message in DEFERRED_TARGETS.items() if targets[target]]
     return dict(sorted(files.items())), warnings
 

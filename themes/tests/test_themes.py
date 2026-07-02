@@ -108,7 +108,7 @@ class ThemeSchemaTests(unittest.TestCase):
         theme["cursor"]["base"] = "Definitely-Missing-Cursor"
         result = dependency_checks(theme)
         self.assertFalse(any("cursor base" in error for error in result.errors))
-        self.assertTrue(any("cursor base" in warning for warning in result.warnings))
+        self.assertTrue(any("cursor toolchain" in warning for warning in result.warnings))
 
     def test_canonical_palette_matches_live_quickshell_fallback(self) -> None:
         _, theme = load_theme("blox-panel")
@@ -226,7 +226,7 @@ class RendererTests(unittest.TestCase):
             completed = run_cli("render", "blox-panel", "--output", str(output), "--json")
             self.assertEqual(0, completed.returncode, completed.stderr or completed.stdout)
             files = sorted(str(path.relative_to(output)) for path in output.rglob("*") if path.is_file())
-            self.assertEqual(["gtk/gtk-3.0/gtk.css", "gtk/gtk-3.0/settings.ini", "gtk/gtk-4.0/gtk.css", "gtk/gtk-4.0/settings.ini", "gtk/metadata.json", "hypr/wallpaper.json", "kitty/theme.conf", "manifest.json", "quickshell/theme.json", "vicinae/theme.toml"], files)
+            self.assertEqual(["cursor/metadata.json", "gtk/gtk-3.0/gtk.css", "gtk/gtk-3.0/settings.ini", "gtk/gtk-4.0/gtk.css", "gtk/gtk-4.0/settings.ini", "gtk/metadata.json", "hypr/wallpaper.json", "kitty/theme.conf", "manifest.json", "quickshell/theme.json", "vicinae/theme.toml"], files)
 
 
 class CliContractTests(unittest.TestCase):
@@ -262,6 +262,9 @@ class CliContractTests(unittest.TestCase):
         self.assertTrue(response["data"]["gtk"]["restart_required"])
         self.assertEqual("partial-user-css", response["data"]["gtk"]["libadwaita_support"])
         self.assertTrue(any("Libadwaita" in warning for warning in response["warnings"]))
+        self.assertEqual([20, 24], response["data"]["cursor"]["sizes"])
+        self.assertIn("wait", response["data"]["cursor"]["states"])
+        self.assertTrue(response["data"]["cursor"]["restart_required_for_existing_processes"])
 
     def test_repository_does_not_force_gtk_theme_environment(self) -> None:
         sources = (

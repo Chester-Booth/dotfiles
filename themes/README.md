@@ -28,6 +28,7 @@ themectl reconcile [--targets LIST] [--json]
 themectl rollback [GENERATION] [--json]
 themectl reset-target TARGET [--json]
 themectl setup gtk --yes [--json]
+themectl setup cursor --yes [--json]
 themectl generate WALLPAPER [--backend matugen|pywal] [--mode dark|light] [--json]
 themectl save THEME_JSON [--json]
 ```
@@ -76,6 +77,18 @@ Setup records valid stylesheet symlinks as reset fallbacks, ignores broken
 legacy targets, and refuses regular user stylesheets. GTK applications must be
 restarted after changes. Libadwaita support is best-effort user CSS rather than
 full base-theme support; see [GTK compatibility](docs/gtk-compatibility.md).
+
+## Cursor target
+
+Generated mode rebuilds the pinned Bibata Modern Classic source with the
+selected handedness, sizes and cursor colours. Run `themectl setup cursor
+--yes` once to install its user-local Clickgen/cbmp toolchain and record the
+pre-theme cursor selection. Builds are content-addressed and validated before
+the stable `blox-generated` icon link changes; installed mode bypasses the
+toolchain and cache. GTK/GSettings and Hyprland are updated together. Existing
+applications may retain old cursor assets until restart. See [cursor
+generation](docs/cursor-generation.md) for source, licence, checksum, setup and
+cache details.
 
 Every JSON response has `api_version`, `command`, `ok`, `status`, `data`,
 `warnings`, and `errors` fields.

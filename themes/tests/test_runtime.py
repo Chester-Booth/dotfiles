@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import os
 import shutil
@@ -16,7 +17,7 @@ REPOSITORY = THEMES.parent
 sys.path.insert(0, str(THEMES / "lib"))
 
 from blox_theme.core import load_theme, render_theme
-from blox_theme.runtime import ApplicationLock, LockContended, RuntimeFailure, TARGET_FILES, TARGET_NAMES, apply_theme, current_generation, kitty_theme_link, reconcile, reset_target, rollback, setup_gtk, validate_generation, vicinae_theme_link
+from blox_theme.runtime import ApplicationLock, LockContended, RuntimeFailure, TARGET_FILES, TARGET_NAMES, apply_theme, current_generation, cursor_icon_link, kitty_theme_link, reconcile, reset_target, rollback, setup_gtk, validate_generation, vicinae_theme_link
 
 PHASE2_TARGETS = ("quickshell", "vicinae", "kitty", "wallpaper")
 
@@ -29,6 +30,14 @@ class FakeCommands:
     def __call__(self, command: list[str]) -> subprocess.CompletedProcess[str]:
         self.commands.append(command)
         return subprocess.CompletedProcess(command, self.returncode, "", "failed" if self.returncode else "")
+
+
+def fake_cursor_builder(metadata: dict, root: Path) -> tuple[Path, bool]:
+    theme = root / f"cursors/{metadata['cache_key']}/theme"
+    (theme / "cursors").mkdir(parents=True, exist_ok=True)
+    (theme / "index.theme").write_text("[Icon Theme]\nName=blox-generated\n", encoding="utf-8")
+    (theme / "cursors/left_ptr").write_bytes(b"Xcur-test")
+    return theme, False
 
 
 class RuntimeTests(unittest.TestCase):
@@ -60,7 +69,7 @@ class RuntimeTests(unittest.TestCase):
         return Path(os.environ["XDG_STATE_HOME"]) / "blox-theme"
 
     def apply_canonical(self, runner: FakeCommands | None = None) -> tuple[dict, list[str]]:
-        return apply_theme(self.canonical_path, self.canonical, TARGET_NAMES, run_command=runner or FakeCommands())
+        return apply_theme(self.canonical_path, self.canonical, TARGET_NAMES, run_command=runner or FakeCommands(), cursor_builder=fake_cursor_builder)
 
     def test_initial_apply_creates_valid_atomic_layout_and_loaders(self) -> None:
         runner = FakeCommands()
@@ -74,6 +83,8 @@ class RuntimeTests(unittest.TestCase):
         self.assertTrue(vicinae_theme_link().is_symlink())
         self.assertEqual(self.state / "current/vicinae/theme.toml", Path(os.readlink(vicinae_theme_link())))
         self.assertTrue((self.root / "config/kitty/blox-theme.conf").is_symlink())
+        self.assertTrue(cursor_icon_link().is_symlink())
+        self.assertEqual(self.state / f"cursors/{json.loads((generation / 'cursor/metadata.json').read_text())['cache_key']}/theme", Path(os.readlink(cursor_icon_link())))
         for version in ("3", "4"):
             config = self.root / f"config/gtk-{version}.0"
             self.assertEqual(self.state / f"current/gtk/gtk-{version}.0/settings.ini", Path(os.readlink(config / "settings.ini")))
@@ -83,6 +94,52 @@ class RuntimeTests(unittest.TestCase):
         flattened = [part for command in runner.commands for part in command]
         for executable in ("quickshell", "vicinae", "hyprctl", "kitty"):
             self.assertIn(executable, flattened)
+
+    def test_installed_cursor_bypasses_builder_and_removes_generated_link(self) -> None:
+        self.apply_canonical()
+        installed = copy.deepcopy(self.canonical)
+        installed["cursor"].update(mode="installed", base="Bibata-Modern-Ice", sizes=[24])
+
+        def forbidden_builder(metadata: dict, root: Path) -> tuple[Path, bool]:
+            raise AssertionError("installed cursor must bypass generation")
+
+        runner = FakeCommands()
+        manifest, warnings = apply_theme(self.canonical_path, installed, ("cursor",), run_command=runner, cursor_builder=forbidden_builder)
+        self.assertEqual([], warnings)
+        self.assertFalse(cursor_icon_link().exists())
+        metadata = json.loads((self.state / "current/cursor/metadata.json").read_text(encoding="utf-8"))
+        self.assertEqual("installed", metadata["mode"])
+        self.assertIn(["hyprctl", "setcursor", "Bibata-Modern-Ice", "24"], runner.commands)
+        self.assertIn("cursor", manifest["enabled_targets"])
+
+    def test_cursor_reset_restores_captured_selection(self) -> None:
+        self.apply_canonical()
+        runner = FakeCommands()
+        manifest, warnings = reset_target("cursor", run_command=runner)
+        self.assertEqual([], warnings)
+        self.assertNotIn("cursor", manifest["enabled_targets"])
+        self.assertFalse(cursor_icon_link().exists())
+        fallback = json.loads((self.state / "integration/cursor.json").read_text(encoding="utf-8"))["fallback"]
+        self.assertIn(["hyprctl", "setcursor", fallback["theme_name"], str(fallback["size"])], runner.commands)
+
+    def test_cursor_link_conflict_rolls_back_activation(self) -> None:
+        link = cursor_icon_link()
+        link.parent.mkdir(parents=True)
+        link.mkdir()
+        with self.assertRaisesRegex(RuntimeFailure, "conflicting cursor"):
+            self.apply_canonical()
+        self.assertFalse((self.state / "current").exists())
+        self.assertTrue(link.is_dir())
+
+    def test_cursor_rollback_restores_previous_cache_link(self) -> None:
+        first, _ = self.apply_canonical()
+        first_target = os.readlink(cursor_icon_link())
+        changed = copy.deepcopy(self.canonical)
+        changed["cursor"].update(base_colour="#a6e3a1", outline_colour="#1e1e1e")
+        apply_theme(self.canonical_path, changed, ("cursor",), run_command=FakeCommands(), cursor_builder=fake_cursor_builder)
+        self.assertNotEqual(first_target, os.readlink(cursor_icon_link()))
+        rollback(first["generation_id"], run_command=FakeCommands())
+        self.assertEqual(first_target, os.readlink(cursor_icon_link()))
 
     def test_partial_apply_carries_unselected_targets_byte_for_byte(self) -> None:
         self.apply_canonical()
@@ -289,7 +346,7 @@ class RuntimeTests(unittest.TestCase):
             theme = self.canonical if index % 2 == 0 else self.alternate
             path = self.canonical_path if index % 2 == 0 else self.alternate_path
             targets = TARGET_NAMES if index % 2 == 0 else PHASE2_TARGETS
-            apply_theme(path, theme, targets, run_command=FakeCommands())
+            apply_theme(path, theme, targets, run_command=FakeCommands(), cursor_builder=fake_cursor_builder)
         generations = [path for path in (self.state / "generations").iterdir() if path.is_dir()]
         self.assertEqual(6, len(generations))
         self.assertIn((self.state / "current").resolve(), generations)

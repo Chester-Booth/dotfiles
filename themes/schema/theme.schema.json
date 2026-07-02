@@ -75,7 +75,26 @@
       "type": "object", "additionalProperties": false, "required": ["canvas", "chrome_background", "ansi_source"],
       "properties": {"canvas": {"$ref": "#/$defs/colour"}, "chrome_background": {"$ref": "#/$defs/colour"}, "ansi_source": {"enum": ["derived", "override"]}}
     },
-    "generator": {"type": "object", "additionalProperties": false, "required": ["backend", "version", "wallpaper_sha256"], "properties": {"backend": {"type": "string"}, "version": {"type": "string"}, "wallpaper_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}},
+    "generator": {
+      "type": "object", "additionalProperties": false,
+      "required": ["backend", "version", "mapping_version", "options", "wallpaper_sha256"],
+      "properties": {
+        "backend": {"enum": ["matugen", "pywal"]},
+        "version": {"type": "string", "pattern": "^[0-9]+(?:\\.[0-9]+)+$"},
+        "mapping_version": {"const": 1},
+        "options": {
+          "type": "object", "additionalProperties": false, "required": ["mode"],
+          "properties": {
+            "mode": {"enum": ["dark", "light"]},
+            "scheme": {"enum": ["scheme-content", "scheme-expressive", "scheme-fidelity", "scheme-fruit-salad", "scheme-monochrome", "scheme-neutral", "scheme-rainbow", "scheme-tonal-spot", "scheme-vibrant"]},
+            "contrast": {"type": "number", "minimum": -1, "maximum": 1},
+            "source_colour_index": {"type": "integer", "minimum": 0, "maximum": 3},
+            "saturation": {"type": "number", "minimum": 0, "maximum": 1}
+          }
+        },
+        "wallpaper_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
     "overrides": {
       "type": "object", "additionalProperties": false,
       "properties": {

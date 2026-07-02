@@ -28,6 +28,8 @@ themectl reconcile [--targets LIST] [--json]
 themectl rollback [GENERATION] [--json]
 themectl reset-target TARGET [--json]
 themectl setup gtk --yes [--json]
+themectl generate WALLPAPER [--backend matugen|pywal] [--mode dark|light] [--json]
+themectl save THEME_JSON [--json]
 ```
 
 Without `--output`, `render` operates in memory. `preview`, `diff`, and `doctor`
@@ -42,7 +44,26 @@ The current generation and five previous generations are retained.
 `reconcile` verifies the active manifest and repeats runtime reload actions
 without rendering. `rollback` activates a retained generation. `reset-target`
 creates a new generation without that target and restores its non-generated
-fallback. All mutating commands use a non-blocking application lock.
+fallback. All live-state mutating commands use a non-blocking application lock.
+
+## Palette generation
+
+`generate` is read-only and defaults to Matugen. It runs Matugen or pywal with
+an isolated home, cache, configuration, and data directory; it cannot change
+the live wallpaper, terminal, GTK settings, or generator cache. Wallust is
+intentionally disabled. The result contains an editable theme, all required
+contrast measurements, the backend and version, algorithm options, mapping
+version, and source wallpaper digest. Generation never saves or applies a
+theme.
+
+Matugen supports `--scheme`, `--contrast`, and `--source-colour-index`. Pywal
+supports `--saturate`. Both support `--mode`. Backend-specific options are
+rejected when used with the other backend.
+
+Extract or edit `.data.theme`, then pass the JSON file (or `-` for stdin) to
+`save`. Saving validates the complete theme, writes it under `themes/themes/`,
+and refuses to overwrite an existing source. A saved generated theme behaves
+like any hand-authored source theme and still requires an explicit `apply`.
 
 ## GTK target
 
@@ -68,9 +89,9 @@ Every JSON response has `api_version`, `command`, `ok`, `status`, `data`,
 | 3 | invalid JSON, schema, colour, or contrast |
 | 4 | missing theme or required dependency |
 | 5 | render failure |
-| 6 | apply failure (reserved for Phase 2) |
-| 7 | reload warning (reserved for Phase 2) |
-| 8 | application lock contention (reserved for Phase 2) |
+| 6 | apply or source-save failure |
+| 7 | reload warning |
+| 8 | application lock contention |
 
 Run `make validate-themes` for schema fixtures, golden render checks, and
 determinism coverage.

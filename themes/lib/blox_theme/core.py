@@ -234,6 +234,20 @@ def validate_theme(theme: dict[str, Any], check_dependencies: bool = True, targe
         cursor = theme["cursor"]
         if contrast_ratio(cursor.get("base_colour", colours["accent"]), cursor.get("outline_colour", colours["foreground"])) < 3:
             result.errors.append("generated cursor base/outline contrast requires 3.0:1")
+    generator = theme.get("generator")
+    if generator:
+        options = generator["options"]
+        if options["mode"] != theme["variant"]:
+            result.errors.append("generator options.mode must match the theme variant")
+        backend_keys = {
+            "matugen": {"mode", "scheme", "contrast", "source_colour_index"},
+            "pywal": {"mode", "saturation"},
+        }
+        expected = backend_keys[generator["backend"]]
+        if generator["backend"] == "matugen" and set(options) != expected:
+            result.errors.append("matugen generator options must contain mode, scheme, contrast, and source_colour_index only")
+        if generator["backend"] == "pywal" and not set(options).issubset(expected):
+            result.errors.append("pywal generator options may contain mode and saturation only")
     gtk_override = theme.get("overrides", {}).get("gtk")
     if theme["gtk"]["mode"] == "generated" and theme["gtk"]["colour_source"] == "override" and not gtk_override:
         result.errors.append("generated GTK override colour source requires overrides.gtk")
@@ -249,6 +263,16 @@ def validate_theme(theme: dict[str, Any], check_dependencies: bool = True, targe
         dependencies = dependency_checks(theme, targets=targets)
         result.errors.extend(dependencies.errors)
         result.warnings.extend(dependencies.warnings)
+        if generator:
+            wallpaper = Path(theme["wallpaper"]["path"]).expanduser()
+            if wallpaper.is_file():
+                source_digest = hashlib.sha256()
+                with wallpaper.open("rb") as handle:
+                    for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                        source_digest.update(chunk)
+                digest = source_digest.hexdigest()
+                if digest != generator["wallpaper_sha256"]:
+                    result.errors.append("generator wallpaper digest does not match the source wallpaper")
     return result
 
 

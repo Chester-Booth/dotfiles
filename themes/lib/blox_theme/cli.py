@@ -46,6 +46,7 @@ from .runtime import (
     rollback,
     setup_gtk,
 )
+from .generators import BACKENDS, GeneratorFailure, generate_theme, save_theme_source
 
 
 def envelope(command: str, data: Any = None, errors: list[str] | None = None, warnings: list[str] | None = None) -> dict[str, Any]:
@@ -102,6 +103,20 @@ def parser() -> argparse.ArgumentParser:
     setup_parser.add_argument("feature", choices=("gtk",))
     setup_parser.add_argument("--yes", action="store_true", help="confirm the reversible loader migration")
     setup_parser.add_argument("--json", action="store_true")
+    generate_parser = subcommands.add_parser("generate", help="generate an editable theme from a wallpaper")
+    generate_parser.add_argument("wallpaper", type=Path)
+    generate_parser.add_argument("--backend", default="matugen", help=f"generator backend ({', '.join(BACKENDS)}; default: matugen)")
+    generate_parser.add_argument("--mode", choices=("dark", "light"), default="dark")
+    generate_parser.add_argument("--scheme", default="scheme-tonal-spot", help="matugen colour scheme")
+    generate_parser.add_argument("--contrast", type=float, default=0.0, help="matugen contrast from -1 to 1")
+    generate_parser.add_argument("--source-colour-index", type=int, default=0, help="matugen 4.1 source colour index from 0 to 3")
+    generate_parser.add_argument("--saturate", type=float, help="pywal saturation from 0 to 1")
+    generate_parser.add_argument("--id", dest="theme_id")
+    generate_parser.add_argument("--name")
+    generate_parser.add_argument("--json", action="store_true")
+    save_parser = subcommands.add_parser("save", help="save validated theme JSON as an editable source theme")
+    save_parser.add_argument("theme_json", help="JSON file, inline JSON, or - for stdin")
+    save_parser.add_argument("--json", action="store_true")
     return root
 
 
@@ -182,6 +197,48 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         except (OSError, RuntimeFailure) as error:
             return envelope(command, errors=[str(error)]), EXIT_APPLY
         return envelope(command, {"feature": "gtk", "integration": integration}), EXIT_OK
+
+    if command == "generate":
+        try:
+            theme, contrasts = generate_theme(
+                args.wallpaper,
+                backend=args.backend,
+                mode=args.mode,
+                scheme=args.scheme,
+                contrast=args.contrast,
+                source_colour_index=args.source_colour_index,
+                saturation=args.saturate,
+                theme_id=args.theme_id,
+                name=args.name,
+            )
+        except FileNotFoundError as error:
+            return envelope(command, errors=[str(error)]), EXIT_DEPENDENCY
+        except (GeneratorFailure, OSError) as error:
+            return envelope(command, errors=[str(error)]), EXIT_RENDER
+        checked = validate_theme(theme, check_dependencies=False)
+        data = {"theme": theme, "contrast": contrasts, "save_command": "themectl save <theme-json>"}
+        return envelope(command, data, errors=checked.errors, warnings=checked.warnings), EXIT_VALIDATION if checked.errors else EXIT_OK
+
+    if command == "save":
+        try:
+            if args.theme_json == "-":
+                source = sys.stdin.read()
+            else:
+                candidate = Path(args.theme_json).expanduser()
+                source = candidate.read_text(encoding="utf-8") if candidate.is_file() else args.theme_json
+            theme = json.loads(source)
+            if not isinstance(theme, dict):
+                raise ValueError("theme root must be a JSON object")
+        except (OSError, json.JSONDecodeError, ValueError) as error:
+            return envelope(command, errors=[f"could not read theme JSON: {error}"]), EXIT_VALIDATION
+        checked = validate_theme(theme, check_dependencies=True)
+        if checked.errors:
+            return envelope(command, {"theme": theme}, errors=checked.errors, warnings=checked.warnings), EXIT_VALIDATION
+        try:
+            destination = save_theme_source(theme, themes_dir() / "themes")
+        except (GeneratorFailure, OSError) as error:
+            return envelope(command, errors=[str(error)]), EXIT_APPLY
+        return envelope(command, {"id": theme["id"], "path": str(destination)}, warnings=checked.warnings), EXIT_OK
 
     if command in ("reconcile", "rollback", "reset-target"):
         try:

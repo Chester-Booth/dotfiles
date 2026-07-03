@@ -45,8 +45,8 @@
   "icons": {
     "theme": "Adwaita"
   },
-  "id": "blox-panel",
-  "name": "Default",
+  "id": "blox-panel-copy",
+  "name": "Default Copy",
   "schema_version": 1,
   "targets": {
     "btop": false,

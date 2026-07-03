@@ -27,6 +27,7 @@ PopupWindow {
         keyboardFocus = true;
         if (_backingWindow)
             _backingWindow.requestActivate();
+
     }
 
     anchor.window: anchorWindow
@@ -41,6 +42,7 @@ PopupWindow {
     onVisibleChanged: {
         if (!visible)
             keyboardFocus = false;
+
     }
     onOpenChanged: {
         if (open) {
@@ -66,6 +68,7 @@ PopupWindow {
         HoverHandler {
             onHoveredChanged: hovered ? root.hoverEntered() : root.hoverExited()
         }
+
     }
 
     HyprlandFocusGrab {
@@ -103,6 +106,7 @@ PopupWindow {
             duration: 160
             easing.type: Easing.OutCubic
         }
+
     }
 
     ParallelAnimation {
@@ -111,6 +115,7 @@ PopupWindow {
         onFinished: {
             if (!root.open)
                 root.rendered = false;
+
         }
 
         NumberAnimation {
@@ -139,5 +144,7 @@ PopupWindow {
             duration: 130
             easing.type: Easing.InCubic
         }
+
     }
+
 }

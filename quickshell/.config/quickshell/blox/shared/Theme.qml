@@ -29,6 +29,7 @@ Singleton {
     property string fontFamily: "MartianMono Nerd Font Propo"
     property string monoFontFamily: "MartianMono Nerd Font Mono"
     property string bodyFontFamily: "Google Sans"
+    property bool previewActive: false
     readonly property string stateRoot: {
         const configured = Quickshell.env("XDG_STATE_HOME") || "";
         return configured.length > 0 ? configured : Quickshell.env("HOME") + "/.local/state";
@@ -94,7 +95,50 @@ Singleton {
         }
     }
 
+    function previewSource(raw) : bool {
+        try {
+            const data = typeof raw === "string" ? JSON.parse(raw) : raw;
+            if (data.schema_version !== 1 || !data.id || !data.colours || !data.fonts)
+                throw new Error("unsupported or incomplete source theme");
+
+            previewActive = true;
+            themeId = data.id;
+            variant = data.variant;
+            background = data.colours.background;
+            surface = data.colours.surface;
+            surfaceAlt = data.colours.surface_alt;
+            foreground = data.colours.foreground;
+            muted = data.colours.muted;
+            red = data.colours.danger;
+            green = data.colours.success;
+            yellow = data.colours.warning;
+            blue = data.colours.info;
+            mauve = data.colours.mauve;
+            teal = data.colours.teal;
+            selectionBackground = data.colours.selection_background;
+            selectionForeground = data.colours.selection_foreground;
+            border = data.colours.border;
+            fontFamily = data.fonts.panel;
+            monoFontFamily = data.fonts.mono;
+            bodyFontFamily = data.fonts.ui;
+            return true;
+        } catch (error) {
+            console.warn("[blox.theme] rejected source preview: " + error);
+            return false;
+        }
+    }
+
+    function cancelPreview() : string {
+        previewActive = false;
+        const active = themeFile.text();
+        if (!active || !loadJson(active))
+            reset();
+
+        return themeId;
+    }
+
     function reload() : string {
+        previewActive = false;
         themeFile.reload();
         return themeId;
     }
@@ -107,8 +151,16 @@ Singleton {
         blockLoading: true
         watchChanges: true
         printErrors: false
-        onLoaded: root.loadJson(text())
-        onFileChanged: reload()
+        onLoaded: {
+            if (!root.previewActive)
+                root.loadJson(text());
+
+        }
+        onFileChanged: {
+            if (!root.previewActive)
+                reload();
+
+        }
     }
 
     IpcHandler {

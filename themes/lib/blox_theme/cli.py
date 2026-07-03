@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import copy
+import hashlib
 import json
 import os
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -117,13 +120,45 @@ def parser() -> argparse.ArgumentParser:
     generate_parser.add_argument("--json", action="store_true")
     save_parser = subcommands.add_parser("save", help="save validated theme JSON as an editable source theme")
     save_parser.add_argument("theme_json", help="JSON file, inline JSON, or - for stdin")
+    save_parser.add_argument("--replace", action="store_true", help="replace the same theme ID using optimistic concurrency")
+    save_parser.add_argument("--expect-sha256", help="source digest returned by list")
     save_parser.add_argument("--json", action="store_true")
+    duplicate_parser = subcommands.add_parser("duplicate", help="duplicate a source theme under a new stable ID")
+    duplicate_parser.add_argument("theme")
+    duplicate_parser.add_argument("new_id")
+    duplicate_parser.add_argument("--name")
+    duplicate_parser.add_argument("--json", action="store_true")
+    rename_parser = subcommands.add_parser("rename", help="change a theme display name without changing its ID")
+    rename_parser.add_argument("theme")
+    rename_parser.add_argument("display_name")
+    rename_parser.add_argument("--json", action="store_true")
+    delete_parser = subcommands.add_parser("delete", help="delete an inactive non-canonical source theme")
+    delete_parser.add_argument("theme")
+    delete_parser.add_argument("--yes", action="store_true", help="confirm permanent source deletion")
+    delete_parser.add_argument("--json", action="store_true")
     return root
+
+
+def normalise_option_dashes(arguments: list[str]) -> list[str]:
+    """Accept option prefixes copied from typography-aware applications."""
+    normalised = []
+    for argument in arguments:
+        match = re.match(r"^[\u2010-\u2015\u2212]+-?", argument)
+        normalised.append("--" + argument[match.end() :] if match else argument)
+    return normalised
 
 
 def checked_theme(command: str, reference: str, check_dependencies: bool = True) -> tuple[Path | None, dict[str, Any] | None, dict[str, Any] | None, int]:
     try:
-        path, theme = load_theme(reference)
+        if reference.lstrip().startswith("{"):
+            if command == "apply":
+                raise ValueError("apply requires a saved source theme ID or path")
+            theme = json.loads(reference)
+            if not isinstance(theme, dict):
+                raise ValueError("theme root must be a JSON object")
+            path = Path("<inline-theme>")
+        else:
+            path, theme = load_theme(reference)
     except FileNotFoundError as error:
         return None, None, envelope(command, errors=[str(error)]), EXIT_DEPENDENCY
     except (OSError, json.JSONDecodeError, ValueError) as error:
@@ -244,14 +279,67 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
                 raise ValueError("theme root must be a JSON object")
         except (OSError, json.JSONDecodeError, ValueError) as error:
             return envelope(command, errors=[f"could not read theme JSON: {error}"]), EXIT_VALIDATION
-        checked = validate_theme(theme, check_dependencies=True)
+        checked = validate_theme(theme, check_dependencies=False)
         if checked.errors:
             return envelope(command, {"theme": theme}, errors=checked.errors, warnings=checked.warnings), EXIT_VALIDATION
         try:
-            destination = save_theme_source(theme, themes_dir() / "themes")
+            destination = save_theme_source(theme, themes_dir() / "themes", replace=args.replace, expected_sha256=args.expect_sha256)
         except (GeneratorFailure, OSError) as error:
             return envelope(command, errors=[str(error)]), EXIT_APPLY
-        return envelope(command, {"id": theme["id"], "path": str(destination)}, warnings=checked.warnings), EXIT_OK
+        digest = hashlib.sha256(destination.read_bytes()).hexdigest()
+        return envelope(command, {"id": theme["id"], "path": str(destination), "source_sha256": digest}, warnings=checked.warnings), EXIT_OK
+
+    if command in ("duplicate", "rename", "delete"):
+        if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", args.theme):
+            return envelope(command, errors=["theme library mutations require a stable theme ID"]), EXIT_USAGE
+        source = themes_dir() / "themes" / f"{args.theme}.json"
+        if not source.is_file() or source.is_symlink():
+            return envelope(command, errors=[f"theme not found: {args.theme}"]), EXIT_DEPENDENCY
+        if command == "delete":
+            if not args.yes:
+                return envelope(command, errors=["delete requires explicit confirmation with --yes"]), EXIT_USAGE
+            if args.theme == "blox-panel":
+                return envelope(command, errors=["the canonical blox-panel theme cannot be deleted"]), EXIT_VALIDATION
+            try:
+                active = current_generation()
+            except RuntimeFailure as error:
+                return envelope(command, errors=[str(error)]), EXIT_APPLY
+            if active and active[1]["theme_id"] == args.theme:
+                return envelope(command, errors=["the active theme cannot be deleted; apply another theme first"]), EXIT_VALIDATION
+            try:
+                source.unlink()
+                descriptor = os.open(source.parent, os.O_RDONLY | os.O_DIRECTORY)
+                try:
+                    os.fsync(descriptor)
+                finally:
+                    os.close(descriptor)
+            except OSError as error:
+                return envelope(command, errors=[f"could not delete theme: {error}"]), EXIT_APPLY
+            return envelope(command, {"id": args.theme, "deleted": True}), EXIT_OK
+        try:
+            theme = json.loads(source.read_text(encoding="utf-8"))
+            if not isinstance(theme, dict):
+                raise ValueError("theme root must be a JSON object")
+        except (OSError, json.JSONDecodeError, ValueError) as error:
+            return envelope(command, errors=[f"could not read theme: {error}"]), EXIT_VALIDATION
+        candidate = copy.deepcopy(theme)
+        if command == "duplicate":
+            candidate["id"] = args.new_id
+            candidate["name"] = args.name or f"{theme['name']} Copy"
+        else:
+            candidate["name"] = args.display_name
+        checked = validate_theme(candidate, check_dependencies=False)
+        if checked.errors:
+            return envelope(command, errors=checked.errors, warnings=checked.warnings), EXIT_VALIDATION
+        try:
+            if command == "duplicate":
+                destination = save_theme_source(candidate, source.parent)
+            else:
+                expected = hashlib.sha256(source.read_bytes()).hexdigest()
+                destination = save_theme_source(candidate, source.parent, replace=True, expected_sha256=expected)
+        except (GeneratorFailure, OSError) as error:
+            return envelope(command, errors=[str(error)]), EXIT_APPLY
+        return envelope(command, {"id": candidate["id"], "name": candidate["name"], "path": str(destination), "source_sha256": hashlib.sha256(destination.read_bytes()).hexdigest()}), EXIT_OK
 
     if command in ("reconcile", "rollback", "reset-target"):
         try:
@@ -370,7 +458,8 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = parser().parse_args(argv)
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    args = parser().parse_args(normalise_option_dashes(arguments))
     result, code = run(args)
     emit(result, args.json)
     return code

@@ -46,10 +46,12 @@ Rectangle {
             if (event.button === Qt.RightButton) {
                 event.accepted = true;
                 return ;
-            } else if (event.button === Qt.MiddleButton)
+            } else if (event.button === Qt.MiddleButton) {
                 root.item.secondaryActivate();
-            else
+            } else {
                 root.item.activate();
+            }
         }
     }
+
 }

@@ -91,6 +91,7 @@ Item {
             }
 
         }
+
     }
 
     Behavior on height {
@@ -108,4 +109,5 @@ Item {
         }
 
     }
+
 }

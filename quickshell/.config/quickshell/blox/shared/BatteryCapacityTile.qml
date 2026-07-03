@@ -54,4 +54,5 @@ Rectangle {
         cursorShape: Qt.PointingHandCursor
         onClicked: root.collapse()
     }
+
 }

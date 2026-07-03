@@ -10,7 +10,8 @@ Item {
     readonly property int sidePadding: 12
     readonly property int visibleWidth: toastWidth + sidePadding * 2
     readonly property int dismissTravel: toastWidth + sidePadding
-    property var animatedToastIds: ({})
+    property var animatedToastIds: ({
+    })
 
     signal dismiss(var notification, bool closeNotification)
     signal activate(var notification)
@@ -35,7 +36,8 @@ Item {
     }
 
     function pruneEntranceHistory() {
-        const retained = {};
+        const retained = {
+        };
         const current = toasts || [];
         for (let i = 0; i < current.length; i++) {
             const toastId = current[i].toastId;
@@ -92,7 +94,9 @@ Item {
                     animateHorizontalMovement = root.takeEntranceAnimation(modelData.toastId);
                     x = 0;
                     if (!animateHorizontalMovement)
-                        Qt.callLater(() => animateHorizontalMovement = true);
+                        Qt.callLater(() => {
+                        return animateHorizontalMovement = true;
+                    });
 
                 }
 

@@ -30,7 +30,7 @@ uses it to refresh expenses-generated todo markdown files.
 Layout:
 
 - `shell.qml` - Quickshell entrypoint.
-- `modules/` - top-level shell surfaces, including the left rail and Eww-style todo/calendar overlays.
+- `modules/` - top-level shell surfaces, including the rail, overlays and IPC-opened theme picker.
 - `shared/` - theme and reusable UI pieces.
 - `services/` - status polling, persisted UI state, action execution, notification,
   workspace, and derived-content controllers.

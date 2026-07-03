@@ -90,7 +90,11 @@ Rectangle {
                         root.triggered();
                     }
                 }
+
             }
+
         }
+
     }
+
 }

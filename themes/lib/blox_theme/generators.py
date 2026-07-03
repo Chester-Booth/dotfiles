@@ -290,12 +290,22 @@ def generate_theme(
     return theme, contrast_report(colours)
 
 
-def save_theme_source(theme: dict[str, Any], directory: Path) -> Path:
+def save_theme_source(theme: dict[str, Any], directory: Path, replace: bool = False, expected_sha256: str | None = None) -> Path:
     theme_id = theme.get("id")
     if not isinstance(theme_id, str) or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", theme_id):
         raise GeneratorFailure("theme id is not safe for a source filename")
     directory.mkdir(parents=True, exist_ok=True)
     destination = directory / f"{theme_id}.json"
+    if replace:
+        if not destination.is_file() or destination.is_symlink():
+            raise GeneratorFailure(f"theme source is not a regular file: {destination}")
+        if not expected_sha256 or not re.fullmatch(r"[0-9a-f]{64}", expected_sha256):
+            raise GeneratorFailure("replacement requires a valid expected source digest")
+        actual = hashlib.sha256(destination.read_bytes()).hexdigest()
+        if actual != expected_sha256:
+            raise GeneratorFailure("theme source changed since it was loaded; refresh before replacing it")
+    elif expected_sha256 is not None:
+        raise GeneratorFailure("expected source digest is only valid with replacement")
     descriptor, temporary_name = tempfile.mkstemp(prefix=f".{theme_id}-", suffix=".json", dir=directory)
     temporary = Path(temporary_name)
     try:
@@ -305,10 +315,13 @@ def save_theme_source(theme: dict[str, Any], directory: Path) -> Path:
             handle.write("\n")
             handle.flush()
             os.fsync(handle.fileno())
-        try:
-            os.link(temporary, destination)
-        except FileExistsError as error:
-            raise GeneratorFailure(f"theme source already exists: {destination}") from error
+        if replace:
+            os.replace(temporary, destination)
+        else:
+            try:
+                os.link(temporary, destination)
+            except FileExistsError as error:
+                raise GeneratorFailure(f"theme source already exists: {destination}") from error
         directory_descriptor = os.open(directory, os.O_RDONLY)
         try:
             os.fsync(directory_descriptor)

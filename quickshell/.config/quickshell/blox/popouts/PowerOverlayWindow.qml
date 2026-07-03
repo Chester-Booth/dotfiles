@@ -23,20 +23,18 @@ PanelWindow {
     color: "transparent"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+    onOpenChanged: {
+        if (open)
+            rendered = true;
+        else
+            hideTimer.restart();
+    }
 
     anchors {
         left: true
         right: true
         top: true
         bottom: true
-    }
-
-    onOpenChanged: {
-        if (open) {
-            rendered = true;
-        } else {
-            hideTimer.restart();
-        }
     }
 
     Timer {
@@ -47,6 +45,7 @@ PanelWindow {
         onTriggered: {
             if (!root.open)
                 root.rendered = false;
+
         }
     }
 
@@ -54,7 +53,10 @@ PanelWindow {
         anchors.fill: parent
         overlayOpen: root.open
         updateSummary: root.updateSummary
-        onAction: (kind) => root.action(kind)
+        onAction: (kind) => {
+            return root.action(kind);
+        }
         onClose: root.close()
     }
+
 }

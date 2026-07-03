@@ -11,7 +11,11 @@ RailButton {
     signal panelHovered(string panel, real centerY, string source)
     signal panelExited(string source)
 
-    onClicked: (centerY) => root.panelClicked(root.panel, centerY + root.centerOffset)
-    onHovered: (centerY) => root.panelHovered(root.panel, centerY + root.centerOffset, root.source)
+    onClicked: (centerY) => {
+        return root.panelClicked(root.panel, centerY + root.centerOffset);
+    }
+    onHovered: (centerY) => {
+        return root.panelHovered(root.panel, centerY + root.centerOffset, root.source);
+    }
     onExited: root.panelExited(root.source)
 }

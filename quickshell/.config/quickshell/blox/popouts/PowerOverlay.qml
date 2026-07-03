@@ -25,7 +25,9 @@ Rectangle {
                 duration: root.overlayOpen ? 200 : 300
                 easing.type: Easing.InSine
             }
+
         }
+
     }
 
     MouseArea {
@@ -54,7 +56,9 @@ Rectangle {
                     duration: root.debugOpenAnimationDuration
                     easing.type: Easing.InCubic
                 }
+
             }
+
         }
 
         GridLayout {
@@ -97,24 +101,6 @@ Rectangle {
                 Rectangle {
                     id: buttonCard
 
-                    radius: 8
-                    color: powerMouse.containsMouse ? Theme.withAlpha(Theme.surfaceAlt, 0.93) : Theme.withAlpha(Theme.surface, 0.87)
-                    border.color: modelData.danger ? Theme.red : Theme.surfaceAlt
-                    border.width: 1
-                    opacity: 0
-                    scale: 0.96
-                    transformOrigin: Item.Center
-
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    Layout.minimumHeight: 112
-
-                    transform: Translate {
-                        id: buttonSlide
-
-                        y: 18
-                    }
-
                     function show() {
                         hideAnimation.stop();
                         opacity = 0;
@@ -128,19 +114,31 @@ Rectangle {
                         hideAnimation.restart();
                     }
 
+                    radius: 8
+                    color: powerMouse.containsMouse ? Theme.withAlpha(Theme.surfaceAlt, 0.93) : Theme.withAlpha(Theme.surface, 0.87)
+                    border.color: modelData.danger ? Theme.red : Theme.surfaceAlt
+                    border.width: 1
+                    opacity: 0
+                    scale: 0.96
+                    transformOrigin: Item.Center
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.minimumHeight: 112
                     Component.onCompleted: {
                         if (root.overlayOpen)
                             show();
+
                     }
 
                     Connections {
-                        target: root
                         function onOverlayOpenChanged() {
                             if (root.overlayOpen)
                                 buttonCard.show();
                             else
                                 buttonCard.hide();
                         }
+
+                        target: root
                     }
 
                     Column {
@@ -201,7 +199,9 @@ Rectangle {
                                 duration: 150
                                 easing.type: Easing.OutCubic
                             }
+
                         }
+
                     }
 
                     ParallelAnimation {
@@ -233,6 +233,7 @@ Rectangle {
                             duration: 130
                             easing.type: Easing.InCubic
                         }
+
                     }
 
                     MouseArea {
@@ -245,6 +246,12 @@ Rectangle {
                             root.action(modelData.command);
                             root.close();
                         }
+                    }
+
+                    transform: Translate {
+                        id: buttonSlide
+
+                        y: 18
                     }
 
                 }

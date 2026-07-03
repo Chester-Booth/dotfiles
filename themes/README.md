@@ -31,6 +31,9 @@ themectl setup gtk --yes [--json]
 themectl setup cursor --yes [--json]
 themectl generate WALLPAPER [--backend matugen|pywal] [--mode dark|light] [--json]
 themectl save THEME_JSON [--json]
+themectl duplicate THEME NEW_ID [--name NAME] [--json]
+themectl rename THEME DISPLAY_NAME [--json]
+themectl delete THEME --yes [--json]
 ```
 
 Without `--output`, `render` operates in memory. `preview`, `diff`, and `doctor`
@@ -65,6 +68,21 @@ Extract or edit `.data.theme`, then pass the JSON file (or `-` for stdin) to
 `save`. Saving validates the complete theme, writes it under `themes/themes/`,
 and refuses to overwrite an existing source. A saved generated theme behaves
 like any hand-authored source theme and still requires an explicit `apply`.
+Use `save --replace --expect-sha256 DIGEST` for an existing source; the digest
+from `list --json` prevents stale picker sessions overwriting newer edits.
+
+## Picker
+
+The full picker runs inside Quickshell and opens through the `themePicker` IPC
+target. It lists and searches themes, previews semantic colours and fonts,
+reports target and dependency impact, generates wallpaper palettes, edits
+semantic and target-specific values, and exposes save, apply, duplicate,
+display-name rename, delete and revert actions. Temporary preview affects only
+Quickshell until Apply. Dirty navigation and deletion require separate
+confirmation; closing or cancelling restores the active Quickshell theme.
+
+Vicinae script commands provide Apply Theme, Create Theme from Current
+Wallpaper and Open Theme Picker actions. See [picker integration](docs/picker.md).
 
 ## GTK target
 

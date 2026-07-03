@@ -27,6 +27,8 @@ Text {
         onClicked: (event) => {
             if (event.button === Qt.LeftButton)
                 root.clicked();
+
         }
     }
+
 }

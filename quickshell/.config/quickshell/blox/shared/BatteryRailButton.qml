@@ -15,7 +15,9 @@ RailButton {
     accent: status && status.class === "critical" ? Theme.red : status && status.class === "charging" ? Theme.green : Theme.muted
     active: false
     onClicked: root.toggleExpanded()
-    onHovered: (centerY) => root.systemPanelHovered(centerY)
+    onHovered: (centerY) => {
+        return root.systemPanelHovered(centerY);
+    }
     onExited: root.systemPanelExited()
     onRightClicked: root.systemPanelRequested(popupY)
 }

@@ -1886,6 +1886,10 @@
   (( ! $+functions[p10k] )) || p10k reload
 }
 
+# Optional generated palette managed by themectl.
+[[ -r ${XDG_CONFIG_HOME:-$HOME/.config}/blox-theme/powerlevel10k.zsh ]] &&
+  source ${XDG_CONFIG_HOME:-$HOME/.config}/blox-theme/powerlevel10k.zsh
+
 # Tell `p10k configure` which file it should overwrite.
 typeset -g POWERLEVEL9K_CONFIG_FILE=${${(%):-%x}:a}
 

@@ -1,5 +1,6 @@
 # style name or JSON path (default "auto")
-style: "auto"
+# Glow 2.1.2 passes custom paths to Glamour without expanding them.
+style: "/home/blox/.config/glow/blox-theme.json"
 # mouse wheel support (TUI-mode only)
 mouse: true
 # use pager to display markdown

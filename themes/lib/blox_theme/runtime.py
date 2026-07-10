@@ -24,6 +24,15 @@ TARGET_FILES = {
     "wallpaper": ("hypr/wallpaper.json",),
     "gtk": ("gtk/gtk-3.0/settings.ini", "gtk/gtk-3.0/gtk.css", "gtk/gtk-4.0/settings.ini", "gtk/gtk-4.0/gtk.css", "gtk/metadata.json"),
     "cursor": ("cursor/metadata.json",),
+    "hyprland": ("hyprland/theme.lua",),
+    "hyprlock": ("hyprlock/theme.conf",),
+    "btop": ("btop/theme.theme",),
+    "micro": ("micro/blox-theme.micro",),
+    "glow": ("glow/style.json",),
+    "code": ("code/settings.json",),
+    "cursor_editor": ("cursor-editor/settings.json",),
+    "stylus": ("stylus/blox-system.user.css",),
+    "powerlevel10k": ("powerlevel10k/theme.zsh",),
 }
 TARGET_REQUIRED_FILES = {
     **{target: files for target, files in TARGET_FILES.items() if target != "gtk"},
@@ -32,6 +41,7 @@ TARGET_REQUIRED_FILES = {
 TARGET_NAMES = tuple(TARGET_FILES)
 GENERATION_PATTERN = re.compile(r"^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$")
 HISTORY_LIMIT = 5
+PHASE7_FALLBACK_TARGETS = ("hyprlock", "btop", "micro", "glow")
 
 
 class RuntimeFailure(Exception):
@@ -481,6 +491,65 @@ def kitty_theme_link() -> Path:
     return kitty_config_path().parent / "blox-theme.conf"
 
 
+def phase7_loader_specs(root: Path) -> dict[str, tuple[Path, Path]]:
+    config = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    return {
+        "hyprland": (config / "hypr/blox-theme.lua", root / "current/hyprland/theme.lua"),
+        "hyprlock": (config / "hypr/blox-theme.conf", root / "current/hyprlock/theme.conf"),
+        "btop": (config / "btop/themes/blox-theme.theme", root / "current/btop/theme.theme"),
+        "micro": (config / "micro/colorschemes/blox-theme.micro", root / "current/micro/blox-theme.micro"),
+        "glow": (config / "glow/blox-theme.json", root / "current/glow/style.json"),
+        "powerlevel10k": (config / "blox-theme/powerlevel10k.zsh", root / "current/powerlevel10k/theme.zsh"),
+    }
+
+
+def _phase7_fallback(root: Path, target: str) -> Path:
+    fallback = root / "integration/phase7-fallbacks" / TARGET_FILES[target][0]
+    if fallback.is_file():
+        return fallback
+    try:
+        theme = json.loads((repository_root() / "themes/themes/blox-panel.json").read_text(encoding="utf-8"))
+        files, _ = render_theme(theme)
+        content = files[TARGET_FILES[target][0]]
+    except (OSError, json.JSONDecodeError, KeyError, TypeError) as error:
+        raise RuntimeFailure(f"cannot prepare the {target} reset fallback: {error}") from error
+    temporary = fallback.parent / f".{fallback.name}.{uuid.uuid4().hex}.tmp"
+    temporary.parent.mkdir(parents=True, exist_ok=True)
+    _write_text(temporary, content)
+    os.replace(temporary, fallback)
+    _fsync_directory(fallback.parent)
+    return fallback
+
+
+def ensure_phase7_loader(root: Path, target: str, active: bool) -> None:
+    link, generated = phase7_loader_specs(root)[target]
+    expected = generated if active else _phase7_fallback(root, target) if target in PHASE7_FALLBACK_TARGETS else None
+    managed = {str(generated)}
+    if target in PHASE7_FALLBACK_TARGETS:
+        managed.add(str(root / "integration/phase7-fallbacks" / TARGET_FILES[target][0]))
+    if expected is None:
+        if link.is_symlink() and os.readlink(link) in managed:
+            link.unlink()
+        return
+    if link.is_symlink() and os.readlink(link) == str(expected):
+        return
+    if (link.exists() and not link.is_symlink()) or (link.is_symlink() and os.readlink(link) not in managed):
+        raise RuntimeFailure(f"refusing to replace conflicting {target} theme loader: {link}")
+    link.parent.mkdir(parents=True, exist_ok=True)
+    temporary = link.parent / f".{link.name}.{uuid.uuid4().hex}.tmp"
+    temporary.symlink_to(expected)
+    os.replace(temporary, link)
+
+
+def remove_phase7_loader(root: Path, target: str) -> None:
+    link, generated = phase7_loader_specs(root)[target]
+    managed = {str(generated)}
+    if target in PHASE7_FALLBACK_TARGETS:
+        managed.add(str(root / "integration/phase7-fallbacks" / TARGET_FILES[target][0]))
+    if link.is_symlink() and os.readlink(link) in managed:
+        link.unlink()
+
+
 def ensure_vicinae_loader(root: Path) -> None:
     link = vicinae_theme_link()
     expected = root / "current/vicinae/theme.toml"
@@ -633,6 +702,8 @@ def sync_dynamic_loaders(root: Path, enabled_targets: Iterable[str]) -> None:
         if any(link.is_symlink() and os.readlink(link) == str(expected) for link, expected in generated_links):
             ensure_gtk_loaders(root, False)
     ensure_cursor_loader(root, "cursor" in enabled)
+    for target in phase7_loader_specs(root):
+        ensure_phase7_loader(root, target, target in enabled)
 
 
 def cleanup_managed_loaders(root: Path) -> None:
@@ -652,6 +723,11 @@ def cleanup_managed_loaders(root: Path) -> None:
         ensure_cursor_loader(root, False)
     except RuntimeFailure:
         pass
+    for target in phase7_loader_specs(root):
+        try:
+            remove_phase7_loader(root, target)
+        except RuntimeFailure:
+            pass
 
 
 def verify_tracked_loaders(targets: Iterable[str]) -> None:
@@ -901,6 +977,25 @@ def run_reload_actions(root: Path, targets: Iterable[str], mode: str = "reload",
             warnings.extend(_reload_gtk(root, mode, run_command))
         elif target == "cursor":
             warnings.extend(_reload_cursor(root, mode, run_command))
+        elif target == "hyprland":
+            command = ["hyprctl", "reload"]
+            if run_command(command).returncode != 0:
+                warnings.append(f"Hyprland reload failed; run: {_command_text(command)}")
+        elif target == "hyprlock":
+            warnings.append("Hyprlock will read the canonical fallback the next time the lock screen starts" if mode == "reset" else "Hyprlock theme changes apply the next time the lock screen starts")
+        elif target == "btop":
+            warnings.append("btop must be restarted to read its canonical fallback" if mode == "reset" else "btop must be restarted to read its generated theme")
+        elif target == "micro":
+            warnings.append("Micro must be restarted to read its canonical fallback" if mode == "reset" else "Micro must be restarted to read its generated colourscheme")
+        elif target == "glow":
+            warnings.append("Glow will use the canonical fallback on its next invocation" if mode == "reset" else "Glow will use the generated style on its next invocation")
+        elif target in ("code", "cursor_editor"):
+            editor = "Code" if target == "code" else "Cursor"
+            warnings.append(f"{editor}'s generated settings fragment was removed; manually revert previously merged customisations, then Reload Window" if mode == "reset" else f"{editor} requires the generated settings customisations to be merged, then Reload Window")
+        elif target == "stylus":
+            warnings.append("Stylus's generated UserCSS was removed; manually remove any previously imported copy" if mode == "reset" else f"Stylus requires manual import or refresh of {root / 'current/stylus/blox-system.user.css'}")
+        elif target == "powerlevel10k":
+            warnings.append("Powerlevel10k will use the base configuration in new shells" if mode == "reset" else "Powerlevel10k theme changes apply to new shells; source the generated fragment to update the current shell")
     return warnings
 
 
@@ -1042,7 +1137,11 @@ def rollback(generation_id: str | None = None, run_command: Callable[[list[str]]
             except (OSError, RuntimeFailure):
                 pass
             raise
-        warnings = run_reload_actions(root, manifest["enabled_targets"], run_command=run_command)
+        current_targets = set(current_record[1]["enabled_targets"])
+        restored_targets = set(manifest["enabled_targets"])
+        removed_targets = sorted(current_targets - restored_targets)
+        warnings = run_reload_actions(root, removed_targets, mode="reset", run_command=run_command)
+        warnings.extend(run_reload_actions(root, manifest["enabled_targets"], run_command=run_command))
         return manifest, warnings
 
 

@@ -11,6 +11,7 @@ import tempfile
 import tomllib
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 THEMES = Path(__file__).resolve().parents[1]
@@ -92,7 +93,8 @@ class ThemeSchemaTests(unittest.TestCase):
         theme["gtk"]["base_theme"] = "Missing-GTK"
         theme["icons"]["theme"] = "Missing-Icons"
         theme["cursor"].update(mode="installed", base="Missing-Cursor")
-        result = dependency_checks(theme)
+        with mock.patch("blox_theme.cursor.toolchain_check", return_value={"ok": False, "recovery": "themectl setup cursor --yes"}):
+            result = dependency_checks(theme)
         self.assertEqual([], result.errors)
         self.assertEqual([], result.warnings)
 
@@ -106,7 +108,8 @@ class ThemeSchemaTests(unittest.TestCase):
     def test_missing_generated_cursor_is_a_warning(self) -> None:
         _, theme = load_theme("blox-panel")
         theme["cursor"]["base"] = "Definitely-Missing-Cursor"
-        result = dependency_checks(theme)
+        with mock.patch("blox_theme.cursor.toolchain_check", return_value={"ok": False, "recovery": "themectl setup cursor --yes"}):
+            result = dependency_checks(theme)
         self.assertFalse(any("cursor base" in error for error in result.errors))
         self.assertTrue(any("cursor toolchain" in warning for warning in result.warnings))
 
@@ -149,6 +152,36 @@ class RendererTests(unittest.TestCase):
         self.assertEqual(self.theme["wallpaper"], {"path": wallpaper["path"], "fit": wallpaper["fit"]})
         for name, colour in derive_ansi(self.theme).items():
             self.assertIn(f"{name} {colour}", files["kitty/theme.conf"])
+        self.assertIn("inactive_tab_background #242424", files["kitty/theme.conf"])
+        self.assertIn("tab_bar_background #242424", files["kitty/theme.conf"])
+        phase7 = {
+            "hyprland/theme.lua", "hyprlock/theme.conf", "btop/theme.theme",
+            "micro/blox-theme.micro", "glow/style.json", "code/settings.json",
+            "cursor-editor/settings.json", "stylus/blox-system.user.css",
+            "powerlevel10k/theme.zsh",
+        }
+        self.assertTrue(phase7.issubset(files))
+        self.assertEqual(self.theme["fonts"]["mono"], json.loads(files["code/settings.json"])["editor.fontFamily"])
+        self.assertEqual(json.loads(files["code/settings.json"]), json.loads(files["cursor-editor/settings.json"]))
+        self.assertIn("@-moz-document", files["stylus/blox-system.user.css"])
+        self.assertIn('color-link default "#cdd6f4"', files["micro/blox-theme.micro"])
+        self.assertNotIn('color-link default "#cdd6f4,#242424"', files["micro/blox-theme.micro"])
+
+    def test_phase7_targets_are_isolated(self) -> None:
+        target_files = {
+            "hyprland": "hyprland/theme.lua", "hyprlock": "hyprlock/theme.conf",
+            "btop": "btop/theme.theme", "micro": "micro/blox-theme.micro",
+            "glow": "glow/style.json", "code": "code/settings.json",
+            "cursor_editor": "cursor-editor/settings.json", "stylus": "stylus/blox-system.user.css",
+            "powerlevel10k": "powerlevel10k/theme.zsh",
+        }
+        for target, expected in target_files.items():
+            with self.subTest(target=target):
+                theme = copy.deepcopy(self.theme)
+                for key in theme["targets"]:
+                    theme["targets"][key] = key == target
+                files, _ = render_theme(theme)
+                self.assertEqual([expected], list(files))
 
     def test_ansi_override_is_target_local(self) -> None:
         theme = copy.deepcopy(self.theme)
@@ -226,7 +259,8 @@ class RendererTests(unittest.TestCase):
             completed = run_cli("render", "blox-panel", "--output", str(output), "--json")
             self.assertEqual(0, completed.returncode, completed.stderr or completed.stdout)
             files = sorted(str(path.relative_to(output)) for path in output.rglob("*") if path.is_file())
-            self.assertEqual(["cursor/metadata.json", "gtk/gtk-3.0/gtk.css", "gtk/gtk-3.0/settings.ini", "gtk/gtk-4.0/gtk.css", "gtk/gtk-4.0/settings.ini", "gtk/metadata.json", "hypr/wallpaper.json", "kitty/theme.conf", "manifest.json", "quickshell/theme.json", "vicinae/theme.toml"], files)
+            expected = sorted([*render_theme(self.theme)[0], "manifest.json"])
+            self.assertEqual(expected, files)
 
 
 class CliContractTests(unittest.TestCase):

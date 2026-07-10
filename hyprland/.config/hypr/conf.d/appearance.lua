@@ -45,6 +45,12 @@ hl.config({
     },
 })
 
+-- Optional generated appearance overrides managed by themectl.
+local blox_theme = loadfile((os.getenv("XDG_CONFIG_HOME") or (os.getenv("HOME") .. "/.config")) .. "/hypr/blox-theme.lua")
+if blox_theme then
+    blox_theme()
+end
+
 hl.curve("easeOutQuint", { type = "bezier", points = { { 0.23, 1 }, { 0.32, 1 } } })
 hl.curve("easeInOutCubic", { type = "bezier", points = { { 0.65, 0.05 }, { 0.36, 1 } } })
 hl.curve("linear", { type = "bezier", points = { { 0, 0 }, { 1, 1 } } })

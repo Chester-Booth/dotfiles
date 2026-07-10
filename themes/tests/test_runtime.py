@@ -17,7 +17,7 @@ REPOSITORY = THEMES.parent
 sys.path.insert(0, str(THEMES / "lib"))
 
 from blox_theme.core import load_theme, render_theme
-from blox_theme.runtime import ApplicationLock, LockContended, RuntimeFailure, TARGET_FILES, TARGET_NAMES, apply_theme, current_generation, cursor_icon_link, kitty_theme_link, reconcile, reset_target, rollback, setup_gtk, validate_generation, vicinae_theme_link
+from blox_theme.runtime import ApplicationLock, LockContended, RuntimeFailure, TARGET_FILES, TARGET_NAMES, apply_theme, current_generation, cursor_icon_link, kitty_theme_link, phase7_loader_specs, reconcile, reset_target, rollback, setup_gtk, validate_generation, vicinae_theme_link
 
 PHASE2_TARGETS = ("quickshell", "vicinae", "kitty", "wallpaper")
 
@@ -73,8 +73,9 @@ class RuntimeTests(unittest.TestCase):
 
     def test_initial_apply_creates_valid_atomic_layout_and_loaders(self) -> None:
         runner = FakeCommands()
-        manifest, warnings = self.apply_canonical(runner)
-        self.assertEqual([], warnings)
+        with mock.patch("blox_theme.runtime._kitty_sockets", return_value=[Path("/tmp/kitty-test")]):
+            manifest, warnings = self.apply_canonical(runner)
+        self.assertTrue(any("Stylus" in warning for warning in warnings))
         self.assertTrue((self.state / "current").is_symlink())
         self.assertEqual("current/manifest.json", os.readlink(self.state / "active.json"))
         generation, checked = current_generation(self.state)
@@ -84,6 +85,9 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(self.state / "current/vicinae/theme.toml", Path(os.readlink(vicinae_theme_link())))
         self.assertTrue((self.root / "config/kitty/blox-theme.conf").is_symlink())
         self.assertTrue(cursor_icon_link().is_symlink())
+        for target, (link, expected) in phase7_loader_specs(self.state).items():
+            self.assertTrue(link.is_symlink(), target)
+            self.assertEqual(str(expected), os.readlink(link))
         self.assertEqual(self.state / f"cursors/{json.loads((generation / 'cursor/metadata.json').read_text())['cache_key']}/theme", Path(os.readlink(cursor_icon_link())))
         for version in ("3", "4"):
             config = self.root / f"config/gtk-{version}.0"
@@ -290,7 +294,7 @@ class RuntimeTests(unittest.TestCase):
         first, first_warnings = reconcile(run_command=first_runner)
         second, second_warnings = reconcile(run_command=second_runner)
         self.assertEqual(first, second)
-        self.assertEqual([], first_warnings + second_warnings)
+        self.assertEqual(first_warnings, second_warnings)
         self.assertEqual(before, os.readlink(self.state / "current"))
         self.assertEqual(first_runner.commands, second_runner.commands)
 
@@ -301,10 +305,24 @@ class RuntimeTests(unittest.TestCase):
         apply_theme(self.alternate_path, self.alternate, PHASE2_TARGETS, run_command=FakeCommands())
         runner = FakeCommands()
         restored, warnings = rollback(first["generation_id"], run_command=runner)
-        self.assertEqual([], warnings)
+        self.assertTrue(any("Stylus" in warning for warning in warnings))
         self.assertEqual(first["generation_id"], restored["generation_id"])
         self.assertEqual(first_quickshell, ((self.state / "current").resolve() / "quickshell/theme.json").read_bytes())
         self.assertTrue(runner.commands)
+
+    def test_rollback_resets_targets_missing_from_destination(self) -> None:
+        first, _ = apply_theme(self.canonical_path, self.canonical, PHASE2_TARGETS, run_command=FakeCommands())
+        self.apply_canonical()
+        runner = FakeCommands()
+        restored, warnings = rollback(first["generation_id"], run_command=runner)
+        self.assertEqual(sorted(PHASE2_TARGETS), restored["enabled_targets"])
+        self.assertTrue(any("Hyprlock" in warning for warning in warnings))
+        self.assertTrue(any(command[:2] == ["hyprctl", "reload"] for command in runner.commands))
+        for target in ("hyprlock", "btop", "micro", "glow"):
+            link, _ = phase7_loader_specs(self.state)[target]
+            self.assertTrue(link.is_symlink(), target)
+            self.assertIn("integration/phase7-fallbacks", os.readlink(link))
+            self.assertTrue(link.resolve().is_file(), target)
 
     def test_reset_target_removes_only_that_target_and_runs_reset(self) -> None:
         self.apply_canonical()
@@ -330,7 +348,9 @@ class RuntimeTests(unittest.TestCase):
                 self.apply_canonical()
                 runner = FakeCommands()
                 manifest, warnings = reset_target(target, run_command=runner)
-                self.assertEqual([], warnings)
+                manual = {"hyprlock", "btop", "micro", "glow", "code", "cursor_editor", "stylus", "powerlevel10k"}
+                if target != "kitty":
+                    self.assertEqual(target in manual, bool(warnings))
                 active = (self.state / "current").resolve()
                 for name in TARGET_FILES[target]:
                     self.assertFalse((active / name).exists())
@@ -340,6 +360,11 @@ class RuntimeTests(unittest.TestCase):
                     self.assertIn("blox-panel", runner.commands[0])
                 if target == "kitty":
                     self.assertFalse(kitty_theme_link().exists())
+                if target in {"hyprlock", "btop", "micro", "glow"}:
+                    link, _ = phase7_loader_specs(self.state)[target]
+                    self.assertTrue(link.is_symlink())
+                    self.assertIn("integration/phase7-fallbacks", os.readlink(link))
+                    self.assertTrue(link.resolve().is_file())
 
     def test_history_retains_current_plus_five_previous_generations(self) -> None:
         for index in range(8):
@@ -381,7 +406,6 @@ class RuntimeTests(unittest.TestCase):
     def test_invalid_targets_are_rejected(self) -> None:
         with self.assertRaisesRegex(RuntimeFailure, "unsupported"):
             apply_theme(self.canonical_path, self.canonical, ("unknown",), run_command=FakeCommands())
-
     def test_reconcile_and_rollback_reject_invalid_requests(self) -> None:
         first, _ = self.apply_canonical()
         with self.assertRaisesRegex(RuntimeFailure, "not active"):

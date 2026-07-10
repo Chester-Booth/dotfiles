@@ -326,8 +326,8 @@ def render_kitty(theme: dict[str, Any], ansi: dict[str, str]) -> str:
         f"cursor {colours['accent'].lower()}", f"cursor_text_color {colours['selection_foreground'].lower()}", f"url_color {colours['info'].lower()}",
         f"active_border_color {colours['accent'].lower()}", f"inactive_border_color {colours['border'].lower()}", f"bell_border_color {colours['danger'].lower()}",
         f"active_tab_foreground {colours['background'].lower()}", f"active_tab_background {colours['foreground'].lower()}",
-        f"inactive_tab_foreground {colours['foreground'].lower()}", f"inactive_tab_background {terminal['chrome_background'].lower()}",
-        f"tab_bar_background {terminal['chrome_background'].lower()}", "",
+        f"inactive_tab_foreground {colours['foreground'].lower()}", f"inactive_tab_background {terminal['canvas'].lower()}",
+        "tab_bar_background none", "",
     ]
     lines.extend(f"{key} {value}" for key, value in ansi.items())
     return "\n".join(lines) + "\n"

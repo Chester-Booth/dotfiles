@@ -153,8 +153,8 @@ class RendererTests(unittest.TestCase):
         self.assertEqual(self.theme["wallpaper"], {"path": wallpaper["path"], "fit": wallpaper["fit"]})
         for name, colour in derive_ansi(self.theme).items():
             self.assertIn(f"{name} {colour}", files["kitty/theme.conf"])
-        self.assertIn("inactive_tab_background #242424", files["kitty/theme.conf"])
-        self.assertIn("tab_bar_background #242424", files["kitty/theme.conf"])
+        self.assertIn("inactive_tab_background #000000", files["kitty/theme.conf"])
+        self.assertIn("tab_bar_background none", files["kitty/theme.conf"])
         phase7 = {
             "hyprland/theme.lua", "hyprlock/theme.conf", "btop/theme.theme",
             "micro/blox-theme.micro", "glow/style.json", "code/settings.json",

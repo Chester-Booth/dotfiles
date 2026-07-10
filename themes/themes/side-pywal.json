@@ -1,0 +1,93 @@
+{
+  "colours": {
+    "accent": "#6a7888",
+    "background": "#181d20",
+    "border": "#8e9499",
+    "danger": "#f38ba8",
+    "foreground": "#ccd4db",
+    "info": "#6a7888",
+    "mauve": "#5d8b9f",
+    "muted": "#8e9499",
+    "selection_background": "#ccd4db",
+    "selection_foreground": "#181d20",
+    "success": "#a6e3a1",
+    "surface": "#181d20",
+    "surface_alt": "#8e9499",
+    "teal": "#8f9eae",
+    "warning": "#f9e2af"
+  },
+  "cursor": {
+    "base": "Bibata-Modern-Classic",
+    "base_colour": "#6a7888",
+    "colour_source": "theme",
+    "handedness": "right",
+    "mode": "generated",
+    "outline_colour": "#181d20",
+    "sizes": [
+      22,
+      24
+    ],
+    "watch_background": "#181d20"
+  },
+  "fonts": {
+    "editor_size": 13,
+    "gtk_size": 11,
+    "mono": "MartianMono Nerd Font Mono",
+    "panel": "MartianMono Nerd Font Propo",
+    "terminal_size": 12,
+    "ui": "Google Sans"
+  },
+  "generator": {
+    "backend": "pywal",
+    "mapping_version": 1,
+    "options": {
+      "mode": "dark"
+    },
+    "version": "3.3.0",
+    "wallpaper_sha256": "74d629be78cbca579325c4dd9753c5dbd33c05465c8e7248b48d14340e35e21a"
+  },
+  "gtk": {
+    "base_theme": "Graphite-Dark-compact",
+    "colour_source": "theme",
+    "mode": "generated"
+  },
+  "icons": {
+    "theme": "Adwaita"
+  },
+  "id": "side-pywal",
+  "name": "Side",
+  "schema_version": 1,
+  "targets": {
+    "btop": true,
+    "code": true,
+    "cursor": true,
+    "cursor_editor": true,
+    "glow": true,
+    "grub": false,
+    "gtk": true,
+    "hyprland": true,
+    "hyprlock": true,
+    "kitty": true,
+    "micro": true,
+    "powerlevel10k": true,
+    "quickshell": true,
+    "sddm": false,
+    "stylus": true,
+    "vicinae": true,
+    "wallpaper": true,
+    "widgets": true
+  },
+  "terminal": {
+    "ansi_source": "derived",
+    "canvas": "#181d20",
+    "chrome_background": "#181d20"
+  },
+  "variant": "dark",
+  "widgets": {
+    "profile": "minimal"
+  },
+  "wallpaper": {
+    "fit": "cover",
+    "path": "/home/blox/Code/personal/dotfiles/wallpapers/wallpapers/side.png"
+  }
+}

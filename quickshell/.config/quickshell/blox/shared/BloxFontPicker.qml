@@ -129,7 +129,9 @@ Rectangle {
         readonly property bool opensBelow: availableAbove < Math.min(360, fontList.contentHeight + 8) && availableBelow > availableAbove
 
         popupType: Popup.Item
-        modal: false
+        // Keep the complete press/release sequence inside the popup overlay so
+        // choosing a font cannot activate controls beneath the list.
+        modal: true
         dim: false
         y: opensBelow ? root.height + 5 : -height - 5
         width: Math.max(root.width, 330)
@@ -169,8 +171,12 @@ Rectangle {
                     cursorShape: Qt.PointingHandCursor
                 }
 
-                TapHandler {
-                    onTapped: root.choose(modelData)
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton
+                    preventStealing: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.choose(modelData)
                 }
 
             }

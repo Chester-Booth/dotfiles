@@ -7,6 +7,8 @@ Singleton {
     id: root
 
     property string themeId: "blox-panel"
+    property string activeThemeId: "blox-panel"
+    property string previewThemeId: ""
     property string variant: "dark"
     property color background: "#242424"
     property color surface: "#1e1e1e"
@@ -41,7 +43,10 @@ Singleton {
     }
 
     function reset() : string {
+        previewActive = false;
+        previewThemeId = "";
         themeId = "blox-panel";
+        activeThemeId = themeId;
         variant = "dark";
         background = "#242424";
         surface = "#1e1e1e";
@@ -70,6 +75,7 @@ Singleton {
                 throw new Error("unsupported or incomplete theme document");
 
             themeId = data.id;
+            activeThemeId = data.id;
             variant = data.variant;
             background = data.colours.background;
             surface = data.colours.surface;
@@ -95,6 +101,20 @@ Singleton {
         }
     }
 
+    function loadActiveIdentity(raw) : bool {
+        try {
+            const data = JSON.parse(raw);
+            if (data.schema_version !== 1 || !data.id)
+                throw new Error("unsupported or incomplete theme document");
+
+            activeThemeId = data.id;
+            return true;
+        } catch (error) {
+            console.warn("[blox.theme] rejected active theme identity: " + error);
+            return false;
+        }
+    }
+
     function previewSource(raw) : bool {
         try {
             const data = typeof raw === "string" ? JSON.parse(raw) : raw;
@@ -102,6 +122,7 @@ Singleton {
                 throw new Error("unsupported or incomplete source theme");
 
             previewActive = true;
+            previewThemeId = data.id;
             themeId = data.id;
             variant = data.variant;
             background = data.colours.background;
@@ -130,6 +151,7 @@ Singleton {
 
     function cancelPreview() : string {
         previewActive = false;
+        previewThemeId = "";
         const active = themeFile.text();
         if (!active || !loadJson(active))
             reset();
@@ -139,6 +161,7 @@ Singleton {
 
     function reload() : string {
         previewActive = false;
+        previewThemeId = "";
         themeFile.reload();
         return themeId;
     }
@@ -154,12 +177,14 @@ Singleton {
         onLoaded: {
             if (!root.previewActive)
                 root.loadJson(text());
-
+            else
+                root.loadActiveIdentity(text());
         }
         onFileChanged: {
             if (!root.previewActive)
                 reload();
-
+            else
+                themeFile.reload();
         }
     }
 

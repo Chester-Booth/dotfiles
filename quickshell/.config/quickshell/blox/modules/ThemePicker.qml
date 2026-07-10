@@ -18,6 +18,10 @@ FloatingWindow {
     property var themes: []
     property var candidate: null
     property int candidateRevision: 0
+    property int sessionRevision: 0
+    property int requestSerial: 0
+    property var activeRequest: null
+    property bool validationPending: false
     property string baselineJson: ""
     property string sourceDigest: ""
     property string selectedId: ""
@@ -39,6 +43,12 @@ FloatingWindow {
     property string duplicateId: ""
     property string duplicateName: ""
     property string renameName: ""
+    property string modalThemeId: ""
+    property string modalThemeName: ""
+    property string newThemeName: ""
+    property string newThemeId: ""
+    property string newWallpaper: ""
+    property string wallpaperDialogTarget: "overview"
     property var fontFamilies: []
     property string fontOutput: ""
     property bool colourPickerOpen: false
@@ -54,6 +64,21 @@ FloatingWindow {
     readonly property var ansiKeys: ["color0", "color1", "color2", "color3", "color4", "color5", "color6", "color7", "color8", "color9", "color10", "color11", "color12", "color13", "color14", "color15"]
     readonly property var overrideKeys: ["background", "foreground", "accent", "border"]
     readonly property var targetKeys: ["quickshell", "vicinae", "widgets", "gtk", "cursor", "wallpaper", "kitty", "hyprland", "hyprlock", "btop", "micro", "glow", "code", "cursor_editor", "stylus", "powerlevel10k", "sddm", "grub"]
+    readonly property var unavailableTargetKeys: ["widgets", "sddm", "grub"]
+
+    function targetAvailable(key) {
+        return unavailableTargetKeys.indexOf(key) < 0;
+    }
+
+    function targetLabel(key) {
+        if (key === "widgets")
+            return key + " · phase 9";
+
+        if (key === "sddm" || key === "grub")
+            return key + " · unavailable";
+
+        return key;
+    }
 
     function cloneCandidate() {
         return candidate === null ? null : JSON.parse(JSON.stringify(candidate));
@@ -211,6 +236,14 @@ FloatingWindow {
             return false;
         }
         action = nextAction;
+        requestSerial += 1;
+        activeRequest = {
+            "serial": requestSerial,
+            "sessionRevision": sessionRevision,
+            "action": nextAction,
+            "candidateRevision": candidateRevision,
+            "candidateJson": candidate === null ? "" : JSON.stringify(candidate)
+        };
         processOutput = "";
         processError = "";
         errorMessage = "";
@@ -231,22 +264,26 @@ FloatingWindow {
         if (themes.length === 0)
             refreshThemes(false);
         else if (candidate === null)
-            requestSelection(Theme.themeId, false);
+            requestSelection(Theme.activeThemeId, false);
         return "open";
     }
 
     function requestClose() {
-        if (busy)
-            return ;
+        if (busy && action !== "preview-edit")
+            return "busy";
 
         if (dirty) {
             modalKind = "close";
-            return ;
+            return "confirmation-required";
         }
         closePicker();
+        return "closed";
     }
 
     function closePicker() {
+        sessionRevision += 1;
+        validationPending = false;
+        validationDelay.stop();
         Theme.cancelPreview();
         open = false;
         modalKind = "";
@@ -258,6 +295,9 @@ FloatingWindow {
         candidateValid = false;
         validationErrors = [];
         pendingAfterSave = "";
+        pendingSelection = "";
+        pendingModalConfirmation = "";
+        generateAfterLoad = false;
         hideTimer.restart();
     }
 
@@ -274,9 +314,15 @@ FloatingWindow {
     }
 
     function validatePreview() {
-        if (candidate === null || busy)
+        if (candidate === null)
             return ;
 
+        if (busy) {
+            validationPending = true;
+            candidateValid = false;
+            return ;
+        }
+        validationPending = false;
         runApi("preview-edit", ["preview", JSON.stringify(candidate)]);
     }
 
@@ -284,6 +330,7 @@ FloatingWindow {
         candidate = value;
         candidateRevision += 1;
         candidateValid = false;
+        validationPending = true;
         validationDelay.restart();
     }
 
@@ -306,6 +353,9 @@ FloatingWindow {
     }
 
     function setTarget(key, value) {
+        if (!targetAvailable(key))
+            return ;
+
         const next = cloneCandidate();
         next.targets[key] = value;
         markCandidate(next);
@@ -334,12 +384,65 @@ FloatingWindow {
         markCandidate(next);
     }
 
-    function generateTheme(wallpaper) {
+    function setWallpaperPath(path) {
+        if (!candidate)
+            return ;
+
+        const next = cloneCandidate();
+        next.wallpaper.path = String(path || "").trim();
+        markCandidate(next);
+    }
+
+    function openWallpaperDialog(target) {
+        wallpaperDialogTarget = target || "overview";
+        wallpaperDialog.open();
+    }
+
+    function generateTheme(wallpaper, displayName, themeId) {
         if (!wallpaper || !wallpaper.trim()) {
             errorMessage = "Choose a wallpaper first.";
             return ;
         }
-        runApi("generate", ["generate", wallpaper.trim(), "--backend", generatorBackend]);
+        const args = ["generate", wallpaper.trim(), "--backend", generatorBackend];
+        if (displayName)
+            args.push("--name", displayName.trim());
+
+        if (themeId)
+            args.push("--id", themeId.trim());
+
+        runApi("generate", args);
+    }
+
+    function loadActiveForGeneration() {
+        generateAfterLoad = false;
+        return runApi("show-generate-current", ["show", Theme.activeThemeId]);
+    }
+
+    function continueQueuedGeneration() {
+        if (!generateAfterLoad || busy || !open)
+            return ;
+
+        if (dirty) {
+            generateAfterLoad = false;
+            modalKind = "generate-current";
+            return ;
+        }
+        loadActiveForGeneration();
+    }
+
+    function requestGenerateCurrent() {
+        generateAfterLoad = true;
+        openPicker();
+        if (dirty) {
+            generateAfterLoad = false;
+            modalKind = "generate-current";
+            return "confirmation-required";
+        }
+        if (busy)
+            return "queued";
+
+        loadActiveForGeneration();
+        return "open-generating";
     }
 
     function saveCandidate(after) {
@@ -377,27 +480,58 @@ FloatingWindow {
         statusMessage = "Unsaved changes reverted.";
     }
 
-    function openDuplicate() {
-        if (candidate === null || dirty || !sourceDigest)
+    function openNewTheme() {
+        if (busy || dirty)
             return ;
 
-        duplicateName = candidate.name + " Copy";
+        newThemeName = "Untitled Theme";
+        newThemeId = duplicateIdForName(newThemeName);
+        newWallpaper = "";
+        modalKind = "new";
+    }
+
+    function startNewTheme(fromWallpaper) {
+        if (!newThemeName.trim() || !newThemeId.trim())
+            return ;
+
+        if (fromWallpaper && !newWallpaper.trim()) {
+            errorMessage = "Choose a wallpaper first.";
+            return ;
+        }
+        pendingModalConfirmation = fromWallpaper ? "new-wallpaper" : "new-blank";
+        modalDismissTimer.restart();
+    }
+
+    function openDuplicate(themeId, themeName) {
+        const sourceId = themeId || (candidate ? candidate.id : "");
+        if (!sourceId || sourceId === selectedId && dirty)
+            return ;
+
+        modalThemeId = sourceId;
+        modalThemeName = themeName || (candidate ? candidate.name : sourceId);
+        duplicateName = modalThemeName + " Copy";
         duplicateId = duplicateIdForName(duplicateName);
         modalKind = "duplicate";
     }
 
-    function openRename() {
-        if (candidate === null || dirty || !sourceDigest)
+    function openRename(themeId, themeName) {
+        const sourceId = themeId || (candidate ? candidate.id : "");
+        if (!sourceId || sourceId === selectedId && dirty)
             return ;
 
-        renameName = candidate.name;
+        modalThemeId = sourceId;
+        modalThemeName = themeName || (candidate ? candidate.name : sourceId);
+        renameName = modalThemeName;
         modalKind = "rename";
     }
 
-    function requestDelete() {
-        if (candidate === null || dirty || candidate.id === "blox-panel")
+    function requestDelete(themeId, themeName) {
+        const sourceId = themeId || (candidate ? candidate.id : "");
+        if (!sourceId || sourceId === "blox-panel" || sourceId === selectedId && dirty)
             return ;
 
+        modalThemeId = sourceId;
+        modalThemeName = themeName || (candidate ? candidate.name : sourceId);
         modalKind = "delete";
     }
 
@@ -427,27 +561,39 @@ FloatingWindow {
         } else if (kind === "close")
             closePicker();
         else if (kind === "delete")
-            runApi("delete", ["delete", candidate.id, "--yes"]);
+            runApi("delete", ["delete", modalThemeId, "--yes"]);
         else if (kind === "duplicate")
-            runApi("duplicate", ["duplicate", candidate.id, duplicateId.trim(), "--name", duplicateName.trim()]);
+            runApi("duplicate", ["duplicate", modalThemeId, duplicateId.trim(), "--name", duplicateName.trim()]);
         else if (kind === "rename")
-            runApi("rename", ["rename", candidate.id, renameName.trim()]);
+            runApi("rename", ["rename", modalThemeId, renameName.trim()]);
+        else if (kind === "new-wallpaper")
+            generateTheme(newWallpaper, newThemeName, newThemeId);
+        else if (kind === "new-blank")
+            runApi("new-template", ["show", "blox-panel"]);
+        else if (kind === "generate-current")
+            loadActiveForGeneration();
     }
 
     function dismissColourPicker() {
         colourDismissTimer.restart();
     }
 
-    function handleResponse(response) {
+    function handleResponse(request, response) {
+        const completedAction = request.action;
         const failed = !response || response.ok !== true;
-        if (action === "preview-edit") {
+        if (completedAction === "preview-edit") {
+            if (candidate === null || request.candidateRevision !== candidateRevision || request.candidateJson !== JSON.stringify(candidate)) {
+                validationPending = candidate !== null;
+                candidateValid = false;
+                return ;
+            }
             candidateValid = !failed;
             validationErrors = response && response.errors ? response.errors : ["Preview validation failed."];
             apiWarnings = response && response.warnings ? response.warnings : [];
             previewData = response && response.data ? response.data : ({
             });
             if (!failed) {
-                Theme.previewSource(candidate);
+                Theme.previewSource(JSON.parse(request.candidateJson));
                 statusMessage = dirty ? "Temporary Quickshell preview — unsaved" : "Temporary Quickshell preview";
             }
             return ;
@@ -457,17 +603,17 @@ FloatingWindow {
             return ;
         }
         apiWarnings = response.warnings || [];
-        if (action === "list" || action === "list-refresh") {
+        if (completedAction === "list" || completedAction === "list-refresh") {
             themes = response.data || [];
-            if (action === "list") {
+            if (completedAction === "list") {
                 const preferred = themes.some((entry) => {
-                    return entry.id === Theme.themeId;
-                }) ? Theme.themeId : (themes.length > 0 ? themes[0].id : "");
+                    return entry.id === Theme.activeThemeId;
+                }) ? Theme.activeThemeId : (themes.length > 0 ? themes[0].id : "");
                 if (preferred)
                     requestSelection(preferred, false);
 
             }
-        } else if (action === "show") {
+        } else if (completedAction === "show") {
             candidate = JSON.parse(JSON.stringify(response.data));
             selectedId = candidate.id;
             sourceDigest = themeDigest(candidate.id);
@@ -479,7 +625,10 @@ FloatingWindow {
             } else {
                 validatePreview();
             }
-        } else if (action === "generate") {
+        } else if (completedAction === "show-generate-current") {
+            generateAfterLoad = false;
+            generateTheme(response.data.wallpaper.path);
+        } else if (completedAction === "generate") {
             candidate = JSON.parse(JSON.stringify(response.data.theme));
             selectedId = candidate.id;
             sourceDigest = "";
@@ -487,7 +636,18 @@ FloatingWindow {
             previewData = response.data;
             candidateRevision += 1;
             validatePreview();
-        } else if (action === "save") {
+        } else if (completedAction === "new-template") {
+            const blank = JSON.parse(JSON.stringify(response.data));
+            blank.id = newThemeId;
+            blank.name = newThemeName;
+            delete blank.generator;
+            candidate = blank;
+            selectedId = candidate.id;
+            sourceDigest = "";
+            baselineJson = "";
+            candidateRevision += 1;
+            validatePreview();
+        } else if (completedAction === "save") {
             sourceDigest = response.data.source_sha256;
             selectedId = candidate.id;
             baselineJson = JSON.stringify(candidate);
@@ -499,36 +659,40 @@ FloatingWindow {
             } else {
                 refreshThemes(true);
             }
-        } else if (action === "apply") {
+        } else if (completedAction === "apply") {
             Theme.reload();
             baselineJson = JSON.stringify(candidate);
             candidateRevision += 1;
             statusMessage = "Theme applied. Some applications may require restart.";
             refreshThemes(true);
-        } else if (action === "duplicate") {
+        } else if (completedAction === "duplicate") {
             statusMessage = "Theme duplicated.";
             pendingSelection = response.data.id;
             runApi("list-after-duplicate", ["list"]);
-        } else if (action === "list-after-duplicate") {
+        } else if (completedAction === "list-after-duplicate") {
             themes = response.data || [];
             const id = pendingSelection;
             pendingSelection = "";
             requestSelection(id, false);
-        } else if (action === "rename") {
-            candidate.name = response.data.name;
-            sourceDigest = response.data.source_sha256;
-            baselineJson = JSON.stringify(candidate);
-            candidateRevision += 1;
+        } else if (completedAction === "rename") {
+            if (response.data.id === selectedId) {
+                candidate.name = response.data.name;
+                sourceDigest = response.data.source_sha256;
+                baselineJson = JSON.stringify(candidate);
+                candidateRevision += 1;
+            }
             statusMessage = "Display name changed; stable ID preserved.";
             refreshThemes(true);
-        } else if (action === "delete") {
-            Theme.cancelPreview();
-            candidate = null;
-            selectedId = "";
-            sourceDigest = "";
-            baselineJson = "";
+        } else if (completedAction === "delete") {
+            if (response.data.id === selectedId) {
+                Theme.cancelPreview();
+                candidate = null;
+                selectedId = "";
+                sourceDigest = "";
+                baselineJson = "";
+            }
             statusMessage = "Theme deleted.";
-            refreshThemes(false);
+            refreshThemes(candidate !== null);
         }
     }
 
@@ -586,15 +750,34 @@ FloatingWindow {
         id: apiProcess
 
         onExited: (exitCode, exitStatus) => {
+            const request = root.activeRequest;
+            root.activeRequest = null;
             root.busy = false;
+            if (!request || request.sessionRevision !== root.sessionRevision) {
+                if (root.open && root.candidate === null) {
+                    if (root.themes.length === 0)
+                        root.refreshThemes(false);
+                    else
+                        root.requestSelection(Theme.activeThemeId, false);
+                }
+                return ;
+            }
             let response = null;
             try {
                 response = JSON.parse(root.processOutput.trim());
             } catch (error) {
                 root.errorMessage = "Theme API returned invalid JSON: " + String(error) + (root.processError ? "\n" + root.processError.trim() : "");
+                if (root.validationPending && root.candidate !== null)
+                    root.validationDelay.restart();
+
+                root.continueQueuedGeneration();
                 return ;
             }
-            root.handleResponse(response);
+            root.handleResponse(request, response);
+            if (root.validationPending && root.candidate !== null)
+                root.validationDelay.restart();
+
+            root.continueQueuedGeneration();
         }
 
         stdout: StdioCollector {
@@ -644,7 +827,13 @@ FloatingWindow {
         title: "Choose a wallpaper"
         modality: Qt.WindowModal
         nameFilters: ["Images (*.png *.jpg *.jpeg *.webp)", "All files (*)"]
-        onAccepted: wallpaperField.text = decodeURIComponent(String(selectedFile).replace(/^file:\/\//, ""))
+        onAccepted: {
+            const path = decodeURIComponent(String(selectedFile).replace(/^file:\/\//, ""));
+            if (root.wallpaperDialogTarget === "new")
+                root.newWallpaper = path;
+            else
+                root.setWallpaperPath(path);
+        }
     }
 
     IpcHandler {
@@ -653,8 +842,7 @@ FloatingWindow {
         }
 
         function close() : string {
-            root.requestClose();
-            return root.open ? "confirmation-required" : "closed";
+            return root.requestClose();
         }
 
         function cancel() : string {
@@ -670,13 +858,7 @@ FloatingWindow {
         }
 
         function generateCurrent() : string {
-            root.generateAfterLoad = true;
-            root.openPicker();
-            if (root.candidate !== null && root.candidate.id === Theme.themeId) {
-                root.generateAfterLoad = false;
-                root.generateTheme(root.candidate.wallpaper.path);
-            }
-            return "open-generating";
+            return root.requestGenerateCurrent();
         }
 
         function mode(value: string) : string {
@@ -749,7 +931,7 @@ FloatingWindow {
                 anchors.fill: parent
                 anchors.margins: 18
                 spacing: 12
-                enabled: root.modalKind.length === 0 && !root.colourPickerOpen
+                enabled: root.modalKind.length === 0 && !root.colourPickerOpen && (!root.busy || root.action === "preview-edit")
 
                 RowLayout {
                     Layout.fillWidth: true
@@ -853,8 +1035,8 @@ FloatingWindow {
                             BloxButton {
                                 Layout.fillWidth: true
                                 text: "+  New theme"
-                                enabled: root.candidate && !root.dirty && root.sourceDigest && !root.busy
-                                onClicked: root.openDuplicate()
+                                enabled: root.candidate && !root.dirty && !root.busy
+                                onClicked: root.openNewTheme()
                             }
 
                             ListView {
@@ -875,8 +1057,8 @@ FloatingWindow {
                                     height: 62
                                     radius: 6
                                     color: modelData.id === root.selectedId ? Theme.surfaceAlt : mouse.containsMouse ? Theme.withAlpha(Theme.surfaceAlt, 0.62) : "transparent"
-                                    border.color: modelData.unsaved ? Theme.yellow : modelData.id === Theme.themeId ? Theme.blue : "transparent"
-                                    border.width: modelData.unsaved || modelData.id === Theme.themeId ? 1 : 0
+                                    border.color: modelData.unsaved ? Theme.yellow : modelData.id === Theme.activeThemeId ? Theme.blue : "transparent"
+                                    border.width: modelData.unsaved || modelData.id === Theme.activeThemeId ? 1 : 0
 
                                     Column {
                                         anchors.left: parent.left
@@ -930,12 +1112,7 @@ FloatingWindow {
                                             anchors.fill: parent
                                             hoverEnabled: true
                                             cursorShape: Qt.PointingHandCursor
-                                            onClicked: {
-                                                if (modelData.id !== root.selectedId)
-                                                    root.requestSelection(modelData.id, true);
-
-                                                themeActions.open();
-                                            }
+                                            onClicked: themeActions.open()
                                         }
 
                                     }
@@ -948,12 +1125,10 @@ FloatingWindow {
                                         hoverEnabled: true
                                         acceptedButtons: Qt.LeftButton | Qt.RightButton
                                         onClicked: (event) => {
-                                            if (modelData.id !== root.selectedId)
-                                                root.requestSelection(modelData.id, true);
-
                                             if (event.button === Qt.RightButton)
                                                 themeActions.open();
-
+                                            else if (modelData.id !== root.selectedId)
+                                                root.requestSelection(modelData.id, true);
                                         }
                                     }
 
@@ -989,20 +1164,20 @@ FloatingWindow {
                                             BloxButton {
                                                 width: parent.width
                                                 text: "Duplicate"
-                                                enabled: modelData.id === root.selectedId && root.candidate && !root.dirty && root.sourceDigest && !root.busy
+                                                enabled: modelData.id !== root.selectedId || !root.dirty
                                                 onClicked: {
                                                     themeActions.close();
-                                                    root.openDuplicate();
+                                                    root.openDuplicate(modelData.id, modelData.name);
                                                 }
                                             }
 
                                             BloxButton {
                                                 width: parent.width
                                                 text: "Rename"
-                                                enabled: modelData.id === root.selectedId && root.candidate && !root.dirty && root.sourceDigest && !root.busy
+                                                enabled: modelData.id !== root.selectedId || !root.dirty
                                                 onClicked: {
                                                     themeActions.close();
-                                                    root.openRename();
+                                                    root.openRename(modelData.id, modelData.name);
                                                 }
                                             }
 
@@ -1010,10 +1185,10 @@ FloatingWindow {
                                                 width: parent.width
                                                 text: "Delete"
                                                 destructive: true
-                                                enabled: modelData.id === root.selectedId && root.candidate && !root.dirty && root.candidate.id !== "blox-panel" && !root.busy
+                                                enabled: modelData.id !== "blox-panel" && (modelData.id !== root.selectedId || !root.dirty) && !root.busy
                                                 onClicked: {
                                                     themeActions.close();
-                                                    root.requestDelete();
+                                                    root.requestDelete(modelData.id, modelData.name);
                                                 }
                                             }
 
@@ -1100,7 +1275,7 @@ FloatingWindow {
                                     spacing: 12
 
                                     Label {
-                                        text: "Create from wallpaper"
+                                        text: "Wallpaper"
                                         color: Theme.foreground
                                         font.family: Theme.bodyFontFamily
                                         font.pixelSize: 17
@@ -1120,29 +1295,23 @@ FloatingWindow {
                                                 return root.candidate && root.candidate.wallpaper ? root.candidate.wallpaper.path : "";
                                             }
                                             onEditingFinished: {
-                                                if (root.candidate) {
-                                                    const next = root.cloneCandidate();
-                                                    next.wallpaper.path = text.trim();
-                                                    root.markCandidate(next);
-                                                }
+                                                root.setWallpaperPath(text);
                                             }
                                         }
 
                                         BloxButton {
                                             text: "Browse"
-                                            onClicked: wallpaperDialog.open()
+                                            onClicked: root.openWallpaperDialog("overview")
                                         }
 
                                         BloxComboBox {
-                                            model: ["matugen", "pywal"]
-                                            currentIndex: root.generatorBackend === "matugen" ? 0 : 1
-                                            onActivated: root.generatorBackend = currentText
-                                        }
-
-                                        BloxButton {
-                                            text: "Generate"
-                                            enabled: !root.busy
-                                            onClicked: root.generateTheme(wallpaperField.text)
+                                            model: ["cover", "contain", "tile"]
+                                            currentIndex: root.candidate && root.candidate.wallpaper ? model.indexOf(root.candidate.wallpaper.fit) : 0
+                                            onActivated: {
+                                                const next = root.cloneCandidate();
+                                                next.wallpaper.fit = currentText;
+                                                root.markCandidate(next);
+                                            }
                                         }
 
                                     }
@@ -1298,16 +1467,16 @@ FloatingWindow {
                                             Rectangle {
                                                 required property string modelData
 
-                                                width: 112
+                                                width: root.targetAvailable(modelData) ? 112 : 152
                                                 height: 30
                                                 radius: 15
-                                                color: root.candidate && root.candidate.targets[modelData] ? Theme.withAlpha(Theme.blue, 0.25) : Theme.background
-                                                border.color: root.candidate && root.candidate.targets[modelData] ? Theme.blue : Theme.border
+                                                color: root.targetAvailable(modelData) && root.candidate && root.candidate.targets[modelData] ? Theme.withAlpha(Theme.blue, 0.25) : Theme.background
+                                                border.color: root.targetAvailable(modelData) && root.candidate && root.candidate.targets[modelData] ? Theme.blue : Theme.border
 
                                                 Text {
                                                     anchors.centerIn: parent
-                                                    text: modelData
-                                                    color: Theme.foreground
+                                                    text: root.targetLabel(modelData)
+                                                    color: root.targetAvailable(modelData) ? Theme.foreground : Theme.muted
                                                     font.family: Theme.fontFamily
                                                     font.pixelSize: 9
                                                 }
@@ -1460,7 +1629,7 @@ FloatingWindow {
                                     }
 
                                     Label {
-                                        text: "Enabled targets"
+                                        text: "Theme targets"
                                         color: Theme.foreground
                                         font.family: Theme.bodyFontFamily
                                         font.pixelSize: 17
@@ -1476,7 +1645,8 @@ FloatingWindow {
                                             BloxCheckBox {
                                                 required property string modelData
 
-                                                text: modelData
+                                                text: root.targetLabel(modelData)
+                                                enabled: root.targetAvailable(modelData)
                                                 checked: {
                                                     root.candidateRevision;
                                                     return root.candidate ? root.candidate.targets[modelData] : false;
@@ -1722,7 +1892,7 @@ FloatingWindow {
 
                         Label {
                             Layout.fillWidth: true
-                            text: root.modalKind === "delete" ? "Delete theme permanently?" : root.modalKind === "duplicate" ? "Duplicate theme" : root.modalKind === "rename" ? "Rename display name" : "Discard unsaved changes?"
+                            text: root.modalKind === "new" ? "New theme" : root.modalKind === "delete" ? "Delete theme permanently?" : root.modalKind === "duplicate" ? "Duplicate theme" : root.modalKind === "rename" ? "Rename display name" : "Discard unsaved changes?"
                             color: Theme.foreground
                             font.family: Theme.bodyFontFamily
                             font.pixelSize: 19
@@ -1730,12 +1900,47 @@ FloatingWindow {
                         }
 
                         Text {
-                            visible: root.modalKind === "navigate" || root.modalKind === "close" || root.modalKind === "delete"
+                            visible: root.modalKind === "new" || root.modalKind === "navigate" || root.modalKind === "generate-current" || root.modalKind === "close" || root.modalKind === "delete"
                             Layout.fillWidth: true
-                            text: root.modalKind === "delete" ? "This removes the editable source. The action cannot be undone." : "The temporary Quickshell preview will be restored to the active theme."
+                            text: root.modalKind === "new" ? "Start with the standard editable palette, or generate a palette from a wallpaper." : root.modalKind === "delete" ? "This removes the editable source. The action cannot be undone." : "The temporary Quickshell preview will be restored to the active theme."
                             color: Theme.muted
                             wrapMode: Text.Wrap
                             font.family: Theme.bodyFontFamily
+                        }
+
+                        BloxTextField {
+                            visible: root.modalKind === "new"
+                            Layout.fillWidth: true
+                            placeholderText: "Display name"
+                            text: root.newThemeName
+                            onTextChanged: {
+                                root.newThemeName = text;
+                                root.newThemeId = root.duplicateIdForName(text);
+                            }
+                        }
+
+                        RowLayout {
+                            visible: root.modalKind === "new"
+                            Layout.fillWidth: true
+
+                            BloxTextField {
+                                Layout.fillWidth: true
+                                placeholderText: "Optional wallpaper for palette generation"
+                                text: root.newWallpaper
+                                onTextChanged: root.newWallpaper = text
+                            }
+
+                            BloxButton {
+                                text: "Browse"
+                                onClicked: root.openWallpaperDialog("new")
+                            }
+
+                            BloxComboBox {
+                                model: ["matugen", "pywal"]
+                                currentIndex: root.generatorBackend === "matugen" ? 0 : 1
+                                onActivated: root.generatorBackend = currentText
+                            }
+
                         }
 
                         BloxTextField {
@@ -1763,9 +1968,9 @@ FloatingWindow {
                             Text {
                                 id: duplicateIdFooter
 
-                                visible: root.modalKind === "duplicate"
+                                visible: root.modalKind === "duplicate" || root.modalKind === "new"
                                 Layout.fillWidth: true
-                                text: root.duplicateId
+                                text: root.modalKind === "new" ? root.newThemeId : root.duplicateId
                                 color: Theme.muted
                                 elide: Text.ElideMiddle
                                 font.family: Theme.monoFontFamily
@@ -1773,7 +1978,7 @@ FloatingWindow {
                             }
 
                             Item {
-                                visible: root.modalKind !== "duplicate"
+                                visible: root.modalKind !== "duplicate" && root.modalKind !== "new"
                                 Layout.fillWidth: true
                             }
 
@@ -1783,8 +1988,23 @@ FloatingWindow {
                             }
 
                             BloxButton {
+                                visible: root.modalKind === "new"
+                                text: "Create blank"
+                                enabled: root.newThemeId.trim().length > 0 && root.newThemeName.trim().length > 0
+                                onClicked: root.startNewTheme(false)
+                            }
+
+                            BloxButton {
+                                visible: root.modalKind === "new"
+                                text: "Create from wallpaper"
+                                enabled: root.newThemeId.trim().length > 0 && root.newThemeName.trim().length > 0 && root.newWallpaper.trim().length > 0
+                                onClicked: root.startNewTheme(true)
+                            }
+
+                            BloxButton {
+                                visible: root.modalKind !== "new"
                                 text: root.modalKind === "delete" ? "Delete" : root.modalKind === "duplicate" ? "Duplicate" : root.modalKind === "rename" ? "Rename" : "Discard"
-                                destructive: root.modalKind === "delete" || root.modalKind === "close" || root.modalKind === "navigate"
+                                destructive: root.modalKind === "delete" || root.modalKind === "close" || root.modalKind === "navigate" || root.modalKind === "generate-current"
                                 enabled: root.modalKind !== "duplicate" || root.duplicateId.trim().length > 0 && root.duplicateName.trim().length > 0
                                 onClicked: root.confirmModal()
                             }

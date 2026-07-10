@@ -14,7 +14,7 @@ Rectangle {
     implicitHeight: 38
     implicitWidth: 132
     radius: 9
-    color: tap.pressed || popup.visible ? Theme.surfaceAlt : hovered ? Theme.withAlpha(Theme.surfaceAlt, 0.72) : Theme.background
+    color: pointer.pressed || popup.visible ? Theme.surfaceAlt : hovered ? Theme.withAlpha(Theme.surfaceAlt, 0.72) : Theme.background
     border.color: activeFocus || popup.visible ? Theme.blue : Theme.border
     border.width: activeFocus || popup.visible ? 2 : 1
     activeFocusOnTab: enabled
@@ -55,18 +55,25 @@ Rectangle {
         cursorShape: Qt.PointingHandCursor
     }
 
-    TapHandler {
-        id: tap
+    MouseArea {
+        id: pointer
 
+        anchors.fill: parent
         enabled: root.enabled
-        onTapped: popup.open()
+        acceptedButtons: Qt.LeftButton
+        preventStealing: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: popup.open()
     }
 
     Popup {
         id: popup
 
         popupType: Popup.Item
-        modal: false
+        // Selection popups must own the pointer grab until the triggering
+        // event is complete. Without a modal overlay, the release can reach a
+        // control behind an Item popup after the popup closes.
+        modal: true
         dim: false
         y: root.height + 5
         width: root.width
@@ -107,8 +114,12 @@ Rectangle {
                     cursorShape: Qt.PointingHandCursor
                 }
 
-                TapHandler {
-                    onTapped: {
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton
+                    preventStealing: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
                         root.currentIndex = index;
                         root.activated(index);
                         popup.close();

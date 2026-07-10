@@ -252,6 +252,17 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn("maximumLineCount: 2", semantic)
         self.assertNotIn("elide: Text.ElideRight", semantic)
 
+    def test_picker_exposes_safe_import_and_export_workflows(self) -> None:
+        qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
+        self.assertIn('root.runApi("import", ["import", path]);', qml)
+        self.assertIn('const args = ["export", root.candidate.id, "--output", path];', qml)
+        self.assertIn('args.push("--include-wallpaper");', qml)
+        self.assertIn('runApi("list-after-import", ["list"]);', qml)
+        self.assertIn("Apply remains a separate action", qml)
+        self.assertIn("fileMode: FileDialog.SaveFile", qml)
+        self.assertIn("enabled: !root.dirty && !root.busy", qml)
+        self.assertNotIn("preview.svg", qml)
+
     def test_cli_normalises_typographic_option_dashes(self) -> None:
         self.assertEqual(["setup", "cursor", "--yes"], cli.normalise_option_dashes(["setup", "cursor", "—-yes"]))
         self.assertEqual(["setup", "cursor", "--yes"], cli.normalise_option_dashes(["setup", "cursor", "——yes"]))

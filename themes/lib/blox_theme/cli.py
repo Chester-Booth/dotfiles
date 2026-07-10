@@ -51,6 +51,7 @@ from .runtime import (
     setup_gtk,
 )
 from .generators import BACKENDS, GeneratorFailure, generate_theme, save_theme_source
+from .portability import PortabilityFailure, export_bundle, import_theme
 
 
 def envelope(command: str, data: Any = None, errors: list[str] | None = None, warnings: list[str] | None = None) -> dict[str, Any]:
@@ -136,6 +137,14 @@ def parser() -> argparse.ArgumentParser:
     delete_parser.add_argument("theme")
     delete_parser.add_argument("--yes", action="store_true", help="confirm permanent source deletion")
     delete_parser.add_argument("--json", action="store_true")
+    import_parser = subcommands.add_parser("import", help="validate and add loose theme JSON or a .blox-theme bundle")
+    import_parser.add_argument("file", type=Path)
+    import_parser.add_argument("--json", action="store_true")
+    export_parser = subcommands.add_parser("export", help="create a portable .blox-theme bundle")
+    export_parser.add_argument("theme")
+    export_parser.add_argument("--output", type=Path)
+    export_parser.add_argument("--include-wallpaper", action="store_true")
+    export_parser.add_argument("--json", action="store_true")
     return root
 
 
@@ -288,6 +297,29 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
             return envelope(command, errors=[str(error)]), EXIT_APPLY
         digest = hashlib.sha256(destination.read_bytes()).hexdigest()
         return envelope(command, {"id": theme["id"], "path": str(destination), "source_sha256": digest}, warnings=checked.warnings), EXIT_OK
+
+    if command == "import":
+        try:
+            data, warnings = import_theme(args.file, themes_dir())
+        except PortabilityFailure as error:
+            return envelope(command, errors=[str(error)]), EXIT_VALIDATION
+        except (GeneratorFailure, OSError) as error:
+            return envelope(command, errors=[f"could not import theme: {error}"]), EXIT_APPLY
+        return envelope(command, data, warnings=warnings), EXIT_OK
+
+    if command == "export":
+        path, theme, failure, code = checked_theme(command, args.theme, check_dependencies=False)
+        if failure:
+            return failure, code
+        assert path is not None and theme is not None
+        output = args.output or Path.cwd() / f"{theme['id']}.blox-theme"
+        try:
+            data, warnings = export_bundle(theme, output, include_wallpaper=args.include_wallpaper)
+        except PortabilityFailure as error:
+            return envelope(command, errors=[str(error)]), EXIT_VALIDATION
+        except OSError as error:
+            return envelope(command, errors=[f"could not export theme: {error}"]), EXIT_APPLY
+        return envelope(command, data, warnings=warnings), EXIT_OK
 
     if command in ("duplicate", "rename", "delete"):
         if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", args.theme):

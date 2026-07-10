@@ -34,6 +34,8 @@ themectl save THEME_JSON [--json]
 themectl duplicate THEME NEW_ID [--name NAME] [--json]
 themectl rename THEME DISPLAY_NAME [--json]
 themectl delete THEME --yes [--json]
+themectl import FILE [--json]
+themectl export THEME [--output FILE] [--include-wallpaper] [--json]
 ```
 
 Without `--output`, `render` operates in memory. `preview`, `diff`, and `doctor`
@@ -70,6 +72,21 @@ and refuses to overwrite an existing source. A saved generated theme behaves
 like any hand-authored source theme and still requires an explicit `apply`.
 Use `save --replace --expect-sha256 DIGEST` for an existing source; the digest
 from `list --json` prevents stale picker sessions overwriting newer edits.
+
+## Portability
+
+`export` creates a versioned `.blox-theme` bundle containing strict theme JSON,
+an SVG preview, dependency notes and a digest manifest. Wallpapers remain path
+references unless `--include-wallpaper` is supplied. Fonts and third-party GTK,
+icon and cursor themes are recorded as dependencies and are never bundled.
+
+`import` accepts strict loose JSON or a bundle created by `themectl`. Bundles
+are checked for safe relative paths, regular files, bounded sizes and file
+counts, and matching manifest digests before the theme library is changed.
+Imported wallpapers are placed under `themes/wallpapers/`. Import reports
+missing dependencies as warnings and never previews or applies the theme.
+Unsupported schema versions fail before any files are written; schema migration
+hooks are isolated at the import boundary for future versions.
 
 ## Picker
 

@@ -48,6 +48,7 @@ FloatingWindow {
     property string newThemeName: ""
     property string newThemeId: ""
     property string newWallpaper: ""
+    property bool exportIncludeWallpaper: false
     property string wallpaperDialogTarget: "overview"
     property var fontFamilies: []
     property string fontOutput: ""
@@ -445,6 +446,20 @@ FloatingWindow {
         wallpaperDialog.open();
     }
 
+    function openImportDialog() {
+        if (!busy && !dirty)
+            importDialog.open();
+
+    }
+
+    function openExportDialog() {
+        if (busy || dirty || !candidate || !sourceDigest)
+            return ;
+
+        exportIncludeWallpaper = false;
+        showModal("export");
+    }
+
     function generateTheme(wallpaper, displayName, themeId) {
         if (!wallpaper || !wallpaper.trim()) {
             errorMessage = "Choose a wallpaper first.";
@@ -618,6 +633,8 @@ FloatingWindow {
             generateTheme(newWallpaper, newThemeName, newThemeId);
         else if (kind === "new-blank")
             runApi("new-template", ["show", "blox-panel"]);
+        else if (kind === "export")
+            exportDialog.open();
         else if (kind === "generate-current")
             loadActiveForGeneration();
     }
@@ -741,6 +758,17 @@ FloatingWindow {
             }
             statusMessage = "Theme deleted.";
             refreshThemes(candidate !== null);
+        } else if (completedAction === "import") {
+            statusMessage = "Theme imported. Apply remains a separate action.";
+            pendingSelection = response.data.id;
+            runApi("list-after-import", ["list"]);
+        } else if (completedAction === "list-after-import") {
+            themes = response.data || [];
+            const id = pendingSelection;
+            pendingSelection = "";
+            requestSelection(id, false);
+        } else if (completedAction === "export") {
+            statusMessage = "Theme exported to " + response.data.path;
         }
     }
 
@@ -881,6 +909,38 @@ FloatingWindow {
                 root.newWallpaper = path;
             else
                 root.setWallpaperPath(path);
+        }
+    }
+
+    FileDialog {
+        id: importDialog
+
+        parentWindow: root._backingWindow
+        title: "Import a theme"
+        modality: Qt.WindowModal
+        nameFilters: ["Blox themes (*.blox-theme *.json)", "All files (*)"]
+        onAccepted: {
+            const path = decodeURIComponent(String(selectedFile).replace(/^file:\/\//, ""));
+            root.runApi("import", ["import", path]);
+        }
+    }
+
+    FileDialog {
+        id: exportDialog
+
+        parentWindow: root._backingWindow
+        title: "Export theme"
+        modality: Qt.WindowModal
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "blox-theme"
+        nameFilters: ["Blox theme bundle (*.blox-theme)"]
+        onAccepted: {
+            const path = decodeURIComponent(String(selectedFile).replace(/^file:\/\//, ""));
+            const args = ["export", root.candidate.id, "--output", path];
+            if (root.exportIncludeWallpaper)
+                args.push("--include-wallpaper");
+
+            root.runApi("export", args);
         }
     }
 
@@ -1086,6 +1146,26 @@ FloatingWindow {
                                 text: "+  New theme"
                                 enabled: root.candidate && !root.dirty && !root.busy
                                 onClicked: root.openNewTheme()
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 6
+
+                                BloxButton {
+                                    Layout.fillWidth: true
+                                    text: "Import"
+                                    enabled: !root.dirty && !root.busy
+                                    onClicked: root.openImportDialog()
+                                }
+
+                                BloxButton {
+                                    Layout.fillWidth: true
+                                    text: "Export"
+                                    enabled: root.candidate && root.sourceDigest.length > 0 && !root.dirty && !root.busy
+                                    onClicked: root.openExportDialog()
+                                }
+
                             }
 
                             ListView {
@@ -1988,7 +2068,7 @@ FloatingWindow {
 
                         Label {
                             Layout.fillWidth: true
-                            text: root.modalKind === "new" ? "New theme" : root.modalKind === "delete" ? "Delete theme permanently?" : root.modalKind === "duplicate" ? "Duplicate theme" : root.modalKind === "rename" ? "Rename display name" : "Discard unsaved changes?"
+                            text: root.modalKind === "new" ? "New theme" : root.modalKind === "delete" ? "Delete theme permanently?" : root.modalKind === "duplicate" ? "Duplicate theme" : root.modalKind === "rename" ? "Rename display name" : root.modalKind === "export" ? "Export theme" : "Discard unsaved changes?"
                             color: Theme.foreground
                             font.family: Theme.bodyFontFamily
                             font.pixelSize: 19
@@ -1996,9 +2076,9 @@ FloatingWindow {
                         }
 
                         Text {
-                            visible: root.modalKind === "new" || root.modalKind === "navigate" || root.modalKind === "generate-current" || root.modalKind === "close" || root.modalKind === "delete"
+                            visible: root.modalKind === "new" || root.modalKind === "navigate" || root.modalKind === "generate-current" || root.modalKind === "close" || root.modalKind === "delete" || root.modalKind === "export"
                             Layout.fillWidth: true
-                            text: root.modalKind === "new" ? "Start with the standard editable palette, or generate a palette from a wallpaper." : root.modalKind === "delete" ? "This removes the editable source. The action cannot be undone." : "The temporary Quickshell preview will be restored to the active theme."
+                            text: root.modalKind === "new" ? "Start with the standard editable palette, or generate a palette from a wallpaper." : root.modalKind === "delete" ? "This removes the editable source. The action cannot be undone." : root.modalKind === "export" ? "Create a portable bundle. Fonts, GTK, icon and cursor themes remain dependency notes." : "The temporary Quickshell preview will be restored to the active theme."
                             color: Theme.muted
                             wrapMode: Text.Wrap
                             font.family: Theme.bodyFontFamily
@@ -2081,6 +2161,13 @@ FloatingWindow {
                             }
                         }
 
+                        BloxCheckBox {
+                            visible: root.modalKind === "export"
+                            text: "Include wallpaper in bundle"
+                            checked: root.exportIncludeWallpaper
+                            onToggled: root.exportIncludeWallpaper = checked
+                        }
+
                         RowLayout {
                             Layout.fillWidth: true
 
@@ -2097,7 +2184,7 @@ FloatingWindow {
                             }
 
                             Item {
-                                visible: root.modalKind !== "duplicate" && root.modalKind !== "new"
+                                visible: root.modalKind !== "duplicate" && root.modalKind !== "new" && root.modalKind !== "export"
                                 Layout.fillWidth: true
                             }
 
@@ -2124,7 +2211,7 @@ FloatingWindow {
 
                             BloxButton {
                                 visible: root.modalKind !== "new"
-                                text: root.modalKind === "delete" ? "Delete" : root.modalKind === "duplicate" ? "Duplicate" : root.modalKind === "rename" ? "Rename" : "Discard"
+                                text: root.modalKind === "delete" ? "Delete" : root.modalKind === "duplicate" ? "Duplicate" : root.modalKind === "rename" ? "Rename" : root.modalKind === "export" ? "Choose destination" : "Discard"
                                 destructive: root.modalKind === "delete" || root.modalKind === "close" || root.modalKind === "navigate" || root.modalKind === "generate-current"
                                 enabled: root.modalConfirmationEnabled()
                                 onClicked: root.confirmModal()

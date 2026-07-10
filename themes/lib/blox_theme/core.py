@@ -22,10 +22,8 @@ EXIT_APPLY = 6
 EXIT_RELOAD_WARNING = 7
 EXIT_LOCKED = 8
 
-IMPLEMENTED_TARGETS = ("quickshell", "vicinae", "kitty", "wallpaper", "gtk", "cursor", "hyprland", "hyprlock", "btop", "micro", "glow", "code", "cursor_editor", "stylus", "powerlevel10k")
-DEFERRED_TARGETS = {
-    "widgets": "widget profiles are implemented in Phase 9",
-}
+IMPLEMENTED_TARGETS = ("quickshell", "vicinae", "widgets", "kitty", "wallpaper", "gtk", "cursor", "hyprland", "hyprlock", "btop", "micro", "glow", "code", "cursor_editor", "stylus", "powerlevel10k")
+DEFERRED_TARGETS = {}
 TARGET_LIMITATIONS = {
     "hyprlock": "Hyprlock changes apply when the next lock process starts",
     "btop": "btop must be restarted after Apply",
@@ -768,6 +766,16 @@ typeset -g POWERLEVEL9K_STATUS_ERROR_BACKGROUND=%s
 """ % (c["surface"], c["foreground"], c["mauve"], c["accent"], c["success"], c["warning"], c["danger"])
 
 
+def render_widgets(theme: dict[str, Any]) -> str:
+    profile = theme.get("widgets", {}).get("profile", "minimal")
+    profiles = {
+        "minimal": {"opacity": 0.3, "margin": 20, "padding": 20, "radius": 0, "font_size": 14},
+        "compact": {"opacity": 0.52, "margin": 12, "padding": 12, "radius": 6, "font_size": 12},
+        "comfortable": {"opacity": 0.42, "margin": 24, "padding": 24, "radius": 10, "font_size": 15},
+    }
+    return canonical_json({"schema_version": 1, "profile": profile, **profiles[profile]})
+
+
 def render_theme(theme: dict[str, Any]) -> tuple[dict[str, str], list[str]]:
     ansi = derive_ansi(theme)
     files: dict[str, str] = {}
@@ -804,6 +812,8 @@ def render_theme(theme: dict[str, Any]) -> tuple[dict[str, str], list[str]]:
         files["stylus/blox-system.user.css"] = render_stylus(theme)
     if targets["powerlevel10k"]:
         files["powerlevel10k/theme.zsh"] = render_powerlevel10k(theme)
+    if targets["widgets"]:
+        files["widgets/profile.json"] = render_widgets(theme)
     warnings = [message for target, message in {**DEFERRED_TARGETS, **TARGET_LIMITATIONS}.items() if targets[target]]
     return dict(sorted(files.items())), warnings
 

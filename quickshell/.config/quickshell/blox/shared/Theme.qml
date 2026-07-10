@@ -32,11 +32,18 @@ Singleton {
     property string monoFontFamily: "MartianMono Nerd Font Mono"
     property string bodyFontFamily: "Google Sans"
     property bool previewActive: false
+    property string widgetProfile: "minimal"
+    property real widgetOpacity: 0.3
+    property int widgetMargin: 20
+    property int widgetPadding: 20
+    property int widgetRadius: 0
+    property int widgetFontSize: 14
     readonly property string stateRoot: {
         const configured = Quickshell.env("XDG_STATE_HOME") || "";
         return configured.length > 0 ? configured : Quickshell.env("HOME") + "/.local/state";
     }
     readonly property string themePath: stateRoot + "/blox-theme/current/quickshell/theme.json"
+    readonly property string widgetPath: stateRoot + "/blox-theme/current/widgets/profile.json"
 
     function withAlpha(colour, opacity) : color {
         return Qt.rgba(colour.r, colour.g, colour.b, opacity);
@@ -68,6 +75,35 @@ Singleton {
         return themeId;
     }
 
+    function resetWidgets() : string {
+        widgetProfile = "minimal";
+        widgetOpacity = 0.3;
+        widgetMargin = 20;
+        widgetPadding = 20;
+        widgetRadius = 0;
+        widgetFontSize = 14;
+        return widgetProfile;
+    }
+
+    function loadWidgets(raw) : bool {
+        try {
+            const data = JSON.parse(raw);
+            if (data.schema_version !== 1 || !data.profile)
+                throw new Error("unsupported or incomplete widget profile");
+
+            widgetProfile = data.profile;
+            widgetOpacity = data.opacity;
+            widgetMargin = data.margin;
+            widgetPadding = data.padding;
+            widgetRadius = data.radius;
+            widgetFontSize = data.font_size;
+            return true;
+        } catch (error) {
+            console.warn("[blox.theme] rejected widget profile: " + error);
+            return false;
+        }
+    }
+
     function loadJson(raw) : bool {
         try {
             const data = JSON.parse(raw);
@@ -94,11 +130,53 @@ Singleton {
             fontFamily = data.fonts.panel;
             monoFontFamily = data.fonts.mono;
             bodyFontFamily = data.fonts.ui;
+            if (data.widgets)
+                loadWidgetSource(data.widgets.profile);
+
             return true;
         } catch (error) {
             console.warn("[blox.theme] rejected generated theme: " + error);
             return false;
         }
+    }
+
+    function loadWidgetSource(profile) : bool {
+        const profiles = {
+            "minimal": {
+                "opacity": 0.3,
+                "margin": 20,
+                "padding": 20,
+                "radius": 0,
+                "font_size": 14
+            },
+            "compact": {
+                "opacity": 0.52,
+                "margin": 12,
+                "padding": 12,
+                "radius": 6,
+                "font_size": 12
+            },
+            "comfortable": {
+                "opacity": 0.42,
+                "margin": 24,
+                "padding": 24,
+                "radius": 10,
+                "font_size": 15
+            }
+        };
+        const resolved = profiles[profile || "minimal"];
+        if (!resolved)
+            return false;
+
+        return loadWidgets(JSON.stringify({
+            "schema_version": 1,
+            "profile": profile || "minimal",
+            "opacity": resolved.opacity,
+            "margin": resolved.margin,
+            "padding": resolved.padding,
+            "radius": resolved.radius,
+            "font_size": resolved.font_size
+        }));
     }
 
     function loadActiveIdentity(raw) : bool {
@@ -142,6 +220,7 @@ Singleton {
             fontFamily = data.fonts.panel;
             monoFontFamily = data.fonts.mono;
             bodyFontFamily = data.fonts.ui;
+            loadWidgetSource(data.widgets ? data.widgets.profile : "minimal");
             return true;
         } catch (error) {
             console.warn("[blox.theme] rejected source preview: " + error);
@@ -156,6 +235,7 @@ Singleton {
         if (!active || !loadJson(active))
             reset();
 
+        reloadWidgets();
         return themeId;
     }
 
@@ -164,6 +244,11 @@ Singleton {
         previewThemeId = "";
         themeFile.reload();
         return themeId;
+    }
+
+    function reloadWidgets() : string {
+        widgetFile.reload();
+        return widgetProfile;
     }
 
     FileView {
@@ -188,6 +273,26 @@ Singleton {
         }
     }
 
+    FileView {
+        id: widgetFile
+
+        path: root.widgetPath
+        preload: true
+        blockLoading: true
+        watchChanges: true
+        printErrors: false
+        onLoaded: {
+            if (!root.previewActive && !root.loadWidgets(text()))
+                root.resetWidgets();
+
+        }
+        onFileChanged: {
+            if (!root.previewActive)
+                reload();
+
+        }
+    }
+
     IpcHandler {
         function reload() : string {
             return root.reload();
@@ -199,6 +304,14 @@ Singleton {
 
         function status() : string {
             return root.themeId + ":" + root.variant;
+        }
+
+        function reloadWidgets() : string {
+            return root.reloadWidgets();
+        }
+
+        function resetWidgets() : string {
+            return root.resetWidgets();
         }
 
         target: "theme"

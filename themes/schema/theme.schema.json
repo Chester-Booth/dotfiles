@@ -10,6 +10,10 @@
     "id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "minLength": 1, "maxLength": 64},
     "name": {"type": "string", "minLength": 1, "maxLength": 80},
     "variant": {"enum": ["dark", "light"]},
+    "widgets": {
+      "type": "object", "additionalProperties": false, "required": ["profile"],
+      "properties": {"profile": {"enum": ["minimal", "compact", "comfortable"]}}
+    },
     "targets": {
       "type": "object",
       "additionalProperties": false,

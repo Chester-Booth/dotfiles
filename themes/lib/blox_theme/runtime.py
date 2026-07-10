@@ -20,6 +20,7 @@ from .core import canonical_json, render_theme, repository_root, sha256_text, st
 TARGET_FILES = {
     "quickshell": ("quickshell/theme.json",),
     "vicinae": ("vicinae/theme.toml",),
+    "widgets": ("widgets/profile.json",),
     "kitty": ("kitty/theme.conf",),
     "wallpaper": ("hypr/wallpaper.json",),
     "gtk": ("gtk/gtk-3.0/settings.ini", "gtk/gtk-3.0/gtk.css", "gtk/gtk-4.0/settings.ini", "gtk/gtk-4.0/gtk.css", "gtk/metadata.json"),
@@ -856,6 +857,15 @@ def _reload_quickshell(mode: str, run_command: Callable[[list[str]], subprocess.
     return None
 
 
+def _reload_widgets(mode: str, run_command: Callable[[list[str]], subprocess.CompletedProcess[str]]) -> str | None:
+    function = "resetWidgets" if mode == "reset" else "reloadWidgets"
+    command = ["quickshell", "ipc", "--path", str(quickshell_config_path()), "call", "theme", function]
+    result = run_command(command)
+    if result.returncode != 0:
+        return f"Widget profile reload failed; run: {_command_text(command)}"
+    return None
+
+
 def _reload_vicinae(mode: str, run_command: Callable[[list[str]], subprocess.CompletedProcess[str]]) -> str | None:
     theme_id = "blox-panel" if mode == "reset" else "blox-generated"
     command = ["vicinae", "theme", "set", theme_id]
@@ -961,6 +971,10 @@ def run_reload_actions(root: Path, targets: Iterable[str], mode: str = "reload",
     for target in targets:
         if target == "quickshell":
             warning = _reload_quickshell(mode, run_command)
+            if warning:
+                warnings.append(warning)
+        elif target == "widgets":
+            warning = _reload_widgets(mode, run_command)
             if warning:
                 warnings.append(warning)
         elif target == "vicinae":

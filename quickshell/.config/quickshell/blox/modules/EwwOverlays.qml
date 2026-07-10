@@ -104,8 +104,8 @@ Scope {
             }
 
             margins {
-                left: 20
-                top: 20
+                left: Theme.widgetMargin
+                top: Theme.widgetMargin
             }
 
             OverlayBox {
@@ -146,8 +146,8 @@ Scope {
             }
 
             margins {
-                right: 20
-                bottom: 20
+                right: Theme.widgetMargin
+                bottom: Theme.widgetMargin
             }
 
             OverlayBox {
@@ -170,21 +170,21 @@ Scope {
         signal leftClicked()
         signal rightClicked()
 
-        width: content.implicitWidth + 40
-        height: content.implicitHeight + 40
-        color: Theme.withAlpha(Theme.background, 0.3)
-        radius: 0
+        width: content.implicitWidth + Theme.widgetPadding * 2
+        height: content.implicitHeight + Theme.widgetPadding * 2
+        color: Theme.withAlpha(Theme.background, Theme.widgetOpacity)
+        radius: Theme.widgetRadius
 
         Text {
             id: content
 
             anchors.left: parent.left
             anchors.top: parent.top
-            anchors.margins: 20
+            anchors.margins: Theme.widgetPadding
             text: box.text
             color: Theme.foreground
             font.family: Theme.bodyFontFamily
-            font.pixelSize: 14
+            font.pixelSize: Theme.widgetFontSize
             wrapMode: Text.NoWrap
             horizontalAlignment: Text.AlignLeft
             verticalAlignment: Text.AlignTop

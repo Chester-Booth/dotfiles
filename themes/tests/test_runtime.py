@@ -335,6 +335,14 @@ class RuntimeTests(unittest.TestCase):
         self.assertTrue((active / "kitty/theme.conf").is_file())
         self.assertIn("reset", runner.commands[0])
 
+    def test_widget_reload_failure_is_recoverable(self) -> None:
+        runner = FakeCommands(returncode=1)
+        manifest, warnings = apply_theme(self.canonical_path, self.canonical, ("widgets",), run_command=runner)
+        self.assertEqual(["widgets"], manifest["enabled_targets"])
+        self.assertTrue((self.state / "current/widgets/profile.json").is_file())
+        self.assertTrue(any("Widget profile reload failed" in warning for warning in warnings))
+        self.assertTrue(any(command[-1] == "reloadWidgets" for command in runner.commands))
+
     def test_every_target_reset_path_is_safe(self) -> None:
         for target in TARGET_NAMES:
             with self.subTest(target=target):

@@ -71,6 +71,7 @@ class ThemeSchemaTests(unittest.TestCase):
             "future schema": lambda theme: theme.update(schema_version=2),
             "invalid id": lambda theme: theme.update(id="Invalid ID"),
             "unknown target": lambda theme: theme["targets"].update(unknown=True),
+            "unknown widget profile": lambda theme: theme.update(widgets={"profile": "arbitrary"}),
             "missing target": lambda theme: theme["targets"].pop("kitty"),
             "small font": lambda theme: theme["fonts"].update(terminal_size=5),
             "duplicate cursor size": lambda theme: theme["cursor"].update(sizes=[24, 24]),
@@ -159,6 +160,7 @@ class RendererTests(unittest.TestCase):
             "micro/blox-theme.micro", "glow/style.json", "code/settings.json",
             "cursor-editor/settings.json", "stylus/blox-system.user.css",
             "powerlevel10k/theme.zsh",
+            "widgets/profile.json",
         }
         self.assertTrue(phase7.issubset(files))
         self.assertEqual(self.theme["fonts"]["mono"], json.loads(files["code/settings.json"])["editor.fontFamily"])
@@ -174,6 +176,7 @@ class RendererTests(unittest.TestCase):
             "glow": "glow/style.json", "code": "code/settings.json",
             "cursor_editor": "cursor-editor/settings.json", "stylus": "stylus/blox-system.user.css",
             "powerlevel10k": "powerlevel10k/theme.zsh",
+            "widgets": "widgets/profile.json",
         }
         for target, expected in target_files.items():
             with self.subTest(target=target):

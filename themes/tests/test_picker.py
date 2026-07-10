@@ -198,9 +198,11 @@ class PickerIntegrationSourceTests(unittest.TestCase):
 
     def test_unavailable_targets_are_visible_but_not_editable(self) -> None:
         qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
-        self.assertIn('readonly property var unavailableTargetKeys: ["widgets", "sddm", "grub"]', qml)
+        self.assertIn('readonly property var unavailableTargetKeys: ["sddm", "grub"]', qml)
         self.assertIn("function targetAvailable(key)", qml)
-        self.assertIn('return key + " · phase 9"', qml)
+        self.assertIn("function setWidgetProfile(value)", qml)
+        self.assertIn('model: ["minimal", "compact", "comfortable"]', qml)
+        self.assertIn("enabled: root.candidate && root.candidate.targets.widgets", qml)
         self.assertIn('return key + " · unavailable"', qml)
         self.assertIn("if (!targetAvailable(key))", qml)
         self.assertIn("enabled: root.targetAvailable(modelData)", qml)

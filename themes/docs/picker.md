@@ -22,6 +22,10 @@ fields are searchable lists whose rows preview each family in its own typeface.
 Semantic and target colours open the themed saturation, value and hue picker;
 raw hex remains available as a secondary precision input.
 
+Advanced mode exposes one named desktop-widget profile: minimal, compact or
+comfortable. The preset owns overlay opacity, spacing, radius and type size;
+those resolved values are intentionally not edited independently.
+
 Existing themes are replaced only with the source SHA-256 returned by
 `themectl list --json`. Rename changes `name`, never `id`. Duplicate requires a
 new schema-valid ID. Delete requires both the picker confirmation and CLI

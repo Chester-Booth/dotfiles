@@ -52,6 +52,10 @@ without rendering. `rollback` activates a retained generation. `reset-target`
 creates a new generation without that target and restores its non-generated
 fallback. All live-state mutating commands use a non-blocking application lock.
 
+The `widgets` target renders a named Quickshell overlay profile. Resolved
+geometry remains preset-owned, and reset restores the canonical minimal
+profile.
+
 ## Palette generation
 
 `generate` is read-only and defaults to Matugen. It runs Matugen or pywal with

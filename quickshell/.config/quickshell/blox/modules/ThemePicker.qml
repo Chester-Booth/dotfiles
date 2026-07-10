@@ -66,16 +66,13 @@ FloatingWindow {
     readonly property var ansiKeys: ["color0", "color1", "color2", "color3", "color4", "color5", "color6", "color7", "color8", "color9", "color10", "color11", "color12", "color13", "color14", "color15"]
     readonly property var overrideKeys: ["background", "foreground", "accent", "border"]
     readonly property var targetKeys: ["quickshell", "vicinae", "widgets", "gtk", "cursor", "wallpaper", "kitty", "hyprland", "hyprlock", "btop", "micro", "glow", "code", "cursor_editor", "stylus", "powerlevel10k", "sddm", "grub"]
-    readonly property var unavailableTargetKeys: ["widgets", "sddm", "grub"]
+    readonly property var unavailableTargetKeys: ["sddm", "grub"]
 
     function targetAvailable(key) {
         return unavailableTargetKeys.indexOf(key) < 0;
     }
 
     function targetLabel(key) {
-        if (key === "widgets")
-            return key + " · phase 9";
-
         if (key === "sddm" || key === "grub")
             return key + " · unavailable";
 
@@ -397,6 +394,14 @@ FloatingWindow {
     function setFont(key, value) {
         const next = cloneCandidate();
         next.fonts[key] = value;
+        markCandidate(next);
+    }
+
+    function setWidgetProfile(value) {
+        const next = cloneCandidate();
+        next.widgets = {
+            "profile": value
+        };
         markCandidate(next);
     }
 
@@ -1734,6 +1739,45 @@ FloatingWindow {
 
                                             }
 
+                                        }
+
+                                    }
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+
+                                            Label {
+                                                text: "Widget profile"
+                                                color: Theme.foreground
+                                                font.family: Theme.bodyFontFamily
+                                                font.pixelSize: 17
+                                                font.bold: true
+                                            }
+
+                                            Text {
+                                                text: "Named presets keep overlay geometry consistent; resolved values are intentionally not edited here."
+                                                color: Theme.muted
+                                                font.family: Theme.bodyFontFamily
+                                                wrapMode: Text.Wrap
+                                            }
+
+                                        }
+
+                                        BloxComboBox {
+                                            Layout.preferredWidth: 190
+                                            enabled: root.candidate && root.candidate.targets.widgets
+                                            model: ["minimal", "compact", "comfortable"]
+                                            currentIndex: {
+                                                root.candidateRevision;
+                                                const profile = root.candidate && root.candidate.widgets ? root.candidate.widgets.profile : "minimal";
+                                                return Math.max(0, model.indexOf(profile));
+                                            }
+                                            onActivated: (index, selectedText) => {
+                                                return root.setWidgetProfile(selectedText);
+                                            }
                                         }
 
                                     }

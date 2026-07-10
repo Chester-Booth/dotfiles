@@ -28,7 +28,7 @@ class CursorMetadataTests(unittest.TestCase):
         first = cursor_metadata(self.theme)
         second = cursor_metadata(copy.deepcopy(self.theme))
         self.assertEqual(first, second)
-        self.assertEqual([20, 24], first["sizes"])
+        self.assertEqual([22, 24], first["sizes"])
         self.assertEqual("right", first["handedness"])
         self.assertEqual("blox-generated", first["theme_name"])
         changed = copy.deepcopy(self.theme)
@@ -38,7 +38,7 @@ class CursorMetadataTests(unittest.TestCase):
     def test_installed_mode_has_no_build_inputs(self) -> None:
         self.theme["cursor"].update(mode="installed", base="Bibata-Modern-Ice")
         metadata = cursor_metadata(self.theme)
-        self.assertEqual({"schema_version": 1, "mode": "installed", "theme_name": "Bibata-Modern-Ice", "size": 20}, metadata)
+        self.assertEqual({"schema_version": 1, "mode": "installed", "theme_name": "Bibata-Modern-Ice", "size": 22}, metadata)
         files, _ = render_theme(self.theme)
         self.assertEqual(metadata, json.loads(files["cursor/metadata.json"]))
         self.assertIn("gtk-cursor-theme-name=Bibata-Modern-Ice", files["gtk/gtk-4.0/settings.ini"])

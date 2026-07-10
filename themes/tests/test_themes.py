@@ -299,7 +299,7 @@ class CliContractTests(unittest.TestCase):
         self.assertTrue(response["data"]["gtk"]["restart_required"])
         self.assertEqual("partial-user-css", response["data"]["gtk"]["libadwaita_support"])
         self.assertTrue(any("Libadwaita" in warning for warning in response["warnings"]))
-        self.assertEqual([20, 24], response["data"]["cursor"]["sizes"])
+        self.assertEqual([22, 24], response["data"]["cursor"]["sizes"])
         self.assertIn("wait", response["data"]["cursor"]["states"])
         self.assertTrue(response["data"]["cursor"]["restart_required_for_existing_processes"])
 

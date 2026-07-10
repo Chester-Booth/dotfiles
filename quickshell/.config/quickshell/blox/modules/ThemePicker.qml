@@ -54,6 +54,7 @@ FloatingWindow {
     property bool colourPickerOpen: false
     property string colourPickerKey: ""
     property string colourPickerTarget: ""
+    property var focusBeforeOverlay: null
     property real colourHue: 0
     property real colourSaturation: 0
     property real colourValue: 1
@@ -212,7 +213,52 @@ FloatingWindow {
         const overrideValues = target && candidate.overrides ? candidate.overrides[target] : null;
         const value = overrideValues && overrideValues[key] ? overrideValues[key] : candidate.colours[key];
         loadPickerColour(value);
+        rememberOverlayFocus();
         colourPickerOpen = true;
+        Qt.callLater(() => {
+            colourHexField.focusEditor(true);
+        });
+    }
+
+    function rememberOverlayFocus() {
+        focusBeforeOverlay = root.contentItem.QsWindow.window.activeFocusItem;
+    }
+
+    function restoreOverlayFocus() {
+        try {
+            if (focusBeforeOverlay && focusBeforeOverlay.visible && focusBeforeOverlay.enabled)
+                focusBeforeOverlay.forceActiveFocus();
+
+        } catch (error) {
+        }
+        focusBeforeOverlay = null;
+    }
+
+    function focusModal() {
+        if (modalKind === "new")
+            newNameField.focusEditor(true);
+        else if (modalKind === "duplicate")
+            duplicateNameField.focusEditor(true);
+        else if (modalKind === "rename")
+            renameNameField.focusEditor(true);
+        else
+            modalCancelButton.forceActiveFocus();
+    }
+
+    function showModal(kind) {
+        rememberOverlayFocus();
+        modalKind = kind;
+        Qt.callLater(focusModal);
+    }
+
+    function modalConfirmationEnabled() {
+        if (modalKind === "duplicate")
+            return duplicateId.trim().length > 0 && duplicateName.trim().length > 0;
+
+        if (modalKind === "rename")
+            return renameName.trim().length > 0;
+
+        return true;
     }
 
     function applyPickerColour(value) {
@@ -273,7 +319,7 @@ FloatingWindow {
             return "busy";
 
         if (dirty) {
-            modalKind = "close";
+            showModal("close");
             return "confirmation-required";
         }
         closePicker();
@@ -298,6 +344,7 @@ FloatingWindow {
         pendingSelection = "";
         pendingModalConfirmation = "";
         generateAfterLoad = false;
+        focusBeforeOverlay = null;
         hideTimer.restart();
     }
 
@@ -307,7 +354,7 @@ FloatingWindow {
 
         if (confirmDirty && dirty) {
             pendingSelection = id;
-            modalKind = "navigate";
+            showModal("navigate");
             return ;
         }
         runApi("show", ["show", id]);
@@ -424,7 +471,7 @@ FloatingWindow {
 
         if (dirty) {
             generateAfterLoad = false;
-            modalKind = "generate-current";
+            showModal("generate-current");
             return ;
         }
         loadActiveForGeneration();
@@ -435,7 +482,7 @@ FloatingWindow {
         openPicker();
         if (dirty) {
             generateAfterLoad = false;
-            modalKind = "generate-current";
+            showModal("generate-current");
             return "confirmation-required";
         }
         if (busy)
@@ -487,7 +534,7 @@ FloatingWindow {
         newThemeName = "Untitled Theme";
         newThemeId = duplicateIdForName(newThemeName);
         newWallpaper = "";
-        modalKind = "new";
+        showModal("new");
     }
 
     function startNewTheme(fromWallpaper) {
@@ -511,7 +558,7 @@ FloatingWindow {
         modalThemeName = themeName || (candidate ? candidate.name : sourceId);
         duplicateName = modalThemeName + " Copy";
         duplicateId = duplicateIdForName(duplicateName);
-        modalKind = "duplicate";
+        showModal("duplicate");
     }
 
     function openRename(themeId, themeName) {
@@ -522,7 +569,7 @@ FloatingWindow {
         modalThemeId = sourceId;
         modalThemeName = themeName || (candidate ? candidate.name : sourceId);
         renameName = modalThemeName;
-        modalKind = "rename";
+        showModal("rename");
     }
 
     function requestDelete(themeId, themeName) {
@@ -532,7 +579,7 @@ FloatingWindow {
 
         modalThemeId = sourceId;
         modalThemeName = themeName || (candidate ? candidate.name : sourceId);
-        modalKind = "delete";
+        showModal("delete");
     }
 
     function dismissModal() {
@@ -549,6 +596,7 @@ FloatingWindow {
         const kind = pendingModalConfirmation;
         pendingModalConfirmation = "";
         modalKind = "";
+        Qt.callLater(restoreOverlayFocus);
         if (!kind)
             return ;
 
@@ -890,17 +938,6 @@ FloatingWindow {
     }
 
     Shortcut {
-        enabled: root.open
-        sequence: "Escape"
-        onActivated: {
-            if (root.colourPickerOpen)
-                root.colourPickerOpen = false;
-            else
-                root.requestClose();
-        }
-    }
-
-    Shortcut {
         enabled: root.open && root.candidateValid
         sequence: "Ctrl+S"
         onActivated: root.saveCandidate("")
@@ -913,8 +950,20 @@ FloatingWindow {
     }
 
     Rectangle {
+        id: pickerRoot
+
         anchors.fill: parent
         color: "transparent"
+        focus: root.open
+        Keys.onEscapePressed: (event) => {
+            if (root.colourPickerOpen)
+                root.dismissColourPicker();
+            else if (root.modalKind.length > 0)
+                root.dismissModal();
+            else
+                root.requestClose();
+            event.accepted = true;
+        }
 
         Rectangle {
             anchors.fill: parent
@@ -1048,12 +1097,24 @@ FloatingWindow {
                                 spacing: 4
                                 model: root.filteredThemes()
 
+                                ScrollBar.vertical: ScrollBar {
+                                    policy: themeList.contentHeight > themeList.height ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+                                    width: 8
+
+                                    contentItem: Rectangle {
+                                        implicitWidth: 6
+                                        radius: 3
+                                        color: Theme.withAlpha(Theme.muted, 0.68)
+                                    }
+
+                                }
+
                                 delegate: Rectangle {
                                     id: themeDelegate
 
                                     required property var modelData
 
-                                    width: themeList.width
+                                    width: themeList.width - (themeList.contentHeight > themeList.height ? 10 : 0)
                                     height: 62
                                     radius: 6
                                     color: modelData.id === root.selectedId ? Theme.surfaceAlt : mouse.containsMouse ? Theme.withAlpha(Theme.surfaceAlt, 0.62) : "transparent"
@@ -1218,6 +1279,8 @@ FloatingWindow {
                         border.color: Theme.border
 
                         ScrollView {
+                            id: editorScroll
+
                             anchors.fill: parent
                             anchors.margins: 14
                             clip: true
@@ -1307,9 +1370,9 @@ FloatingWindow {
                                         BloxComboBox {
                                             model: ["cover", "contain", "tile"]
                                             currentIndex: root.candidate && root.candidate.wallpaper ? model.indexOf(root.candidate.wallpaper.fit) : 0
-                                            onActivated: {
+                                            onActivated: (index, selectedText) => {
                                                 const next = root.cloneCandidate();
-                                                next.wallpaper.fit = currentText;
+                                                next.wallpaper.fit = selectedText;
                                                 root.markCandidate(next);
                                             }
                                         }
@@ -1332,6 +1395,8 @@ FloatingWindow {
                                             model: root.semanticKeys
 
                                             Rectangle {
+                                                id: semanticSwatch
+
                                                 required property string modelData
 
                                                 width: 112
@@ -1339,8 +1404,13 @@ FloatingWindow {
                                                 radius: 6
                                                 color: root.candidate && root.candidate.colours ? root.candidate.colours[modelData] : "transparent"
                                                 border.color: Theme.withAlpha(Theme.foreground, 0.45)
+                                                ToolTip.visible: semanticHover.hovered && semanticLabel.truncated
+                                                ToolTip.text: modelData.replace(/_/g, " ")
+                                                ToolTip.delay: 350
 
                                                 HoverHandler {
+                                                    id: semanticHover
+
                                                     cursorShape: Qt.PointingHandCursor
                                                 }
 
@@ -1349,6 +1419,8 @@ FloatingWindow {
                                                 }
 
                                                 Text {
+                                                    id: semanticLabel
+
                                                     anchors.left: parent.left
                                                     anchors.right: parent.right
                                                     anchors.bottom: parent.bottom
@@ -1357,7 +1429,8 @@ FloatingWindow {
                                                     color: root.swatchText(parent.color)
                                                     font.family: Theme.fontFamily
                                                     font.pixelSize: 9
-                                                    elide: Text.ElideRight
+                                                    wrapMode: Text.WordWrap
+                                                    maximumLineCount: 2
                                                 }
 
                                             }
@@ -1765,6 +1838,22 @@ FloatingWindow {
 
                             }
 
+                            ScrollBar.vertical: ScrollBar {
+                                policy: ScrollBar.AlwaysOn
+                                width: 10
+
+                                contentItem: Rectangle {
+                                    implicitWidth: 7
+                                    radius: 4
+                                    color: Theme.withAlpha(Theme.muted, 0.72)
+                                }
+
+                            }
+
+                            ScrollBar.horizontal: ScrollBar {
+                                policy: ScrollBar.AlwaysOff
+                            }
+
                         }
 
                     }
@@ -1849,11 +1938,18 @@ FloatingWindow {
 
             }
 
-            Rectangle {
+            FocusScope {
+                id: modalFocusScope
+
                 anchors.fill: parent
                 visible: root.modalKind.length > 0
-                color: Theme.withAlpha("#000000", 0.68)
+                focus: visible
                 z: 50
+
+                Rectangle {
+                    anchors.fill: parent
+                    color: Theme.withAlpha("#000000", 0.68)
+                }
 
                 MouseArea {
                     id: modalInputBlocker
@@ -1909,6 +2005,8 @@ FloatingWindow {
                         }
 
                         BloxTextField {
+                            id: newNameField
+
                             visible: root.modalKind === "new"
                             Layout.fillWidth: true
                             placeholderText: "Display name"
@@ -1916,6 +2014,11 @@ FloatingWindow {
                             onTextChanged: {
                                 root.newThemeName = text;
                                 root.newThemeId = root.duplicateIdForName(text);
+                            }
+                            onAccepted: {
+                                if (root.newThemeId.trim().length > 0 && root.newThemeName.trim().length > 0)
+                                    root.startNewTheme(false);
+
                             }
                         }
 
@@ -1938,12 +2041,16 @@ FloatingWindow {
                             BloxComboBox {
                                 model: ["matugen", "pywal"]
                                 currentIndex: root.generatorBackend === "matugen" ? 0 : 1
-                                onActivated: root.generatorBackend = currentText
+                                onActivated: (index, selectedText) => {
+                                    root.generatorBackend = selectedText;
+                                }
                             }
 
                         }
 
                         BloxTextField {
+                            id: duplicateNameField
+
                             visible: root.modalKind === "duplicate"
                             Layout.fillWidth: true
                             placeholderText: "Display name"
@@ -1952,14 +2059,26 @@ FloatingWindow {
                                 root.duplicateName = text;
                                 root.duplicateId = root.duplicateIdForName(text);
                             }
+                            onAccepted: {
+                                if (root.modalConfirmationEnabled())
+                                    root.confirmModal();
+
+                            }
                         }
 
                         BloxTextField {
+                            id: renameNameField
+
                             visible: root.modalKind === "rename"
                             Layout.fillWidth: true
                             placeholderText: "Display name"
                             text: root.renameName
                             onTextChanged: root.renameName = text
+                            onAccepted: {
+                                if (root.modalConfirmationEnabled())
+                                    root.confirmModal();
+
+                            }
                         }
 
                         RowLayout {
@@ -1983,6 +2102,8 @@ FloatingWindow {
                             }
 
                             BloxButton {
+                                id: modalCancelButton
+
                                 text: "Cancel"
                                 onClicked: root.dismissModal()
                             }
@@ -2005,7 +2126,7 @@ FloatingWindow {
                                 visible: root.modalKind !== "new"
                                 text: root.modalKind === "delete" ? "Delete" : root.modalKind === "duplicate" ? "Duplicate" : root.modalKind === "rename" ? "Rename" : "Discard"
                                 destructive: root.modalKind === "delete" || root.modalKind === "close" || root.modalKind === "navigate" || root.modalKind === "generate-current"
-                                enabled: root.modalKind !== "duplicate" || root.duplicateId.trim().length > 0 && root.duplicateName.trim().length > 0
+                                enabled: root.modalConfirmationEnabled()
                                 onClicked: root.confirmModal()
                             }
 
@@ -2017,11 +2138,18 @@ FloatingWindow {
 
             }
 
-            Rectangle {
+            FocusScope {
+                id: colourFocusScope
+
                 anchors.fill: parent
                 visible: root.colourPickerOpen
-                color: Theme.withAlpha("#000000", 0.68)
+                focus: visible
                 z: 60
+
+                Rectangle {
+                    anchors.fill: parent
+                    color: Theme.withAlpha("#000000", 0.68)
+                }
 
                 MouseArea {
                     id: colourInputBlocker
@@ -2083,6 +2211,8 @@ FloatingWindow {
                             }
 
                             BloxButton {
+                                id: colourDoneButton
+
                                 text: "Done"
                                 Layout.alignment: Qt.AlignRight | Qt.AlignTop
                                 onClicked: root.dismissColourPicker()
@@ -2338,6 +2468,8 @@ FloatingWindow {
                                 }
 
                                 BloxTextField {
+                                    id: colourHexField
+
                                     Layout.fillWidth: true
                                     text: root.colourHex
                                     onEditingFinished: {

@@ -9,6 +9,14 @@ Rectangle {
     readonly property bool hovered: hover.hovered
 
     signal editingFinished()
+    signal accepted()
+
+    function focusEditor(selectAllText) {
+        editor.forceActiveFocus();
+        if (selectAllText)
+            editor.selectAll();
+
+    }
 
     implicitHeight: 38
     implicitWidth: 180
@@ -39,6 +47,11 @@ Rectangle {
 
         }
         onEditingFinished: root.editingFinished()
+        Keys.onReturnPressed: (event) => {
+            root.editingFinished();
+            root.accepted();
+            event.accepted = true;
+        }
     }
 
     Text {

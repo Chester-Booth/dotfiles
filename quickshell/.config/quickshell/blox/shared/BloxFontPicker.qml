@@ -7,6 +7,7 @@ Rectangle {
     property string value: ""
     property var families: []
     property string query: ""
+    property bool suppressEditingFinished: false
 
     signal accepted(string family)
 
@@ -19,10 +20,58 @@ Rectangle {
     }
 
     function choose(family) {
+        suppressEditingFinished = true;
         editor.text = family;
         query = family;
         accepted(family);
         popup.close();
+        editor.forceActiveFocus();
+        Qt.callLater(() => {
+            suppressEditingFinished = false;
+        });
+    }
+
+    function resetHighlight() {
+        const matches = filteredFamilies();
+        const selected = matches.indexOf(value);
+        fontList.currentIndex = selected >= 0 ? selected : (matches.length > 0 ? 0 : -1);
+        if (fontList.currentIndex >= 0)
+            fontList.positionViewAtIndex(fontList.currentIndex, ListView.Contain);
+
+    }
+
+    function moveHighlight(delta, focusList) {
+        if (!popup.visible)
+            popup.open();
+
+        const count = filteredFamilies().length;
+        if (count === 0)
+            return ;
+
+        const start = fontList.currentIndex >= 0 ? fontList.currentIndex : 0;
+        fontList.currentIndex = Math.max(0, Math.min(count - 1, start + delta));
+        fontList.positionViewAtIndex(fontList.currentIndex, ListView.Contain);
+        if (focusList) {
+            suppressEditingFinished = true;
+            fontList.forceActiveFocus();
+            Qt.callLater(() => {
+                suppressEditingFinished = false;
+            });
+        }
+    }
+
+    function chooseHighlighted() {
+        const matches = filteredFamilies();
+        if (fontList.currentIndex >= 0 && fontList.currentIndex < matches.length)
+            choose(matches[fontList.currentIndex]);
+
+    }
+
+    function dismissList() {
+        popup.close();
+        editor.text = value;
+        query = "";
+        editor.forceActiveFocus();
     }
 
     function openList() {
@@ -77,14 +126,31 @@ Rectangle {
             if (!popup.visible)
                 popup.open();
 
+            Qt.callLater(() => {
+                fontList.currentIndex = root.filteredFamilies().length > 0 ? 0 : -1;
+            });
         }
         onEditingFinished: {
             const family = text.trim();
-            if (family.length > 0)
+            if (!root.suppressEditingFinished && !popup.visible && family.length > 0 && family !== root.value)
                 root.accepted(family);
 
         }
-        Keys.onDownPressed: popup.open()
+        Keys.onPressed: (event) => {
+            if (event.key === Qt.Key_Down) {
+                root.moveHighlight(1, true);
+                event.accepted = true;
+            } else if (event.key === Qt.Key_Up) {
+                root.moveHighlight(-1, true);
+                event.accepted = true;
+            } else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && popup.visible) {
+                root.chooseHighlighted();
+                event.accepted = true;
+            } else if (event.key === Qt.Key_Escape && popup.visible) {
+                root.dismissList();
+                event.accepted = true;
+            }
+        }
     }
 
     Text {
@@ -138,20 +204,38 @@ Rectangle {
         height: Math.min(360, fontList.contentHeight + 8, opensBelow ? availableBelow : availableAbove)
         padding: 4
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        onOpened: Qt.callLater(root.resetHighlight)
 
         contentItem: ListView {
             id: fontList
 
             clip: true
             model: popup.visible ? root.filteredFamilies() : []
+            currentIndex: -1
+            Keys.onPressed: (event) => {
+                if (event.key === Qt.Key_Down) {
+                    root.moveHighlight(1, false);
+                    event.accepted = true;
+                } else if (event.key === Qt.Key_Up) {
+                    root.moveHighlight(-1, false);
+                    event.accepted = true;
+                } else if (event.key === Qt.Key_Space || event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                    root.chooseHighlighted();
+                    event.accepted = true;
+                } else if (event.key === Qt.Key_Escape) {
+                    root.dismissList();
+                    event.accepted = true;
+                }
+            }
 
             delegate: Rectangle {
                 required property string modelData
+                required property int index
 
                 width: fontList.width
                 height: 42
                 radius: 7
-                color: fontHover.hovered || modelData === root.value ? Theme.surfaceAlt : "transparent"
+                color: fontHover.hovered || index === fontList.currentIndex || modelData === root.value ? Theme.surfaceAlt : "transparent"
 
                 Text {
                     anchors.left: parent.left
@@ -174,8 +258,10 @@ Rectangle {
                 MouseArea {
                     anchors.fill: parent
                     acceptedButtons: Qt.LeftButton
+                    hoverEnabled: true
                     preventStealing: true
                     cursorShape: Qt.PointingHandCursor
+                    onEntered: fontList.currentIndex = index
                     onClicked: root.choose(modelData)
                 }
 

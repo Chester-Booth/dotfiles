@@ -9,7 +9,32 @@ Rectangle {
     readonly property string currentText: currentIndex >= 0 && currentIndex < model.length ? String(model[currentIndex]) : ""
     readonly property bool hovered: hover.hovered
 
-    signal activated(int index)
+    signal activated(int index, string text)
+
+    function choose(index) {
+        if (index < 0 || index >= model.length)
+            return ;
+
+        activated(index, String(model[index]));
+        popup.close();
+        forceActiveFocus();
+    }
+
+    function openPopup() {
+        if (!enabled || model.length === 0)
+            return ;
+
+        popup.open();
+    }
+
+    function moveHighlight(delta) {
+        if (!popup.visible)
+            openPopup();
+
+        const start = list.currentIndex >= 0 ? list.currentIndex : Math.max(0, currentIndex);
+        list.currentIndex = Math.max(0, Math.min(model.length - 1, start + delta));
+        list.positionViewAtIndex(list.currentIndex, ListView.Contain);
+    }
 
     implicitHeight: 38
     implicitWidth: 132
@@ -18,6 +43,18 @@ Rectangle {
     border.color: activeFocus || popup.visible ? Theme.blue : Theme.border
     border.width: activeFocus || popup.visible ? 2 : 1
     activeFocusOnTab: enabled
+    Keys.onPressed: (event) => {
+        if (event.key === Qt.Key_Space || event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+            root.openPopup();
+            event.accepted = true;
+        } else if (event.key === Qt.Key_Down) {
+            root.moveHighlight(1);
+            event.accepted = true;
+        } else if (event.key === Qt.Key_Up) {
+            root.moveHighlight(-1);
+            event.accepted = true;
+        }
+    }
     onVisibleChanged: {
         if (!visible)
             popup.close();
@@ -63,7 +100,7 @@ Rectangle {
         acceptedButtons: Qt.LeftButton
         preventStealing: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: popup.open()
+        onClicked: root.openPopup()
     }
 
     Popup {
@@ -80,12 +117,34 @@ Rectangle {
         height: Math.min(260, list.contentHeight + 8)
         padding: 4
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        onOpened: {
+            list.currentIndex = Math.max(0, Math.min(root.model.length - 1, root.currentIndex));
+            list.positionViewAtIndex(list.currentIndex, ListView.Contain);
+            list.forceActiveFocus();
+        }
+        onClosed: root.forceActiveFocus()
 
         contentItem: ListView {
             id: list
 
             clip: true
             model: root.model
+            currentIndex: -1
+            Keys.onPressed: (event) => {
+                if (event.key === Qt.Key_Down) {
+                    root.moveHighlight(1);
+                    event.accepted = true;
+                } else if (event.key === Qt.Key_Up) {
+                    root.moveHighlight(-1);
+                    event.accepted = true;
+                } else if (event.key === Qt.Key_Space || event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                    root.choose(currentIndex);
+                    event.accepted = true;
+                } else if (event.key === Qt.Key_Escape) {
+                    popup.close();
+                    event.accepted = true;
+                }
+            }
 
             delegate: Rectangle {
                 required property var modelData
@@ -94,7 +153,7 @@ Rectangle {
                 width: list.width
                 height: 36
                 radius: 7
-                color: optionHover.hovered || index === root.currentIndex ? Theme.surfaceAlt : "transparent"
+                color: optionHover.hovered || index === list.currentIndex || index === root.currentIndex ? Theme.surfaceAlt : "transparent"
 
                 Text {
                     anchors.left: parent.left
@@ -117,13 +176,11 @@ Rectangle {
                 MouseArea {
                     anchors.fill: parent
                     acceptedButtons: Qt.LeftButton
+                    hoverEnabled: true
                     preventStealing: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        root.currentIndex = index;
-                        root.activated(index);
-                        popup.close();
-                    }
+                    onEntered: list.currentIndex = index
+                    onClicked: root.choose(index)
                 }
 
             }

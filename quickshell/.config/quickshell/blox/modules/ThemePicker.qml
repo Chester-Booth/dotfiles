@@ -478,6 +478,46 @@ FloatingWindow {
         markCandidate(next);
     }
 
+    function shellDefaults() {
+        return {
+            "bar": {
+                "position": "left"
+            },
+            "osd": {
+                "position": "top-left",
+                "offset_x": 0,
+                "offset_y": 0
+            },
+            "notifications": {
+                "position": "bottom-right",
+                "offset_x": 0,
+                "offset_y": 0
+            }
+        };
+    }
+
+    function shellValue(section, key) {
+        const shell = candidate && candidate.shell ? candidate.shell : shellDefaults();
+        return shell[section][key];
+    }
+
+    function setShellValue(section, key, value) {
+        if (!candidate)
+            return ;
+
+        const next = cloneCandidate();
+        if (!next.shell)
+            next.shell = shellDefaults();
+
+        next.shell[section][key] = value;
+        markCandidate(next);
+        Theme.loadShell(next.shell);
+        if (section === "osd")
+            Theme.osdPositionPreviewRequested();
+        else if (section === "notifications")
+            Theme.notificationPositionPreviewRequested();
+    }
+
     function openWallpaperDialog(target) {
         wallpaperDialogTarget = target || "overview";
         wallpaperDialog.open();
@@ -1639,6 +1679,64 @@ FloatingWindow {
 
                                     }
 
+                                    Label {
+                                        text: "Bar / OSD / Notifications"
+                                        color: Theme.foreground
+                                        font.family: Theme.bodyFontFamily
+                                        font.pixelSize: 17
+                                        font.bold: true
+                                    }
+
+                                    GridLayout {
+                                        Layout.fillWidth: true
+                                        columns: 2
+                                        columnSpacing: 12
+                                        rowSpacing: 8
+
+                                        Label {
+                                            text: "Bar position"
+                                            color: Theme.muted
+                                        }
+
+                                        BloxComboBox {
+                                            Layout.fillWidth: true
+                                            model: ["left", "right", "top", "bottom"]
+                                            currentIndex: model.indexOf(root.shellValue("bar", "position"))
+                                            onActivated: (index, value) => {
+                                                return root.setShellValue("bar", "position", value);
+                                            }
+                                        }
+
+                                        Label {
+                                            text: "OSD position"
+                                            color: Theme.muted
+                                        }
+
+                                        BloxComboBox {
+                                            Layout.fillWidth: true
+                                            model: ["top-left", "top-right", "bottom-left", "bottom-right", "centre-top", "centre-bottom"]
+                                            currentIndex: model.indexOf(root.shellValue("osd", "position"))
+                                            onActivated: (index, value) => {
+                                                return root.setShellValue("osd", "position", value);
+                                            }
+                                        }
+
+                                        Label {
+                                            text: "Notification position"
+                                            color: Theme.muted
+                                        }
+
+                                        BloxComboBox {
+                                            Layout.fillWidth: true
+                                            model: ["top-left", "top-right", "bottom-left", "bottom-right", "centre-top", "centre-bottom"]
+                                            currentIndex: model.indexOf(root.shellValue("notifications", "position"))
+                                            onActivated: (index, value) => {
+                                                return root.setShellValue("notifications", "position", value);
+                                            }
+                                        }
+
+                                    }
+
                                 }
 
                                 ColumnLayout {
@@ -1940,6 +2038,74 @@ FloatingWindow {
                                             onActivated: (index, selectedText) => {
                                                 return root.setWidgetProfile(selectedText);
                                             }
+                                        }
+
+                                    }
+
+                                    Label {
+                                        text: "Bar / OSD / Notifications"
+                                        color: Theme.foreground
+                                        font.family: Theme.bodyFontFamily
+                                        font.pixelSize: 17
+                                        font.bold: true
+                                    }
+
+                                    GridLayout {
+                                        Layout.fillWidth: true
+                                        columns: 4
+                                        columnSpacing: 8
+                                        rowSpacing: 8
+
+                                        Label {
+                                            text: "OSD"
+                                            color: Theme.muted
+                                        }
+
+                                        BloxComboBox {
+                                            Layout.fillWidth: true
+                                            model: ["top-left", "top-right", "bottom-left", "bottom-right", "centre-top", "centre-bottom"]
+                                            currentIndex: model.indexOf(root.shellValue("osd", "position"))
+                                            onActivated: (index, value) => {
+                                                return root.setShellValue("osd", "position", value);
+                                            }
+                                        }
+
+                                        BloxTextField {
+                                            placeholderText: "X offset"
+                                            text: String(root.shellValue("osd", "offset_x"))
+                                            onEditingFinished: root.setShellValue("osd", "offset_x", Math.max(-1000, Math.min(1000, parseInt(text) || 0)))
+                                        }
+
+                                        BloxTextField {
+                                            placeholderText: "Y offset"
+                                            text: String(root.shellValue("osd", "offset_y"))
+                                            onEditingFinished: root.setShellValue("osd", "offset_y", Math.max(-1000, Math.min(1000, parseInt(text) || 0)))
+                                        }
+
+                                        Label {
+                                            text: "Notifications"
+                                            color: Theme.muted
+                                        }
+
+                                        BloxComboBox {
+                                            Layout.fillWidth: true
+                                            model: ["top-left", "top-right", "bottom-left", "bottom-right", "centre-top", "centre-bottom"]
+                                            currentIndex: model.indexOf(root.shellValue("notifications", "position"))
+                                            onActivated: (index, value) => {
+                                                return root.setShellValue("notifications", "position", value);
+                                            }
+                                        }
+
+                                        BloxTextField {
+                                            placeholderText: "X offset"
+                                            text: String(root.shellValue("notifications", "offset_x"))
+                                            onEditingFinished: root.setShellValue("notifications", "offset_x", Math.max(-1000, Math.min(1000, parseInt(text) || 0)))
+                                        }
+
+                                        BloxTextField {
+                                            placeholderText: "Y offset"
+                                            text: String(root.shellValue("notifications", "offset_y"))
+                                            onEditingFinished: root.setShellValue("notifications", "offset_y", Math.max(-1000, Math.min(1000, parseInt(text) || 0)))
                                         }
 
                                     }

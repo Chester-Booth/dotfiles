@@ -6,6 +6,11 @@ Item {
     id: root
 
     property var toasts: []
+    property string position: "bottom-right"
+    readonly property bool entersFromLeft: position === "top-left" || position === "bottom-left"
+    readonly property bool entersVertically: position === "centre-top" || position === "centre-bottom"
+    readonly property real entranceX: entersVertically ? 0 : entersFromLeft ? -dismissTravel : dismissTravel
+    readonly property real entranceY: !entersVertically ? 0 : position === "centre-top" ? -120 : 120
     readonly property int toastWidth: 330
     readonly property int sidePadding: 12
     readonly property int visibleWidth: toastWidth + sidePadding * 2
@@ -78,11 +83,13 @@ Item {
 
                     closeNotificationOnDismiss = closeNotification;
                     dismissing = true;
-                    x = root.dismissTravel;
+                    x = root.entranceX;
+                    y = root.entranceY;
                     dismissTimer.restart();
                 }
 
-                x: root.dismissTravel
+                x: root.entranceX
+                y: root.entranceY
                 width: root.toastWidth
                 height: toastBody.implicitHeight + 18
                 opacity: dismissing ? 0 : 1
@@ -93,6 +100,7 @@ Item {
                 Component.onCompleted: {
                     animateHorizontalMovement = root.takeEntranceAnimation(modelData.toastId);
                     x = 0;
+                    y = 0;
                     if (!animateHorizontalMovement)
                         Qt.callLater(() => {
                         return animateHorizontalMovement = true;
@@ -239,6 +247,16 @@ Item {
                 }
 
                 Behavior on x {
+                    enabled: toast.animateHorizontalMovement && !toastMouse.drag.active
+
+                    NumberAnimation {
+                        duration: 180
+                        easing.type: Easing.OutCubic
+                    }
+
+                }
+
+                Behavior on y {
                     enabled: toast.animateHorizontalMovement && !toastMouse.drag.active
 
                     NumberAnimation {

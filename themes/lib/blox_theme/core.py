@@ -297,6 +297,11 @@ def target_colours(theme: dict[str, Any], target: str) -> dict[str, str]:
 
 def render_quickshell(theme: dict[str, Any], ansi: dict[str, str]) -> str:
     colours = target_colours(theme, "quickshell")
+    shell = theme.get("shell", {
+        "bar": {"position": "left"},
+        "osd": {"position": "top-left", "offset_x": 0, "offset_y": 0},
+        "notifications": {"position": "bottom-right", "offset_x": 0, "offset_y": 0},
+    })
     output = {
         "schema_version": 1,
         "id": theme["id"],
@@ -305,6 +310,7 @@ def render_quickshell(theme: dict[str, Any], ansi: dict[str, str]) -> str:
         "compatibility": {"red": colours["danger"], "green": colours["success"], "yellow": colours["warning"], "blue": colours["info"], "mauve": colours["mauve"], "teal": colours["teal"]},
         "fonts": {"ui": theme["fonts"]["ui"], "mono": theme["fonts"]["mono"], "panel": theme["fonts"]["panel"]},
         "ansi": ansi,
+        "shell": shell,
     }
     return canonical_json(output)
 

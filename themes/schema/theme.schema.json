@@ -10,6 +10,18 @@
     "id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "minLength": 1, "maxLength": 64},
     "name": {"type": "string", "minLength": 1, "maxLength": 80},
     "variant": {"enum": ["dark", "light"]},
+    "shell": {
+      "type": "object", "additionalProperties": false,
+      "required": ["bar", "osd", "notifications"],
+      "properties": {
+        "bar": {
+          "type": "object", "additionalProperties": false, "required": ["position"],
+          "properties": {"position": {"enum": ["left", "right", "top", "bottom"]}}
+        },
+        "osd": {"$ref": "#/$defs/position"},
+        "notifications": {"$ref": "#/$defs/position"}
+      }
+    },
     "widgets": {
       "type": "object", "additionalProperties": false, "required": ["profile"],
       "properties": {"profile": {"enum": ["minimal", "compact", "comfortable"]}}
@@ -110,6 +122,14 @@
     }
   },
   "$defs": {
+    "position": {
+      "type": "object", "additionalProperties": false, "required": ["position", "offset_x", "offset_y"],
+      "properties": {
+        "position": {"enum": ["top-left", "top-right", "bottom-left", "bottom-right", "centre-top", "centre-bottom"]},
+        "offset_x": {"type": "integer", "minimum": -1000, "maximum": 1000},
+        "offset_y": {"type": "integer", "minimum": -1000, "maximum": 1000}
+      }
+    },
     "colour": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"},
     "ansi": {
       "type": "object", "additionalProperties": false,

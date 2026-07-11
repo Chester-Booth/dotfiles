@@ -171,6 +171,10 @@ class RendererTests(unittest.TestCase):
         self.assertIn("sideBarSectionHeader.background", json.loads(files["code/settings.json"])["workbench.colorCustomizations"])
         self.assertIn("--background-primary:", files["obsidian/blox-theme.css"])
         self.assertIn("based on the Simple theme", files["obsidian/blox-theme.css"])
+        shell = json.loads(files["quickshell/theme.json"])["shell"]
+        self.assertEqual("left", shell["bar"]["position"])
+        self.assertEqual("top-left", shell["osd"]["position"])
+        self.assertEqual("bottom-right", shell["notifications"]["position"])
         self.assertEqual(json.loads(files["code/settings.json"]), json.loads(files["cursor-editor/settings.json"]))
         self.assertIn("@-moz-document", files["stylus/blox-system.user.css"])
         self.assertIn('color-link default "#cdd6f4"', files["micro/blox-theme.micro"])

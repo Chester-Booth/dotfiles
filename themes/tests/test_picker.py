@@ -234,6 +234,9 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertNotIn('text: "Target impact"', simple)
         self.assertNotIn('text: "Dependency and compatibility notes"', simple)
         self.assertIn("editorScroll.contentY - delta * 4", qml)
+        self.assertIn('text: "Bar / OSD / Notifications"', qml)
+        self.assertIn('Theme.osdPositionPreviewRequested()', qml)
+        self.assertIn('Theme.notificationPositionPreviewRequested()', qml)
 
     def test_custom_controls_are_registered_and_font_rows_preview_their_family(self) -> None:
         shared = REPOSITORY / "quickshell/.config/quickshell/blox/shared"

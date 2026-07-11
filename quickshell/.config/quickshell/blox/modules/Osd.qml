@@ -178,6 +178,14 @@ Scope {
         showFor(durationMs);
     }
 
+    Connections {
+        function onOsdPositionPreviewRequested() {
+            root.showNotice("OSD position", "Previewing the selected position", "󰍹", "info", "1400");
+        }
+
+        target: Theme
+    }
+
     IpcHandler {
         function volume(percent: string, muted: string) : string {
             root.show("volume", percent, muted);
@@ -351,6 +359,10 @@ Scope {
 
         PanelWindow {
             required property var modelData
+            readonly property bool onLeft: Theme.osdPosition === "top-left" || Theme.osdPosition === "bottom-left"
+            readonly property bool onRight: Theme.osdPosition === "top-right" || Theme.osdPosition === "bottom-right"
+            readonly property bool onTop: Theme.osdPosition.indexOf("top") >= 0
+            readonly property bool onBottom: Theme.osdPosition.indexOf("bottom") >= 0
 
             screen: modelData
             visible: root.rendered
@@ -361,13 +373,15 @@ Scope {
             color: "transparent"
 
             anchors {
-                left: true
-                top: true
+                left: onLeft || !onLeft && !onRight
+                right: onRight || !onLeft && !onRight
+                top: onTop
+                bottom: onBottom
             }
 
             Rectangle {
-                x: 28
-                y: root.showing ? 28 : -height - 6
+                x: !parent.onLeft && !parent.onRight ? Math.round((parent.width - width) / 2) + Theme.osdOffsetX : root.showing ? 28 + Theme.osdOffsetX : parent.onLeft ? -width - 6 : parent.width + 6
+                y: root.showing || parent.onLeft || parent.onRight ? 28 + Theme.osdOffsetY : parent.onTop ? -height - 6 : parent.height + 6
                 width: 292
                 height: 72
                 radius: 8
@@ -494,6 +508,14 @@ Scope {
                 }
 
                 Behavior on y {
+                    NumberAnimation {
+                        duration: 190
+                        easing.type: Easing.OutCubic
+                    }
+
+                }
+
+                Behavior on x {
                     NumberAnimation {
                         duration: 190
                         easing.type: Easing.OutCubic

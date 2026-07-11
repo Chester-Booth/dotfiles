@@ -38,12 +38,22 @@ Singleton {
     property int widgetPadding: 20
     property int widgetRadius: 0
     property int widgetFontSize: 14
+    property string barPosition: "left"
+    property string osdPosition: "top-left"
+    property int osdOffsetX: 0
+    property int osdOffsetY: 0
+    property string notificationPosition: "bottom-right"
+    property int notificationOffsetX: 0
+    property int notificationOffsetY: 0
     readonly property string stateRoot: {
         const configured = Quickshell.env("XDG_STATE_HOME") || "";
         return configured.length > 0 ? configured : Quickshell.env("HOME") + "/.local/state";
     }
     readonly property string themePath: stateRoot + "/blox-theme/current/quickshell/theme.json"
     readonly property string widgetPath: stateRoot + "/blox-theme/current/widgets/profile.json"
+
+    signal osdPositionPreviewRequested()
+    signal notificationPositionPreviewRequested()
 
     function withAlpha(colour, opacity) : color {
         return Qt.rgba(colour.r, colour.g, colour.b, opacity);
@@ -72,6 +82,13 @@ Singleton {
         fontFamily = "MartianMono Nerd Font Propo";
         monoFontFamily = "MartianMono Nerd Font Mono";
         bodyFontFamily = "Google Sans";
+        barPosition = "left";
+        osdPosition = "top-left";
+        osdOffsetX = 0;
+        osdOffsetY = 0;
+        notificationPosition = "bottom-right";
+        notificationOffsetX = 0;
+        notificationOffsetY = 0;
         return themeId;
     }
 
@@ -130,6 +147,7 @@ Singleton {
             fontFamily = data.fonts.panel;
             monoFontFamily = data.fonts.mono;
             bodyFontFamily = data.fonts.ui;
+            loadShell(data.shell);
             if (data.widgets)
                 loadWidgetSource(data.widgets.profile);
 
@@ -179,6 +197,23 @@ Singleton {
         }));
     }
 
+    function loadShell(shell) : bool {
+        const data = shell || {
+        };
+        const osd = data.osd || {
+        };
+        const notifications = data.notifications || {
+        };
+        barPosition = data.bar && data.bar.position ? data.bar.position : "left";
+        osdPosition = osd.position || "top-left";
+        osdOffsetX = osd.offset_x || 0;
+        osdOffsetY = osd.offset_y || 0;
+        notificationPosition = notifications.position || "bottom-right";
+        notificationOffsetX = notifications.offset_x || 0;
+        notificationOffsetY = notifications.offset_y || 0;
+        return true;
+    }
+
     function loadActiveIdentity(raw) : bool {
         try {
             const data = JSON.parse(raw);
@@ -220,6 +255,7 @@ Singleton {
             fontFamily = data.fonts.panel;
             monoFontFamily = data.fonts.mono;
             bodyFontFamily = data.fonts.ui;
+            loadShell(data.shell);
             loadWidgetSource(data.widgets ? data.widgets.profile : "minimal");
             return true;
         } catch (error) {

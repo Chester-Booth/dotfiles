@@ -64,6 +64,18 @@ Scope {
     property alias touchpad: barStatus.touchpad
     property alias privacy: barStatus.privacy
     property alias caffeine: barStatus.caffeine
+    property bool notificationPositionPreviewVisible: false
+    readonly property var notificationPositionPreview: ({
+        "toastId": "position-preview",
+        "timeout": 1800,
+        "notification": {
+            "summary": "Notification position",
+            "body": "Previewing the selected position",
+            "appName": "Theme Picker",
+            "urgency": 1,
+            "image": ""
+        }
+    })
 
     function togglePanel(panel, centerY) {
         openHoverPanel(panel, centerY);
@@ -356,6 +368,26 @@ Scope {
     Component.onCompleted: {
         diagLog("component.completed", "bar loaded");
         syncActiveScreenToFocus();
+    }
+
+    Connections {
+        function onNotificationPositionPreviewRequested() {
+            root.notificationPositionPreviewVisible = false;
+            Qt.callLater(() => {
+                root.notificationPositionPreviewVisible = true;
+                notificationPreviewTimer.restart();
+            });
+        }
+
+        target: Theme
+    }
+
+    Timer {
+        id: notificationPreviewTimer
+
+        interval: 1800
+        repeat: false
+        onTriggered: root.notificationPositionPreviewVisible = false
     }
 
     UiState {
@@ -895,27 +927,41 @@ Scope {
             PanelWindow {
                 id: notificationToastWindow
 
+                readonly property bool onLeft: Theme.notificationPosition === "top-left" || Theme.notificationPosition === "bottom-left"
+                readonly property bool onRight: Theme.notificationPosition === "top-right" || Theme.notificationPosition === "bottom-right"
+                readonly property bool onTop: Theme.notificationPosition.indexOf("top") >= 0
+                readonly property bool onBottom: Theme.notificationPosition.indexOf("bottom") >= 0
+
                 screen: modelData
                 implicitWidth: notificationToasts.width
                 implicitHeight: Math.max(1, notificationToasts.implicitHeight + 12)
                 exclusiveZone: 0
                 focusable: false
-                visible: root.activeScreen === modelData && root.notificationToastsEnabled && root.toastItems.length > 0 && !root.notificationDnd
+                visible: root.activeScreen === modelData && (root.notificationPositionPreviewVisible || root.notificationToastsEnabled && root.toastItems.length > 0 && !root.notificationDnd)
                 color: "transparent"
 
                 anchors {
-                    right: true
-                    bottom: true
+                    left: onLeft || !onLeft && !onRight
+                    right: onRight || !onLeft && !onRight
+                    top: onTop
+                    bottom: onBottom
                 }
 
                 NotificationToastStack {
                     id: notificationToasts
 
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                    anchors.bottomMargin: 12
-                    visible: root.notificationToastsEnabled && root.toastItems.length > 0 && !root.notificationDnd
-                    toasts: root.toastItems
+                    anchors.left: notificationToastWindow.onLeft ? parent.left : undefined
+                    anchors.right: notificationToastWindow.onRight ? parent.right : undefined
+                    anchors.horizontalCenter: !notificationToastWindow.onLeft && !notificationToastWindow.onRight ? parent.horizontalCenter : undefined
+                    anchors.top: notificationToastWindow.onTop ? parent.top : undefined
+                    anchors.bottom: notificationToastWindow.onBottom ? parent.bottom : undefined
+                    anchors.leftMargin: Theme.notificationOffsetX
+                    anchors.rightMargin: -Theme.notificationOffsetX
+                    anchors.topMargin: 12 + Theme.notificationOffsetY
+                    anchors.bottomMargin: 12 - Theme.notificationOffsetY
+                    position: Theme.notificationPosition
+                    visible: root.notificationPositionPreviewVisible || root.notificationToastsEnabled && root.toastItems.length > 0 && !root.notificationDnd
+                    toasts: root.notificationPositionPreviewVisible ? [root.notificationPositionPreview] : root.toastItems
                     onDismiss: (notification, closeNotification) => {
                         notifications.removeToast(notification);
                         if (notification && closeNotification)

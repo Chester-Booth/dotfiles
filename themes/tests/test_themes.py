@@ -417,6 +417,25 @@ class CliContractTests(unittest.TestCase):
             with self.subTest(expected=expected):
                 self.assertIn(expected, source)
 
+    def test_bar_consumes_configured_regions_and_positions(self) -> None:
+        source = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/Bar.qml").read_text(encoding="utf-8")
+        delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
+        for expected in (
+            'model: Theme.barStartItems',
+            'model: Theme.barCentreItems',
+            'model: Theme.barEndItems',
+            'model: Theme.barHiddenItems',
+            'Theme.barPosition === "left"',
+            'Theme.barPosition === "right"',
+            'Theme.barPosition === "top"',
+            'Theme.barPosition === "bottom"',
+        ):
+            with self.subTest(expected=expected):
+                self.assertIn(expected, source)
+        for item_id in ("power", "notes", "workspaces", "clock", "battery", "notifications", "wifi", "sound", "privacy", "awake", "display", "bt", "updates", "tray"):
+            with self.subTest(item_id=item_id):
+                self.assertIn(f'"{item_id}"', delegate)
+
     def test_all_commands_support_human_and_json_output(self) -> None:
         commands = (("list",), ("show", "blox-panel"), ("validate", "blox-panel"), ("render", "blox-panel"), ("preview", "blox-panel"), ("diff", "blox-panel"), ("doctor",))
         for arguments in commands:

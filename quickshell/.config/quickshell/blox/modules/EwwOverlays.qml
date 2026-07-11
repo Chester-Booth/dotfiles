@@ -22,6 +22,19 @@ Scope {
         return String(command || "").replace(/\$SCRIPT_ROOT/g, root.scriptRoot);
     }
 
+    function isTerminalPreset(type) {
+        return ["music", "clock", "aquarium", "pipes", "tree", "matrix", "train"].indexOf(type) >= 0;
+    }
+
+    function widgetContentCommand(widget) {
+        if (!root.isTerminalPreset(widget.type))
+            return ["sh", "-c", root.commandFor(widget.content_command)];
+
+        const columns = widget.width > 0 ? Math.max(10, Math.floor(widget.width / Math.max(6, Theme.widgetFontSize * 0.6))) : 60;
+        const rows = widget.height > 0 ? Math.max(4, Math.floor(widget.height / Math.max(10, Theme.widgetFontSize * 1.25))) : 20;
+        return [root.scriptRoot + "/overlays/terminal-frame.py", widget.type, "--columns", String(columns), "--rows", String(rows)];
+    }
+
     function activeWorkspaceEmpty() {
         return workspaceState.json.empty === true;
     }
@@ -86,7 +99,7 @@ Scope {
             ScriptPoller {
                 id: widgetContent
 
-                command: ["sh", "-c", root.commandFor(widgetWindow.modelData.content_command)]
+                command: root.widgetContentCommand(widgetWindow.modelData)
                 interval: widgetWindow.modelData.interval_ms
             }
 

@@ -65,6 +65,7 @@ Scope {
     property alias privacy: barStatus.privacy
     property alias caffeine: barStatus.caffeine
     property bool notificationPositionPreviewVisible: false
+    readonly property bool horizontalBar: Theme.barPosition === "top" || Theme.barPosition === "bottom"
     readonly property var notificationPositionPreview: ({
         "toastId": "position-preview",
         "timeout": 1800,
@@ -527,16 +528,18 @@ Scope {
             }
 
             screen: modelData
-            implicitWidth: root.barVisible || root.barSlide > 0.01 ? Theme.railWidth : 1
+            implicitWidth: root.horizontalBar ? modelData.width : (root.barVisible || root.barSlide > 0.01 ? Theme.railWidth : 1)
+            implicitHeight: root.horizontalBar ? (root.barVisible || root.barSlide > 0.01 ? Theme.railWidth : 1) : modelData.height
             exclusiveZone: root.barOpen ? Math.round(Theme.railWidth * root.barSlide) : 0
             focusable: false
             visible: true
             color: "transparent"
 
             anchors {
-                left: true
-                top: true
-                bottom: true
+                left: Theme.barPosition === "left"
+                right: Theme.barPosition === "right"
+                top: Theme.barPosition === "top" || !root.horizontalBar
+                bottom: Theme.barPosition === "bottom" || !root.horizontalBar
             }
 
             MouseArea {
@@ -555,9 +558,10 @@ Scope {
             }
 
             Rectangle {
-                x: Math.round(-Theme.railWidth * (1 - root.barSlide))
-                width: Theme.railWidth
-                height: parent.height
+                x: Theme.barPosition === "left" ? Math.round(-Theme.railWidth * (1 - root.barSlide)) : Theme.barPosition === "right" ? Math.round(Theme.railWidth * (1 - root.barSlide)) : 0
+                y: Theme.barPosition === "top" ? Math.round(-Theme.railWidth * (1 - root.barSlide)) : Theme.barPosition === "bottom" ? Math.round(Theme.railWidth * (1 - root.barSlide)) : 0
+                width: root.horizontalBar ? parent.width : Theme.railWidth
+                height: root.horizontalBar ? Theme.railWidth : parent.height
                 color: Theme.background
 
                 HoverHandler {
@@ -577,6 +581,7 @@ Scope {
                 ColumnLayout {
                     id: railLayout
 
+                    visible: false
                     anchors.fill: parent
                     anchors.topMargin: 4
                     anchors.bottomMargin: 4
@@ -695,10 +700,194 @@ Scope {
 
                 }
 
+                Item {
+                    id: configuredRail
+
+                    anchors.fill: parent
+                    anchors.margins: 4
+
+                    Column {
+                        id: verticalStart
+
+                        visible: !root.horizontalBar
+                        anchors.top: parent.top
+                        anchors.horizontalCenter: parent.horizontalCenter
+
+                        Repeater {
+                            model: Theme.barStartItems
+
+                            BarItemDelegate {
+                                required property var modelData
+
+                                itemId: modelData.id
+                                controller: root
+                                horizontal: false
+                                panelExtent: panel.height
+                            }
+
+                        }
+
+                    }
+
+                    Column {
+                        visible: !root.horizontalBar
+                        anchors.centerIn: parent
+
+                        Repeater {
+                            model: Theme.barCentreItems
+
+                            BarItemDelegate {
+                                required property var modelData
+
+                                itemId: modelData.id
+                                controller: root
+                                horizontal: false
+                                panelExtent: panel.height
+                            }
+
+                        }
+
+                    }
+
+                    Column {
+                        id: verticalEnd
+
+                        visible: !root.horizontalBar
+                        anchors.bottom: parent.bottom
+                        anchors.horizontalCenter: parent.horizontalCenter
+
+                        Repeater {
+                            model: Theme.barEndItems
+
+                            BarItemDelegate {
+                                required property var modelData
+
+                                itemId: modelData.id
+                                controller: root
+                                horizontal: false
+                                panelExtent: panel.height
+                            }
+
+                        }
+
+                        ExtrasToggleButton {
+                            active: root.extrasOpen
+                            onToggle: root.toggleExtras()
+                        }
+
+                        Column {
+                            visible: root.extrasOpen
+
+                            Repeater {
+                                model: Theme.barHiddenItems
+
+                                BarItemDelegate {
+                                    required property var modelData
+
+                                    itemId: modelData.id
+                                    controller: root
+                                    horizontal: false
+                                    panelExtent: panel.height
+                                }
+
+                            }
+
+                        }
+
+                    }
+
+                    Row {
+                        visible: root.horizontalBar
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        Repeater {
+                            model: Theme.barStartItems
+
+                            BarItemDelegate {
+                                required property var modelData
+
+                                itemId: modelData.id
+                                controller: root
+                                horizontal: true
+                                panelExtent: panel.height
+                            }
+
+                        }
+
+                    }
+
+                    Row {
+                        visible: root.horizontalBar
+                        anchors.centerIn: parent
+
+                        Repeater {
+                            model: Theme.barCentreItems
+
+                            BarItemDelegate {
+                                required property var modelData
+
+                                itemId: modelData.id
+                                controller: root
+                                horizontal: true
+                                panelExtent: panel.height
+                            }
+
+                        }
+
+                    }
+
+                    Row {
+                        visible: root.horizontalBar
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        Row {
+                            visible: root.extrasOpen
+
+                            Repeater {
+                                model: Theme.barHiddenItems
+
+                                BarItemDelegate {
+                                    required property var modelData
+
+                                    itemId: modelData.id
+                                    controller: root
+                                    horizontal: true
+                                    panelExtent: panel.height
+                                }
+
+                            }
+
+                        }
+
+                        Repeater {
+                            model: Theme.barEndItems
+
+                            BarItemDelegate {
+                                required property var modelData
+
+                                itemId: modelData.id
+                                controller: root
+                                horizontal: true
+                                panelExtent: panel.height
+                            }
+
+                        }
+
+                        ExtrasToggleButton {
+                            active: root.extrasOpen
+                            onToggle: root.toggleExtras()
+                        }
+
+                    }
+
+                }
+
                 RailClock {
                     id: clockText
 
-                    anchors.horizontalCenter: parent.horizontalCenter
+                    visible: false
                     y: Math.round((parent.height - height) / 2)
                     z: 20
                     text: root.railClockText()
@@ -713,6 +902,7 @@ Scope {
                 ExtrasDrawer {
                     id: extrasViewport
 
+                    visible: false
                     open: root.extrasOpen
                     topLimit: clockText.y + clockText.height + 4
                     bottomLimit: railLayout.y + extrasToggle.y

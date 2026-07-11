@@ -1,5 +1,6 @@
 singleton Theme 1.0 Theme.qml
 RailButton 1.0 RailButton.qml
+BarItemDelegate 1.0 BarItemDelegate.qml
 PanelRailButton 1.0 PanelRailButton.qml
 RailTopActions 1.0 RailTopActions.qml
 RailClock 1.0 RailClock.qml

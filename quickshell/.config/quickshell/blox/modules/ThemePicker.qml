@@ -633,8 +633,8 @@ FloatingWindow {
 
         const item = JSON.parse(JSON.stringify(items[index]));
         item.anchor = anchor;
-        item.offset_x = Math.max(0, Math.round(offsetX));
-        item.offset_y = Math.max(0, Math.round(offsetY));
+        item.offset_x = Math.max(-10000, Math.min(10000, Math.round(offsetX)));
+        item.offset_y = Math.max(-10000, Math.min(10000, Math.round(offsetY)));
         item.width = Math.max(80, Math.round(width));
         item.height = Math.max(48, Math.round(height));
         items[index] = item;
@@ -695,6 +695,10 @@ FloatingWindow {
             "options": {
             }
         };
+    }
+
+    function shellQuote(value) {
+        return "'" + String(value).replace(/'/g, "'\\''") + "'";
     }
 
     function openWidgetEditor(index) {
@@ -1384,6 +1388,23 @@ FloatingWindow {
         onAccepted: {
             const path = decodeURIComponent(String(selectedFile).replace(/^file:\/\//, ""));
             root.runApi("widgets-import", ["widgets-import", path]);
+        }
+    }
+
+    FileDialog {
+        id: widgetFileDialog
+
+        parentWindow: root._backingWindow
+        title: "Choose widget file"
+        modality: Qt.WindowModal
+        fileMode: FileDialog.OpenFile
+        onAccepted: {
+            if (!root.widgetDraft)
+                return ;
+
+            const path = decodeURIComponent(String(selectedFile).replace(/^file:\/\//, ""));
+            root.widgetDraft.content_command = "sed -n '1,200p' -- " + root.shellQuote(path);
+            root.widgetDraft = JSON.parse(JSON.stringify(root.widgetDraft));
         }
     }
 
@@ -3064,7 +3085,8 @@ FloatingWindow {
                                                     if (!selectedItem)
                                                         return ;
 
-                                                    const value = Math.max(modelData === "width" || modelData === "height" ? 1 : 0, parseInt(text) || 0);
+                                                    const parsed = parseInt(text);
+                                                    const value = modelData === "width" || modelData === "height" ? Math.max(1, parsed || 0) : Math.max(-10000, Math.min(10000, isNaN(parsed) ? 0 : parsed));
                                                     root.updateWidgetGeometry(root.selectedWidgetIndex, selectedItem.anchor, modelData === "offset_x" ? value : selectedItem.offset_x, modelData === "offset_y" ? value : selectedItem.offset_y, modelData === "width" ? value : selectedItem.width, modelData === "height" ? value : selectedItem.height);
                                                 }
                                             }
@@ -3550,14 +3572,25 @@ FloatingWindow {
                                 color: Theme.muted
                             }
 
-                            BloxTextField {
+                            RowLayout {
                                 Layout.fillWidth: true
-                                text: root.widgetDraft ? root.widgetDraft.content_command : ""
-                                onTextChanged: {
-                                    if (root.widgetDraft)
-                                        root.widgetDraft.content_command = text;
 
+                                BloxTextField {
+                                    Layout.fillWidth: true
+                                    text: root.widgetDraft ? root.widgetDraft.content_command : ""
+                                    onTextChanged: {
+                                        if (root.widgetDraft)
+                                            root.widgetDraft.content_command = text;
+
+                                    }
                                 }
+
+                                BloxButton {
+                                    visible: root.widgetDraft && root.widgetDraft.type === "file"
+                                    text: "Browse"
+                                    onClicked: widgetFileDialog.open()
+                                }
+
                             }
 
                             Label {

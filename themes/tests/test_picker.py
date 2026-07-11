@@ -142,10 +142,10 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn("colourPickerOpen", qml)
         self.assertIn("openColourPicker", qml)
         self.assertIn('text: "+  New theme"', qml)
-        self.assertIn("function openNewTheme()", qml)
+        self.assertIn("function openNewTheme(wallpaperPage)", qml)
         self.assertIn('runApi("new-template", ["show", "blox-panel"])', qml)
-        self.assertIn('text: "Create blank"', qml)
-        self.assertIn('text: "Create from wallpaper"', qml)
+        self.assertIn('text: "Create From Blank"', qml)
+        self.assertIn('text: "Create From Wallpaper"', qml)
         self.assertIn('text: "Wallpaper"', qml)
         self.assertNotIn('text: "Generate"', qml)
         self.assertIn("acceptedButtons: Qt.LeftButton | Qt.RightButton", qml)
@@ -206,7 +206,27 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn('return key + " · unavailable"', qml)
         self.assertIn("if (!targetAvailable(key))", qml)
         self.assertIn("enabled: root.targetAvailable(modelData)", qml)
-        self.assertIn('text: "Theme targets"', qml)
+        self.assertIn('readonly property var coreTargetKeys:', qml)
+        self.assertIn('readonly property var applicationTargetKeys:', qml)
+        self.assertIn('text: "Core"', qml)
+        self.assertIn('text: "Applications"', qml)
+
+    def test_creation_and_application_flows_expose_progress_and_apply_modes(self) -> None:
+        qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
+        for label in ("Name", "File Path", "Browse", "Base Colour Palette", "Matugen", "Pywal"):
+            self.assertIn(f'"{label}"', qml)
+        self.assertIn('runApi("palette", ["palette", path])', qml)
+        self.assertIn('"wallpaper": wallpaper', qml)
+        self.assertIn('"backend": backend', qml)
+        self.assertIn("request.inputs", qml)
+        self.assertIn("request.inputs.paletteSerial !== paletteRequestSerial", qml)
+        self.assertIn("request.inputs.wallpaper !== newWallpaper.trim()", qml)
+        self.assertIn('showModal("progress")', qml)
+        self.assertIn('text: "Guide"', qml)
+        self.assertIn('if (key === "stylus")', qml)
+        self.assertIn('return "manual"', qml)
+        self.assertIn('key === "code" || key === "cursor_editor" ? "Reload Window"', qml)
+        self.assertIn('source: "../assets/stylus-guide.svg"', qml)
 
     def test_custom_controls_are_registered_and_font_rows_preview_their_family(self) -> None:
         shared = REPOSITORY / "quickshell/.config/quickshell/blox/shared"

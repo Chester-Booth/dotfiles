@@ -28,8 +28,8 @@ TARGET_LIMITATIONS = {
     "hyprlock": "Hyprlock changes apply when the next lock process starts",
     "btop": "btop must be restarted after Apply",
     "micro": "Micro must be restarted after Apply",
-    "code": "Code settings require a manual merge and Reload Window",
-    "cursor_editor": "Cursor settings require a manual merge and Reload Window",
+    "code": "Code settings apply automatically; use Reload Window for existing windows",
+    "cursor_editor": "Cursor settings apply automatically; use Reload Window for existing windows",
     "stylus": "Stylus requires manual import or refresh of the generated UserCSS",
     "powerlevel10k": "Powerlevel10k changes apply to new shells",
 }
@@ -242,10 +242,12 @@ def validate_theme(theme: dict[str, Any], check_dependencies: bool = True, targe
     for foreground, background, minimum in pairs:
         ratio = contrast_ratio(colours[foreground], colours[background])
         if ratio < minimum:
-            result.errors.append(f"{foreground}/{background} contrast is {ratio:.2f}:1; requires {minimum:.1f}:1")
+            result.warnings.append(f"{foreground}/{background} contrast is {ratio:.2f}:1; recommends {minimum:.1f}:1")
     from .cursor import validate_cursor_theme
 
-    result.errors.extend(validate_cursor_theme(theme))
+    cursor_errors, cursor_warnings = validate_cursor_theme(theme)
+    result.errors.extend(cursor_errors)
+    result.warnings.extend(cursor_warnings)
     generator = theme.get("generator")
     if generator:
         options = generator["options"]
@@ -270,7 +272,7 @@ def validate_theme(theme: dict[str, Any], check_dependencies: bool = True, targe
         for foreground, background, minimum in (("foreground", "background", 4.5), ("selection_foreground", "selection_background", 4.5), ("accent", "background", 3.0)):
             ratio = contrast_ratio(gtk_colours[foreground], gtk_colours[background])
             if ratio < minimum:
-                result.errors.append(f"GTK override {foreground}/{background} contrast is {ratio:.2f}:1; requires {minimum:.1f}:1")
+                result.warnings.append(f"GTK override {foreground}/{background} contrast is {ratio:.2f}:1; recommends {minimum:.1f}:1")
     if check_dependencies:
         dependencies = dependency_checks(theme, targets=targets)
         result.errors.extend(dependencies.errors)

@@ -15,6 +15,7 @@ from typing import Any, Callable, Iterable
 
 from . import RENDERER_VERSION
 from .core import canonical_json, render_theme, repository_root, sha256_text, state_dir
+from .editor import EditorSettingsFailure, apply_fragment
 
 
 TARGET_FILES = {
@@ -1005,7 +1006,18 @@ def run_reload_actions(root: Path, targets: Iterable[str], mode: str = "reload",
             warnings.append("Glow will use the canonical fallback on its next invocation" if mode == "reset" else "Glow will use the generated style on its next invocation")
         elif target in ("code", "cursor_editor"):
             editor = "Code" if target == "code" else "Cursor"
-            warnings.append(f"{editor}'s generated settings fragment was removed; manually revert previously merged customisations, then Reload Window" if mode == "reset" else f"{editor} requires the generated settings customisations to be merged, then Reload Window")
+            if mode == "reset":
+                warnings.append(f"{editor}'s generated fragment was removed; existing windows retain the last applied values until changed")
+            else:
+                config = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+                settings = config / ("Code/User/settings.json" if target == "code" else "Cursor/User/settings.json")
+                fragment_path = root / ("current/code/settings.json" if target == "code" else "current/cursor-editor/settings.json")
+                try:
+                    fragment = json.loads(fragment_path.read_text(encoding="utf-8"))
+                    apply_fragment(settings, fragment)
+                    warnings.append(f"{editor} settings applied automatically; use Reload Window for existing windows")
+                except (OSError, json.JSONDecodeError, EditorSettingsFailure) as error:
+                    warnings.append(f"{editor} settings were not changed: {error}")
         elif target == "stylus":
             warnings.append("Stylus's generated UserCSS was removed; manually remove any previously imported copy" if mode == "reset" else f"Stylus requires manual import or refresh of {root / 'current/stylus/blox-system.user.css'}")
         elif target == "powerlevel10k":

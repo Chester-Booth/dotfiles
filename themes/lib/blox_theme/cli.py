@@ -119,6 +119,10 @@ def parser() -> argparse.ArgumentParser:
     generate_parser.add_argument("--id", dest="theme_id")
     generate_parser.add_argument("--name")
     generate_parser.add_argument("--json", action="store_true")
+    palette_parser = subcommands.add_parser("palette", help="preview available generator palettes for a wallpaper")
+    palette_parser.add_argument("wallpaper", type=Path)
+    palette_parser.add_argument("--mode", choices=("dark", "light"), default="dark")
+    palette_parser.add_argument("--json", action="store_true")
     save_parser = subcommands.add_parser("save", help="save validated theme JSON as an editable source theme")
     save_parser.add_argument("theme_json", help="JSON file, inline JSON, or - for stdin")
     save_parser.add_argument("--replace", action="store_true", help="replace the same theme ID using optimistic concurrency")
@@ -254,6 +258,20 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         except (OSError, RuntimeFailure) as error:
             return envelope(command, errors=[str(error)]), EXIT_APPLY
         return envelope(command, {"feature": args.feature, "integration": integration}), EXIT_OK
+
+    if command == "palette":
+        entries = []
+        warnings = []
+        for backend in BACKENDS:
+            try:
+                theme, contrasts = generate_theme(args.wallpaper, backend=backend, mode=args.mode)
+                entries.append({"backend": backend, "available": True, "colours": theme["colours"], "contrast": contrasts})
+            except (FileNotFoundError, GeneratorFailure, OSError) as error:
+                entries.append({"backend": backend, "available": False, "colours": {}, "contrast": []})
+                warnings.append(f"{backend} palette unavailable: {error}")
+        if not any(entry["available"] for entry in entries):
+            return envelope(command, entries, errors=["no palette generator is available"], warnings=warnings), EXIT_DEPENDENCY
+        return envelope(command, entries, warnings=warnings), EXIT_OK
 
     if command == "generate":
         try:

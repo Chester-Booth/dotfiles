@@ -46,11 +46,12 @@ class ThemeSchemaTests(unittest.TestCase):
                 self.assertEqual(3, completed.returncode)
                 self.assertEqual("error", json.loads(completed.stdout)["status"])
 
-    def test_contrast_failure_is_rejected(self) -> None:
+    def test_contrast_failure_is_a_warning(self) -> None:
         _, theme = load_theme("blox-panel")
         theme["colours"]["foreground"] = theme["colours"]["background"]
         result = validate_theme(theme, check_dependencies=False)
-        self.assertTrue(any("contrast" in error for error in result.errors))
+        self.assertEqual([], result.errors)
+        self.assertTrue(any("contrast" in warning for warning in result.warnings))
 
     def test_gtk_override_source_requires_values(self) -> None:
         _, theme = load_theme("blox-panel")
@@ -60,10 +61,12 @@ class ThemeSchemaTests(unittest.TestCase):
         theme["overrides"] = {"gtk": {"accent": "#abcdef"}}
         self.assertFalse(any("overrides.gtk" in error for error in validate_theme(theme, check_dependencies=False).errors))
 
-    def test_low_contrast_gtk_override_is_rejected(self) -> None:
+    def test_low_contrast_gtk_override_is_a_warning(self) -> None:
         _, theme = load_theme("blox-panel")
         theme["overrides"] = {"gtk": {"foreground": theme["colours"]["background"]}}
-        self.assertTrue(any("GTK override" in error for error in validate_theme(theme, check_dependencies=False).errors))
+        result = validate_theme(theme, check_dependencies=False)
+        self.assertEqual([], result.errors)
+        self.assertTrue(any("GTK override" in warning for warning in result.warnings))
 
     def test_schema_boundaries_and_unknown_nested_fields(self) -> None:
         _, source = load_theme("blox-panel")

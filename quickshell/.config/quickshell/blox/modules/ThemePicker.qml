@@ -48,6 +48,16 @@ FloatingWindow {
     property string newThemeName: ""
     property string newThemeId: ""
     property string newWallpaper: ""
+    property string newFlowPage: "name"
+    property var paletteOptions: []
+    property int paletteRequestSerial: 0
+    property string paletteRequestPath: ""
+    property bool paletteLoading: false
+    property bool creationBusy: false
+    property var creationRequest: null
+    property var applyProgressRows: []
+    property bool applyProgressComplete: false
+    property string guideTarget: ""
     property bool exportIncludeWallpaper: false
     property string wallpaperDialogTarget: "overview"
     property var fontFamilies: []
@@ -67,6 +77,8 @@ FloatingWindow {
     readonly property var overrideKeys: ["background", "foreground", "accent", "border"]
     readonly property var targetKeys: ["quickshell", "vicinae", "widgets", "gtk", "cursor", "wallpaper", "kitty", "hyprland", "hyprlock", "btop", "micro", "glow", "code", "cursor_editor", "stylus", "powerlevel10k", "sddm", "grub"]
     readonly property var unavailableTargetKeys: ["sddm", "grub"]
+    readonly property var coreTargetKeys: ["quickshell", "widgets", "wallpaper", "hyprland", "hyprlock", "cursor"]
+    readonly property var applicationTargetKeys: ["vicinae", "kitty", "gtk", "btop", "micro", "glow", "code", "cursor_editor", "stylus", "powerlevel10k"]
 
     function targetAvailable(key) {
         return unavailableTargetKeys.indexOf(key) < 0;
@@ -77,6 +89,21 @@ FloatingWindow {
             return key + " · unavailable";
 
         return key;
+    }
+
+    function targetApplyMode(key) {
+        if (key === "stylus")
+            return "manual";
+
+        if (["gtk", "cursor", "hyprlock", "btop", "micro", "glow", "code", "cursor_editor", "powerlevel10k"].indexOf(key) >= 0)
+            return "restart";
+
+        return "automatic";
+    }
+
+    function targetModeLabel(key) {
+        const mode = targetApplyMode(key);
+        return mode === "manual" ? "Apply Manually" : mode === "restart" ? (key === "code" || key === "cursor_editor" ? "Reload Window" : "Restart Needed") : "Automatic";
     }
 
     function cloneCandidate() {
@@ -233,14 +260,19 @@ FloatingWindow {
     }
 
     function focusModal() {
-        if (modalKind === "new")
-            newNameField.focusEditor(true);
-        else if (modalKind === "duplicate")
+        if (modalKind === "new") {
+            if (newFlowPage === "wallpaper")
+                newWallpaperField.focusEditor(true);
+            else
+                newNameField.focusEditor(true);
+        } else if (modalKind === "duplicate")
             duplicateNameField.focusEditor(true);
         else if (modalKind === "rename")
             renameNameField.focusEditor(true);
-        else
+        else if (modalCancelButton.visible)
             modalCancelButton.forceActiveFocus();
+        else
+            modalFocusScope.forceActiveFocus();
     }
 
     function showModal(kind) {
@@ -465,19 +497,45 @@ FloatingWindow {
         showModal("export");
     }
 
-    function generateTheme(wallpaper, displayName, themeId) {
+    function generateTheme(wallpaper, displayName, themeId, backend) {
         if (!wallpaper || !wallpaper.trim()) {
             errorMessage = "Choose a wallpaper first.";
             return ;
         }
-        const args = ["generate", wallpaper.trim(), "--backend", generatorBackend];
+        const args = ["generate", wallpaper.trim(), "--backend", backend || generatorBackend];
         if (displayName)
             args.push("--name", displayName.trim());
 
         if (themeId)
             args.push("--id", themeId.trim());
 
-        runApi("generate", args);
+        if (runApi("generate", args))
+            activeRequest.inputs = {
+            "wallpaper": wallpaper.trim(),
+            "name": displayName || "",
+            "id": themeId || "",
+            "backend": backend || generatorBackend
+        };
+
+    }
+
+    function requestPalettes() {
+        const path = newWallpaper.trim();
+        paletteRequestSerial += 1;
+        paletteRequestPath = path;
+        paletteOptions = [];
+        if (!path) {
+            paletteLoading = false;
+            return ;
+        }
+        paletteLoading = true;
+        if (runApi("palette", ["palette", path]))
+            activeRequest.inputs = {
+            "wallpaper": path,
+            "paletteSerial": paletteRequestSerial
+        };
+        else
+            paletteLoading = false;
     }
 
     function loadActiveForGeneration() {
@@ -498,18 +556,15 @@ FloatingWindow {
     }
 
     function requestGenerateCurrent() {
-        generateAfterLoad = true;
         openPicker();
         if (dirty) {
-            generateAfterLoad = false;
             showModal("generate-current");
             return "confirmation-required";
         }
-        if (busy)
-            return "queued";
+        if (!busy)
+            openNewTheme(true);
 
-        loadActiveForGeneration();
-        return "open-generating";
+        return busy ? "queued" : "choose-wallpaper";
     }
 
     function saveCandidate(after) {
@@ -528,6 +583,17 @@ FloatingWindow {
         if (candidate === null || !candidateValid || busy)
             return ;
 
+        applyProgressComplete = false;
+        applyProgressRows = targetKeys.filter((key) => {
+            return candidate.targets[key] && targetAvailable(key);
+        }).map((key) => {
+            return ({
+                "target": key,
+                "state": "running",
+                "message": "generating files"
+            });
+        });
+        showModal("progress");
         if (dirty || !sourceDigest) {
             saveCandidate("apply");
             return ;
@@ -547,13 +613,18 @@ FloatingWindow {
         statusMessage = "Unsaved changes reverted.";
     }
 
-    function openNewTheme() {
+    function openNewTheme(wallpaperPage) {
         if (busy || dirty)
             return ;
 
         newThemeName = "Untitled Theme";
         newThemeId = duplicateIdForName(newThemeName);
         newWallpaper = "";
+        newFlowPage = wallpaperPage ? "wallpaper" : "name";
+        paletteOptions = [];
+        paletteLoading = false;
+        creationBusy = false;
+        creationRequest = null;
         showModal("new");
     }
 
@@ -565,8 +636,18 @@ FloatingWindow {
             errorMessage = "Choose a wallpaper first.";
             return ;
         }
-        pendingModalConfirmation = fromWallpaper ? "new-wallpaper" : "new-blank";
-        modalDismissTimer.restart();
+        creationRequest = {
+            "wallpaper": newWallpaper.trim(),
+            "name": newThemeName.trim(),
+            "id": newThemeId.trim(),
+            "backend": generatorBackend
+        };
+        creationBusy = true;
+        errorMessage = "";
+        if (fromWallpaper)
+            generateTheme(creationRequest.wallpaper, creationRequest.name, creationRequest.id, creationRequest.backend);
+        else if (runApi("new-template", ["show", "blox-panel"]))
+            activeRequest.inputs = creationRequest;
     }
 
     function openDuplicate(themeId, themeName) {
@@ -651,6 +732,28 @@ FloatingWindow {
     function handleResponse(request, response) {
         const completedAction = request.action;
         const failed = !response || response.ok !== true;
+        if (completedAction === "palette") {
+            paletteLoading = false;
+            if (!request.inputs || request.inputs.paletteSerial !== paletteRequestSerial || request.inputs.wallpaper !== newWallpaper.trim()) {
+                paletteDelay.restart();
+                return ;
+            }
+            paletteOptions = response && response.data ? response.data : [];
+            apiWarnings = response && response.warnings ? response.warnings : [];
+            if (failed) {
+                errorMessage = response && response.errors ? response.errors.join("\n") : "Palette preview failed.";
+            } else if (!paletteOptions.some((entry) => {
+                return entry.available && entry.backend === generatorBackend;
+            })) {
+                const available = paletteOptions.find((entry) => {
+                    return entry.available;
+                });
+                if (available)
+                    generatorBackend = available.backend;
+
+            }
+            return ;
+        }
         if (completedAction === "preview-edit") {
             if (candidate === null || request.candidateRevision !== candidateRevision || request.candidateJson !== JSON.stringify(candidate)) {
                 validationPending = candidate !== null;
@@ -670,6 +773,19 @@ FloatingWindow {
         }
         if (failed) {
             errorMessage = response && response.errors ? response.errors.join("\n") : "Theme action failed.";
+            if (completedAction === "generate" || completedAction === "new-template")
+                creationBusy = false;
+
+            if (completedAction === "apply") {
+                applyProgressComplete = true;
+                applyProgressRows = applyProgressRows.map((entry) => {
+                    return ({
+                        "target": entry.target,
+                        "state": "failed",
+                        "message": "failed"
+                    });
+                });
+            }
             return ;
         }
         apiWarnings = response.warnings || [];
@@ -705,17 +821,23 @@ FloatingWindow {
             baselineJson = "";
             previewData = response.data;
             candidateRevision += 1;
+            creationBusy = false;
+            modalKind = "";
+            Qt.callLater(restoreOverlayFocus);
             validatePreview();
         } else if (completedAction === "new-template") {
             const blank = JSON.parse(JSON.stringify(response.data));
-            blank.id = newThemeId;
-            blank.name = newThemeName;
+            blank.id = request.inputs.id;
+            blank.name = request.inputs.name;
             delete blank.generator;
             candidate = blank;
             selectedId = candidate.id;
             sourceDigest = "";
             baselineJson = "";
             candidateRevision += 1;
+            creationBusy = false;
+            modalKind = "";
+            Qt.callLater(restoreOverlayFocus);
             validatePreview();
         } else if (completedAction === "save") {
             sourceDigest = response.data.source_sha256;
@@ -734,6 +856,26 @@ FloatingWindow {
             baselineJson = JSON.stringify(candidate);
             candidateRevision += 1;
             statusMessage = "Theme applied. Some applications may require restart.";
+            applyProgressComplete = true;
+            applyProgressRows = applyProgressRows.map((entry) => {
+                const mode = targetApplyMode(entry.target);
+                const editorName = entry.target === "code" ? "Code" : entry.target === "cursor_editor" ? "Cursor" : "";
+                const editorFailure = editorName && (response.warnings || []).find((warning) => {
+                    return String(warning).indexOf(editorName + " settings were not changed:") >= 0;
+                });
+                if (editorFailure)
+                    return {
+                    "target": entry.target,
+                    "state": "failed",
+                    "message": "Could not apply automatically"
+                };
+
+                return {
+                    "target": entry.target,
+                    "state": mode === "manual" ? "manual" : mode === "restart" ? "restart" : "applied",
+                    "message": mode === "manual" ? "Apply Manually" : mode === "restart" ? targetModeLabel(entry.target) : "Applied"
+                };
+            });
             refreshThemes(true);
         } else if (completedAction === "duplicate") {
             statusMessage = "Theme duplicated.";
@@ -827,6 +969,14 @@ FloatingWindow {
         onTriggered: root.validatePreview()
     }
 
+    Timer {
+        id: paletteDelay
+
+        interval: 350
+        repeat: false
+        onTriggered: root.requestPalettes()
+    }
+
     Process {
         id: apiProcess
 
@@ -914,6 +1064,9 @@ FloatingWindow {
                 root.newWallpaper = path;
             else
                 root.setWallpaperPath(path);
+            if (root.wallpaperDialogTarget === "new")
+                paletteDelay.restart();
+
         }
     }
 
@@ -1023,7 +1176,7 @@ FloatingWindow {
         Keys.onEscapePressed: (event) => {
             if (root.colourPickerOpen)
                 root.dismissColourPicker();
-            else if (root.modalKind.length > 0)
+            else if (root.modalKind.length > 0 && !(root.modalKind === "new" && root.creationBusy) && !(root.modalKind === "progress" && !root.applyProgressComplete))
                 root.dismissModal();
             else
                 root.requestClose();
@@ -1140,6 +1293,8 @@ FloatingWindow {
                             spacing: 8
 
                             BloxTextField {
+                                id: newWallpaperField
+
                                 Layout.fillWidth: true
                                 placeholderText: "Search themes"
                                 text: root.searchText
@@ -1615,30 +1770,83 @@ FloatingWindow {
                                         font.bold: true
                                     }
 
+                                    Label {
+                                        text: "Core"
+                                        color: Theme.blue
+                                        font.bold: true
+                                    }
+
                                     Flow {
                                         Layout.fillWidth: true
                                         spacing: 6
 
                                         Repeater {
-                                            model: root.targetKeys
+                                            model: root.coreTargetKeys
 
-                                            Rectangle {
+                                            BloxCheckBox {
                                                 required property string modelData
 
-                                                width: root.targetAvailable(modelData) ? 112 : 152
-                                                height: 30
-                                                radius: 15
-                                                color: root.targetAvailable(modelData) && root.candidate && root.candidate.targets[modelData] ? Theme.withAlpha(Theme.blue, 0.25) : Theme.background
-                                                border.color: root.targetAvailable(modelData) && root.candidate && root.candidate.targets[modelData] ? Theme.blue : Theme.border
+                                                text: root.targetLabel(modelData) + " · " + root.targetModeLabel(modelData)
+                                                checked: root.candidate ? root.candidate.targets[modelData] : false
+                                                onToggled: (value) => {
+                                                    if (root.candidate && value !== root.candidate.targets[modelData])
+                                                        root.setTarget(modelData, value);
 
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: root.targetLabel(modelData)
-                                                    color: root.targetAvailable(modelData) ? Theme.foreground : Theme.muted
-                                                    font.family: Theme.fontFamily
-                                                    font.pixelSize: 9
                                                 }
+                                            }
 
+                                        }
+
+                                    }
+
+                                    Label {
+                                        text: "Applications"
+                                        color: Theme.blue
+                                        font.bold: true
+                                    }
+
+                                    Flow {
+                                        Layout.fillWidth: true
+                                        spacing: 6
+
+                                        Repeater {
+                                            model: root.applicationTargetKeys
+
+                                            BloxCheckBox {
+                                                required property string modelData
+
+                                                text: root.targetLabel(modelData) + " · " + root.targetModeLabel(modelData)
+                                                checked: root.candidate ? root.candidate.targets[modelData] : false
+                                                onToggled: (value) => {
+                                                    if (root.candidate && value !== root.candidate.targets[modelData])
+                                                        root.setTarget(modelData, value);
+
+                                                }
+                                            }
+
+                                        }
+
+                                    }
+
+                                    Label {
+                                        text: "Unavailable"
+                                        color: Theme.muted
+                                        font.bold: true
+                                    }
+
+                                    Flow {
+                                        Layout.fillWidth: true
+                                        spacing: 6
+
+                                        Repeater {
+                                            model: root.unavailableTargetKeys
+
+                                            BloxCheckBox {
+                                                required property string modelData
+
+                                                text: root.targetLabel(modelData)
+                                                checked: false
+                                                enabled: root.targetAvailable(modelData)
                                             }
 
                                         }
@@ -1833,26 +2041,143 @@ FloatingWindow {
                                         font.bold: true
                                     }
 
+                                    Label {
+                                        text: "Core"
+                                        color: Theme.blue
+                                        font.bold: true
+                                    }
+
                                     Flow {
                                         Layout.fillWidth: true
+                                        spacing: 8
 
                                         Repeater {
-                                            model: root.targetKeys
+                                            model: root.coreTargetKeys
+
+                                            Rectangle {
+                                                required property string modelData
+
+                                                width: 250
+                                                height: 48
+                                                radius: 8
+                                                color: Theme.background
+                                                border.color: Theme.border
+
+                                                RowLayout {
+                                                    anchors.fill: parent
+                                                    anchors.margins: 7
+
+                                                    BloxCheckBox {
+                                                        Layout.fillWidth: true
+                                                        text: root.targetLabel(modelData)
+                                                        checked: {
+                                                            root.candidateRevision;
+                                                            return root.candidate ? root.candidate.targets[modelData] : false;
+                                                        }
+                                                        onToggled: (value) => {
+                                                            if (root.candidate && value !== root.candidate.targets[modelData])
+                                                                root.setTarget(modelData, value);
+
+                                                        }
+                                                    }
+
+                                                    Text {
+                                                        text: root.targetModeLabel(modelData)
+                                                        color: root.targetApplyMode(modelData) === "restart" ? Theme.yellow : Theme.green
+                                                        font.pixelSize: 9
+                                                    }
+
+                                                }
+
+                                            }
+
+                                        }
+
+                                    }
+
+                                    Label {
+                                        text: "Applications"
+                                        color: Theme.blue
+                                        font.bold: true
+                                    }
+
+                                    Flow {
+                                        Layout.fillWidth: true
+                                        spacing: 8
+
+                                        Repeater {
+                                            model: root.applicationTargetKeys
+
+                                            Rectangle {
+                                                required property string modelData
+
+                                                width: 250
+                                                height: 48
+                                                radius: 8
+                                                color: Theme.background
+                                                border.color: Theme.border
+
+                                                RowLayout {
+                                                    anchors.fill: parent
+                                                    anchors.margins: 7
+
+                                                    BloxCheckBox {
+                                                        Layout.fillWidth: true
+                                                        text: root.targetLabel(modelData)
+                                                        checked: {
+                                                            root.candidateRevision;
+                                                            return root.candidate ? root.candidate.targets[modelData] : false;
+                                                        }
+                                                        onToggled: (value) => {
+                                                            if (root.candidate && value !== root.candidate.targets[modelData])
+                                                                root.setTarget(modelData, value);
+
+                                                        }
+                                                    }
+
+                                                    Text {
+                                                        visible: root.targetApplyMode(modelData) !== "manual"
+                                                        text: root.targetModeLabel(modelData)
+                                                        color: root.targetApplyMode(modelData) === "restart" ? Theme.yellow : Theme.green
+                                                        font.pixelSize: 9
+                                                    }
+
+                                                    BloxButton {
+                                                        visible: root.targetApplyMode(modelData) === "manual"
+                                                        text: "Guide"
+                                                        onClicked: {
+                                                            root.guideTarget = modelData;
+                                                            root.showModal("guide");
+                                                        }
+                                                    }
+
+                                                }
+
+                                            }
+
+                                        }
+
+                                    }
+
+                                    Label {
+                                        text: "Unavailable"
+                                        color: Theme.muted
+                                        font.bold: true
+                                    }
+
+                                    Flow {
+                                        Layout.fillWidth: true
+                                        spacing: 8
+
+                                        Repeater {
+                                            model: root.unavailableTargetKeys
 
                                             BloxCheckBox {
                                                 required property string modelData
 
                                                 text: root.targetLabel(modelData)
+                                                checked: false
                                                 enabled: root.targetAvailable(modelData)
-                                                checked: {
-                                                    root.candidateRevision;
-                                                    return root.candidate ? root.candidate.targets[modelData] : false;
-                                                }
-                                                onToggled: (value) => {
-                                                    if (root.candidate && value !== root.candidate.targets[modelData])
-                                                        root.setTarget(modelData, value);
-
-                                                }
                                             }
 
                                         }
@@ -2112,7 +2437,7 @@ FloatingWindow {
 
                         Label {
                             Layout.fillWidth: true
-                            text: root.modalKind === "new" ? "New theme" : root.modalKind === "delete" ? "Delete theme permanently?" : root.modalKind === "duplicate" ? "Duplicate theme" : root.modalKind === "rename" ? "Rename display name" : root.modalKind === "export" ? "Export theme" : "Discard unsaved changes?"
+                            text: root.modalKind === "new" ? "New theme" : root.modalKind === "progress" ? "Applying theme" : root.modalKind === "guide" ? "Manual application guide" : root.modalKind === "delete" ? "Delete theme permanently?" : root.modalKind === "duplicate" ? "Duplicate theme" : root.modalKind === "rename" ? "Rename display name" : root.modalKind === "export" ? "Export theme" : "Discard unsaved changes?"
                             color: Theme.foreground
                             font.family: Theme.bodyFontFamily
                             font.pixelSize: 19
@@ -2120,18 +2445,25 @@ FloatingWindow {
                         }
 
                         Text {
-                            visible: root.modalKind === "new" || root.modalKind === "navigate" || root.modalKind === "generate-current" || root.modalKind === "close" || root.modalKind === "delete" || root.modalKind === "export"
+                            visible: root.modalKind === "new" || root.modalKind === "progress" || root.modalKind === "guide" || root.modalKind === "navigate" || root.modalKind === "generate-current" || root.modalKind === "close" || root.modalKind === "delete" || root.modalKind === "export"
                             Layout.fillWidth: true
-                            text: root.modalKind === "new" ? "Start with the standard editable palette, or generate a palette from a wallpaper." : root.modalKind === "delete" ? "This removes the editable source. The action cannot be undone." : root.modalKind === "export" ? "Create a portable bundle. Fonts, GTK, icon and cursor themes remain dependency notes." : "The temporary Quickshell preview will be restored to the active theme."
+                            text: root.modalKind === "new" ? root.creationBusy ? "Creating the theme from the selected inputs…" : root.newFlowPage === "name" ? "Choose how to create the new theme." : "Choose a wallpaper and the palette generator to use." : root.modalKind === "progress" ? root.applyProgressComplete ? "Application finished. Review any follow-up actions below." : "Generating and applying each enabled target…" : root.modalKind === "delete" ? "This removes the editable source. The action cannot be undone." : root.modalKind === "export" ? "Create a portable bundle. Fonts, GTK, icon and cursor themes remain dependency notes." : "The temporary Quickshell preview will be restored to the active theme."
                             color: Theme.muted
                             wrapMode: Text.Wrap
                             font.family: Theme.bodyFontFamily
                         }
 
+                        Label {
+                            visible: root.modalKind === "new" && !root.creationBusy && root.newFlowPage === "name"
+                            text: "Name"
+                            color: Theme.foreground
+                            font.bold: true
+                        }
+
                         BloxTextField {
                             id: newNameField
 
-                            visible: root.modalKind === "new"
+                            visible: root.modalKind === "new" && !root.creationBusy && root.newFlowPage === "name"
                             Layout.fillWidth: true
                             placeholderText: "Display name"
                             text: root.newThemeName
@@ -2147,14 +2479,49 @@ FloatingWindow {
                         }
 
                         RowLayout {
-                            visible: root.modalKind === "new"
+                            visible: root.modalKind === "new" && !root.creationBusy && root.newFlowPage === "name"
+                            Layout.fillWidth: true
+
+                            BloxButton {
+                                Layout.fillWidth: true
+                                text: "Create From Blank"
+                                enabled: root.newThemeName.trim().length > 0
+                                onClicked: root.startNewTheme(false)
+                            }
+
+                            BloxButton {
+                                Layout.fillWidth: true
+                                text: "Create From Wallpaper"
+                                enabled: root.newThemeName.trim().length > 0
+                                onClicked: {
+                                    root.newFlowPage = "wallpaper";
+                                    Qt.callLater(() => {
+                                        newWallpaperField.focusEditor(true);
+                                    });
+                                }
+                            }
+
+                        }
+
+                        Label {
+                            visible: root.modalKind === "new" && !root.creationBusy && root.newFlowPage === "wallpaper"
+                            text: "File Path"
+                            color: Theme.foreground
+                            font.bold: true
+                        }
+
+                        RowLayout {
+                            visible: root.modalKind === "new" && !root.creationBusy && root.newFlowPage === "wallpaper"
                             Layout.fillWidth: true
 
                             BloxTextField {
                                 Layout.fillWidth: true
                                 placeholderText: "Optional wallpaper for palette generation"
                                 text: root.newWallpaper
-                                onTextChanged: root.newWallpaper = text
+                                onTextChanged: {
+                                    root.newWallpaper = text;
+                                    paletteDelay.restart();
+                                }
                             }
 
                             BloxButton {
@@ -2162,12 +2529,179 @@ FloatingWindow {
                                 onClicked: root.openWallpaperDialog("new")
                             }
 
-                            BloxComboBox {
-                                model: ["matugen", "pywal"]
-                                currentIndex: root.generatorBackend === "matugen" ? 0 : 1
-                                onActivated: (index, selectedText) => {
-                                    root.generatorBackend = selectedText;
+                        }
+
+                        Label {
+                            visible: root.modalKind === "new" && !root.creationBusy && root.newFlowPage === "wallpaper" && root.newWallpaper.trim().length > 0
+                            text: "Base Colour Palette"
+                            color: Theme.foreground
+                            font.bold: true
+                        }
+
+                        BusyIndicator {
+                            visible: root.modalKind === "new" && !root.creationBusy && root.paletteLoading
+                            running: visible
+                            Layout.alignment: Qt.AlignHCenter
+                        }
+
+                        Repeater {
+                            model: root.modalKind === "new" && !root.creationBusy && root.newFlowPage === "wallpaper" ? root.paletteOptions : []
+
+                            Rectangle {
+                                id: paletteRow
+
+                                required property var modelData
+
+                                Layout.fillWidth: true
+                                height: 46
+                                radius: 8
+                                color: Theme.background
+                                border.color: root.generatorBackend === modelData.backend ? Theme.blue : Theme.border
+                                opacity: modelData.available ? 1 : 0.5
+
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: 8
+
+                                    Rectangle {
+                                        width: 18
+                                        height: 18
+                                        radius: 9
+                                        color: "transparent"
+                                        border.color: modelData.available ? Theme.blue : Theme.muted
+                                        border.width: 2
+
+                                        Rectangle {
+                                            anchors.centerIn: parent
+                                            width: 8
+                                            height: 8
+                                            radius: 4
+                                            visible: root.generatorBackend === modelData.backend
+                                            color: Theme.blue
+                                        }
+
+                                    }
+
+                                    Text {
+                                        text: modelData.backend === "matugen" ? "Matugen" : "Pywal"
+                                        color: Theme.foreground
+                                        font.family: Theme.bodyFontFamily
+                                        Layout.preferredWidth: 72
+                                    }
+
+                                    Repeater {
+                                        model: ["background", "surface", "accent", "danger", "success", "warning", "info", "mauve", "teal", "foreground"]
+
+                                        Rectangle {
+                                            required property string modelData
+
+                                            width: 24
+                                            height: 24
+                                            radius: 12
+                                            color: paletteRow.modelData.colours[modelData] || "transparent"
+                                            border.color: Theme.border
+                                        }
+
+                                    }
+
                                 }
+
+                                TapHandler {
+                                    enabled: modelData.available
+                                    onTapped: root.generatorBackend = modelData.backend
+                                }
+
+                            }
+
+                        }
+
+                        ColumnLayout {
+                            visible: root.modalKind === "new" && root.creationBusy
+                            Layout.fillWidth: true
+
+                            BusyIndicator {
+                                running: visible
+                                Layout.alignment: Qt.AlignHCenter
+                            }
+
+                            Text {
+                                Layout.alignment: Qt.AlignHCenter
+                                text: root.creationRequest && root.creationRequest.wallpaper ? root.creationRequest.backend + " — generating palette and theme" : "Creating blank theme"
+                                color: Theme.blue
+                            }
+
+                        }
+
+                        ScrollView {
+                            visible: root.modalKind === "progress"
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: Math.min(420, progressGrid.implicitHeight)
+                            contentWidth: availableWidth
+                            clip: true
+
+                            GridLayout {
+                                id: progressGrid
+
+                                width: parent.width
+                                columns: 2
+                                columnSpacing: 14
+                                rowSpacing: 8
+
+                                Repeater {
+                                    model: root.applyProgressRows
+
+                                    RowLayout {
+                                        required property var modelData
+
+                                        Layout.preferredWidth: (progressGrid.width - progressGrid.columnSpacing) / 2
+
+                                        Text {
+                                            text: modelData.target.replace("cursor_editor", "cursor")
+                                            color: Theme.foreground
+                                            font.family: Theme.fontFamily
+                                            Layout.preferredWidth: 90
+                                        }
+
+                                        Text {
+                                            text: modelData.message
+                                            color: modelData.state === "failed" || modelData.state === "manual" ? Theme.red : modelData.state === "restart" ? Theme.yellow : modelData.state === "applied" ? Theme.green : Theme.blue
+                                            Layout.fillWidth: true
+                                            elide: Text.ElideRight
+                                        }
+
+                                        BloxButton {
+                                            visible: modelData.state === "manual"
+                                            text: "Guide"
+                                            onClicked: {
+                                                root.guideTarget = modelData.target;
+                                                root.modalKind = "guide";
+                                            }
+                                        }
+
+                                    }
+
+                                }
+
+                            }
+
+                        }
+
+                        ColumnLayout {
+                            visible: root.modalKind === "guide"
+                            Layout.fillWidth: true
+
+                            Image {
+                                Layout.fillWidth: true
+                                height: 120
+                                source: "../assets/stylus-guide.svg"
+                                fillMode: Image.PreserveAspectFit
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: "1. Open the Stylus extension dashboard.\n2. Choose Import and select the generated blox-system.user.css file.\n3. Replace the previous Blox System Theme entry, then enable it."
+                                color: Theme.foreground
+                                wrapMode: Text.Wrap
                             }
 
                         }
@@ -2218,7 +2752,7 @@ FloatingWindow {
                             Text {
                                 id: duplicateIdFooter
 
-                                visible: root.modalKind === "duplicate" || root.modalKind === "new"
+                                visible: root.modalKind === "duplicate" || root.modalKind === "new" && !root.creationBusy
                                 Layout.fillWidth: true
                                 text: root.modalKind === "new" ? root.newThemeId : root.duplicateId
                                 color: Theme.muted
@@ -2235,26 +2769,26 @@ FloatingWindow {
                             BloxButton {
                                 id: modalCancelButton
 
-                                text: "Cancel"
+                                visible: root.modalKind !== "progress" || root.applyProgressComplete
+                                text: root.modalKind === "progress" || root.modalKind === "guide" ? "Close" : "Cancel"
                                 onClicked: root.dismissModal()
                             }
 
                             BloxButton {
-                                visible: root.modalKind === "new"
-                                text: "Create blank"
-                                enabled: root.newThemeId.trim().length > 0 && root.newThemeName.trim().length > 0
-                                onClicked: root.startNewTheme(false)
-                            }
-
-                            BloxButton {
-                                visible: root.modalKind === "new"
-                                text: "Create from wallpaper"
-                                enabled: root.newThemeId.trim().length > 0 && root.newThemeName.trim().length > 0 && root.newWallpaper.trim().length > 0
+                                visible: root.modalKind === "new" && !root.creationBusy && root.newFlowPage === "wallpaper"
+                                text: "Create"
+                                enabled: root.newThemeId.trim().length > 0 && root.newThemeName.trim().length > 0 && root.newWallpaper.trim().length > 0 && root.paletteOptions.some((entry) => {
+                                    return entry.backend === root.generatorBackend && entry.available;
+                                })
                                 onClicked: root.startNewTheme(true)
                             }
 
                             BloxButton {
-                                visible: root.modalKind !== "new"
+                                visible: false
+                            }
+
+                            BloxButton {
+                                visible: root.modalKind !== "new" && root.modalKind !== "progress" && root.modalKind !== "guide"
                                 text: root.modalKind === "delete" ? "Delete" : root.modalKind === "duplicate" ? "Duplicate" : root.modalKind === "rename" ? "Rename" : root.modalKind === "export" ? "Choose destination" : "Discard"
                                 destructive: root.modalKind === "delete" || root.modalKind === "close" || root.modalKind === "navigate" || root.modalKind === "generate-current"
                                 enabled: root.modalConfirmationEnabled()

@@ -263,22 +263,23 @@ def cursor_metadata(theme: dict[str, Any]) -> dict[str, Any]:
     return {"schema_version": 1, "mode": "generated", "theme_name": CURSOR_THEME_NAME, "size": cursor["sizes"][0], "cache_key": key, **values}
 
 
-def validate_cursor_theme(theme: dict[str, Any]) -> list[str]:
+def validate_cursor_theme(theme: dict[str, Any]) -> tuple[list[str], list[str]]:
     cursor = theme["cursor"]
     if cursor["mode"] != "generated":
-        return []
+        return [], []
     errors = []
+    warnings = []
     if cursor["base"] != "Bibata-Modern-Classic":
         errors.append("generated cursor base must be Bibata-Modern-Classic")
     colours = cursor_colours(theme)
     if contrast_ratio(colours["base"], colours["outline"]) < 3:
-        errors.append("generated cursor base/outline contrast requires 3.0:1")
+        warnings.append("generated cursor base/outline contrast recommends 3.0:1")
     for surface in dict.fromkeys((theme["colours"]["background"], "#000000", "#ffffff")):
         if max(contrast_ratio(colours["base"], surface), contrast_ratio(colours["outline"], surface)) < 3:
-            errors.append(f"generated cursor is not distinguishable from preview surface {surface}")
+            warnings.append(f"generated cursor may not be distinguishable from preview surface {surface}")
     if contrast_ratio(colours["watch_background"], colours["base"]) < 3 and contrast_ratio(colours["watch_background"], colours["outline"]) < 3:
-        errors.append("generated cursor watch background needs 3.0:1 contrast with its base or outline")
-    return errors
+        warnings.append("generated cursor watch background recommends 3.0:1 contrast with its base or outline")
+    return errors, warnings
 
 
 def _cache_files(theme_path: Path) -> list[dict[str, str]]:

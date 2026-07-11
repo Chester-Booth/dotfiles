@@ -43,14 +43,15 @@ class CursorMetadataTests(unittest.TestCase):
         self.assertEqual(metadata, json.loads(files["cursor/metadata.json"]))
         self.assertIn("gtk-cursor-theme-name=Bibata-Modern-Ice", files["gtk/gtk-4.0/settings.ini"])
 
-    def test_invalid_style_and_contrast_are_blocked(self) -> None:
+    def test_invalid_style_is_blocked_and_contrast_is_warned(self) -> None:
         invalid = copy.deepcopy(self.theme)
         invalid["cursor"]["base"] = "Unsupported"
         invalid["cursor"].update(base_colour="#222222", outline_colour="#222222", watch_background="#222222")
-        errors = validate_theme(invalid, check_dependencies=False).errors
-        self.assertTrue(any("base must" in error for error in errors))
-        self.assertTrue(any("base/outline" in error for error in errors))
-        self.assertTrue(any("preview surface" in error for error in errors))
+        result = validate_theme(invalid, check_dependencies=False)
+        self.assertTrue(any("base must" in error for error in result.errors))
+        self.assertFalse(any("contrast" in error for error in result.errors))
+        self.assertTrue(any("base/outline" in warning for warning in result.warnings))
+        self.assertTrue(any("preview surface" in warning for warning in result.warnings))
 
 
 class CursorCacheTests(unittest.TestCase):

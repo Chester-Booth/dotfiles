@@ -35,6 +35,9 @@ class AnsiScreenTests(unittest.TestCase):
 class TerminalWidgetSafetyTests(unittest.TestCase):
     def test_only_known_presets_can_be_resolved(self) -> None:
         self.assertEqual(("tty-clock", "-c"), terminal_frame.command_for("clock"))
+        self.assertEqual(("tty-clock", "-c", "-s"), terminal_frame.command_for("clock", "tty-clock -c -s"))
+        with self.assertRaisesRegex(ValueError, "must run tty-clock"):
+            terminal_frame.command_for("clock", "sh -c 'tty-clock; touch /tmp/nope'")
         with self.assertRaisesRegex(ValueError, "unsupported"):
             terminal_frame.command_for("custom; rm -rf -- /tmp/example")
 

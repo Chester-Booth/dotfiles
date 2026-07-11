@@ -674,7 +674,7 @@ FloatingWindow {
             "tree": "cbonsai -l",
             "matrix": "unimatrix",
             "fortune": "fortune | cowsay",
-            "train": "while true; do sl; sleep 1; done"
+            "train": "sl"
         };
         return {
             "id": "widget-" + (widgetItems().length + 1),

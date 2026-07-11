@@ -32,7 +32,7 @@ Scope {
 
         const columns = widget.width > 0 ? Math.max(10, Math.floor(widget.width / Math.max(6, Theme.widgetFontSize * 0.6))) : 60;
         const rows = widget.height > 0 ? Math.max(4, Math.floor(widget.height / Math.max(10, Theme.widgetFontSize * 1.25))) : 20;
-        return [root.scriptRoot + "/overlays/terminal-frame.py", widget.type, "--columns", String(columns), "--rows", String(rows)];
+        return [root.scriptRoot + "/overlays/terminal-frame.py", widget.type, "--command", widget.content_command, "--columns", String(columns), "--rows", String(rows)];
     }
 
     function activeWorkspaceEmpty() {

@@ -9,6 +9,7 @@ import pty
 import re
 import select
 import signal
+import shlex
 import struct
 import subprocess
 import termios
@@ -143,11 +144,19 @@ class AnsiScreen:
         return "\n".join(lines)
 
 
-def command_for(preset: str) -> tuple[str, ...]:
+def command_for(preset: str, requested: str = "") -> tuple[str, ...]:
     try:
-        return PRESET_COMMANDS[preset]
+        default = PRESET_COMMANDS[preset]
     except KeyError as error:
         raise ValueError(f"unsupported terminal widget preset: {preset}") from error
+    if not requested:
+        return default
+    command = tuple(shlex.split(requested))
+    if not command or os.path.basename(command[0]) != default[0]:
+        raise ValueError(f"{preset} widgets must run {default[0]}")
+    if len(command) > 24 or any(len(argument) > 256 or "\x00" in argument for argument in command):
+        raise ValueError("terminal widget command options exceed the safety limits")
+    return command
 
 
 def capture(command: tuple[str, ...], rows: int, columns: int, duration: float, max_bytes: int) -> str:
@@ -192,15 +201,19 @@ def main() -> int:
     parser.add_argument("--rows", type=int, default=20)
     parser.add_argument("--columns", type=int, default=60)
     parser.add_argument("--duration-ms", type=int, default=350)
+    parser.add_argument("--command", default="")
     args = parser.parse_args()
     rows = max(4, min(80, args.rows))
     columns = max(10, min(200, args.columns))
     duration = max(0.05, min(1.5, args.duration_ms / 1000))
     try:
-        rendered = capture(command_for(args.preset), rows, columns, duration, 256 * 1024)
+        rendered = capture(command_for(args.preset, args.command), rows, columns, duration, 256 * 1024)
     except FileNotFoundError:
         print(f"{PRESET_COMMANDS[args.preset][0]} is not installed")
         return 0
+    except ValueError as error:
+        print(str(error))
+        return 2
     print(rendered)
     return 0
 

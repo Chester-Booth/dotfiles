@@ -80,10 +80,11 @@ Rectangle {
         anchors.right: parent.right
         anchors.rightMargin: 11
         anchors.verticalCenter: parent.verticalCenter
-        text: popup.visible ? "▴" : "▾"
-        color: Theme.muted
-        font.family: Theme.fontFamily
-        font.pixelSize: 12
+        text: popup.visible ? "⌃" : "⌄"
+        color: root.hovered || popup.visible ? Theme.foreground : Theme.muted
+        font.family: Theme.bodyFontFamily
+        font.pixelSize: 19
+        font.bold: true
     }
 
     HoverHandler {

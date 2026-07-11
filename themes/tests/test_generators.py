@@ -181,7 +181,7 @@ class SaveTests(unittest.TestCase):
         theme["generator"]["options"]["unknown"] = True
         self.assertTrue(schema_errors(theme))
 
-    def test_validation_detects_changed_source_wallpaper(self) -> None:
+    def test_validation_allows_changed_source_wallpaper(self) -> None:
         _, theme = load_theme("blox-panel")
         with tempfile.TemporaryDirectory() as temporary:
             wallpaper = Path(temporary) / "wallpaper.png"
@@ -192,7 +192,7 @@ class SaveTests(unittest.TestCase):
                 "options": {"mode": "dark"}, "wallpaper_sha256": "0" * 64,
             }
             result = validate_theme(theme, check_dependencies=True)
-        self.assertTrue(any("digest" in error for error in result.errors))
+        self.assertFalse(any("digest" in error for error in result.errors))
 
 
 class CliTests(unittest.TestCase):

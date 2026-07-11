@@ -167,6 +167,8 @@ class RendererTests(unittest.TestCase):
         }
         self.assertTrue(phase7.issubset(files))
         self.assertEqual(self.theme["fonts"]["mono"], json.loads(files["code/settings.json"])["editor.fontFamily"])
+        self.assertEqual("Dark 2026", json.loads(files["code/settings.json"])["workbench.colorTheme"])
+        self.assertIn("sideBarSectionHeader.background", json.loads(files["code/settings.json"])["workbench.colorCustomizations"])
         self.assertEqual(json.loads(files["code/settings.json"]), json.loads(files["cursor-editor/settings.json"]))
         self.assertIn("@-moz-document", files["stylus/blox-system.user.css"])
         self.assertIn('color-link default "#cdd6f4"', files["micro/blox-theme.micro"])

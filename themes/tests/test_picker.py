@@ -144,8 +144,8 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn('text: "+  New theme"', qml)
         self.assertIn("function openNewTheme(wallpaperPage)", qml)
         self.assertIn('runApi("new-template", ["show", "blox-panel"])', qml)
-        self.assertIn('text: "Create From Blank"', qml)
-        self.assertIn('text: "Create From Wallpaper"', qml)
+        self.assertIn('text: "From blank"', qml)
+        self.assertIn('text: "From wallpaper"', qml)
         self.assertIn('text: "Wallpaper"', qml)
         self.assertNotIn('text: "Generate"', qml)
         self.assertIn("acceptedButtons: Qt.LeftButton | Qt.RightButton", qml)
@@ -226,7 +226,14 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn('if (key === "stylus")', qml)
         self.assertIn('return "manual"', qml)
         self.assertIn('key === "code" || key === "cursor_editor" ? "Reload Window"', qml)
-        self.assertIn('source: "../assets/stylus-guide.svg"', qml)
+        self.assertIn('source: "../assets/stylus-import.png"', qml)
+        self.assertIn('text: "Download file"', qml)
+        self.assertIn('text: "View guide"', qml)
+        self.assertIn('text: "Simple"', qml)
+        simple = qml.split('visible: root.editorMode === "overview"', 1)[1].split('visible: root.editorMode === "advanced"', 1)[0]
+        self.assertNotIn('text: "Target impact"', simple)
+        self.assertNotIn('text: "Dependency and compatibility notes"', simple)
+        self.assertIn("editorScroll.contentY - delta * 4", qml)
 
     def test_custom_controls_are_registered_and_font_rows_preview_their_family(self) -> None:
         shared = REPOSITORY / "quickshell/.config/quickshell/blox/shared"
@@ -268,7 +275,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn("function modalConfirmationEnabled()", qml)
         self.assertGreaterEqual(qml.count("ScrollBar.vertical: ScrollBar"), 2)
         self.assertIn("policy: ScrollBar.AlwaysOn", qml)
-        self.assertIn("policy: ScrollBar.AlwaysOff", qml)
+        self.assertIn("contentWidth: width", qml)
         semantic = qml.split("id: semanticSwatch", 1)[1].split("text: \"Terminal palette\"", 1)[0]
         self.assertIn("wrapMode: Text.WordWrap", semantic)
         self.assertIn("maximumLineCount: 2", semantic)

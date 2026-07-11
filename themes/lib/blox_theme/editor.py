@@ -151,6 +151,7 @@ def apply_fragment(settings: Path, fragment: dict[str, Any]) -> None:
     updated = merge_members(
         original,
         {
+            "workbench.colorTheme": fragment["workbench.colorTheme"],
             "editor.fontFamily": fragment["editor.fontFamily"],
             "editor.fontSize": fragment["editor.fontSize"],
             "workbench.colorCustomizations": existing_workbench,

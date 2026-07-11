@@ -58,7 +58,7 @@ FloatingWindow {
     property var applyProgressRows: []
     property bool applyProgressComplete: false
     property string guideTarget: ""
-    property bool exportIncludeWallpaper: false
+    property bool exportIncludeWallpaper: true
     property string wallpaperDialogTarget: "overview"
     property var fontFamilies: []
     property string fontOutput: ""
@@ -493,8 +493,14 @@ FloatingWindow {
         if (busy || dirty || !candidate || !sourceDigest)
             return ;
 
-        exportIncludeWallpaper = false;
+        exportIncludeWallpaper = true;
         showModal("export");
+    }
+
+    function downloadStylusFile() {
+        if (!busy)
+            stylusExportDialog.open();
+
     }
 
     function generateTheme(wallpaper, displayName, themeId, backend) {
@@ -617,10 +623,10 @@ FloatingWindow {
         if (busy || dirty)
             return ;
 
-        newThemeName = "Untitled Theme";
+        newThemeName = "";
         newThemeId = duplicateIdForName(newThemeName);
         newWallpaper = "";
-        newFlowPage = wallpaperPage ? "wallpaper" : "name";
+        newFlowPage = wallpaperPage ? "wallpaper" : "blank";
         paletteOptions = [];
         paletteLoading = false;
         creationBusy = false;
@@ -1102,6 +1108,21 @@ FloatingWindow {
         }
     }
 
+    FileDialog {
+        id: stylusExportDialog
+
+        parentWindow: root._backingWindow
+        title: "Download Stylus theme"
+        modality: Qt.WindowModal
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "css"
+        nameFilters: ["Stylus UserCSS (*.css)"]
+        onAccepted: {
+            const path = decodeURIComponent(String(selectedFile).replace(/^file:\/\//, ""));
+            root.runApi("export-target", ["export-target", "stylus", "--output", path]);
+        }
+    }
+
     IpcHandler {
         function open() : string {
             return root.openPicker();
@@ -1249,7 +1270,7 @@ FloatingWindow {
                     }
 
                     BloxButton {
-                        text: "Overview"
+                        text: "Simple"
                         checkable: true
                         checked: root.editorMode === "overview"
                         onClicked: root.editorMode = "overview"
@@ -1293,7 +1314,7 @@ FloatingWindow {
                             spacing: 8
 
                             BloxTextField {
-                                id: newWallpaperField
+                                id: themeSearchField
 
                                 Layout.fillWidth: true
                                 placeholderText: "Search themes"
@@ -1305,7 +1326,48 @@ FloatingWindow {
                                 Layout.fillWidth: true
                                 text: "+  New theme"
                                 enabled: root.candidate && !root.dirty && !root.busy
-                                onClicked: root.openNewTheme()
+                                onClicked: newThemeMenu.open()
+
+                                Popup {
+                                    id: newThemeMenu
+
+                                    y: parent.height + 5
+                                    width: parent.width
+                                    padding: 5
+                                    modal: false
+                                    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+                                    contentItem: Column {
+                                        spacing: 4
+
+                                        BloxButton {
+                                            width: parent.width
+                                            text: "From blank"
+                                            onClicked: {
+                                                newThemeMenu.close();
+                                                root.openNewTheme(false);
+                                            }
+                                        }
+
+                                        BloxButton {
+                                            width: parent.width
+                                            text: "From wallpaper"
+                                            onClicked: {
+                                                newThemeMenu.close();
+                                                root.openNewTheme(true);
+                                            }
+                                        }
+
+                                    }
+
+                                    background: Rectangle {
+                                        radius: 10
+                                        color: Theme.surfaceAlt
+                                        border.color: Theme.border
+                                    }
+
+                                }
+
                             }
 
                             RowLayout {
@@ -1397,12 +1459,12 @@ FloatingWindow {
                                         width: 30
                                         height: 34
                                         radius: 8
-                                        color: kebabMouse.containsMouse || themeActions.visible ? Theme.surface : "transparent"
+                                        color: kebabMouse.containsMouse || themeActions.visible ? Theme.withAlpha(Theme.blue, 0.22) : "transparent"
 
                                         Text {
                                             anchors.centerIn: parent
                                             text: "⋮"
-                                            color: Theme.muted
+                                            color: kebabMouse.containsMouse || themeActions.visible ? Theme.foreground : Theme.muted
                                             font.family: Theme.bodyFontFamily
                                             font.pixelSize: 20
                                         }
@@ -1454,16 +1516,6 @@ FloatingWindow {
 
                                             BloxButton {
                                                 width: parent.width
-                                                text: "Revert"
-                                                enabled: modelData.id === root.selectedId && root.dirty && root.baselineJson.length > 0 && !root.busy
-                                                onClicked: {
-                                                    themeActions.close();
-                                                    root.revertCandidate();
-                                                }
-                                            }
-
-                                            BloxButton {
-                                                width: parent.width
                                                 text: "Duplicate"
                                                 enabled: modelData.id !== root.selectedId || !root.dirty
                                                 onClicked: {
@@ -1475,7 +1527,7 @@ FloatingWindow {
                                             BloxButton {
                                                 width: parent.width
                                                 text: "Rename"
-                                                enabled: modelData.id !== root.selectedId || !root.dirty
+                                                enabled: !modelData.unsaved && (modelData.id !== root.selectedId || !root.dirty)
                                                 onClicked: {
                                                     themeActions.close();
                                                     root.openRename(modelData.id, modelData.name);
@@ -1486,7 +1538,7 @@ FloatingWindow {
                                                 width: parent.width
                                                 text: "Delete"
                                                 destructive: true
-                                                enabled: modelData.id !== "blox-panel" && (modelData.id !== root.selectedId || !root.dirty) && !root.busy
+                                                enabled: !modelData.unsaved && modelData.id !== "blox-panel" && (modelData.id !== root.selectedId || !root.dirty) && !root.busy
                                                 onClicked: {
                                                     themeActions.close();
                                                     root.requestDelete(modelData.id, modelData.name);
@@ -1518,15 +1570,32 @@ FloatingWindow {
                         color: Theme.surface
                         border.color: Theme.border
 
-                        ScrollView {
+                        Flickable {
                             id: editorScroll
 
                             anchors.fill: parent
                             anchors.margins: 14
                             clip: true
+                            contentWidth: width
+                            contentHeight: editorContent.implicitHeight
+                            boundsBehavior: Flickable.StopAtBounds
+
+                            WheelHandler {
+                                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                                onWheel: (event) => {
+                                    const pixelDelta = event.pixelDelta.y || 0;
+                                    const angleDelta = event.angleDelta.y || 0;
+                                    const delta = pixelDelta !== 0 ? pixelDelta : angleDelta / 2;
+                                    const maximumContentY = Math.max(editorScroll.originY, editorScroll.originY + editorScroll.contentHeight - editorScroll.height);
+                                    editorScroll.contentY = Math.max(editorScroll.originY, Math.min(maximumContentY, editorScroll.contentY - delta * 4));
+                                    event.accepted = true;
+                                }
+                            }
 
                             ColumnLayout {
-                                width: Math.max(620, parent.width - 18)
+                                id: editorContent
+
+                                width: editorScroll.width - 16
                                 spacing: 14
 
                                 ColumnLayout {
@@ -1758,121 +1827,6 @@ FloatingWindow {
                                                 font.pixelSize: 14
                                             }
 
-                                        }
-
-                                    }
-
-                                    Label {
-                                        text: "Target impact"
-                                        color: Theme.foreground
-                                        font.family: Theme.bodyFontFamily
-                                        font.pixelSize: 17
-                                        font.bold: true
-                                    }
-
-                                    Label {
-                                        text: "Core"
-                                        color: Theme.blue
-                                        font.bold: true
-                                    }
-
-                                    Flow {
-                                        Layout.fillWidth: true
-                                        spacing: 6
-
-                                        Repeater {
-                                            model: root.coreTargetKeys
-
-                                            BloxCheckBox {
-                                                required property string modelData
-
-                                                text: root.targetLabel(modelData) + " · " + root.targetModeLabel(modelData)
-                                                checked: root.candidate ? root.candidate.targets[modelData] : false
-                                                onToggled: (value) => {
-                                                    if (root.candidate && value !== root.candidate.targets[modelData])
-                                                        root.setTarget(modelData, value);
-
-                                                }
-                                            }
-
-                                        }
-
-                                    }
-
-                                    Label {
-                                        text: "Applications"
-                                        color: Theme.blue
-                                        font.bold: true
-                                    }
-
-                                    Flow {
-                                        Layout.fillWidth: true
-                                        spacing: 6
-
-                                        Repeater {
-                                            model: root.applicationTargetKeys
-
-                                            BloxCheckBox {
-                                                required property string modelData
-
-                                                text: root.targetLabel(modelData) + " · " + root.targetModeLabel(modelData)
-                                                checked: root.candidate ? root.candidate.targets[modelData] : false
-                                                onToggled: (value) => {
-                                                    if (root.candidate && value !== root.candidate.targets[modelData])
-                                                        root.setTarget(modelData, value);
-
-                                                }
-                                            }
-
-                                        }
-
-                                    }
-
-                                    Label {
-                                        text: "Unavailable"
-                                        color: Theme.muted
-                                        font.bold: true
-                                    }
-
-                                    Flow {
-                                        Layout.fillWidth: true
-                                        spacing: 6
-
-                                        Repeater {
-                                            model: root.unavailableTargetKeys
-
-                                            BloxCheckBox {
-                                                required property string modelData
-
-                                                text: root.targetLabel(modelData)
-                                                checked: false
-                                                enabled: root.targetAvailable(modelData)
-                                            }
-
-                                        }
-
-                                    }
-
-                                    Label {
-                                        text: "Dependency and compatibility notes"
-                                        color: Theme.foreground
-                                        font.family: Theme.bodyFontFamily
-                                        font.pixelSize: 17
-                                        font.bold: true
-                                    }
-
-                                    Repeater {
-                                        model: root.apiWarnings
-
-                                        Text {
-                                            required property string modelData
-
-                                            Layout.fillWidth: true
-                                            text: "• " + modelData
-                                            color: Theme.yellow
-                                            wrapMode: Text.Wrap
-                                            font.family: Theme.bodyFontFamily
-                                            font.pixelSize: 12
                                         }
 
                                     }
@@ -2185,6 +2139,39 @@ FloatingWindow {
                                     }
 
                                     Label {
+                                        text: "Stylus"
+                                        color: Theme.foreground
+                                        font.family: Theme.bodyFontFamily
+                                        font.pixelSize: 17
+                                        font.bold: true
+                                    }
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: "Install the generated UserCSS in the Stylus browser extension."
+                                            color: Theme.muted
+                                            wrapMode: Text.Wrap
+                                        }
+
+                                        BloxButton {
+                                            text: "Download file"
+                                            onClicked: root.downloadStylusFile()
+                                        }
+
+                                        BloxButton {
+                                            text: "View guide"
+                                            onClicked: {
+                                                root.guideTarget = "stylus";
+                                                root.showModal("guide");
+                                            }
+                                        }
+
+                                    }
+
+                                    Label {
                                         text: "Target-specific colour overrides"
                                         color: Theme.foreground
                                         font.family: Theme.bodyFontFamily
@@ -2288,19 +2275,33 @@ FloatingWindow {
                             }
 
                             ScrollBar.vertical: ScrollBar {
-                                policy: ScrollBar.AlwaysOn
-                                width: 10
+                                id: editorScrollbar
 
-                                contentItem: Rectangle {
-                                    implicitWidth: 7
-                                    radius: 4
-                                    color: Theme.withAlpha(Theme.muted, 0.72)
+                                policy: ScrollBar.AlwaysOn
+                                width: 8
+                                interactive: true
+
+                                background: Rectangle {
+                                    implicitWidth: 8
+                                    radius: 999
+                                    color: editorScrollbar.hovered || editorScrollbar.pressed ? Qt.rgba(1, 1, 1, 0.09) : Qt.rgba(1, 1, 1, 0.04)
                                 }
 
-                            }
+                                contentItem: Rectangle {
+                                    implicitWidth: 4
+                                    radius: 999
+                                    color: editorScrollbar.pressed ? Theme.blue : editorScrollbar.hovered ? Theme.foreground : Theme.muted
 
-                            ScrollBar.horizontal: ScrollBar {
-                                policy: ScrollBar.AlwaysOff
+                                    Behavior on color {
+                                        ColorAnimation {
+                                            duration: 110
+                                            easing.type: Easing.OutCubic
+                                        }
+
+                                    }
+
+                                }
+
                             }
 
                         }
@@ -2369,6 +2370,13 @@ FloatingWindow {
                         visible: root.busy
                         Layout.preferredWidth: 28
                         Layout.preferredHeight: 28
+                    }
+
+                    BloxButton {
+                        text: "Revert"
+                        visible: root.candidate && root.dirty && root.baselineJson.length > 0
+                        enabled: !root.busy
+                        onClicked: root.revertCandidate()
                     }
 
                     BloxButton {
@@ -2447,14 +2455,14 @@ FloatingWindow {
                         Text {
                             visible: root.modalKind === "new" || root.modalKind === "progress" || root.modalKind === "guide" || root.modalKind === "navigate" || root.modalKind === "generate-current" || root.modalKind === "close" || root.modalKind === "delete" || root.modalKind === "export"
                             Layout.fillWidth: true
-                            text: root.modalKind === "new" ? root.creationBusy ? "Creating the theme from the selected inputs…" : root.newFlowPage === "name" ? "Choose how to create the new theme." : "Choose a wallpaper and the palette generator to use." : root.modalKind === "progress" ? root.applyProgressComplete ? "Application finished. Review any follow-up actions below." : "Generating and applying each enabled target…" : root.modalKind === "delete" ? "This removes the editable source. The action cannot be undone." : root.modalKind === "export" ? "Create a portable bundle. Fonts, GTK, icon and cursor themes remain dependency notes." : "The temporary Quickshell preview will be restored to the active theme."
+                            text: root.modalKind === "new" ? root.creationBusy ? "Creating the theme from the selected inputs…" : root.newFlowPage === "blank" ? "Create a blank editable theme." : "Choose a wallpaper and the palette generator to use." : root.modalKind === "progress" ? root.applyProgressComplete ? "Application finished. Review any follow-up actions below." : "Generating and applying each enabled target…" : root.modalKind === "delete" ? "This removes the editable source. The action cannot be undone." : root.modalKind === "export" ? "Create a portable bundle. Fonts, GTK, icon and cursor themes remain dependency notes." : "The temporary Quickshell preview will be restored to the active theme."
                             color: Theme.muted
                             wrapMode: Text.Wrap
                             font.family: Theme.bodyFontFamily
                         }
 
                         Label {
-                            visible: root.modalKind === "new" && !root.creationBusy && root.newFlowPage === "name"
+                            visible: root.modalKind === "new" && !root.creationBusy
                             text: "Name"
                             color: Theme.foreground
                             font.bold: true
@@ -2463,7 +2471,7 @@ FloatingWindow {
                         BloxTextField {
                             id: newNameField
 
-                            visible: root.modalKind === "new" && !root.creationBusy && root.newFlowPage === "name"
+                            visible: root.modalKind === "new" && !root.creationBusy
                             Layout.fillWidth: true
                             placeholderText: "Display name"
                             text: root.newThemeName
@@ -2478,31 +2486,6 @@ FloatingWindow {
                             }
                         }
 
-                        RowLayout {
-                            visible: root.modalKind === "new" && !root.creationBusy && root.newFlowPage === "name"
-                            Layout.fillWidth: true
-
-                            BloxButton {
-                                Layout.fillWidth: true
-                                text: "Create From Blank"
-                                enabled: root.newThemeName.trim().length > 0
-                                onClicked: root.startNewTheme(false)
-                            }
-
-                            BloxButton {
-                                Layout.fillWidth: true
-                                text: "Create From Wallpaper"
-                                enabled: root.newThemeName.trim().length > 0
-                                onClicked: {
-                                    root.newFlowPage = "wallpaper";
-                                    Qt.callLater(() => {
-                                        newWallpaperField.focusEditor(true);
-                                    });
-                                }
-                            }
-
-                        }
-
                         Label {
                             visible: root.modalKind === "new" && !root.creationBusy && root.newFlowPage === "wallpaper"
                             text: "File Path"
@@ -2515,8 +2498,10 @@ FloatingWindow {
                             Layout.fillWidth: true
 
                             BloxTextField {
+                                id: newWallpaperField
+
                                 Layout.fillWidth: true
-                                placeholderText: "Optional wallpaper for palette generation"
+                                placeholderText: "/path/to/wallpaper"
                                 text: root.newWallpaper
                                 onTextChanged: {
                                     root.newWallpaper = text;
@@ -2643,7 +2628,7 @@ FloatingWindow {
                                 id: progressGrid
 
                                 width: parent.width
-                                columns: 2
+                                columns: 1
                                 columnSpacing: 14
                                 rowSpacing: 8
 
@@ -2653,13 +2638,13 @@ FloatingWindow {
                                     RowLayout {
                                         required property var modelData
 
-                                        Layout.preferredWidth: (progressGrid.width - progressGrid.columnSpacing) / 2
+                                        Layout.preferredWidth: progressGrid.width
 
                                         Text {
                                             text: modelData.target.replace("cursor_editor", "cursor")
                                             color: Theme.foreground
                                             font.family: Theme.fontFamily
-                                            Layout.preferredWidth: 90
+                                            Layout.preferredWidth: 150
                                         }
 
                                         Text {
@@ -2692,8 +2677,8 @@ FloatingWindow {
 
                             Image {
                                 Layout.fillWidth: true
-                                height: 120
-                                source: "../assets/stylus-guide.svg"
+                                height: 180
+                                source: "../assets/stylus-import.png"
                                 fillMode: Image.PreserveAspectFit
                             }
 
@@ -2702,6 +2687,12 @@ FloatingWindow {
                                 text: "1. Open the Stylus extension dashboard.\n2. Choose Import and select the generated blox-system.user.css file.\n3. Replace the previous Blox System Theme entry, then enable it."
                                 color: Theme.foreground
                                 wrapMode: Text.Wrap
+                            }
+
+                            BloxButton {
+                                Layout.alignment: Qt.AlignRight
+                                text: "Download file"
+                                onClicked: root.downloadStylusFile()
                             }
 
                         }
@@ -2775,12 +2766,12 @@ FloatingWindow {
                             }
 
                             BloxButton {
-                                visible: root.modalKind === "new" && !root.creationBusy && root.newFlowPage === "wallpaper"
+                                visible: root.modalKind === "new" && !root.creationBusy
                                 text: "Create"
-                                enabled: root.newThemeId.trim().length > 0 && root.newThemeName.trim().length > 0 && root.newWallpaper.trim().length > 0 && root.paletteOptions.some((entry) => {
+                                enabled: root.newThemeId.trim().length > 0 && root.newThemeName.trim().length > 0 && (root.newFlowPage === "blank" || root.newWallpaper.trim().length > 0 && root.paletteOptions.some((entry) => {
                                     return entry.backend === root.generatorBackend && entry.available;
-                                })
-                                onClicked: root.startNewTheme(true)
+                                }))
+                                onClicked: root.startNewTheme(root.newFlowPage === "wallpaper")
                             }
 
                             BloxButton {

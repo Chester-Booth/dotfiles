@@ -19,6 +19,7 @@ class EditorSettingsTests(unittest.TestCase):
         self.root = Path(self.temporary.name)
         self.settings = self.root / "Code/User/settings.json"
         self.fragment = {
+            "workbench.colorTheme": "Dark 2026",
             "editor.fontFamily": "MartianMono Nerd Font",
             "editor.fontSize": 12,
             "workbench.colorCustomizations": {
@@ -43,6 +44,7 @@ class EditorSettingsTests(unittest.TestCase):
         self.assertIn('"terminal.background": "#000000"', text)
         self.assertIn('"editor.background": "#101114"', text)
         self.assertIn('"editor.fontSize": 12', text)
+        self.assertIn('"workbench.colorTheme": "Dark 2026"', text)
 
     def test_new_settings_are_created_and_repeated_apply_updates_owned_values(self) -> None:
         apply_fragment(self.settings, self.fragment)

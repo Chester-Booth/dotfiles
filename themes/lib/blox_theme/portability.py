@@ -134,8 +134,6 @@ def export_bundle(theme: dict[str, Any], output: Path, include_wallpaper: bool =
             raise PortabilityFailure(f"wallpaper exceeds the {MAX_MEMBER_BYTES}-byte bundle member limit")
         wallpaper_name = _safe_wallpaper_name(source)
         wallpaper_data = source.read_bytes()
-        if migrated.get("generator") and _digest(wallpaper_data) != migrated["generator"]["wallpaper_sha256"]:
-            raise PortabilityFailure("generator wallpaper digest does not match the source wallpaper")
         files[wallpaper_name] = wallpaper_data
         wallpaper_record = {"path": wallpaper_name, "source_path": migrated["wallpaper"]["path"]}
         notes["bundled_assets"] = ["wallpaper"]

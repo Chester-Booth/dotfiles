@@ -149,6 +149,10 @@ def parser() -> argparse.ArgumentParser:
     export_parser.add_argument("--output", type=Path)
     export_parser.add_argument("--include-wallpaper", action="store_true")
     export_parser.add_argument("--json", action="store_true")
+    target_export = subcommands.add_parser("export-target", help="copy a generated target file to a chosen path")
+    target_export.add_argument("target", choices=("stylus",))
+    target_export.add_argument("--output", type=Path, required=True)
+    target_export.add_argument("--json", action="store_true")
     return root
 
 
@@ -258,6 +262,22 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         except (OSError, RuntimeFailure) as error:
             return envelope(command, errors=[str(error)]), EXIT_APPLY
         return envelope(command, {"feature": args.feature, "integration": integration}), EXIT_OK
+
+    if command == "export-target":
+        relative = {"stylus": Path("stylus/blox-system.user.css")}[args.target]
+        source = state_dir() / "current" / relative
+        output = args.output.expanduser()
+        try:
+            if not source.is_file():
+                raise FileNotFoundError(f"apply a theme with the {args.target} target before exporting it")
+            output.parent.mkdir(parents=True, exist_ok=True)
+            with output.open("xb") as handle:
+                handle.write(source.read_bytes())
+        except FileExistsError:
+            return envelope(command, errors=[f"refusing to overwrite existing file: {output}"]), EXIT_VALIDATION
+        except OSError as error:
+            return envelope(command, errors=[str(error)]), EXIT_APPLY
+        return envelope(command, {"target": args.target, "output": str(output)}), EXIT_OK
 
     if command == "palette":
         entries = []

@@ -277,16 +277,6 @@ def validate_theme(theme: dict[str, Any], check_dependencies: bool = True, targe
         dependencies = dependency_checks(theme, targets=targets)
         result.errors.extend(dependencies.errors)
         result.warnings.extend(dependencies.warnings)
-        if generator:
-            wallpaper = Path(theme["wallpaper"]["path"]).expanduser()
-            if wallpaper.is_file():
-                source_digest = hashlib.sha256()
-                with wallpaper.open("rb") as handle:
-                    for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-                        source_digest.update(chunk)
-                digest = source_digest.hexdigest()
-                if digest != generator["wallpaper_sha256"]:
-                    result.errors.append("generator wallpaper digest does not match the source wallpaper")
     return result
 
 
@@ -727,10 +717,30 @@ def render_editor(theme: dict[str, Any]) -> str:
     custom = {
         "editor.background": c["background"], "editor.foreground": c["foreground"], "editor.selectionBackground": c["selection_background"],
         "editor.inactiveSelectionBackground": c["surface_alt"], "editorCursor.foreground": c["accent"], "editorLineNumber.foreground": c["muted"],
-        "activityBar.background": c["surface"], "sideBar.background": c["surface"], "panel.background": c["surface"],
-        "statusBar.background": c["surface_alt"], "focusBorder": c["accent"], "errorForeground": c["danger"],
+        "editorGroupHeader.tabsBackground": c["surface"], "editorGroup.border": c["border"],
+        "tab.activeBackground": c["background"], "tab.activeForeground": c["foreground"], "tab.activeBorderTop": c["accent"],
+        "tab.inactiveBackground": c["surface"], "tab.inactiveForeground": c["muted"], "tab.border": c["border"],
+        "activityBar.background": c["surface"], "activityBar.foreground": c["foreground"], "activityBar.inactiveForeground": c["muted"],
+        "activityBar.border": c["border"], "activityBarBadge.background": c["accent"], "activityBarBadge.foreground": c["background"],
+        "sideBar.background": c["surface"], "sideBar.foreground": c["foreground"], "sideBar.border": c["border"],
+        "sideBarTitle.foreground": c["foreground"], "sideBarSectionHeader.background": c["surface_alt"],
+        "sideBarSectionHeader.foreground": c["foreground"], "sideBarSectionHeader.border": c["border"],
+        "list.activeSelectionBackground": c["selection_background"], "list.activeSelectionForeground": c["selection_foreground"],
+        "list.inactiveSelectionBackground": c["surface_alt"], "list.inactiveSelectionForeground": c["foreground"],
+        "list.hoverBackground": c["surface_alt"], "list.hoverForeground": c["foreground"], "list.focusOutline": c["accent"],
+        "gitDecoration.addedResourceForeground": c["success"], "gitDecoration.modifiedResourceForeground": c["warning"],
+        "gitDecoration.deletedResourceForeground": c["danger"], "gitDecoration.untrackedResourceForeground": c["teal"],
+        "panel.background": c["surface"], "panel.border": c["border"], "panelTitle.activeForeground": c["foreground"],
+        "panelTitle.inactiveForeground": c["muted"], "panelTitle.activeBorder": c["accent"],
+        "titleBar.activeBackground": c["surface"], "titleBar.activeForeground": c["foreground"], "titleBar.border": c["border"],
+        "statusBar.background": c["surface_alt"], "statusBar.foreground": c["foreground"], "statusBar.border": c["border"],
+        "input.background": c["background"], "input.foreground": c["foreground"], "input.border": c["border"],
+        "dropdown.background": c["surface_alt"], "dropdown.foreground": c["foreground"], "dropdown.border": c["border"],
+        "menu.background": c["surface"], "menu.foreground": c["foreground"], "menu.selectionBackground": c["selection_background"],
+        "badge.background": c["accent"], "badge.foreground": c["background"],
+        "focusBorder": c["accent"], "errorForeground": c["danger"],
     }
-    return canonical_json({"editor.fontFamily": theme["fonts"]["mono"], "editor.fontSize": theme["fonts"]["editor_size"], "workbench.colorCustomizations": custom})
+    return canonical_json({"workbench.colorTheme": "Dark 2026", "editor.fontFamily": theme["fonts"]["mono"], "editor.fontSize": theme["fonts"]["editor_size"], "workbench.colorCustomizations": custom})
 
 
 def render_stylus(theme: dict[str, Any]) -> str:

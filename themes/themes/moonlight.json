@@ -76,6 +76,7 @@
     "quickshell": true,
     "sddm": false,
     "stylus": true,
+    "obsidian": true,
     "vicinae": true,
     "wallpaper": true,
     "widgets": true

@@ -19,6 +19,7 @@
     "code": false,
     "cursor_editor": false,
     "stylus": false,
+    "obsidian": true,
     "powerlevel10k": false,
     "sddm": false,
     "grub": false

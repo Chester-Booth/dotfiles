@@ -223,7 +223,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn("request.inputs.wallpaper !== newWallpaper.trim()", qml)
         self.assertIn('showModal("progress")', qml)
         self.assertIn('text: "Guide"', qml)
-        self.assertIn('if (key === "stylus")', qml)
+        self.assertIn('if (key === "stylus" || key === "obsidian")', qml)
         self.assertIn('return "manual"', qml)
         self.assertIn('key === "code" || key === "cursor_editor" ? "Reload Window"', qml)
         self.assertIn('source: "../assets/stylus-import.png"', qml)

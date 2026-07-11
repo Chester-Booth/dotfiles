@@ -75,10 +75,10 @@ FloatingWindow {
     readonly property var semanticKeys: ["background", "surface", "surface_alt", "foreground", "muted", "accent", "danger", "success", "warning", "info", "mauve", "teal", "selection_background", "selection_foreground", "border"]
     readonly property var ansiKeys: ["color0", "color1", "color2", "color3", "color4", "color5", "color6", "color7", "color8", "color9", "color10", "color11", "color12", "color13", "color14", "color15"]
     readonly property var overrideKeys: ["background", "foreground", "accent", "border"]
-    readonly property var targetKeys: ["quickshell", "vicinae", "widgets", "gtk", "cursor", "wallpaper", "kitty", "hyprland", "hyprlock", "btop", "micro", "glow", "code", "cursor_editor", "stylus", "powerlevel10k", "sddm", "grub"]
+    readonly property var targetKeys: ["quickshell", "vicinae", "widgets", "gtk", "cursor", "wallpaper", "kitty", "hyprland", "hyprlock", "btop", "micro", "glow", "code", "cursor_editor", "stylus", "obsidian", "powerlevel10k", "sddm", "grub"]
     readonly property var unavailableTargetKeys: ["sddm", "grub"]
     readonly property var coreTargetKeys: ["quickshell", "widgets", "wallpaper", "hyprland", "hyprlock", "cursor"]
-    readonly property var applicationTargetKeys: ["vicinae", "kitty", "gtk", "btop", "micro", "glow", "code", "cursor_editor", "stylus", "powerlevel10k"]
+    readonly property var applicationTargetKeys: ["vicinae", "kitty", "gtk", "btop", "micro", "glow", "code", "cursor_editor", "stylus", "obsidian", "powerlevel10k"]
 
     function targetAvailable(key) {
         return unavailableTargetKeys.indexOf(key) < 0;
@@ -92,7 +92,7 @@ FloatingWindow {
     }
 
     function targetApplyMode(key) {
-        if (key === "stylus")
+        if (key === "stylus" || key === "obsidian")
             return "manual";
 
         if (["gtk", "cursor", "hyprlock", "btop", "micro", "glow", "code", "cursor_editor", "powerlevel10k"].indexOf(key) >= 0)
@@ -2676,6 +2676,7 @@ FloatingWindow {
                             Layout.fillWidth: true
 
                             Image {
+                                visible: root.guideTarget === "stylus"
                                 Layout.fillWidth: true
                                 height: 180
                                 source: "../assets/stylus-import.png"
@@ -2684,12 +2685,13 @@ FloatingWindow {
 
                             Text {
                                 Layout.fillWidth: true
-                                text: "1. Open the Stylus extension dashboard.\n2. Choose Import and select the generated blox-system.user.css file.\n3. Replace the previous Blox System Theme entry, then enable it."
+                                text: root.guideTarget === "obsidian" ? "1. Open your vault's .obsidian/snippets folder.\n2. Copy the generated blox-theme.css file into it.\n3. In Obsidian, open Appearance → CSS snippets and enable Blox theme." : "1. Open the Stylus extension dashboard.\n2. Choose Import and select the generated blox-system.user.css file.\n3. Replace the previous Blox System Theme entry, then enable it."
                                 color: Theme.foreground
                                 wrapMode: Text.Wrap
                             }
 
                             BloxButton {
+                                visible: root.guideTarget === "stylus"
                                 Layout.alignment: Qt.AlignRight
                                 text: "Download file"
                                 onClicked: root.downloadStylusFile()

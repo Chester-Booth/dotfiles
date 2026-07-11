@@ -34,6 +34,7 @@ TARGET_FILES = {
     "code": ("code/settings.json",),
     "cursor_editor": ("cursor-editor/settings.json",),
     "stylus": ("stylus/blox-system.user.css",),
+    "obsidian": ("obsidian/blox-theme.css",),
     "powerlevel10k": ("powerlevel10k/theme.zsh",),
 }
 TARGET_REQUIRED_FILES = {
@@ -87,7 +88,7 @@ def _target_for_file(name: str) -> str | None:
 
 def configured_targets(theme: dict[str, Any], requested: str | Iterable[str] | None = None) -> tuple[str, ...]:
     if requested is None:
-        return tuple(target for target in TARGET_NAMES if theme["targets"][target])
+        return tuple(target for target in TARGET_NAMES if theme["targets"].get(target, False))
     values = requested.split(",") if isinstance(requested, str) else list(requested)
     targets = tuple(dict.fromkeys(value.strip() for value in values if value.strip()))
     if not targets:
@@ -1020,6 +1021,8 @@ def run_reload_actions(root: Path, targets: Iterable[str], mode: str = "reload",
                     warnings.append(f"{editor} settings were not changed: {error}")
         elif target == "stylus":
             warnings.append("Stylus's generated UserCSS was removed; manually remove any previously imported copy" if mode == "reset" else f"Stylus requires manual import or refresh of {root / 'current/stylus/blox-system.user.css'}")
+        elif target == "obsidian":
+            warnings.append("Obsidian's generated snippet was removed; manually remove any installed copy" if mode == "reset" else f"Obsidian requires manual installation of {root / 'current/obsidian/blox-theme.css'}")
         elif target == "powerlevel10k":
             warnings.append("Powerlevel10k will use the base configuration in new shells" if mode == "reset" else "Powerlevel10k theme changes apply to new shells; source the generated fragment to update the current shell")
     return warnings

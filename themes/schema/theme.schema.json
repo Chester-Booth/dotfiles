@@ -26,7 +26,7 @@
         "hyprlock": {"type": "boolean"}, "btop": {"type": "boolean"},
         "micro": {"type": "boolean"}, "glow": {"type": "boolean"},
         "code": {"type": "boolean"}, "cursor_editor": {"type": "boolean"},
-        "stylus": {"type": "boolean"}, "powerlevel10k": {"type": "boolean"},
+        "stylus": {"type": "boolean"}, "obsidian": {"type": "boolean"}, "powerlevel10k": {"type": "boolean"},
         "sddm": {"type": "boolean"}, "grub": {"type": "boolean"}
       }
     },

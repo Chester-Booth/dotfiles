@@ -356,7 +356,7 @@ class RuntimeTests(unittest.TestCase):
                 self.apply_canonical()
                 runner = FakeCommands()
                 manifest, warnings = reset_target(target, run_command=runner)
-                manual = {"hyprlock", "btop", "micro", "glow", "code", "cursor_editor", "stylus", "powerlevel10k"}
+                manual = {"hyprlock", "btop", "micro", "glow", "code", "cursor_editor", "stylus", "obsidian", "powerlevel10k"}
                 if target != "kitty":
                     self.assertEqual(target in manual, bool(warnings))
                 active = (self.state / "current").resolve()

@@ -238,6 +238,42 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn('Theme.osdPositionPreviewRequested()', qml)
         self.assertIn('Theme.notificationPositionPreviewRequested()', qml)
 
+    def test_widget_position_canvas_supports_drag_resize_snap_and_numeric_geometry(self) -> None:
+        qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
+        for expected in (
+            'id: widgetCanvas',
+            'text: "Position"',
+            'drag.target: widgetPreview',
+            'cursorShape: Qt.SizeFDiagCursor',
+            'root.commitWidgetPreview(',
+            'anchor = (bottom ? "bottom-" : "top-") + (right ? "right" : "left")',
+            'model: ["offset_x", "offset_y", "width", "height"]',
+            'root.updateWidgetGeometry(',
+        ):
+            with self.subTest(expected=expected):
+                self.assertIn(expected, qml)
+
+    def test_advanced_picker_can_toggle_place_and_reorder_every_bar_item(self) -> None:
+        qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
+        advanced = qml.split('visible: root.editorMode === "advanced"', 1)[1]
+        for function_name in (
+            "barItems",
+            "normaliseBarItemOrders",
+            "setBarItems",
+            "setBarItemEnabled",
+            "setBarItemRegion",
+            "moveBarItem",
+        ):
+            self.assertIn(f"function {function_name}(", qml)
+        self.assertIn('model: ["start", "centre", "end", "hidden"]', advanced)
+        self.assertIn('"Expanded / hidden"', advanced)
+        self.assertIn("root.setBarItemEnabled(barItemRow.modelData.id, value)", advanced)
+        self.assertIn("root.setBarItemRegion(barItemRow.modelData.id, value)", advanced)
+        self.assertIn("root.moveBarItem(barItemRow.modelData.id, -1)", advanced)
+        self.assertIn("root.moveBarItem(barItemRow.modelData.id, 1)", advanced)
+        self.assertIn("Theme.resolvedBarItems(overrides)", qml)
+        self.assertIn("Theme.loadShell(next.shell)", qml)
+
     def test_custom_controls_are_registered_and_font_rows_preview_their_family(self) -> None:
         shared = REPOSITORY / "quickshell/.config/quickshell/blox/shared"
         qmldir = (shared / "qmldir").read_text(encoding="utf-8")

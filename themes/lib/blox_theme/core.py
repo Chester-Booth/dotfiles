@@ -35,6 +35,33 @@ TARGET_LIMITATIONS = {
     "powerlevel10k": "Powerlevel10k changes apply to new shells",
 }
 
+# Logical regions are deliberately orientation-independent: ``start`` is the
+# top of a vertical bar and the left of a horizontal one.  Keeping the complete
+# registry in rendered documents gives the shell and picker one stable model,
+# while themes written before bar customisation continue to receive defaults.
+DEFAULT_BAR_ITEMS = (
+    {"id": "power", "enabled": True, "region": "start", "order": 0},
+    {"id": "notes", "enabled": True, "region": "start", "order": 1},
+    {"id": "workspaces", "enabled": True, "region": "start", "order": 2},
+    {"id": "clock", "enabled": True, "region": "centre", "order": 0},
+    {"id": "battery", "enabled": True, "region": "end", "order": 0},
+    {"id": "notifications", "enabled": True, "region": "end", "order": 1},
+    {"id": "wifi", "enabled": True, "region": "end", "order": 2},
+    {"id": "sound", "enabled": True, "region": "end", "order": 3},
+    {"id": "privacy", "enabled": True, "region": "hidden", "order": 0},
+    {"id": "awake", "enabled": True, "region": "hidden", "order": 1},
+    {"id": "display", "enabled": True, "region": "hidden", "order": 2},
+    {"id": "bt", "enabled": True, "region": "hidden", "order": 3},
+    {"id": "updates", "enabled": True, "region": "hidden", "order": 4},
+    {"id": "tray", "enabled": True, "region": "hidden", "order": 5},
+)
+
+
+def resolved_bar_items(bar: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Return a complete, ordered bar registry with optional theme overrides."""
+    overrides = {item["id"]: item for item in (bar or {}).get("items", [])}
+    return [{**default, **overrides.get(default["id"], {})} for default in DEFAULT_BAR_ITEMS]
+
 
 @dataclass
 class CheckResult:
@@ -232,6 +259,14 @@ def validate_theme(theme: dict[str, Any], check_dependencies: bool = True, targe
     result = CheckResult(errors=schema_errors(theme))
     if result.errors:
         return result
+    bar_items = theme.get("shell", {}).get("bar", {}).get("items", [])
+    bar_item_ids = [item["id"] for item in bar_items]
+    if len(bar_item_ids) != len(set(bar_item_ids)):
+        result.errors.append("shell.bar.items must not contain duplicate item ids")
+    widget_items = theme.get("widgets", {}).get("items", [])
+    widget_ids = [item["id"] for item in widget_items]
+    if len(widget_ids) != len(set(widget_ids)):
+        result.errors.append("widgets.items must not contain duplicate widget ids")
     colours = theme["colours"]
     pairs = (
         ("foreground", "background", 4.5),
@@ -302,6 +337,7 @@ def render_quickshell(theme: dict[str, Any], ansi: dict[str, str]) -> str:
         "osd": {"position": "top-left", "offset_x": 0, "offset_y": 0},
         "notifications": {"position": "bottom-right", "offset_x": 0, "offset_y": 0},
     })
+    shell = {**shell, "bar": {**shell.get("bar", {}), "items": resolved_bar_items(shell.get("bar"))}}
     output = {
         "schema_version": 1,
         "id": theme["id"],
@@ -809,13 +845,18 @@ typeset -g POWERLEVEL9K_STATUS_ERROR_BACKGROUND=%s
 
 
 def render_widgets(theme: dict[str, Any]) -> str:
-    profile = theme.get("widgets", {}).get("profile", "minimal")
+    widgets = theme.get("widgets", {})
+    profile = widgets.get("profile", "minimal")
     profiles = {
         "minimal": {"opacity": 0.3, "margin": 20, "padding": 20, "radius": 0, "font_size": 14},
         "compact": {"opacity": 0.52, "margin": 12, "padding": 12, "radius": 6, "font_size": 12},
         "comfortable": {"opacity": 0.42, "margin": 24, "padding": 24, "radius": 10, "font_size": 15},
     }
-    return canonical_json({"schema_version": 1, "profile": profile, **profiles[profile]})
+    defaults = [
+        {"id": "todo", "name": "Todo", "type": "custom", "enabled": True, "content_command": "$SCRIPT_ROOT/overlays/todo-content.sh", "left_click_command": "$SCRIPT_ROOT/overlays/cycle-todo.sh", "right_click_command": "$SCRIPT_ROOT/overlays/open-todo-editor.sh", "interval_ms": 60000, "visibility": "empty-workspace", "anchor": "top-left", "offset_x": 20, "offset_y": 20, "width": 0, "height": 0, "shape": "auto", "options": {}},
+        {"id": "calendar", "name": "Calendar", "type": "custom", "enabled": True, "content_command": "$SCRIPT_ROOT/overlays/gcal-content.sh", "left_click_command": "$SCRIPT_ROOT/overlays/cycle-gcal.sh", "right_click_command": "$SCRIPT_ROOT/overlays/open-gcal.sh", "interval_ms": 60000, "visibility": "empty-workspace", "anchor": "bottom-right", "offset_x": 20, "offset_y": 20, "width": 0, "height": 0, "shape": "auto", "options": {}},
+    ]
+    return canonical_json({"schema_version": 1, "profile": profile, **profiles[profile], "items": widgets.get("items", defaults)})
 
 
 def render_theme(theme: dict[str, Any]) -> tuple[dict[str, str], list[str]]:

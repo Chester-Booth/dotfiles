@@ -147,12 +147,21 @@ def parser() -> argparse.ArgumentParser:
     export_parser = subcommands.add_parser("export", help="create a portable .blox-theme bundle")
     export_parser.add_argument("theme")
     export_parser.add_argument("--output", type=Path)
-    export_parser.add_argument("--include-wallpaper", action="store_true")
+    export_parser.add_argument("--include-wallpaper", action="store_true", default=True)
+    export_parser.add_argument("--exclude-wallpaper", action="store_false", dest="include_wallpaper")
+    export_parser.add_argument("--exclude-widgets", action="store_true")
     export_parser.add_argument("--json", action="store_true")
     target_export = subcommands.add_parser("export-target", help="copy a generated target file to a chosen path")
     target_export.add_argument("target", choices=("stylus",))
     target_export.add_argument("--output", type=Path, required=True)
     target_export.add_argument("--json", action="store_true")
+    widgets_export = subcommands.add_parser("widgets-export", help="export a detached widget configuration")
+    widgets_export.add_argument("widgets_json")
+    widgets_export.add_argument("--output", type=Path, required=True)
+    widgets_export.add_argument("--json", action="store_true")
+    widgets_import = subcommands.add_parser("widgets-import", help="validate a detached widget configuration")
+    widgets_import.add_argument("file", type=Path)
+    widgets_import.add_argument("--json", action="store_true")
     return root
 
 
@@ -279,6 +288,35 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
             return envelope(command, errors=[str(error)]), EXIT_APPLY
         return envelope(command, {"target": args.target, "output": str(output)}), EXIT_OK
 
+    if command in ("widgets-export", "widgets-import"):
+        try:
+            if command == "widgets-export":
+                widgets = json.loads(args.widgets_json)
+                document = {"schema_version": 1, "kind": "blox-widgets", "widgets": widgets}
+                probe = copy.deepcopy(load_theme("blox-panel")[1])
+                probe["widgets"] = widgets
+                checked = validate_theme(probe, check_dependencies=False)
+                if checked.errors:
+                    return envelope(command, errors=checked.errors), EXIT_VALIDATION
+                output = args.output.expanduser()
+                output.parent.mkdir(parents=True, exist_ok=True)
+                with output.open("x", encoding="utf-8") as handle:
+                    handle.write(canonical_json(document))
+                return envelope(command, {"output": str(output)}), EXIT_OK
+            document = json.loads(args.file.read_text(encoding="utf-8"))
+            if not isinstance(document, dict) or document.get("schema_version") != 1 or document.get("kind") != "blox-widgets" or not isinstance(document.get("widgets"), dict):
+                raise ValueError("not a Blox widgets JSON document")
+            probe = copy.deepcopy(load_theme("blox-panel")[1])
+            probe["widgets"] = document["widgets"]
+            checked = validate_theme(probe, check_dependencies=False)
+            if checked.errors:
+                return envelope(command, errors=checked.errors), EXIT_VALIDATION
+            return envelope(command, document["widgets"]), EXIT_OK
+        except FileExistsError:
+            return envelope(command, errors=[f"refusing to overwrite existing file: {args.output}"]), EXIT_VALIDATION
+        except (OSError, json.JSONDecodeError, ValueError) as error:
+            return envelope(command, errors=[str(error)]), EXIT_VALIDATION
+
     if command == "palette":
         entries = []
         warnings = []
@@ -352,7 +390,12 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         assert path is not None and theme is not None
         output = args.output or Path.cwd() / f"{theme['id']}.blox-theme"
         try:
-            data, warnings = export_bundle(theme, output, include_wallpaper=args.include_wallpaper)
+            data, warnings = export_bundle(
+                theme,
+                output,
+                include_wallpaper=args.include_wallpaper,
+                include_widgets=not args.exclude_widgets,
+            )
         except PortabilityFailure as error:
             return envelope(command, errors=[str(error)]), EXIT_VALIDATION
         except OSError as error:

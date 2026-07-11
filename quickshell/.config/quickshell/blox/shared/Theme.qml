@@ -38,7 +38,13 @@ Singleton {
     property int widgetPadding: 20
     property int widgetRadius: 0
     property int widgetFontSize: 14
+    property var widgetItems: []
     property string barPosition: "left"
+    property var barItems: defaultBarItems()
+    readonly property var barStartItems: barItemsForRegion("start")
+    readonly property var barCentreItems: barItemsForRegion("centre")
+    readonly property var barEndItems: barItemsForRegion("end")
+    readonly property var barHiddenItems: barItemsForRegion("hidden")
     property string osdPosition: "top-left"
     property int osdOffsetX: 0
     property int osdOffsetY: 0
@@ -83,6 +89,7 @@ Singleton {
         monoFontFamily = "MartianMono Nerd Font Mono";
         bodyFontFamily = "Google Sans";
         barPosition = "left";
+        barItems = defaultBarItems();
         osdPosition = "top-left";
         osdOffsetX = 0;
         osdOffsetY = 0;
@@ -99,6 +106,7 @@ Singleton {
         widgetPadding = 20;
         widgetRadius = 0;
         widgetFontSize = 14;
+        widgetItems = defaultWidgetItems();
         return widgetProfile;
     }
 
@@ -114,11 +122,24 @@ Singleton {
             widgetPadding = data.padding;
             widgetRadius = data.radius;
             widgetFontSize = data.font_size;
+            widgetItems = data.items || defaultWidgetItems();
             return true;
         } catch (error) {
             console.warn("[blox.theme] rejected widget profile: " + error);
             return false;
         }
+    }
+
+    function defaultWidgetItems() : var {
+        return [{
+            "id": "todo", "name": "Todo", "type": "custom", "enabled": true,
+            "content_command": "$SCRIPT_ROOT/overlays/todo-content.sh", "left_click_command": "$SCRIPT_ROOT/overlays/cycle-todo.sh", "right_click_command": "$SCRIPT_ROOT/overlays/open-todo-editor.sh",
+            "interval_ms": 60000, "visibility": "empty-workspace", "anchor": "top-left", "offset_x": 20, "offset_y": 20, "width": 0, "height": 0, "shape": "auto", "options": {}
+        }, {
+            "id": "calendar", "name": "Calendar", "type": "custom", "enabled": true,
+            "content_command": "$SCRIPT_ROOT/overlays/gcal-content.sh", "left_click_command": "$SCRIPT_ROOT/overlays/cycle-gcal.sh", "right_click_command": "$SCRIPT_ROOT/overlays/open-gcal.sh",
+            "interval_ms": 60000, "visibility": "empty-workspace", "anchor": "bottom-right", "offset_x": 20, "offset_y": 20, "width": 0, "height": 0, "shape": "auto", "options": {}
+        }];
     }
 
     function loadJson(raw) : bool {
@@ -205,6 +226,7 @@ Singleton {
         const notifications = data.notifications || {
         };
         barPosition = data.bar && data.bar.position ? data.bar.position : "left";
+        barItems = resolvedBarItems(data.bar && data.bar.items ? data.bar.items : []);
         osdPosition = osd.position || "top-left";
         osdOffsetX = osd.offset_x || 0;
         osdOffsetY = osd.offset_y || 0;
@@ -212,6 +234,27 @@ Singleton {
         notificationOffsetX = notifications.offset_x || 0;
         notificationOffsetY = notifications.offset_y || 0;
         return true;
+    }
+
+    function defaultBarItems() : var {
+        return [{"id": "power", "enabled": true, "region": "start", "order": 0}, {"id": "notes", "enabled": true, "region": "start", "order": 1}, {"id": "workspaces", "enabled": true, "region": "start", "order": 2}, {"id": "clock", "enabled": true, "region": "centre", "order": 0}, {"id": "battery", "enabled": true, "region": "end", "order": 0}, {"id": "notifications", "enabled": true, "region": "end", "order": 1}, {"id": "wifi", "enabled": true, "region": "end", "order": 2}, {"id": "sound", "enabled": true, "region": "end", "order": 3}, {"id": "privacy", "enabled": true, "region": "hidden", "order": 0}, {"id": "awake", "enabled": true, "region": "hidden", "order": 1}, {"id": "display", "enabled": true, "region": "hidden", "order": 2}, {"id": "bt", "enabled": true, "region": "hidden", "order": 3}, {"id": "updates", "enabled": true, "region": "hidden", "order": 4}, {"id": "tray", "enabled": true, "region": "hidden", "order": 5}];
+    }
+
+    function resolvedBarItems(overrides) : var {
+        const defaults = defaultBarItems();
+        const byId = {};
+        for (let index = 0; index < overrides.length; index++)
+            byId[overrides[index].id] = overrides[index];
+        for (let index = 0; index < defaults.length; index++) {
+            const override = byId[defaults[index].id];
+            if (override)
+                defaults[index] = Object.assign({}, defaults[index], override);
+        }
+        return defaults;
+    }
+
+    function barItemsForRegion(region) : var {
+        return barItems.filter(item => item.enabled && item.region === region).sort((left, right) => left.order - right.order);
     }
 
     function loadActiveIdentity(raw) : bool {

@@ -16,20 +16,14 @@ Scope {
             return ;
 
         Quickshell.execDetached(["sh", "-c", command]);
-        actionRefreshDelay.restart();
+    }
+
+    function commandFor(command) {
+        return String(command || "").replace(/\$SCRIPT_ROOT/g, root.scriptRoot);
     }
 
     function activeWorkspaceEmpty() {
         return workspaceState.json.empty === true;
-    }
-
-    function refreshOverlays() {
-        todoContent.refresh();
-        gcalContent.refresh();
-    }
-
-    Component.onCompleted: {
-        generatedRefresh.running = true;
     }
 
     ScriptPoller {
@@ -39,123 +33,80 @@ Scope {
         interval: 300000
     }
 
-    ScriptPoller {
-        id: todoContent
-
-        command: [root.scriptRoot + "/overlays/todo-content.sh"]
-        interval: 60000
-    }
-
-    ScriptPoller {
-        id: gcalContent
-
-        command: [root.scriptRoot + "/overlays/gcal-content.sh"]
-        interval: 60000
-    }
-
-    Timer {
-        id: actionRefreshDelay
-
-        interval: 500
-        onTriggered: root.refreshOverlays()
-    }
-
-    Process {
-        id: generatedRefresh
-
-        command: [root.scriptRoot + "/todo/generated-refresh.sh"]
-        onExited: root.refreshOverlays()
-    }
-
     Connections {
         function onRawEvent(event) {
-            if (event.name === "workspace" || event.name === "workspacev2" || event.name === "openwindow" || event.name === "closewindow") {
+            if (event.name === "workspace" || event.name === "workspacev2" || event.name === "openwindow" || event.name === "closewindow")
                 workspaceState.refresh();
-                root.refreshOverlays();
-            }
+
         }
 
         target: Hyprland
     }
 
     Variants {
-        model: Quickshell.screens.length > 0 ? [Quickshell.screens[0]] : []
+        model: Theme.widgetItems.filter((item) => {
+            return item.enabled;
+        })
 
         PanelWindow {
-            id: todoWindow
+            id: widgetWindow
 
             required property var modelData
+            readonly property bool atLeft: modelData.anchor === "top-left" || modelData.anchor === "bottom-left"
+            readonly property bool atRight: modelData.anchor === "top-right" || modelData.anchor === "bottom-right"
+            readonly property bool atTop: modelData.anchor === "top-left" || modelData.anchor === "top-right"
+            readonly property bool atBottom: modelData.anchor === "bottom-left" || modelData.anchor === "bottom-right"
 
-            screen: modelData
-            implicitWidth: todoBox.width
-            implicitHeight: todoBox.height
+            screen: Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
+            implicitWidth: modelData.anchor === "centre" ? 1 : widgetBox.width
+            implicitHeight: modelData.anchor === "centre" ? 1 : widgetBox.height
             exclusiveZone: 0
             exclusionMode: ExclusionMode.Ignore
             focusable: false
             color: "transparent"
-            visible: root.activeWorkspaceEmpty()
+            visible: modelData.visibility !== "empty-workspace" || root.activeWorkspaceEmpty()
             WlrLayershell.layer: WlrLayer.Background
-            WlrLayershell.namespace: "todo-overlay"
+            WlrLayershell.namespace: "blox-widget-" + modelData.id
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
             anchors {
-                left: true
-                top: true
+                left: widgetWindow.atLeft || modelData.anchor === "centre"
+                right: widgetWindow.atRight || modelData.anchor === "centre"
+                top: widgetWindow.atTop || modelData.anchor === "centre"
+                bottom: widgetWindow.atBottom || modelData.anchor === "centre"
             }
 
             margins {
-                left: Theme.widgetMargin
-                top: Theme.widgetMargin
+                left: widgetWindow.atLeft ? modelData.offset_x : 0
+                right: widgetWindow.atRight ? modelData.offset_x : 0
+                top: widgetWindow.atTop ? modelData.offset_y : 0
+                bottom: widgetWindow.atBottom ? modelData.offset_y : 0
+            }
+
+            ScriptPoller {
+                id: widgetContent
+
+                command: ["sh", "-c", root.commandFor(widgetWindow.modelData.content_command)]
+                interval: widgetWindow.modelData.interval_ms
             }
 
             OverlayBox {
-                id: todoBox
+                id: widgetBox
 
-                text: todoContent.raw.length > 0 ? todoContent.raw : "Loading..."
-                onLeftClicked: root.run(root.scriptRoot + "/overlays/cycle-todo.sh")
-                onRightClicked: root.run(root.scriptRoot + "/overlays/open-todo-editor.sh")
-            }
-
-        }
-
-    }
-
-    Variants {
-        model: Quickshell.screens.length > 0 ? [Quickshell.screens[0]] : []
-
-        PanelWindow {
-            id: gcalWindow
-
-            required property var modelData
-
-            screen: modelData
-            implicitWidth: gcalBox.width
-            implicitHeight: gcalBox.height
-            exclusiveZone: 0
-            exclusionMode: ExclusionMode.Ignore
-            focusable: false
-            color: "transparent"
-            visible: root.activeWorkspaceEmpty()
-            WlrLayershell.layer: WlrLayer.Background
-            WlrLayershell.namespace: "gcal-overlay"
-            WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
-
-            anchors {
-                right: true
-                bottom: true
-            }
-
-            margins {
-                right: Theme.widgetMargin
-                bottom: Theme.widgetMargin
-            }
-
-            OverlayBox {
-                id: gcalBox
-
-                text: gcalContent.raw.length > 0 ? gcalContent.raw : "Loading..."
-                onLeftClicked: root.run(root.scriptRoot + "/overlays/cycle-gcal.sh")
-                onRightClicked: root.run(root.scriptRoot + "/overlays/open-gcal.sh")
+                x: widgetWindow.modelData.anchor === "centre" ? Math.round((parent.width - width) / 2) + widgetWindow.modelData.offset_x : 0
+                y: widgetWindow.modelData.anchor === "centre" ? Math.round((parent.height - height) / 2) + widgetWindow.modelData.offset_y : 0
+                text: widgetContent.raw.length > 0 ? widgetContent.raw : "Loading..."
+                desiredWidth: widgetWindow.modelData.width
+                desiredHeight: widgetWindow.modelData.height
+                shape: widgetWindow.modelData.shape
+                onLeftClicked: {
+                    root.run(root.commandFor(widgetWindow.modelData.left_click_command));
+                    widgetContent.refresh();
+                }
+                onRightClicked: {
+                    root.run(root.commandFor(widgetWindow.modelData.right_click_command));
+                    widgetContent.refresh();
+                }
             }
 
         }
@@ -166,14 +117,17 @@ Scope {
         id: box
 
         property string text: ""
+        property int desiredWidth: 0
+        property int desiredHeight: 0
+        property string shape: "auto"
 
         signal leftClicked()
         signal rightClicked()
 
-        width: content.implicitWidth + Theme.widgetPadding * 2
-        height: content.implicitHeight + Theme.widgetPadding * 2
+        width: desiredWidth > 0 ? desiredWidth : content.implicitWidth + Theme.widgetPadding * 2
+        height: desiredHeight > 0 ? desiredHeight : content.implicitHeight + Theme.widgetPadding * 2
         color: Theme.withAlpha(Theme.background, Theme.widgetOpacity)
-        radius: Theme.widgetRadius
+        radius: shape === "circle" ? Math.min(width, height) / 2 : shape === "rounded" ? Math.max(10, Theme.widgetRadius) : shape === "rectangle" ? 0 : Theme.widgetRadius
 
         Text {
             id: content

@@ -18,7 +18,7 @@ THEMES = Path(__file__).resolve().parents[1]
 REPOSITORY = THEMES.parent
 sys.path.insert(0, str(THEMES / "lib"))
 
-from blox_theme.core import dependency_checks, derive_ansi, load_theme, render_manifest, render_theme, schema_errors, validate_theme
+from blox_theme.core import DEFAULT_BAR_ITEMS, dependency_checks, derive_ansi, load_theme, render_manifest, render_theme, schema_errors, validate_theme
 
 
 def run_cli(*arguments: str, environment: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -86,6 +86,38 @@ class ThemeSchemaTests(unittest.TestCase):
             with self.subTest(name=name):
                 theme = copy.deepcopy(source)
                 mutate(theme)
+                self.assertTrue(schema_errors(theme))
+
+    def test_widget_schema_rejects_invalid_identifiers_and_unknown_fields(self) -> None:
+        _, source = load_theme("blox-panel")
+        widget = {
+            "id": "clock",
+            "name": "Clock",
+            "type": "clock",
+            "enabled": True,
+            "content_command": "tty-clock -c",
+            "left_click_command": "",
+            "right_click_command": "",
+            "interval_ms": 1000,
+            "visibility": "always",
+            "anchor": "top-left",
+            "offset_x": 20,
+            "offset_y": 20,
+            "width": 0,
+            "height": 0,
+            "shape": "auto",
+            "options": {},
+        }
+        mutations = {
+            "invalid id": lambda value: value.update(id="Invalid Widget ID"),
+            "unknown field": lambda value: value.update(unknown=True),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(name=name):
+                theme = copy.deepcopy(source)
+                candidate = copy.deepcopy(widget)
+                mutate(candidate)
+                theme["widgets"]["items"] = [candidate]
                 self.assertTrue(schema_errors(theme))
 
     def test_dependency_checks_respect_target_enablement(self) -> None:
@@ -173,12 +205,57 @@ class RendererTests(unittest.TestCase):
         self.assertIn("based on the Simple theme", files["obsidian/blox-theme.css"])
         shell = json.loads(files["quickshell/theme.json"])["shell"]
         self.assertEqual("left", shell["bar"]["position"])
+        self.assertEqual(list(DEFAULT_BAR_ITEMS), shell["bar"]["items"])
         self.assertEqual("top-left", shell["osd"]["position"])
         self.assertEqual("bottom-right", shell["notifications"]["position"])
         self.assertEqual(json.loads(files["code/settings.json"]), json.loads(files["cursor-editor/settings.json"]))
         self.assertIn("@-moz-document", files["stylus/blox-system.user.css"])
         self.assertIn('color-link default "#cdd6f4"', files["micro/blox-theme.micro"])
         self.assertNotIn('color-link default "#cdd6f4,#242424"', files["micro/blox-theme.micro"])
+
+    def test_bar_item_overrides_are_rendered_with_complete_registry(self) -> None:
+        self.theme["shell"] = {
+            "bar": {"position": "bottom", "items": [
+                {"id": "clock", "enabled": False, "region": "end", "order": 7},
+                {"id": "wifi", "enabled": True, "region": "start", "order": 0},
+            ]},
+            "osd": {"position": "centre-bottom", "offset_x": 0, "offset_y": 0},
+            "notifications": {"position": "top-right", "offset_x": 0, "offset_y": 0},
+        }
+        self.assertEqual([], schema_errors(self.theme))
+        shell = json.loads(render_theme(self.theme)[0]["quickshell/theme.json"])["shell"]
+        items = {item["id"]: item for item in shell["bar"]["items"]}
+        self.assertEqual(len(DEFAULT_BAR_ITEMS), len(items))
+        self.assertEqual({"id": "clock", "enabled": False, "region": "end", "order": 7}, items["clock"])
+        self.assertEqual("start", items["wifi"]["region"])
+        self.assertTrue(items["power"]["enabled"])
+
+    def test_bar_item_schema_rejects_unknown_items_and_regions(self) -> None:
+        base_shell = {
+            "bar": {"position": "left", "items": []},
+            "osd": {"position": "top-left", "offset_x": 0, "offset_y": 0},
+            "notifications": {"position": "bottom-right", "offset_x": 0, "offset_y": 0},
+        }
+        for item in (
+            {"id": "unknown", "enabled": True, "region": "start", "order": 0},
+            {"id": "power", "enabled": True, "region": "middle", "order": 0},
+        ):
+            candidate = copy.deepcopy(self.theme)
+            candidate["shell"] = copy.deepcopy(base_shell)
+            candidate["shell"]["bar"]["items"] = [item]
+            self.assertTrue(schema_errors(candidate))
+
+    def test_bar_item_validation_rejects_duplicate_ids(self) -> None:
+        self.theme["shell"] = {
+            "bar": {"position": "left", "items": [
+                {"id": "power", "enabled": True, "region": "start", "order": 0},
+                {"id": "power", "enabled": False, "region": "end", "order": 1},
+            ]},
+            "osd": {"position": "top-left", "offset_x": 0, "offset_y": 0},
+            "notifications": {"position": "bottom-right", "offset_x": 0, "offset_y": 0},
+        }
+        result = validate_theme(self.theme, check_dependencies=False)
+        self.assertTrue(any("duplicate item ids" in error for error in result.errors))
 
     def test_phase7_targets_are_isolated(self) -> None:
         target_files = {
@@ -278,6 +355,68 @@ class RendererTests(unittest.TestCase):
 
 
 class CliContractTests(unittest.TestCase):
+    def test_detached_widgets_export_import_round_trip_and_validation(self) -> None:
+        widgets = {
+            "profile": "compact",
+            "items": [{
+                "id": "clock",
+                "name": "Clock",
+                "type": "clock",
+                "enabled": True,
+                "content_command": "tty-clock -c",
+                "left_click_command": "",
+                "right_click_command": "",
+                "interval_ms": 1000,
+                "visibility": "always",
+                "anchor": "top-right",
+                "offset_x": 24,
+                "offset_y": 32,
+                "width": 320,
+                "height": 180,
+                "shape": "rounded",
+                "options": {"seconds": True},
+            }],
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            exported = Path(temporary) / "widgets.json"
+            result = run_cli("widgets-export", json.dumps(widgets), "--output", str(exported), "--json")
+            self.assertEqual(0, result.returncode, result.stderr)
+            document = json.loads(exported.read_text(encoding="utf-8"))
+            self.assertEqual({"schema_version": 1, "kind": "blox-widgets", "widgets": widgets}, document)
+
+            imported = run_cli("widgets-import", str(exported), "--json")
+            self.assertEqual(0, imported.returncode, imported.stderr)
+            self.assertEqual(widgets, json.loads(imported.stdout)["data"])
+
+            malformed = Path(temporary) / "not-widgets.json"
+            malformed.write_text(json.dumps({"schema_version": 1, "widgets": widgets}), encoding="utf-8")
+            rejected_document = run_cli("widgets-import", str(malformed), "--json")
+            self.assertEqual(3, rejected_document.returncode)
+            self.assertFalse(json.loads(rejected_document.stdout)["ok"])
+
+            invalid_widgets = copy.deepcopy(widgets)
+            invalid_widgets["items"][0]["id"] = "Invalid Widget ID"
+            rejected_widget = run_cli("widgets-export", json.dumps(invalid_widgets), "--output", str(Path(temporary) / "invalid.json"), "--json")
+            self.assertEqual(3, rejected_widget.returncode)
+            self.assertFalse(json.loads(rejected_widget.stdout)["ok"])
+
+    def test_theme_picker_exposes_widget_tab_editor_and_detached_io(self) -> None:
+        source = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
+        for expected in (
+            'text: "Widgets"',
+            'text: "New Widget"',
+            'text: "Import"',
+            'text: "Export"',
+            'text: "Save widget"',
+            'id: widgetImportDialog',
+            'id: widgetExportDialog',
+            'root.runApi("widgets-import"',
+            'root.runApi("widgets-export"',
+            'root.openWidgetEditor(-1)',
+        ):
+            with self.subTest(expected=expected):
+                self.assertIn(expected, source)
+
     def test_all_commands_support_human_and_json_output(self) -> None:
         commands = (("list",), ("show", "blox-panel"), ("validate", "blox-panel"), ("render", "blox-panel"), ("preview", "blox-panel"), ("diff", "blox-panel"), ("doctor",))
         for arguments in commands:

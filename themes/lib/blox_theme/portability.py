@@ -114,15 +114,20 @@ def _zip_info(name: str) -> zipfile.ZipInfo:
     return info
 
 
-def export_bundle(theme: dict[str, Any], output: Path, include_wallpaper: bool = False) -> tuple[dict[str, Any], list[str]]:
+def export_bundle(
+    theme: dict[str, Any], output: Path, include_wallpaper: bool = True, include_widgets: bool = True
+) -> tuple[dict[str, Any], list[str]]:
     migrated, migration_warnings = migrate_theme(theme)
     checked = validate_theme(migrated, check_dependencies=False)
     if checked.errors:
         raise PortabilityFailure("invalid theme: " + "; ".join(checked.errors))
 
+    exported_theme = copy.deepcopy(migrated)
+    if not include_widgets:
+        exported_theme.pop("widgets", None)
     notes = dependency_notes(migrated)
     files: dict[str, bytes] = {
-        "theme.json": canonical_json(migrated).encode("utf-8"),
+        "theme.json": canonical_json(exported_theme).encode("utf-8"),
         "preview.svg": preview_svg(migrated),
     }
     wallpaper_record: dict[str, Any] | None = None
@@ -167,7 +172,13 @@ def export_bundle(theme: dict[str, Any], output: Path, include_wallpaper: bool =
             raise PortabilityFailure(f"export destination already exists: {destination}") from error
     finally:
         temporary.unlink(missing_ok=True)
-    data = {"id": migrated["id"], "path": str(destination), "files": sorted(["manifest.json", *files]), "wallpaper_included": include_wallpaper}
+    data = {
+        "id": migrated["id"],
+        "path": str(destination),
+        "files": sorted(["manifest.json", *files]),
+        "wallpaper_included": include_wallpaper,
+        "widgets_included": include_widgets,
+    }
     return data, migration_warnings + checked.warnings + _dependency_warnings(migrated)
 
 

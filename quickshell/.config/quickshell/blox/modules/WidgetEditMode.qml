@@ -226,7 +226,7 @@ PanelWindow {
         z: 2
         x: root.width - width - 20
         y: 20
-        width: root.selectedItem ? 360 : buttonRow.implicitWidth + 58
+        width: root.selectedItem ? Math.max(320, positionGrid.implicitWidth + 24) : buttonRow.implicitWidth + 58
         height: root.selectedItem ? positionGrid.implicitHeight + 72 : buttonRow.implicitHeight + 16
         color: Theme.surface
         border.width: 1
@@ -392,8 +392,8 @@ PanelWindow {
         MouseArea {
             anchors.left: parent.left
             anchors.top: parent.top
-            anchors.bottom: parent.bottom
             width: 42
+            height: 48
             acceptedButtons: Qt.LeftButton
             cursorShape: Qt.SizeAllCursor
             onPressed: (event) => {

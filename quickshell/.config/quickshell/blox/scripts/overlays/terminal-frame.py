@@ -89,7 +89,7 @@ class AnsiScreen:
             elif char == "\t":
                 self.column = min(self.columns - 1, (self.column // 8 + 1) * 8)
             elif char >= " " and char != "\x7f":
-                self.cells[self.row][self.column] = "█" if char == " " and self.background else char
+                self.cells[self.row][self.column] = char
                 self.styles[self.row][self.column] = (self.foreground_colour, self.background_colour, self.bold)
                 self.column += 1
                 if self.column >= self.columns:
@@ -205,10 +205,25 @@ class AnsiScreen:
         return "\n".join(lines)
 
     def rich_text(self) -> str:
-        last_row = max((row for row, cells in enumerate(self.cells) if "".join(cells).rstrip()), default=-1)
+        last_row = max(
+            (
+                row
+                for row, cells in enumerate(self.cells)
+                if "".join(cells).rstrip()
+                or any(background is not None for _foreground, background, _bold in self.styles[row])
+            ),
+            default=-1,
+        )
         lines: list[str] = []
         for row in range(last_row + 1):
-            last_column = max((column for column, char in enumerate(self.cells[row]) if char != " "), default=-1)
+            last_column = max(
+                (
+                    column
+                    for column, char in enumerate(self.cells[row])
+                    if char != " " or self.styles[row][column][1] is not None
+                ),
+                default=-1,
+            )
             pieces: list[str] = []
             active = None
             for column in range(last_column + 1):

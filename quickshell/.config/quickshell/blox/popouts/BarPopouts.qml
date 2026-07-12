@@ -360,7 +360,10 @@ Item {
 
             notifications: root.notificationsModel
             dnd: root.notificationDnd
-            maxPopoutHeight: Math.min(720, Math.max(240, root.panelHeight - 16))
+            // A horizontal panel is only one rail-width tall. Size against the
+            // screen instead, otherwise the notification header consumes the
+            // whole 240px minimum and the list is clipped.
+            maxPopoutHeight: Math.min(720, Math.max(240, root.screenHeight - 16))
             onClearAll: root.clearNotifications()
             onToggleDnd: root.toggleNotificationDnd()
             onActivate: (notification) => {

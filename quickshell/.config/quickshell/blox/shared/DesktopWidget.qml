@@ -46,7 +46,7 @@ Rectangle {
 
     width: configuredWidth > 0 ? configuredWidth : content.implicitWidth + Theme.widgetPadding * 2
     height: configuredHeight > 0 ? configuredHeight : content.implicitHeight + Theme.widgetPadding * 2
-    color: Theme.withAlpha(Theme.background, Theme.widgetOpacity)
+    color: widget.type === "aquarium" ? "#000000" : Theme.withAlpha(Theme.background, Theme.widgetOpacity)
     radius: widget.shape === "circle" ? Math.min(width, height) / 2 : widget.shape === "rounded" ? Math.max(10, Theme.widgetRadius) : widget.shape === "rectangle" ? 0 : Theme.widgetRadius
 
     ScriptPoller {

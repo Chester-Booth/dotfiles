@@ -13,7 +13,6 @@ Item {
     readonly property real entranceY: !entersVertically ? 0 : position === "centre-top" ? -120 : 120
     readonly property int toastWidth: 330
     readonly property int sidePadding: 12
-    readonly property int visibleWidth: toastWidth + sidePadding * 2
     readonly property int dismissTravel: toastWidth + sidePadding
     property var animatedToastIds: ({
     })
@@ -53,14 +52,19 @@ Item {
         animatedToastIds = retained;
     }
 
-    width: visibleWidth + dismissTravel
+    // Keep the item's bounds identical to the visible card.  The toasts may
+    // travel beyond those bounds while animating because this item lives in a
+    // full-screen layer surface.  Including that travel area in our width
+    // offsets left- and centre-anchored cards even though their anchor is
+    // technically correct.
+    width: toastWidth
     implicitHeight: toastColumn.implicitHeight
     onToastsChanged: pruneEntranceHistory()
 
     Column {
         id: toastColumn
 
-        x: root.dismissTravel + root.sidePadding
+        x: 0
         width: root.toastWidth
         spacing: 8
 

@@ -162,13 +162,29 @@ Scope {
                 widget: widgetWindow.modelData
                 scriptRoot: root.scriptRoot
                 onLeftClicked: {
-                    root.run(root.commandFor(widgetWindow.modelData.left_click_command));
-                    widgetRenderer.refresh();
+                    widgetAction.run(root.commandFor(widgetWindow.modelData.left_click_command));
                 }
                 onRightClicked: {
-                    root.run(root.commandFor(widgetWindow.modelData.right_click_command));
-                    widgetRenderer.refresh();
+                    widgetAction.run(root.commandFor(widgetWindow.modelData.right_click_command));
                 }
+            }
+
+            Process {
+                id: widgetAction
+
+                function run(action) {
+                    if (action.length === 0) {
+                        widgetRenderer.refresh();
+                        return ;
+                    }
+                    if (running)
+                        return ;
+
+                    command = ["sh", "-c", action];
+                    running = true;
+                }
+
+                onExited: widgetRenderer.refresh()
             }
 
         }

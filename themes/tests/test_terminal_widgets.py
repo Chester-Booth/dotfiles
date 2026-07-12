@@ -30,7 +30,10 @@ class AnsiScreenTests(unittest.TestCase):
     def test_background_coloured_spaces_remain_visible(self) -> None:
         screen = terminal_frame.AnsiScreen(2, 6)
         screen.feed(b"\x1b[42m   \x1b[49m ")
-        self.assertEqual("███", screen.text())
+        rendered = screen.rich_text()
+        self.assertNotIn("█", rendered)
+        self.assertIn("background-color:#98971a", rendered)
+        self.assertEqual(3, rendered.count("&nbsp;"))
 
     def test_rich_frame_preserves_ansi_colours(self) -> None:
         screen = terminal_frame.AnsiScreen(2, 8)

@@ -2638,8 +2638,12 @@ FloatingWindow {
                                                         border.color: handleDrag.active || emptyDrag.active ? Theme.blue : Theme.border
                                                         Drag.active: handleDrag.active || emptyDrag.active
                                                         Drag.source: barItemRow
-                                                        Drag.hotSpot.x: width / 2
-                                                        Drag.hotSpot.y: height / 2
+                                                        // Keep the layout-owned pill in place and move only the
+                                                        // drag hot spot. Moving the delegate itself makes the
+                                                        // layout immediately restore its position as soon as the
+                                                        // pointer leaves the pill, which cancels cross-pill drops.
+                                                        Drag.hotSpot.x: handleDrag.active ? handleDrag.parent.x + handleDrag.centroid.position.x : emptyDrag.active ? emptyDrag.parent.x + emptyDrag.centroid.position.x : width / 2
+                                                        Drag.hotSpot.y: handleDrag.active ? handleDrag.parent.y + handleDrag.centroid.position.y : emptyDrag.active ? emptyDrag.parent.y + emptyDrag.centroid.position.y : height / 2
                                                         z: handleDrag.active || emptyDrag.active ? 20 : 0
 
                                                         RowLayout {
@@ -2668,7 +2672,7 @@ FloatingWindow {
                                                                 DragHandler {
                                                                     id: handleDrag
 
-                                                                    target: barItemRow
+                                                                    target: null
                                                                     acceptedButtons: Qt.LeftButton
                                                                 }
 
@@ -2696,7 +2700,7 @@ FloatingWindow {
                                                                 DragHandler {
                                                                     id: emptyDrag
 
-                                                                    target: barItemRow
+                                                                    target: null
                                                                     acceptedButtons: Qt.LeftButton
                                                                 }
 

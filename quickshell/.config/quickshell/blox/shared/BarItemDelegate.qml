@@ -404,12 +404,12 @@ Item {
         id: fanComponent
 
         PanelRailButton {
-            icon: Lucide.icon("fan")
-            iconFontFamily: Lucide.family
+            icon: root.controller.systemInfo.json.profile === "Performance" ? "󱑬" : root.controller.systemInfo.json.profile === "Quiet" ? "󰠝" : "󱜝"
             accent: root.controller.systemInfo.json.profile === "Performance" ? Theme.red : Theme.foreground
             panel: "system"
             source: "fan"
             active: root.controller.openPanel === panel
+            visible: root.controller.systemInfo.json.profile !== undefined && root.controller.systemInfo.json.profile !== "Quiet"
             onPanelClicked: (p, c) => {
                 return root.controller.togglePanel(p, root.mappedCentre(this, c));
             }
@@ -427,12 +427,12 @@ Item {
         id: gpuComponent
 
         PanelRailButton {
-            icon: Lucide.icon("gpu")
-            iconFontFamily: Lucide.family
+            icon: root.controller.systemInfo.json.gpuMode === "eco" ? "󰌪" : root.controller.systemInfo.json.gpuMode === "gaming" ? "󰪫" : root.controller.systemInfo.json.gpuMode === "high-refresh" ? "" : "󰢮"
             accent: root.controller.systemInfo.json.gpuMode === "eco" ? Theme.green : Theme.yellow
             panel: "system"
             source: "gpu"
             active: root.controller.openPanel === panel
+            visible: root.controller.systemInfo.json.gpuMode !== undefined && root.controller.systemInfo.json.gpuMode !== "eco"
             onPanelClicked: (p, c) => {
                 return root.controller.togglePanel(p, root.mappedCentre(this, c));
             }
@@ -485,7 +485,7 @@ Item {
             Flow {
                 id: trayFlow
 
-                flow: root.horizontal ? Flow.TopToBottom : Flow.LeftToRight
+                flow: root.horizontal ? Flow.LeftToRight : Flow.TopToBottom
                 width: root.horizontal ? implicitWidth : Theme.buttonSize
                 height: root.horizontal ? Theme.buttonSize : implicitHeight
 

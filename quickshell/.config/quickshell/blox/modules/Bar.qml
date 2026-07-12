@@ -401,8 +401,8 @@ Scope {
 
             screen: modelData
             visible: true
-            implicitWidth: root.notificationPositionPreviewVisible ? !onLeft && !onRight && screen ? screen.width : 330 : 1
-            implicitHeight: root.notificationPositionPreviewVisible ? 76 : 1
+            implicitWidth: root.notificationPositionPreviewVisible ? screen ? screen.width : 1 : 1
+            implicitHeight: root.notificationPositionPreviewVisible ? screen ? screen.height : 1 : 1
             exclusiveZone: 0
             focusable: false
             color: "transparent"
@@ -416,41 +416,30 @@ Scope {
                 bottom: onBottom
             }
 
-            margins {
-                left: onLeft ? 12 + Theme.notificationOffsetX : 0
-                right: onRight ? 12 - Theme.notificationOffsetX : 0
-                top: onTop ? 12 + Theme.notificationOffsetY : 0
-                bottom: onBottom ? 12 - Theme.notificationOffsetY : 0
-            }
-
-            Rectangle {
+            NotificationToastStack {
                 visible: root.notificationPositionPreviewVisible
-                width: 330
-                height: parent.height
-                radius: 8
-                color: Theme.surface
-                border.color: Theme.blue
-                x: !notificationPositionPreviewWindow.onLeft && !notificationPositionPreviewWindow.onRight ? (parent.width - width) / 2 + Theme.notificationOffsetX : 0
-
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 3
-
-                    Text {
-                        text: "Notification position"
-                        color: Theme.foreground
-                        font.family: Theme.bodyFontFamily
-                        font.bold: true
+                anchors.left: notificationPositionPreviewWindow.onLeft ? parent.left : undefined
+                anchors.right: notificationPositionPreviewWindow.onRight ? parent.right : undefined
+                anchors.horizontalCenter: !notificationPositionPreviewWindow.onLeft && !notificationPositionPreviewWindow.onRight ? parent.horizontalCenter : undefined
+                anchors.top: notificationPositionPreviewWindow.onTop ? parent.top : undefined
+                anchors.bottom: notificationPositionPreviewWindow.onBottom ? parent.bottom : undefined
+                anchors.leftMargin: 12 + Theme.notificationOffsetX
+                anchors.rightMargin: 12 - Theme.notificationOffsetX
+                anchors.horizontalCenterOffset: Theme.notificationOffsetX
+                anchors.topMargin: 12 + Theme.notificationOffsetY
+                anchors.bottomMargin: 12 - Theme.notificationOffsetY
+                position: Theme.notificationPosition
+                toasts: root.notificationPositionPreviewVisible ? [{
+                    "toastId": "position-preview-" + Theme.notificationPosition,
+                    "expiresAt": Date.now() + 3000,
+                    "timeout": 3000,
+                    "notification": {
+                        "summary": "Notification position",
+                        "body": "Previewing " + Theme.notificationPosition,
+                        "appName": "Theme picker",
+                        "image": ""
                     }
-
-                    Text {
-                        text: "Previewing " + Theme.notificationPosition
-                        color: Theme.muted
-                        font.family: Theme.bodyFontFamily
-                    }
-
-                }
-
+                }] : []
             }
 
         }
@@ -1213,8 +1202,9 @@ Scope {
                     anchors.horizontalCenter: !notificationToastWindow.onLeft && !notificationToastWindow.onRight ? parent.horizontalCenter : undefined
                     anchors.top: notificationToastWindow.onTop ? parent.top : undefined
                     anchors.bottom: notificationToastWindow.onBottom ? parent.bottom : undefined
-                    anchors.leftMargin: Theme.notificationOffsetX
-                    anchors.rightMargin: -Theme.notificationOffsetX
+                    anchors.leftMargin: 12 + Theme.notificationOffsetX
+                    anchors.rightMargin: 12 - Theme.notificationOffsetX
+                    anchors.horizontalCenterOffset: Theme.notificationOffsetX
                     anchors.topMargin: 12 + Theme.notificationOffsetY
                     anchors.bottomMargin: 12 - Theme.notificationOffsetY
                     position: Theme.notificationPosition

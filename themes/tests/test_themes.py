@@ -479,18 +479,23 @@ class CliContractTests(unittest.TestCase):
 
     def test_horizontal_popouts_use_screen_geometry_and_do_not_overlap(self) -> None:
         popouts = (REPOSITORY / "quickshell/.config/quickshell/blox/popouts/BarPopouts.qml").read_text(encoding="utf-8")
-        self.assertIn("maxPopoutHeight: root.screenHeight", popouts)
+        self.assertIn("maxPopoutHeight: Math.min(720, Math.max(240, root.screenHeight - 16))", popouts)
         self.assertIn("function adjacentPopupX", popouts)
         self.assertIn("root.adjacentPopupX(mediaPlayer.implicitWidth, systemWindow.anchorX, systemPopout.width)", popouts)
 
+        delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
+        application_tray = delegate.split("id: applicationTrayComponent", 1)[1]
+        self.assertIn("flow: root.horizontal ? Flow.LeftToRight : Flow.TopToBottom", application_tray)
+
     def test_fan_and_gpu_are_configurable_runtime_items(self) -> None:
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
-        icons = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/Lucide.qml").read_text(encoding="utf-8")
         for item_id in ("fan", "gpu"):
             with self.subTest(item_id=item_id):
                 self.assertIn(f'"{item_id}": {item_id}Component', delegate)
-                self.assertIn(f'icon: Lucide.icon("{item_id}")', delegate)
-                self.assertIn(f'"{item_id}":', icons)
+        self.assertIn('profile === "Performance" ? "󱑬"', delegate)
+        self.assertIn('profile !== "Quiet"', delegate)
+        self.assertIn('gpuMode === "gaming" ? "󰪫"', delegate)
+        self.assertIn('gpuMode !== "eco"', delegate)
 
     def test_all_commands_support_human_and_json_output(self) -> None:
         commands = (("list",), ("show", "blox-panel"), ("validate", "blox-panel"), ("render", "blox-panel"), ("preview", "blox-panel"), ("diff", "blox-panel"), ("doctor",))

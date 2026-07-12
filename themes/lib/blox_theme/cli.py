@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import sys
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -155,6 +156,7 @@ def parser() -> argparse.ArgumentParser:
     target_export = subcommands.add_parser("export-target", help="copy a generated target file to a chosen path")
     target_export.add_argument("target", choices=TARGET_NAMES)
     target_export.add_argument("--file", dest="target_file", help="generated file to copy when a target produces more than one")
+    target_export.add_argument("--archive", action="store_true", help="export every generated file for the target as a zip archive")
     target_export.add_argument("--output", type=Path, required=True)
     target_export.add_argument("--json", action="store_true")
     widgets_export = subcommands.add_parser("widgets-export", help="export a detached widget configuration")
@@ -276,6 +278,8 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
 
     if command == "export-target":
         available = TARGET_FILES[args.target]
+        if args.archive and args.target_file:
+            return envelope(command, errors=["--archive cannot be combined with --file"]), EXIT_USAGE
         relative_name = args.target_file or available[0]
         if relative_name not in available:
             return envelope(command, errors=[f"{relative_name} is not a generated file for {args.target}"]), EXIT_VALIDATION
@@ -283,16 +287,25 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         source = state_dir() / "current" / relative
         output = args.output.expanduser()
         try:
-            if not source.is_file():
-                raise FileNotFoundError(f"apply a theme with the {args.target} target before exporting it")
             output.parent.mkdir(parents=True, exist_ok=True)
-            with output.open("xb") as handle:
-                handle.write(source.read_bytes())
+            if args.archive:
+                missing = [name for name in available if not (state_dir() / "current" / name).is_file()]
+                if missing:
+                    raise FileNotFoundError(f"apply a theme with the {args.target} target before exporting it")
+                with output.open("xb") as handle:
+                    with zipfile.ZipFile(handle, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                        for name in available:
+                            archive.write(state_dir() / "current" / name, arcname=name)
+            else:
+                if not source.is_file():
+                    raise FileNotFoundError(f"apply a theme with the {args.target} target before exporting it")
+                with output.open("xb") as handle:
+                    handle.write(source.read_bytes())
         except FileExistsError:
             return envelope(command, errors=[f"refusing to overwrite existing file: {output}"]), EXIT_VALIDATION
         except OSError as error:
             return envelope(command, errors=[str(error)]), EXIT_APPLY
-        return envelope(command, {"target": args.target, "output": str(output)}), EXIT_OK
+        return envelope(command, {"target": args.target, "output": str(output), "archive": args.archive}), EXIT_OK
 
     if command in ("widgets-export", "widgets-import"):
         try:

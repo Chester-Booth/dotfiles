@@ -18,6 +18,9 @@ class WidgetRuntimeSourceTests(unittest.TestCase):
         self.assertIn("readonly property bool autoSize", source)
         self.assertIn("autoSize ? 0 : Number(widget.width", source)
         self.assertIn("root.terminalPreset ? Theme.monoFontFamily", source)
+        self.assertIn('"--stream"', source)
+        self.assertIn("stdout: SplitParser", source)
+        self.assertIn("Text.RichText", source)
 
     def test_widget_file_changes_reload_the_widget_profile(self) -> None:
         source = (ROOT / "quickshell/.config/quickshell/blox/shared/Theme.qml").read_text(encoding="utf-8")

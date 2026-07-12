@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import html
+import json
 import os
 import pty
 import re
@@ -35,11 +37,15 @@ class AnsiScreen:
         self.rows = rows
         self.columns = columns
         self.cells = [[" "] * columns for _ in range(rows)]
+        self.styles = [[(None, None, False)] * columns for _ in range(rows)]
         self.row = 0
         self.column = 0
         self.state = "text"
         self.csi = ""
         self.background = False
+        self.foreground_colour: str | None = None
+        self.background_colour: str | None = None
+        self.bold = False
 
     def feed(self, data: bytes) -> None:
         for char in data.decode("utf-8", errors="replace"):
@@ -84,6 +90,7 @@ class AnsiScreen:
                 self.column = min(self.columns - 1, (self.column // 8 + 1) * 8)
             elif char >= " " and char != "\x7f":
                 self.cells[self.row][self.column] = "█" if char == " " and self.background else char
+                self.styles[self.row][self.column] = (self.foreground_colour, self.background_colour, self.bold)
                 self.column += 1
                 if self.column >= self.columns:
                     self.column = 0
@@ -116,6 +123,7 @@ class AnsiScreen:
             mode = values[0]
             if mode in (2, 3):
                 self.cells = [[" "] * self.columns for _ in range(self.rows)]
+                self.styles = [[(None, None, False)] * self.columns for _ in range(self.rows)]
                 self.row = self.column = 0
             elif mode == 0:
                 self._erase_to_end()
@@ -123,25 +131,106 @@ class AnsiScreen:
             mode = values[0]
             start, end = (0, self.columns) if mode == 2 else ((0, self.column + 1) if mode == 1 else (self.column, self.columns))
             self.cells[self.row][start:end] = [" "] * (end - start)
+            self.styles[self.row][start:end] = [(None, None, False)] * (end - start)
         elif final == "m":
             # Preserve shapes drawn with coloured terminal backgrounds (notably
             # tty-clock) even though the QML widget supplies the final colour.
             if not values or 0 in values or 49 in values:
                 self.background = False
+            self._sgr(values)
             if any(40 <= value <= 47 or 100 <= value <= 107 or value == 48 for value in values):
                 self.background = True
         # Styling, cursor visibility and alternate-screen controls need no action.
 
     def _erase_to_end(self) -> None:
         self.cells[self.row][self.column:] = [" "] * (self.columns - self.column)
+        self.styles[self.row][self.column:] = [(None, None, False)] * (self.columns - self.column)
         for row in range(self.row + 1, self.rows):
             self.cells[row] = [" "] * self.columns
+            self.styles[row] = [(None, None, False)] * self.columns
+
+    @staticmethod
+    def _ansi_colour(value: int, bright: bool = False) -> str:
+        normal = ("#1d2021", "#cc241d", "#98971a", "#d79921", "#458588", "#b16286", "#689d6a", "#a89984")
+        vivid = ("#928374", "#fb4934", "#b8bb26", "#fabd2f", "#83a598", "#d3869b", "#8ec07c", "#ebdbb2")
+        return (vivid if bright else normal)[value]
+
+    def _sgr(self, values: list[int]) -> None:
+        if not values:
+            values = [0]
+        index = 0
+        while index < len(values):
+            value = values[index]
+            if value == 0:
+                self.foreground_colour = self.background_colour = None
+                self.bold = False
+            elif value == 1:
+                self.bold = True
+            elif value == 22:
+                self.bold = False
+            elif value == 39:
+                self.foreground_colour = None
+            elif value == 49:
+                self.background_colour = None
+            elif 30 <= value <= 37:
+                self.foreground_colour = self._ansi_colour(value - 30)
+            elif 90 <= value <= 97:
+                self.foreground_colour = self._ansi_colour(value - 90, True)
+            elif 40 <= value <= 47:
+                self.background_colour = self._ansi_colour(value - 40)
+            elif 100 <= value <= 107:
+                self.background_colour = self._ansi_colour(value - 100, True)
+            elif value in (38, 48) and index + 2 < len(values) and values[index + 1] == 5:
+                number = max(0, min(255, values[index + 2]))
+                if number < 16:
+                    colour = self._ansi_colour(number % 8, number >= 8)
+                elif number < 232:
+                    number -= 16
+                    levels = (0, 95, 135, 175, 215, 255)
+                    colour = "#{:02x}{:02x}{:02x}".format(levels[number // 36], levels[(number // 6) % 6], levels[number % 6])
+                else:
+                    level = 8 + (number - 232) * 10
+                    colour = "#{0:02x}{0:02x}{0:02x}".format(level)
+                if value == 38:
+                    self.foreground_colour = colour
+                else:
+                    self.background_colour = colour
+                index += 2
+            index += 1
 
     def text(self) -> str:
         lines = ["".join(row).rstrip() for row in self.cells]
         while lines and not lines[-1]:
             lines.pop()
         return "\n".join(lines)
+
+    def rich_text(self) -> str:
+        last_row = max((row for row, cells in enumerate(self.cells) if "".join(cells).rstrip()), default=-1)
+        lines: list[str] = []
+        for row in range(last_row + 1):
+            last_column = max((column for column, char in enumerate(self.cells[row]) if char != " "), default=-1)
+            pieces: list[str] = []
+            active = None
+            for column in range(last_column + 1):
+                style = self.styles[row][column]
+                if style != active:
+                    if active is not None:
+                        pieces.append("</span>")
+                    foreground, background, bold = style
+                    css = []
+                    if foreground:
+                        css.append(f"color:{foreground}")
+                    if background:
+                        css.append(f"background-color:{background}")
+                    if bold:
+                        css.append("font-weight:bold")
+                    pieces.append(f'<span style="{";".join(css)}">')
+                    active = style
+                pieces.append(html.escape(self.cells[row][column]).replace(" ", "&nbsp;"))
+            if active is not None:
+                pieces.append("</span>")
+            lines.append("".join(pieces))
+        return "<br>".join(lines)
 
 
 def command_for(preset: str, requested: str = "") -> tuple[str, ...]:
@@ -195,19 +284,78 @@ def capture(command: tuple[str, ...], rows: int, columns: int, duration: float, 
     return screen.text()
 
 
+def stream(command: tuple[str, ...], rows: int, columns: int, frame_interval: float, max_bytes_per_frame: int) -> int:
+    """Run a terminal program once and emit newline-delimited rich-text frames."""
+    master, slave = pty.openpty()
+    termios.tcsetwinsize(slave, (rows, columns))
+    environment = {**os.environ, "TERM": "xterm-256color", "COLUMNS": str(columns), "LINES": str(rows)}
+    process = subprocess.Popen(command, stdin=slave, stdout=slave, stderr=slave, env=environment, start_new_session=True, close_fds=True)
+    os.close(slave)
+    screen = AnsiScreen(rows, columns)
+    next_frame = time.monotonic()
+    received = 0
+    previous = ""
+    previous_sigterm = signal.getsignal(signal.SIGTERM)
+
+    def stop_stream(_signum: int, _frame: object) -> None:
+        raise SystemExit(0)
+
+    signal.signal(signal.SIGTERM, stop_stream)
+    try:
+        while process.poll() is None:
+            now = time.monotonic()
+            ready, _, _ = select.select([master], [], [], min(0.05, max(0, next_frame - now)))
+            if ready:
+                try:
+                    chunk = os.read(master, min(8192, max_bytes_per_frame - received))
+                except OSError:
+                    break
+                if not chunk:
+                    break
+                received += len(chunk)
+                screen.feed(chunk)
+            now = time.monotonic()
+            if now >= next_frame:
+                rendered = screen.rich_text()
+                if rendered and rendered != previous:
+                    print(json.dumps(rendered, ensure_ascii=False), flush=True)
+                    previous = rendered
+                next_frame = now + frame_interval
+                received = 0
+        rendered = screen.rich_text()
+        if rendered and rendered != previous:
+            print(json.dumps(rendered, ensure_ascii=False), flush=True)
+        return process.wait()
+    finally:
+        if process.poll() is None:
+            os.killpg(process.pid, signal.SIGTERM)
+            try:
+                process.wait(timeout=0.2)
+            except subprocess.TimeoutExpired:
+                os.killpg(process.pid, signal.SIGKILL)
+                process.wait(timeout=0.2)
+        os.close(master)
+        signal.signal(signal.SIGTERM, previous_sigterm)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("preset", choices=tuple(PRESET_COMMANDS))
     parser.add_argument("--rows", type=int, default=20)
     parser.add_argument("--columns", type=int, default=60)
     parser.add_argument("--duration-ms", type=int, default=350)
+    parser.add_argument("--stream", action="store_true")
+    parser.add_argument("--frame-ms", type=int, default=100)
     parser.add_argument("--command", default="")
     args = parser.parse_args()
     rows = max(4, min(80, args.rows))
     columns = max(10, min(200, args.columns))
     duration = max(0.05, min(1.5, args.duration_ms / 1000))
     try:
-        rendered = capture(command_for(args.preset, args.command), rows, columns, duration, 256 * 1024)
+        command = command_for(args.preset, args.command)
+        if args.stream:
+            return stream(command, rows, columns, max(0.05, min(1.0, args.frame_ms / 1000)), 256 * 1024)
+        rendered = capture(command, rows, columns, duration, 256 * 1024)
     except FileNotFoundError:
         print(f"{PRESET_COMMANDS[args.preset][0]} is not installed")
         return 0

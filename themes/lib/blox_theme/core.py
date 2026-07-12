@@ -54,7 +54,9 @@ DEFAULT_BAR_ITEMS = (
     {"id": "display", "enabled": True, "region": "hidden", "order": 2},
     {"id": "bt", "enabled": True, "region": "hidden", "order": 3},
     {"id": "updates", "enabled": True, "region": "hidden", "order": 4},
-    {"id": "application-tray", "enabled": True, "region": "hidden", "order": 5},
+    {"id": "fan", "enabled": True, "region": "hidden", "order": 5},
+    {"id": "gpu", "enabled": True, "region": "hidden", "order": 6},
+    {"id": "application-tray", "enabled": True, "region": "hidden", "order": 7},
 )
 
 

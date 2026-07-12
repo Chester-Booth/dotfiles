@@ -47,6 +47,8 @@ Item {
                 "display": displayComponent,
                 "bt": bluetoothComponent,
                 "updates": updatesComponent,
+                "fan": fanComponent,
+                "gpu": gpuComponent,
                 "tray": trayToggleComponent,
                 "application-tray": applicationTrayComponent
             };
@@ -384,6 +386,52 @@ Item {
             icon: root.controller.updateIcon()
             accent: root.controller.updates.json.class === "zero" ? Theme.green : Theme.yellow
             panel: "updates"
+            active: root.controller.openPanel === panel
+            onPanelClicked: (p, c) => {
+                return root.controller.togglePanel(p, root.mappedCentre(this, c));
+            }
+            onPanelHovered: (p, c, s) => {
+                return root.controller.hoverButtonEntered(p, root.mappedCentre(this, c), s);
+            }
+            onPanelExited: (s) => {
+                return root.controller.hoverButtonExited(s);
+            }
+        }
+
+    }
+
+    Component {
+        id: fanComponent
+
+        PanelRailButton {
+            icon: Lucide.icon("fan")
+            iconFontFamily: Lucide.family
+            accent: root.controller.systemInfo.json.profile === "Performance" ? Theme.red : Theme.foreground
+            panel: "system"
+            source: "fan"
+            active: root.controller.openPanel === panel
+            onPanelClicked: (p, c) => {
+                return root.controller.togglePanel(p, root.mappedCentre(this, c));
+            }
+            onPanelHovered: (p, c, s) => {
+                return root.controller.hoverButtonEntered(p, root.mappedCentre(this, c), s);
+            }
+            onPanelExited: (s) => {
+                return root.controller.hoverButtonExited(s);
+            }
+        }
+
+    }
+
+    Component {
+        id: gpuComponent
+
+        PanelRailButton {
+            icon: Lucide.icon("gpu")
+            iconFontFamily: Lucide.family
+            accent: root.controller.systemInfo.json.gpuMode === "eco" ? Theme.green : Theme.yellow
+            panel: "system"
+            source: "gpu"
             active: root.controller.openPanel === panel
             onPanelClicked: (p, c) => {
                 return root.controller.togglePanel(p, root.mappedCentre(this, c));

@@ -112,6 +112,14 @@ Item {
         return Math.max(8, Math.min(screenWidth - width - 8, requestedX - width / 2));
     }
 
+    function adjacentPopupX(width, siblingX, siblingWidth) {
+        const right = siblingX + siblingWidth + 8;
+        if (right + width <= screenWidth - 8)
+            return right;
+
+        return Math.max(8, siblingX - width - 8);
+    }
+
     HoverPopupWindow {
         id: notesWindow
 
@@ -146,7 +154,7 @@ Item {
             refreshBusy: root.generatedRefreshBusy
             refreshError: root.generatedRefreshError
             maxPopoutWidth: root.screenWidth > 0 ? root.screenWidth * 0.75 : 680
-            maxPopoutHeight: root.panelHeight > 0 ? root.panelHeight * 0.75 : 760
+            maxPopoutHeight: root.screenHeight > 0 ? root.screenHeight * 0.75 : 760
             onPrevious: root.previousTodo()
             onNext: root.nextTodo()
             onRefresh: (file) => {
@@ -237,7 +245,7 @@ Item {
         id: mediaWindow
 
         anchorWindow: root.panelWindow
-        anchorX: root.popupX(mediaPlayer.implicitWidth, root.openPanelX)
+        anchorX: Theme.barPosition === "top" || Theme.barPosition === "bottom" ? root.adjacentPopupX(mediaPlayer.implicitWidth, systemWindow.anchorX, systemPopout.width) : root.popupX(mediaPlayer.implicitWidth, root.openPanelX)
         anchorY: Theme.barPosition === "left" || Theme.barPosition === "right" ? Math.max(8, systemWindow.anchorY - mediaPlayer.implicitHeight - 8) : root.popupY(mediaPlayer.implicitHeight, root.openPanelY)
         contentWidth: 330
         contentHeight: mediaPlayer.implicitHeight

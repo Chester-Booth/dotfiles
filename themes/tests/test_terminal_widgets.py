@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import subprocess
 import unittest
 from pathlib import Path
@@ -31,6 +32,14 @@ class AnsiScreenTests(unittest.TestCase):
         screen.feed(b"\x1b[42m   \x1b[49m ")
         self.assertEqual("███", screen.text())
 
+    def test_rich_frame_preserves_ansi_colours(self) -> None:
+        screen = terminal_frame.AnsiScreen(2, 8)
+        screen.feed(b"\x1b[31mred\x1b[0m \x1b[48;5;25m  \x1b[0m")
+        rendered = screen.rich_text()
+        self.assertIn("color:#cc241d", rendered)
+        self.assertIn("background-color:#005faf", rendered)
+        self.assertIn("red", rendered)
+
 
 class TerminalWidgetSafetyTests(unittest.TestCase):
     def test_only_known_presets_can_be_resolved(self) -> None:
@@ -57,6 +66,17 @@ class TerminalWidgetSafetyTests(unittest.TestCase):
     def test_missing_dependency_is_a_user_facing_frame(self) -> None:
         completed = subprocess.run([str(HELPER), "clock", "--duration-ms", "50"], check=True, text=True, capture_output=True)
         self.assertTrue(completed.stdout.strip())
+
+    def test_stream_emits_distinct_json_frames(self) -> None:
+        command = (
+            "for frame in one two three; do "
+            "printf '\\033[2J%s' \"$frame\"; sleep 0.06; done"
+        )
+        with mock.patch.object(terminal_frame, "command_for", return_value=("sh", "-c", command)):
+            frames: list[str] = []
+            with mock.patch("builtins.print", side_effect=lambda value, **_kwargs: frames.append(json.loads(value))):
+                terminal_frame.stream(("sh", "-c", command), 4, 20, 0.05, 1024)
+        self.assertGreaterEqual(len(set(frames)), 2)
 
 
 if __name__ == "__main__":

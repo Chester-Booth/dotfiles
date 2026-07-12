@@ -358,6 +358,8 @@ Scope {
         model: Quickshell.screens
 
         PanelWindow {
+            id: osdWindow
+
             required property var modelData
             readonly property bool onLeft: Theme.osdPosition === "top-left" || Theme.osdPosition === "bottom-left"
             readonly property bool onRight: Theme.osdPosition === "top-right" || Theme.osdPosition === "bottom-right"
@@ -380,8 +382,8 @@ Scope {
             }
 
             Rectangle {
-                x: parent.onLeft ? 28 + Theme.osdOffsetX : parent.onRight ? parent.width - width - 28 + Theme.osdOffsetX : Math.round((parent.width - width) / 2) + Theme.osdOffsetX
-                y: root.showing ? (parent.onTop ? 28 + Theme.osdOffsetY : parent.height - height - 28 + Theme.osdOffsetY) : parent.onTop ? -height - 6 : parent.height + 6
+                x: osdWindow.onLeft ? 28 + Theme.osdOffsetX : osdWindow.onRight ? parent.width - width - 28 + Theme.osdOffsetX : Math.round((parent.width - width) / 2) + Theme.osdOffsetX
+                y: root.showing ? (osdWindow.onTop ? 28 + Theme.osdOffsetY : parent.height - height - 28 + Theme.osdOffsetY) : osdWindow.onTop ? -height - 6 : parent.height + 6
                 width: 292
                 height: 72
                 radius: 8

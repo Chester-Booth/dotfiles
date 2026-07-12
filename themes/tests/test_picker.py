@@ -7,6 +7,7 @@ import os
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from unittest import mock
 
@@ -136,6 +137,27 @@ class ThemeLibraryMutationTests(unittest.TestCase):
             self.assertEqual(3, code)
             self.assertIn("not a generated file", response["errors"][0])
 
+    def test_generated_target_files_can_be_exported_as_one_zip(self) -> None:
+        state = self.root / "state"
+        expected = {
+            "code/settings.json": "settings",
+            "code/package.json": "package",
+            "code/themes/blox-dark-2026.json": "theme",
+        }
+        for name, content in expected.items():
+            generated = state / "current" / name
+            generated.parent.mkdir(parents=True, exist_ok=True)
+            generated.write_text(content, encoding="utf-8")
+        output = self.root / "downloads/code-generated-files.zip"
+        with mock.patch("blox_theme.cli.state_dir", return_value=state):
+            response, code = self.invoke("export-target", "code", "--archive", "--output", str(output), "--json")
+        self.assertEqual(0, code, response)
+        self.assertTrue(response["data"]["archive"])
+        with zipfile.ZipFile(output) as archive:
+            self.assertEqual(set(expected), set(archive.namelist()))
+            for name, content in expected.items():
+                self.assertEqual(content, archive.read(name).decode("utf-8"))
+
 
 class PickerIntegrationSourceTests(unittest.TestCase):
     def test_picker_uses_json_api_and_has_confirmation_paths(self) -> None:
@@ -146,6 +168,9 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn("FloatingWindow {", qml)
         self.assertNotIn("PanelWindow {", qml)
         self.assertIn("parentWindow: root._backingWindow", qml)
+        self.assertIn("visible: open && !widgetEditModePending", qml)
+        self.assertIn("hideTimer.stop()", qml)
+        self.assertIn("root._backingWindow.requestActivate()", qml)
         self.assertIn("root.contentItem.QsWindow.window.startSystemMove()", qml)
         self.assertIn('title = "^Blox Theme Picker$"', rules)
         self.assertIn("Choose a wallpaper", rules)
@@ -245,6 +270,9 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn('text: "Generated Files"', qml)
         self.assertIn("function generatedFiles()", qml)
         self.assertIn('const order = ["stylus"]', qml)
+        self.assertIn("function generatedFileGroups()", qml)
+        self.assertIn('text: "Download all (.zip)"', qml)
+        self.assertIn("root.downloadGeneratedArchive(modelData.target)", qml)
         self.assertIn("root.downloadGeneratedFile(modelData.target, modelData.file)", qml)
         self.assertIn("Install and select the Minimal theme", qml)
         self.assertIn("generated style-settings.json", qml)
@@ -254,6 +282,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertNotIn('text: "Dependency and compatibility notes"', simple)
         self.assertIn("editorScroll.contentY - delta * 4", qml)
         self.assertIn('text: "Bar / OSD / Notifications"', qml)
+        self.assertIn('visible: root.editorMode === "overview"', qml)
         self.assertIn('Theme.osdPositionPreviewRequested()', qml)
         self.assertIn('Theme.notificationPositionPreviewRequested()', qml)
 

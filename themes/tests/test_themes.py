@@ -462,7 +462,7 @@ class CliContractTests(unittest.TestCase):
             with self.subTest(expected=expected):
                 self.assertIn(expected, source)
         self.assertIn('model: Theme.barHiddenItems.filter', source)
-        for item_id in ("power", "notes", "workspaces", "clock", "battery", "notifications", "wifi", "sound", "privacy", "awake", "display", "bt", "updates", "tray", "application-tray"):
+        for item_id in ("power", "notes", "workspaces", "clock", "battery", "notifications", "wifi", "sound", "privacy", "awake", "display", "bt", "updates", "fan", "gpu", "tray", "application-tray"):
             with self.subTest(item_id=item_id):
                 self.assertIn(f'"{item_id}"', delegate)
 
@@ -477,6 +477,21 @@ class CliContractTests(unittest.TestCase):
         self.assertNotIn("trayToggleItem = root", delegate[battery_start:tray_start])
         self.assertIn("trayToggleItem = root", delegate[tray_start:application_tray_start])
 
+    def test_horizontal_popouts_use_screen_geometry_and_do_not_overlap(self) -> None:
+        popouts = (REPOSITORY / "quickshell/.config/quickshell/blox/popouts/BarPopouts.qml").read_text(encoding="utf-8")
+        self.assertIn("maxPopoutHeight: root.screenHeight", popouts)
+        self.assertIn("function adjacentPopupX", popouts)
+        self.assertIn("root.adjacentPopupX(mediaPlayer.implicitWidth, systemWindow.anchorX, systemPopout.width)", popouts)
+
+    def test_fan_and_gpu_are_configurable_runtime_items(self) -> None:
+        delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
+        icons = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/Lucide.qml").read_text(encoding="utf-8")
+        for item_id in ("fan", "gpu"):
+            with self.subTest(item_id=item_id):
+                self.assertIn(f'"{item_id}": {item_id}Component', delegate)
+                self.assertIn(f'icon: Lucide.icon("{item_id}")', delegate)
+                self.assertIn(f'"{item_id}":', icons)
+
     def test_all_commands_support_human_and_json_output(self) -> None:
         commands = (("list",), ("show", "blox-panel"), ("validate", "blox-panel"), ("render", "blox-panel"), ("preview", "blox-panel"), ("diff", "blox-panel"), ("doctor",))
         for arguments in commands:
@@ -490,6 +505,13 @@ class CliContractTests(unittest.TestCase):
                 response = json.loads(completed.stdout)
                 self.assertEqual({"api_version", "command", "ok", "status", "data", "warnings", "errors"}, set(response))
                 self.assertEqual(arguments[0], response["command"])
+
+    def test_osd_position_uses_window_edge_flags(self) -> None:
+        source = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/Osd.qml").read_text(encoding="utf-8")
+        self.assertIn("id: osdWindow", source)
+        for edge in ("onLeft", "onRight", "onTop"):
+            self.assertIn(f"osdWindow.{edge}", source)
+            self.assertNotIn(f"parent.{edge}", source)
 
     def test_missing_theme_and_malformed_json_exit_codes(self) -> None:
         missing = run_cli("show", "definitely-missing", "--json")

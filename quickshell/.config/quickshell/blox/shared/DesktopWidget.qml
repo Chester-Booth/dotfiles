@@ -1,6 +1,7 @@
 import "../services"
 import QtQuick
 import Quickshell
+import Quickshell.Io
 
 Rectangle {
     id: root
@@ -10,6 +11,7 @@ Rectangle {
     property bool interactive: true
     property int overrideWidth: 0
     property int overrideHeight: 0
+    property string terminalFrame: ""
     readonly property bool terminalPreset: ["music", "clock", "aquarium", "pipes", "tree", "matrix", "train"].indexOf(widget.type) >= 0
     readonly property bool autoSize: widget.options && widget.options.auto_size === true
     readonly property int configuredWidth: overrideWidth > 0 ? overrideWidth : autoSize ? 0 : Number(widget.width || 0)
@@ -28,11 +30,18 @@ Rectangle {
 
         const columns = root.configuredWidth > 0 ? Math.max(10, Math.floor(root.configuredWidth / Math.max(6, Theme.widgetFontSize * 0.6))) : 60;
         const rows = root.configuredHeight > 0 ? Math.max(4, Math.floor(root.configuredHeight / Math.max(10, Theme.widgetFontSize * 1.25))) : 20;
-        return [root.scriptRoot + "/overlays/terminal-frame.py", root.widget.type, "--command", root.expandedCommand(root.widget.content_command), "--columns", String(columns), "--rows", String(rows)];
+        return [root.scriptRoot + "/overlays/terminal-frame.py", root.widget.type, "--stream", "--frame-ms", "100", "--command", root.expandedCommand(root.widget.content_command), "--columns", String(columns), "--rows", String(rows)];
     }
 
     function refresh() {
-        contentPoller.refresh();
+        if (root.terminalPreset) {
+            if (terminalProcess.running)
+                terminalProcess.signal(15);
+            else
+                terminalProcess.running = true;
+        } else {
+            contentPoller.refresh();
+        }
     }
 
     width: configuredWidth > 0 ? configuredWidth : content.implicitWidth + Theme.widgetPadding * 2
@@ -43,8 +52,47 @@ Rectangle {
     ScriptPoller {
         id: contentPoller
 
-        command: root.contentCommand()
+        command: root.terminalPreset ? [] : root.contentCommand()
         interval: Math.max(250, Number(root.widget.interval_ms || 60000))
+    }
+
+    Process {
+        // Ignore incomplete output; the next complete frame replaces it.
+
+        id: terminalProcess
+
+        command: root.contentCommand()
+        running: root.terminalPreset
+        onExited: terminalRestart.restart()
+        Component.onDestruction: {
+            terminalRestart.stop();
+            if (running)
+                signal(15);
+
+        }
+
+        stdout: SplitParser {
+            splitMarker: "\n"
+            onRead: (data) => {
+                try {
+                    root.terminalFrame = JSON.parse(data);
+                } catch (error) {
+                }
+            }
+        }
+
+    }
+
+    Timer {
+        id: terminalRestart
+
+        interval: 500
+        repeat: false
+        onTriggered: {
+            if (root.terminalPreset && !terminalProcess.running)
+                terminalProcess.running = true;
+
+        }
     }
 
     Text {
@@ -53,7 +101,8 @@ Rectangle {
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.margins: Theme.widgetPadding
-        text: contentPoller.raw.length > 0 ? contentPoller.raw : "Loading..."
+        text: root.terminalPreset ? (root.terminalFrame.length > 0 ? root.terminalFrame : "Loading…") : (contentPoller.raw.length > 0 ? contentPoller.raw : "Loading…")
+        textFormat: root.terminalPreset ? Text.RichText : Text.PlainText
         color: Theme.foreground
         font.family: root.terminalPreset ? Theme.monoFontFamily : Theme.bodyFontFamily
         font.pixelSize: Theme.widgetFontSize

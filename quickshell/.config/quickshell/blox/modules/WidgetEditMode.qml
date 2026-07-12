@@ -226,7 +226,7 @@ PanelWindow {
         z: 2
         x: root.width - width - 20
         y: 20
-        width: root.selectedItem ? 440 : buttonRow.implicitWidth + 58
+        width: root.selectedItem ? 360 : buttonRow.implicitWidth + 58
         height: root.selectedItem ? positionGrid.implicitHeight + 72 : buttonRow.implicitHeight + 16
         color: Theme.surface
         border.width: 1

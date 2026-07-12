@@ -67,6 +67,7 @@ FloatingWindow {
     property bool exportIncludeWidgets: true
     property string generatedDownloadTarget: ""
     property string generatedDownloadFile: ""
+    property bool generatedDownloadArchive: false
     property string wallpaperDialogTarget: "overview"
     property var fontFamilies: []
     property string fontOutput: ""
@@ -345,8 +346,14 @@ FloatingWindow {
     }
 
     function openPicker() {
+        hideTimer.stop();
         open = true;
         rendered = true;
+        Qt.callLater(() => {
+            if (root.rendered && root._backingWindow)
+                root._backingWindow.requestActivate();
+
+        });
         statusMessage = "Loading themes…";
         if (themes.length === 0)
             refreshThemes(false);
@@ -936,12 +943,46 @@ FloatingWindow {
         return result;
     }
 
+    function generatedFileGroups() {
+        const flatFiles = generatedFiles();
+        const result = [];
+        for (const file of flatFiles) {
+            let group = null;
+            for (const candidateGroup of result) {
+                if (candidateGroup.target === file.target) {
+                    group = candidateGroup;
+                    break;
+                }
+            }
+            if (group === null) {
+                group = {
+                    "target": file.target,
+                    "files": []
+                };
+                result.push(group);
+            }
+            group.files.push(file);
+        }
+        return result;
+    }
+
     function downloadGeneratedFile(target, file) {
         if (busy)
             return ;
 
         generatedDownloadTarget = target;
         generatedDownloadFile = file;
+        generatedDownloadArchive = false;
+        generatedExportDialog.open();
+    }
+
+    function downloadGeneratedArchive(target) {
+        if (busy)
+            return ;
+
+        generatedDownloadTarget = target;
+        generatedDownloadFile = target + "-generated-files.zip";
+        generatedDownloadArchive = true;
         generatedExportDialog.open();
     }
 
@@ -1380,9 +1421,13 @@ FloatingWindow {
     implicitWidth: 1320
     implicitHeight: 860
     minimumSize: Qt.size(960, 680)
-    visible: rendered
+    visible: open && !widgetEditModePending
     color: "transparent"
-    onClosed: root.closePicker()
+    onClosed: {
+        if (root.open && !root.widgetEditModePending)
+            root.closePicker();
+
+    }
     onOpenChanged: {
         if (open)
             rendered = true;
@@ -1589,11 +1634,16 @@ FloatingWindow {
         title: "Download " + root.generatedDownloadFile
         modality: Qt.WindowModal
         fileMode: FileDialog.SaveFile
-        defaultSuffix: root.generatedDownloadFile.indexOf(".") >= 0 ? root.generatedDownloadFile.slice(root.generatedDownloadFile.lastIndexOf(".") + 1) : "txt"
-        nameFilters: ["Generated file (*.*)"]
+        defaultSuffix: root.generatedDownloadArchive ? "zip" : root.generatedDownloadFile.indexOf(".") >= 0 ? root.generatedDownloadFile.slice(root.generatedDownloadFile.lastIndexOf(".") + 1) : "txt"
+        nameFilters: root.generatedDownloadArchive ? ["Zip archive (*.zip)"] : ["Generated file (*.*)"]
         onAccepted: {
             const path = decodeURIComponent(String(selectedFile).replace(/^file:\/\//, ""));
-            root.runApi("export-target", ["export-target", root.generatedDownloadTarget, "--file", root.generatedDownloadFile, "--output", path]);
+            const args = ["export-target", root.generatedDownloadTarget, "--output", path];
+            if (root.generatedDownloadArchive)
+                args.push("--archive");
+            else
+                args.push("--file", root.generatedDownloadFile);
+            root.runApi("export-target", args);
         }
     }
 
@@ -2144,7 +2194,7 @@ FloatingWindow {
                                 spacing: 14
 
                                 ColumnLayout {
-                                    visible: root.editorMode !== "widgets"
+                                    visible: root.editorMode === "overview"
                                     Layout.fillWidth: true
                                     spacing: 6
 
@@ -2991,22 +3041,62 @@ FloatingWindow {
                                         wrapMode: Text.Wrap
                                     }
 
-                                    Flow {
+                                    ColumnLayout {
                                         Layout.fillWidth: true
                                         spacing: 8
 
                                         Repeater {
                                             model: {
                                                 root.candidateRevision;
-                                                return root.generatedFiles();
+                                                return root.generatedFileGroups();
                                             }
 
-                                            BloxButton {
+                                            ColumnLayout {
                                                 required property var modelData
 
-                                                iconName: "download"
-                                                text: root.targetLabel(modelData.target) + " · " + modelData.name
-                                                onClicked: root.downloadGeneratedFile(modelData.target, modelData.file)
+                                                Layout.fillWidth: true
+                                                spacing: 6
+
+                                                RowLayout {
+                                                    Layout.fillWidth: true
+
+                                                    Label {
+                                                        Layout.fillWidth: true
+                                                        text: root.targetLabel(modelData.target)
+                                                        color: Theme.blue
+                                                        font.family: Theme.fontFamily
+                                                        font.pixelSize: 12
+                                                        font.bold: true
+                                                    }
+
+                                                    BloxButton {
+                                                        visible: modelData.files.length > 1
+                                                        iconName: "download"
+                                                        text: "Download all (.zip)"
+                                                        onClicked: root.downloadGeneratedArchive(modelData.target)
+                                                    }
+
+                                                }
+
+                                                Flow {
+                                                    Layout.fillWidth: true
+                                                    spacing: 8
+
+                                                    Repeater {
+                                                        model: modelData.files
+
+                                                        BloxButton {
+                                                            required property var modelData
+
+                                                            iconName: "download"
+                                                            text: modelData.name
+                                                            onClicked: root.downloadGeneratedFile(modelData.target, modelData.file)
+                                                        }
+
+                                                    }
+
+                                                }
+
                                             }
 
                                         }

@@ -40,6 +40,7 @@ from .runtime import (
     LockContended,
     RuntimeFailure,
     TARGET_NAMES,
+    TARGET_FILES,
     apply_theme,
     configured_targets,
     current_generation,
@@ -152,7 +153,8 @@ def parser() -> argparse.ArgumentParser:
     export_parser.add_argument("--exclude-widgets", action="store_true")
     export_parser.add_argument("--json", action="store_true")
     target_export = subcommands.add_parser("export-target", help="copy a generated target file to a chosen path")
-    target_export.add_argument("target", choices=("stylus",))
+    target_export.add_argument("target", choices=TARGET_NAMES)
+    target_export.add_argument("--file", dest="target_file", help="generated file to copy when a target produces more than one")
     target_export.add_argument("--output", type=Path, required=True)
     target_export.add_argument("--json", action="store_true")
     widgets_export = subcommands.add_parser("widgets-export", help="export a detached widget configuration")
@@ -273,7 +275,11 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         return envelope(command, {"feature": args.feature, "integration": integration}), EXIT_OK
 
     if command == "export-target":
-        relative = {"stylus": Path("stylus/blox-system.user.css")}[args.target]
+        available = TARGET_FILES[args.target]
+        relative_name = args.target_file or available[0]
+        if relative_name not in available:
+            return envelope(command, errors=[f"{relative_name} is not a generated file for {args.target}"]), EXIT_VALIDATION
+        relative = Path(relative_name)
         source = state_dir() / "current" / relative
         output = args.output.expanduser()
         try:

@@ -121,6 +121,21 @@ class ThemeLibraryMutationTests(unittest.TestCase):
         self.assertIn("JSON object", response["errors"][0])
         self.assertEqual([], json.loads(path.read_text(encoding="utf-8")))
 
+    def test_generated_target_files_can_be_exported_without_path_escape(self) -> None:
+        state = self.root / "state"
+        generated = state / "current/code/themes/blox-dark-2026.json"
+        generated.parent.mkdir(parents=True)
+        generated.write_text('{"name":"Blox"}', encoding="utf-8")
+        output = self.root / "downloads/blox-dark-2026.json"
+        with mock.patch("blox_theme.cli.state_dir", return_value=state):
+            response, code = self.invoke("export-target", "code", "--file", "code/themes/blox-dark-2026.json", "--output", str(output), "--json")
+            self.assertEqual(0, code, response)
+            self.assertEqual('{"name":"Blox"}', output.read_text(encoding="utf-8"))
+
+            response, code = self.invoke("export-target", "code", "--file", "../outside", "--output", str(self.root / "outside"), "--json")
+            self.assertEqual(3, code)
+            self.assertIn("not a generated file", response["errors"][0])
+
 
 class PickerIntegrationSourceTests(unittest.TestCase):
     def test_picker_uses_json_api_and_has_confirmation_paths(self) -> None:
@@ -141,7 +156,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn('"UNSAVED"', qml)
         self.assertIn("colourPickerOpen", qml)
         self.assertIn("openColourPicker", qml)
-        self.assertIn('text: "+  New theme"', qml)
+        self.assertIn('text: "＋  New theme"', qml)
         self.assertIn("function openNewTheme(wallpaperPage)", qml)
         self.assertIn('runApi("new-template", ["show", "blox-panel"])', qml)
         self.assertIn('text: "From blank"', qml)
@@ -200,9 +215,8 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
         self.assertIn('readonly property var unavailableTargetKeys: ["sddm", "grub"]', qml)
         self.assertIn("function targetAvailable(key)", qml)
-        self.assertIn("function setWidgetProfile(value)", qml)
-        self.assertIn('model: ["minimal", "compact", "comfortable"]', qml)
-        self.assertIn("enabled: root.candidate && root.candidate.targets.widgets", qml)
+        advanced = qml.split('visible: root.editorMode === "advanced"', 1)[1].split('visible: root.editorMode === "widgets"', 1)[0]
+        self.assertNotIn('text: "Widget profile"', advanced)
         self.assertIn('return key + " · unavailable"', qml)
         self.assertIn("if (!targetAvailable(key))", qml)
         self.assertIn("enabled: root.targetAvailable(modelData)", qml)
@@ -227,8 +241,12 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn('return "manual"', qml)
         self.assertIn('key === "code" || key === "cursor_editor" ? "Reload Window"', qml)
         self.assertIn('source: "../assets/stylus-import.png"', qml)
-        self.assertIn('text: "Download file"', qml)
-        self.assertIn('text: "View guide"', qml)
+        self.assertIn('text: "Generated Files"', qml)
+        self.assertIn("function generatedFiles()", qml)
+        self.assertIn('const order = ["stylus"]', qml)
+        self.assertIn("root.downloadGeneratedFile(modelData.target, modelData.file)", qml)
+        self.assertIn("Install and select the Minimal theme", qml)
+        self.assertIn("generated style-settings.json", qml)
         self.assertIn('text: "Simple"', qml)
         simple = qml.split('visible: root.editorMode === "overview"', 1)[1].split('visible: root.editorMode === "advanced"', 1)[0]
         self.assertNotIn('text: "Target impact"', simple)
@@ -263,14 +281,16 @@ class PickerIntegrationSourceTests(unittest.TestCase):
             "setBarItemEnabled",
             "setBarItemRegion",
             "moveBarItem",
+            "moveBarItemTo",
         ):
             self.assertIn(f"function {function_name}(", qml)
         self.assertIn('model: ["start", "centre", "end", "hidden"]', advanced)
-        self.assertIn('"Expanded / hidden"', advanced)
+        self.assertIn('"Tray"', advanced)
         self.assertIn("root.setBarItemEnabled(barItemRow.modelData.id, value)", advanced)
-        self.assertIn("root.setBarItemRegion(barItemRow.modelData.id, value)", advanced)
-        self.assertIn("root.moveBarItem(barItemRow.modelData.id, -1)", advanced)
-        self.assertIn("root.moveBarItem(barItemRow.modelData.id, 1)", advanced)
+        self.assertIn("Drag.active: handleDrag.active || emptyDrag.active", advanced)
+        self.assertIn("root.moveBarItemTo(drop.source.barItemId", advanced)
+        self.assertNotIn('text: "↑"', advanced)
+        self.assertNotIn('text: "↓"', advanced)
         self.assertIn("Theme.resolvedBarItems(overrides)", qml)
         self.assertIn("Theme.loadShell(next.shell)", qml)
 

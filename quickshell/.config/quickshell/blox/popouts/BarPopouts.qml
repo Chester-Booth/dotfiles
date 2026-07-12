@@ -8,7 +8,9 @@ Item {
     property var panelWindow
     property real panelHeight: 0
     property real screenWidth: 0
+    property real screenHeight: 0
     property string openPanel: ""
+    property real openPanelX: 8
     property real openPanelY: 8
     property real trayMenuY: 8
     property bool trayMenuOpen: false
@@ -91,13 +93,30 @@ Item {
     signal selectMprisPlayer(string playerName)
 
     function popupY(height, requestedY) {
-        return Math.max(8, Math.min(panelHeight - height - 8, requestedY - height / 2));
+        if (Theme.barPosition === "top")
+            return Theme.railWidth + 8;
+
+        if (Theme.barPosition === "bottom")
+            return -height - 8;
+
+        return Math.max(8, Math.min(screenHeight - height - 8, requestedY - height / 2));
+    }
+
+    function popupX(width, requestedX) {
+        if (Theme.barPosition === "left")
+            return Theme.railWidth + 8;
+
+        if (Theme.barPosition === "right")
+            return -width - 8;
+
+        return Math.max(8, Math.min(screenWidth - width - 8, requestedX - width / 2));
     }
 
     HoverPopupWindow {
         id: notesWindow
 
         anchorWindow: root.panelWindow
+        anchorX: root.popupX(notesPopout.width, root.openPanelX)
         anchorY: root.popupY(notesPopout.height, root.openPanelY)
         contentWidth: notesPopout.width
         contentHeight: notesPopout.height
@@ -149,6 +168,7 @@ Item {
         id: trayWindow
 
         anchorWindow: root.panelWindow
+        anchorX: root.popupX(trayMenuPopout.width, root.openPanelX)
         anchorY: root.popupY(trayMenuPopout.height, root.trayMenuY)
         contentWidth: trayMenuPopout.width
         contentHeight: trayMenuPopout.height
@@ -170,6 +190,7 @@ Item {
         id: calendarWindow
 
         anchorWindow: root.panelWindow
+        anchorX: root.popupX(calendarPopout.width, root.openPanelX)
         anchorY: root.popupY(calendarPopout.height, root.openPanelY)
         contentWidth: calendarPopout.width
         contentHeight: calendarPopout.height
@@ -216,6 +237,7 @@ Item {
         id: mediaWindow
 
         anchorWindow: root.panelWindow
+        anchorX: root.popupX(mediaPlayer.implicitWidth, root.openPanelX)
         anchorY: Math.max(8, systemWindow.anchorY - mediaPlayer.implicitHeight - 8)
         contentWidth: 330
         contentHeight: mediaPlayer.implicitHeight
@@ -239,6 +261,7 @@ Item {
         id: performanceWindow
 
         anchorWindow: root.panelWindow
+        anchorX: root.popupX(performancePopout.width, root.openPanelX)
         anchorY: root.popupY(performancePopout.height, root.openPanelY)
         contentWidth: performancePopout.width
         contentHeight: performancePopout.height
@@ -269,6 +292,7 @@ Item {
         id: systemWindow
 
         anchorWindow: root.panelWindow
+        anchorX: root.popupX(systemPopout.width, root.openPanelX)
         anchorY: root.popupY(systemPopout.height, root.openPanelY)
         contentWidth: systemPopout.width
         contentHeight: systemPopout.height
@@ -315,6 +339,7 @@ Item {
 
     HoverPopupWindow {
         anchorWindow: root.panelWindow
+        anchorX: root.popupX(notificationCenter.width, root.openPanelX)
         anchorY: root.popupY(notificationCenter.height, root.openPanelY)
         contentWidth: notificationCenter.width
         contentHeight: notificationCenter.height
@@ -339,6 +364,7 @@ Item {
 
     HoverPopupWindow {
         anchorWindow: root.panelWindow
+        anchorX: root.popupX(basicPopout.width, root.openPanelX)
         anchorY: root.popupY(basicPopout.height, root.openPanelY)
         contentWidth: 320
         contentHeight: basicPopout.height

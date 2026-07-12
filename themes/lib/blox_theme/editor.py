@@ -139,24 +139,18 @@ def apply_fragment(settings: Path, fragment: dict[str, Any]) -> None:
         if not destination.is_file():
             raise EditorSettingsFailure(f"editor settings symlink does not target a regular file: {settings}")
     original = destination.read_text(encoding="utf-8") if destination.exists() else "{}\n"
-    workbench = fragment["workbench.colorCustomizations"]
     parsed, _ = members(original)
-    existing_workbench: dict[str, Any] = {}
-    if "workbench.colorCustomizations" in parsed:
-        decoded = _decode(original, parsed["workbench.colorCustomizations"])
-        if not isinstance(decoded, dict):
-            raise EditorSettingsFailure("workbench.colorCustomizations must be an object")
-        existing_workbench = decoded
-    existing_workbench.update(workbench)
-    updated = merge_members(
-        original,
-        {
-            "workbench.colorTheme": fragment["workbench.colorTheme"],
-            "editor.fontFamily": fragment["editor.fontFamily"],
-            "editor.fontSize": fragment["editor.fontSize"],
-            "workbench.colorCustomizations": existing_workbench,
-        },
-    )
+    updates = {key: fragment[key] for key in ("workbench.colorTheme", "editor.fontFamily", "editor.fontSize")}
+    if "workbench.colorCustomizations" in fragment:
+        existing_workbench: dict[str, Any] = {}
+        if "workbench.colorCustomizations" in parsed:
+            decoded = _decode(original, parsed["workbench.colorCustomizations"])
+            if not isinstance(decoded, dict):
+                raise EditorSettingsFailure("workbench.colorCustomizations must be an object")
+            existing_workbench = decoded
+        existing_workbench.update(fragment["workbench.colorCustomizations"])
+        updates["workbench.colorCustomizations"] = existing_workbench
+    updated = merge_members(original, updates)
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.parent / f".{destination.name}.{uuid.uuid4().hex}.tmp"
     with temporary.open("x", encoding="utf-8") as handle:

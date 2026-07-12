@@ -5,11 +5,13 @@ Rectangle {
 
     property alias text: editor.text
     property string placeholderText: ""
+    property string suffix: ""
     property bool readOnly: false
     readonly property bool hovered: hover.hovered
 
     signal editingFinished()
     signal accepted()
+    signal textEdited(string value)
 
     function focusEditor(selectAllText) {
         editor.forceActiveFocus();
@@ -31,7 +33,7 @@ Rectangle {
 
         anchors.fill: parent
         anchors.leftMargin: 11
-        anchors.rightMargin: 11
+        anchors.rightMargin: root.suffix.length > 0 ? suffixLabel.implicitWidth + 18 : 11
         color: root.enabled ? Theme.foreground : Theme.muted
         selectionColor: Theme.withAlpha(Theme.blue, 0.5)
         selectedTextColor: Theme.foreground
@@ -47,11 +49,25 @@ Rectangle {
 
         }
         onEditingFinished: root.editingFinished()
+        onTextEdited: root.textEdited(text)
         Keys.onReturnPressed: (event) => {
             root.editingFinished();
             root.accepted();
             event.accepted = true;
         }
+    }
+
+    Text {
+        id: suffixLabel
+
+        anchors.right: parent.right
+        anchors.rightMargin: 10
+        anchors.verticalCenter: parent.verticalCenter
+        visible: root.suffix.length > 0
+        text: root.suffix
+        color: Theme.muted
+        font.family: Theme.bodyFontFamily
+        font.pixelSize: 11
     }
 
     Text {

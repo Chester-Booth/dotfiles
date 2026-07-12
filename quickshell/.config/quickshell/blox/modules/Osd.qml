@@ -366,8 +366,8 @@ Scope {
 
             screen: modelData
             visible: root.rendered
-            implicitWidth: 348
-            implicitHeight: 128
+            implicitWidth: modelData ? modelData.width : 1
+            implicitHeight: modelData ? modelData.height : 1
             exclusiveZone: 0
             focusable: false
             color: "transparent"
@@ -380,8 +380,8 @@ Scope {
             }
 
             Rectangle {
-                x: !parent.onLeft && !parent.onRight ? Math.round((parent.width - width) / 2) + Theme.osdOffsetX : root.showing ? 28 + Theme.osdOffsetX : parent.onLeft ? -width - 6 : parent.width + 6
-                y: root.showing || parent.onLeft || parent.onRight ? 28 + Theme.osdOffsetY : parent.onTop ? -height - 6 : parent.height + 6
+                x: parent.onLeft ? 28 + Theme.osdOffsetX : parent.onRight ? parent.width - width - 28 + Theme.osdOffsetX : Math.round((parent.width - width) / 2) + Theme.osdOffsetX
+                y: root.showing ? (parent.onTop ? 28 + Theme.osdOffsetY : parent.height - height - 28 + Theme.osdOffsetY) : parent.onTop ? -height - 6 : parent.height + 6
                 width: 292
                 height: 72
                 radius: 8

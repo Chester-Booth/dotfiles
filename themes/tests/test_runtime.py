@@ -48,6 +48,7 @@ class RuntimeTests(unittest.TestCase):
             "XDG_STATE_HOME": str(self.root / "state"),
             "XDG_CONFIG_HOME": str(self.root / "config"),
             "XDG_DATA_HOME": str(self.root / "data"),
+            "VSCODE_EXTENSIONS": str(self.root / "vscode-extensions"),
         })
         self.environment.start()
         quickshell_loader = self.root / "config/quickshell/blox/shared/Theme.qml"
@@ -342,6 +343,18 @@ class RuntimeTests(unittest.TestCase):
         self.assertTrue((self.state / "current/widgets/profile.json").is_file())
         self.assertTrue(any("Widget profile reload failed" in warning for warning in warnings))
         self.assertTrue(any(command[-1] == "reloadWidgets" for command in runner.commands))
+
+    def test_code_installs_generated_theme_extension_and_selects_it(self) -> None:
+        manifest, warnings = apply_theme(self.canonical_path, self.canonical, ("code",), run_command=FakeCommands())
+        extension = self.root / "vscode-extensions/blox.blox-dark-2026-1.0.0"
+        self.assertTrue((extension / "package.json").is_file())
+        self.assertTrue((extension / "themes/blox-dark-2026.json").is_file())
+        self.assertFalse((extension / "settings.json").exists())
+        settings = (self.root / "config/Code/User/settings.json").read_text(encoding="utf-8")
+        self.assertIn('"workbench.colorTheme": "Blox Dark 2026"', settings)
+        self.assertNotIn("workbench.colorCustomizations", json.loads((self.state / "current/code/settings.json").read_text()))
+        self.assertEqual(["code"], manifest["enabled_targets"])
+        self.assertTrue(any("theme applied automatically" in warning for warning in warnings))
 
     def test_every_target_reset_path_is_safe(self) -> None:
         for target in TARGET_NAMES:

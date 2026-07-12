@@ -13,6 +13,8 @@ PopupWindow {
     property real contentWidth: 0
     property real contentHeight: 0
     property real slideOffset: 10
+    readonly property real slideX: Theme.barPosition === "left" ? -slideOffset : Theme.barPosition === "right" ? slideOffset : 0
+    readonly property real slideY: Theme.barPosition === "top" ? -slideOffset : Theme.barPosition === "bottom" ? slideOffset : 0
     property bool open: false
     property bool rendered: false
     property bool keyboardFocus: false
@@ -60,7 +62,8 @@ PopupWindow {
 
         width: root.contentWidth
         height: root.contentHeight
-        x: -root.slideOffset
+        x: root.slideX
+        y: root.slideY
         opacity: 0
         scale: 0.985
         transformOrigin: Item.Left
@@ -86,6 +89,15 @@ PopupWindow {
             from: contentHost.opacity
             to: 1
             duration: 140
+            easing.type: Easing.OutCubic
+        }
+
+        NumberAnimation {
+            target: contentHost
+            property: "y"
+            from: contentHost.y
+            to: 0
+            duration: 160
             easing.type: Easing.OutCubic
         }
 
@@ -131,7 +143,16 @@ PopupWindow {
             target: contentHost
             property: "x"
             from: contentHost.x
-            to: -root.slideOffset
+            to: root.slideX
+            duration: 130
+            easing.type: Easing.InCubic
+        }
+
+        NumberAnimation {
+            target: contentHost
+            property: "y"
+            from: contentHost.y
+            to: root.slideY
             duration: 130
             easing.type: Easing.InCubic
         }

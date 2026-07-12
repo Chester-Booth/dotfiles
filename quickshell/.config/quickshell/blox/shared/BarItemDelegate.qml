@@ -12,11 +12,14 @@ Item {
 
     function mappedCentre(item, centre) {
         const point = item.mapToItem(root, item.width / 2, centre);
-        return root.horizontal ? root.controller.openPanelY : root.y + point.y;
+        return root.horizontal ? root.x + point.x : root.y + point.y;
     }
 
-    implicitWidth: contentLoader.item ? Math.max(Theme.buttonSize, contentLoader.item.implicitWidth || contentLoader.item.width) : Theme.buttonSize
-    implicitHeight: contentLoader.item ? Math.max(Theme.buttonSize, contentLoader.item.implicitHeight || contentLoader.item.height) : Theme.buttonSize
+    // Keep the cross-axis extent stable. Content such as the expandable battery
+    // percentage must only grow along the bar, otherwise a click recentres the
+    // whole vertical section and makes neighbouring icons jump sideways.
+    implicitWidth: root.horizontal && contentLoader.item ? Math.max(Theme.buttonSize, contentLoader.item.implicitWidth || contentLoader.item.width) : Theme.buttonSize
+    implicitHeight: !root.horizontal && contentLoader.item ? Math.max(Theme.buttonSize, contentLoader.item.implicitHeight || contentLoader.item.height) : Theme.buttonSize
     width: implicitWidth
     height: implicitHeight
 
@@ -39,7 +42,8 @@ Item {
                 "display": displayComponent,
                 "bt": bluetoothComponent,
                 "updates": updatesComponent,
-                "tray": trayComponent
+                "tray": trayToggleComponent,
+                "application-tray": applicationTrayComponent
             };
             return components[root.itemId] || null;
         }
@@ -63,7 +67,7 @@ Item {
         id: notesComponent
 
         PanelRailButton {
-            icon: "󰫦"
+            icon: "󰺦"
             accent: Theme.foreground
             panel: "todo"
             active: root.controller.openPanel === "todo"
@@ -173,20 +177,33 @@ Item {
     Component {
         id: batteryComponent
 
-        BatteryRailButton {
-            status: root.controller.battery
-            popupY: root.panelExtent - 24
-            onToggleExpanded: {
-                root.controller.closeDrawers();
-                root.controller.batteryExpanded = !root.controller.batteryExpanded;
+        Flow {
+            flow: root.horizontal ? Flow.LeftToRight : Flow.TopToBottom
+            width: root.horizontal ? implicitWidth : Theme.buttonSize
+            height: root.horizontal ? Theme.buttonSize : implicitHeight
+
+            BatteryRailButton {
+                status: root.controller.battery.json
+                popupY: root.panelExtent - 24
+                onToggleExpanded: {
+                    root.controller.closeDrawers();
+                    root.controller.batteryExpanded = !root.controller.batteryExpanded;
+                }
+                onSystemPanelRequested: (centre) => {
+                    return root.controller.togglePanel("system", root.mappedCentre(this, centre));
+                }
+                onSystemPanelHovered: (centre) => {
+                    return root.controller.hoverButtonEntered("system", root.mappedCentre(this, centre), "battery");
+                }
+                onSystemPanelExited: root.controller.hoverButtonExited("battery")
             }
-            onSystemPanelRequested: (centre) => {
-                return root.controller.togglePanel("system", root.mappedCentre(this, centre));
+
+            BatteryCapacityTile {
+                status: root.controller.battery.json
+                expanded: root.controller.batteryExpanded
+                onCollapse: root.controller.batteryExpanded = false
             }
-            onSystemPanelHovered: (centre) => {
-                return root.controller.hoverButtonEntered("system", root.mappedCentre(this, centre), "battery");
-            }
-            onSystemPanelExited: root.controller.hoverButtonExited("battery")
+
         }
 
     }
@@ -366,7 +383,36 @@ Item {
     }
 
     Component {
-        id: trayComponent
+        id: trayToggleComponent
+
+        Flow {
+            flow: root.horizontal ? Flow.LeftToRight : Flow.TopToBottom
+            width: root.horizontal ? implicitWidth : Theme.buttonSize
+            height: root.horizontal ? Theme.buttonSize : implicitHeight
+            Component.onCompleted: root.controller.trayToggleItem = root
+            Component.onDestruction: {
+                if (root.controller.trayToggleItem === root)
+                    root.controller.trayToggleItem = null;
+
+            }
+
+            ExtrasToggleButton {
+                horizontal: root.horizontal
+                active: root.controller.extrasOpen
+                onToggle: root.controller.toggleExtras()
+                onOpenRequested: {
+                    root.controller.openExtras();
+                    root.controller.extrasEntered();
+                }
+                onExited: root.controller.extrasExited()
+            }
+
+        }
+
+    }
+
+    Component {
+        id: applicationTrayComponent
 
         Item {
             implicitWidth: trayFlow.implicitWidth

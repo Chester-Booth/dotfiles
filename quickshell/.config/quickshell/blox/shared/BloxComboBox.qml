@@ -74,17 +74,31 @@ Rectangle {
         elide: Text.ElideRight
     }
 
-    Text {
+    Canvas {
         id: indicator
+
+        property color strokeColour: root.hovered || popup.visible ? Theme.foreground : Theme.muted
 
         anchors.right: parent.right
         anchors.rightMargin: 11
         anchors.verticalCenter: parent.verticalCenter
-        text: popup.visible ? "⌃" : "⌄"
-        color: root.hovered || popup.visible ? Theme.foreground : Theme.muted
-        font.family: Theme.bodyFontFamily
-        font.pixelSize: 19
-        font.bold: true
+        width: 18
+        height: 18
+        rotation: popup.visible ? 180 : 0
+        onStrokeColourChanged: requestPaint()
+        onPaint: {
+            const context = getContext("2d");
+            context.reset();
+            context.strokeStyle = strokeColour;
+            context.lineWidth = 2.2;
+            context.lineCap = "round";
+            context.lineJoin = "round";
+            context.beginPath();
+            context.moveTo(3.5, 6.5);
+            context.lineTo(9, 11.5);
+            context.lineTo(14.5, 6.5);
+            context.stroke();
+        }
     }
 
     HoverHandler {

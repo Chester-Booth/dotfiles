@@ -1,3 +1,4 @@
+import "../services"
 import "../shared"
 import QtQuick
 import QtQuick.Controls
@@ -63,6 +64,8 @@ FloatingWindow {
     property int selectedWidgetIndex: -1
     property bool exportIncludeWallpaper: true
     property bool exportIncludeWidgets: true
+    property string generatedDownloadTarget: ""
+    property string generatedDownloadFile: ""
     property string wallpaperDialogTarget: "overview"
     property var fontFamilies: []
     property string fontOutput: ""
@@ -76,6 +79,7 @@ FloatingWindow {
     property string colourHex: "#ffffff"
     readonly property bool dirty: candidate !== null && JSON.stringify(candidate) !== baselineJson
     readonly property string apiPath: Quickshell.shellDir + "/scripts/theme/themectl.sh"
+    readonly property string scriptRoot: Quickshell.shellDir + "/scripts"
     readonly property var semanticKeys: ["background", "surface", "surface_alt", "foreground", "muted", "accent", "danger", "success", "warning", "info", "mauve", "teal", "selection_background", "selection_foreground", "border"]
     readonly property var ansiKeys: ["color0", "color1", "color2", "color3", "color4", "color5", "color6", "color7", "color8", "color9", "color10", "color11", "color12", "color13", "color14", "color15"]
     readonly property var overrideKeys: ["background", "foreground", "accent", "border"]
@@ -602,8 +606,41 @@ FloatingWindow {
         setBarItems(items);
     }
 
+    function moveBarItemTo(id, region, destinationIndex) {
+        const items = normaliseBarItemOrders(barItems());
+        const selected = items.find((item) => {
+            return item.id === id;
+        });
+        if (!selected)
+            return ;
+
+        const groups = {
+            "start": [],
+            "centre": [],
+            "end": [],
+            "hidden": []
+        };
+        for (const item of items) {
+            if (item.id !== id)
+                groups[item.region].push(item);
+
+        }
+        selected.region = region;
+        const destination = groups[region];
+        destination.splice(Math.max(0, Math.min(destination.length, destinationIndex)), 0, selected);
+        const next = [];
+        for (const group of ["start", "centre", "end", "hidden"]) {
+            for (let index = 0; index < groups[group].length; ++index) {
+                groups[group][index].order = index;
+                next.push(groups[group][index]);
+            }
+        }
+        setBarItems(next);
+    }
+
     function barItemLabel(id) {
         const labels = {
+            "application-tray": "Application tray",
             "bt": "Bluetooth",
             "notifications": "Notifications",
             "wifi": "Wi-Fi"
@@ -611,8 +648,60 @@ FloatingWindow {
         return labels[id] || id.charAt(0).toUpperCase() + id.slice(1);
     }
 
+    function barPreviewItems(region) {
+        candidateRevision;
+        return barItems().filter((item) => {
+            return item.enabled && item.region === region;
+        }).sort((left, right) => {
+            return left.order - right.order;
+        });
+    }
+
+    function barPreviewGlyph(id) {
+        const glyphs = {
+            "power": "⏻",
+            "notes": "󰭦",
+            "workspaces": "󰀼",
+            "clock": "󱖓",
+            "battery": "󰁹",
+            "tray": "󰔀",
+            "notifications": "󰂜",
+            "wifi": "󰐩",
+            "sound": "󰕾",
+            "privacy": "󰕹",
+            "awake": "󰕶",
+            "display": "󰃠",
+            "bt": "󰂯",
+            "updates": "󰇚",
+            "application-tray": "󰸕"
+        };
+        return glyphs[id] || "•";
+    }
+
     function widgetItems() {
         return candidate && candidate.widgets && candidate.widgets.items ? candidate.widgets.items : Theme.defaultWidgetItems();
+    }
+
+    function localFileUrl(path) {
+        const value = String(path || "");
+        if (value.startsWith("~/"))
+            return "file://" + Quickshell.env("HOME") + value.slice(1);
+
+        if (value.startsWith("/"))
+            return "file://" + value;
+
+        return value;
+    }
+
+    function widgetPreviewCommand(widget) {
+        const terminalTypes = ["music", "clock", "aquarium", "pipes", "tree", "matrix", "train"];
+        const command = String(widget.content_command || "").replace(/\$SCRIPT_ROOT/g, scriptRoot);
+        if (terminalTypes.indexOf(widget.type) < 0)
+            return ["sh", "-c", command];
+
+        const columns = Math.max(10, Math.floor((widget.width || 320) / 8));
+        const rows = Math.max(4, Math.floor((widget.height || 160) / 18));
+        return [scriptRoot + "/overlays/terminal-frame.py", widget.type, "--command", command, "--columns", String(columns), "--rows", String(rows)];
     }
 
     function setWidgetItems(items) {
@@ -635,8 +724,8 @@ FloatingWindow {
         item.anchor = anchor;
         item.offset_x = Math.max(-10000, Math.min(10000, Math.round(offsetX)));
         item.offset_y = Math.max(-10000, Math.min(10000, Math.round(offsetY)));
-        item.width = Math.max(80, Math.round(width));
-        item.height = Math.max(48, Math.round(height));
+        item.width = width <= 0 ? 0 : Math.max(80, Math.round(width));
+        item.height = height <= 0 ? 0 : Math.max(48, Math.round(height));
         items[index] = item;
         setWidgetItems(items);
     }
@@ -693,8 +782,65 @@ FloatingWindow {
             "height": 0,
             "shape": "auto",
             "options": {
+                "auto_size": true
             }
         };
+    }
+
+    function widgetPreset(item) {
+        if (!item)
+            return "custom";
+
+        return ["aquarium", "pipes", "tree", "matrix", "fortune", "train"].indexOf(item.type) >= 0 ? "decorative" : item.type;
+    }
+
+    function updateWidgetDraft(values) {
+        if (!widgetDraft)
+            return ;
+
+        const next = JSON.parse(JSON.stringify(widgetDraft));
+        Object.keys(values).forEach((key) => {
+            return next[key] = values[key];
+        });
+        widgetDraft = next;
+    }
+
+    function updateWidgetOption(key, value) {
+        if (!widgetDraft)
+            return ;
+
+        const next = JSON.parse(JSON.stringify(widgetDraft));
+        if (!next.options)
+            next.options = {
+        };
+
+        next.options[key] = value;
+        if (next.type === "clock") {
+            const flags = ["tty-clock", "-c"];
+            if (next.options.twelve_hour)
+                flags.push("-t");
+
+            if (next.options.seconds)
+                flags.push("-s");
+
+            if (next.options.bold)
+                flags.push("-b");
+
+            if (next.options.blink)
+                flags.push("-B");
+
+            if (next.options.box)
+                flags.push("-x");
+
+            if (next.options.hide_date)
+                flags.push("-D");
+
+            next.content_command = flags.join(" ");
+        } else if (next.type === "calendar")
+            next.content_command = "gcalcli --lineart " + (next.options.lineart || "unicode") + (next.options.colour === false ? " --nocolor" : "") + " " + (next.options.view === "month" ? "calm" : next.options.view === "week" ? "calw" : "agenda");
+        else if (next.type === "music" && key === "config_file")
+            next.content_command = value ? "cava -p " + shellQuote(value) : "cava";
+        widgetDraft = next;
     }
 
     function shellQuote(value) {
@@ -715,7 +861,7 @@ FloatingWindow {
         if (widgetEditIndex >= 0)
             items[widgetEditIndex] = widgetDraft;
         else
-            items.push(widgetDraft);
+            items.unshift(widgetDraft);
         setWidgetItems(items);
         dismissModal();
     }
@@ -740,10 +886,53 @@ FloatingWindow {
         showModal("export");
     }
 
-    function downloadStylusFile() {
-        if (!busy)
-            stylusExportDialog.open();
+    function generatedFiles() {
+        if (!candidate || !candidate.targets)
+            return [];
 
+        const files = {
+            "quickshell": ["quickshell/theme.json"],
+            "vicinae": ["vicinae/theme.toml"],
+            "widgets": ["widgets/profile.json"],
+            "kitty": ["kitty/theme.conf"],
+            "wallpaper": ["hypr/wallpaper.json"],
+            "gtk": ["gtk/gtk-3.0/settings.ini", "gtk/gtk-3.0/gtk.css", "gtk/gtk-4.0/settings.ini", "gtk/gtk-4.0/gtk.css", "gtk/metadata.json"],
+            "cursor": ["cursor/metadata.json"],
+            "hyprland": ["hyprland/theme.lua"],
+            "hyprlock": ["hyprlock/theme.conf"],
+            "btop": ["btop/theme.theme"],
+            "micro": ["micro/blox-theme.micro"],
+            "glow": ["glow/style.json"],
+            "code": ["code/settings.json", "code/package.json", "code/themes/blox-dark-2026.json"],
+            "cursor_editor": ["cursor-editor/settings.json"],
+            "stylus": ["stylus/blox-system.user.css"],
+            "obsidian": ["obsidian/style-settings.json"],
+            "powerlevel10k": ["powerlevel10k/theme.zsh"]
+        };
+        const order = ["stylus"].concat(targetKeys.filter((target) => {
+            return target !== "stylus";
+        }));
+        const result = [];
+        for (const target of order) {
+            if (!candidate.targets[target] || !files[target])
+                continue;
+
+            for (const file of files[target]) result.push({
+                "target": target,
+                "file": file,
+                "name": file.slice(file.lastIndexOf("/") + 1)
+            })
+        }
+        return result;
+    }
+
+    function downloadGeneratedFile(target, file) {
+        if (busy)
+            return ;
+
+        generatedDownloadTarget = target;
+        generatedDownloadFile = file;
+        generatedExportDialog.open();
     }
 
     function generateTheme(wallpaper, displayName, themeId, backend) {
@@ -906,7 +1095,7 @@ FloatingWindow {
 
         modalThemeId = sourceId;
         modalThemeName = themeName || (candidate ? candidate.name : sourceId);
-        duplicateName = modalThemeName + " Copy";
+        duplicateName = modalThemeName + " - Copy";
         duplicateId = duplicateIdForName(duplicateName);
         showModal("duplicate");
     }
@@ -1364,17 +1553,17 @@ FloatingWindow {
     }
 
     FileDialog {
-        id: stylusExportDialog
+        id: generatedExportDialog
 
         parentWindow: root._backingWindow
-        title: "Download Stylus theme"
+        title: "Download " + root.generatedDownloadFile
         modality: Qt.WindowModal
         fileMode: FileDialog.SaveFile
-        defaultSuffix: "css"
-        nameFilters: ["Stylus UserCSS (*.css)"]
+        defaultSuffix: root.generatedDownloadFile.indexOf(".") >= 0 ? root.generatedDownloadFile.slice(root.generatedDownloadFile.lastIndexOf(".") + 1) : "txt"
+        nameFilters: ["Generated file (*.*)"]
         onAccepted: {
             const path = decodeURIComponent(String(selectedFile).replace(/^file:\/\//, ""));
-            root.runApi("export-target", ["export-target", "stylus", "--output", path]);
+            root.runApi("export-target", ["export-target", root.generatedDownloadTarget, "--file", root.generatedDownloadFile, "--output", path]);
         }
     }
 
@@ -1478,18 +1667,6 @@ FloatingWindow {
         target: "themePicker"
     }
 
-    Shortcut {
-        enabled: root.open && root.candidateValid
-        sequence: "Ctrl+S"
-        onActivated: root.saveCandidate("")
-    }
-
-    Shortcut {
-        enabled: root.open && root.candidateValid
-        sequence: "Ctrl+Return"
-        onActivated: root.applyCandidate()
-    }
-
     Rectangle {
         id: pickerRoot
 
@@ -1504,6 +1681,18 @@ FloatingWindow {
             else
                 root.requestClose();
             event.accepted = true;
+        }
+        Keys.onPressed: (event) => {
+            if (!root.open || !root.candidateValid || !(event.modifiers & Qt.ControlModifier))
+                return ;
+
+            if (event.key === Qt.Key_S) {
+                root.saveCandidate("");
+                event.accepted = true;
+            } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                root.applyCandidate();
+                event.accepted = true;
+            }
         }
 
         Rectangle {
@@ -1585,6 +1774,12 @@ FloatingWindow {
                         onClicked: root.editorMode = "advanced"
                     }
 
+                    Rectangle {
+                        Layout.preferredWidth: 1
+                        Layout.preferredHeight: 24
+                        color: Theme.border
+                    }
+
                     BloxButton {
                         text: "Widgets"
                         checkable: true
@@ -1592,8 +1787,14 @@ FloatingWindow {
                         onClicked: root.editorMode = "widgets"
                     }
 
+                    Rectangle {
+                        Layout.preferredWidth: 1
+                        Layout.preferredHeight: 24
+                        color: Theme.border
+                    }
+
                     BloxButton {
-                        text: "Close"
+                        text: "×  Close"
                         onClicked: root.requestClose()
                     }
 
@@ -1633,7 +1834,7 @@ FloatingWindow {
 
                             BloxButton {
                                 Layout.fillWidth: true
-                                text: "+  New theme"
+                                text: "＋  New theme"
                                 enabled: root.candidate && !root.dirty && !root.busy
                                 onClicked: newThemeMenu.open()
 
@@ -1685,14 +1886,14 @@ FloatingWindow {
 
                                 BloxButton {
                                     Layout.fillWidth: true
-                                    text: "Import"
+                                    text: "⇩  Import"
                                     enabled: !root.dirty && !root.busy
                                     onClicked: root.openImportDialog()
                                 }
 
                                 BloxButton {
                                     Layout.fillWidth: true
-                                    text: "Export"
+                                    text: "⇧  Export"
                                     enabled: root.candidate && root.sourceDigest.length > 0 && !root.dirty && !root.busy
                                     onClicked: root.openExportDialog()
                                 }
@@ -1908,6 +2109,7 @@ FloatingWindow {
                                 spacing: 14
 
                                 ColumnLayout {
+                                    visible: root.editorMode !== "widgets"
                                     Layout.fillWidth: true
                                     spacing: 6
 
@@ -1925,7 +2127,7 @@ FloatingWindow {
 
                                         BloxTextField {
                                             Layout.fillWidth: true
-                                            placeholderText: "Display name"
+                                            placeholderText: "My Theme"
                                             text: {
                                                 root.candidateRevision;
                                                 return root.candidate ? root.candidate.name : "";
@@ -2272,45 +2474,6 @@ FloatingWindow {
 
                                     }
 
-                                    RowLayout {
-                                        Layout.fillWidth: true
-
-                                        ColumnLayout {
-                                            Layout.fillWidth: true
-
-                                            Label {
-                                                text: "Widget profile"
-                                                color: Theme.foreground
-                                                font.family: Theme.bodyFontFamily
-                                                font.pixelSize: 17
-                                                font.bold: true
-                                            }
-
-                                            Text {
-                                                text: "Named presets keep overlay geometry consistent; resolved values are intentionally not edited here."
-                                                color: Theme.muted
-                                                font.family: Theme.bodyFontFamily
-                                                wrapMode: Text.Wrap
-                                            }
-
-                                        }
-
-                                        BloxComboBox {
-                                            Layout.preferredWidth: 190
-                                            enabled: root.candidate && root.candidate.targets.widgets
-                                            model: ["minimal", "compact", "comfortable"]
-                                            currentIndex: {
-                                                root.candidateRevision;
-                                                const profile = root.candidate && root.candidate.widgets ? root.candidate.widgets.profile : "minimal";
-                                                return Math.max(0, model.indexOf(profile));
-                                            }
-                                            onActivated: (index, selectedText) => {
-                                                return root.setWidgetProfile(selectedText);
-                                            }
-                                        }
-
-                                    }
-
                                     Label {
                                         text: "Bar / OSD / Notifications"
                                         color: Theme.foreground
@@ -2342,8 +2505,19 @@ FloatingWindow {
                                                 Layout.fillWidth: true
                                                 spacing: 5
 
+                                                DropArea {
+                                                    Layout.fillWidth: true
+                                                    Layout.preferredHeight: 12
+                                                    z: 1
+                                                    onDropped: (drop) => {
+                                                        if (drop.source && drop.source.barItemId)
+                                                            root.moveBarItemTo(drop.source.barItemId, regionSection.modelData, barItemRepeater.count);
+
+                                                    }
+                                                }
+
                                                 Label {
-                                                    text: regionSection.modelData === "hidden" ? "Expanded / hidden" : regionSection.modelData.charAt(0).toUpperCase() + regionSection.modelData.slice(1)
+                                                    text: regionSection.modelData === "hidden" ? "Tray" : regionSection.modelData.charAt(0).toUpperCase() + regionSection.modelData.slice(1)
                                                     color: Theme.blue
                                                     font.bold: true
                                                 }
@@ -2365,20 +2539,62 @@ FloatingWindow {
 
                                                         required property var modelData
                                                         required property int index
+                                                        property string barItemId: modelData.id
 
                                                         Layout.fillWidth: true
-                                                        implicitHeight: 44
+                                                        implicitHeight: 48
                                                         radius: 8
-                                                        color: Theme.background
-                                                        border.color: Theme.border
+                                                        color: handleDrag.active || emptyDrag.active ? Theme.withAlpha(Theme.blue, 0.15) : Theme.background
+                                                        border.color: handleDrag.active || emptyDrag.active ? Theme.blue : Theme.border
+                                                        Drag.active: handleDrag.active || emptyDrag.active
+                                                        Drag.source: barItemRow
+                                                        Drag.hotSpot.x: width / 2
+                                                        Drag.hotSpot.y: height / 2
 
                                                         RowLayout {
                                                             anchors.fill: parent
-                                                            anchors.margins: 6
-                                                            spacing: 7
+                                                            anchors.margins: 8
+                                                            spacing: 9
+
+                                                            Item {
+                                                                Layout.preferredWidth: 18
+                                                                Layout.fillHeight: true
+
+                                                                Column {
+                                                                    anchors.centerIn: parent
+                                                                    spacing: 3
+
+                                                                    Repeater {
+                                                                        model: 3
+
+                                                                        Rectangle {
+                                                                            width: 14
+                                                                            height: 2
+                                                                            radius: 1
+                                                                            color: handleHover.hovered ? Theme.foreground : Theme.muted
+                                                                        }
+
+                                                                    }
+
+                                                                }
+
+                                                                HoverHandler {
+                                                                    id: handleHover
+
+                                                                    cursorShape: Qt.SizeAllCursor
+                                                                }
+
+                                                                DragHandler {
+                                                                    id: handleDrag
+
+                                                                    target: null
+                                                                    acceptedButtons: Qt.LeftButton
+                                                                }
+
+                                                            }
 
                                                             BloxCheckBox {
-                                                                Layout.fillWidth: true
+                                                                Layout.alignment: Qt.AlignVCenter
                                                                 text: root.barItemLabel(barItemRow.modelData.id)
                                                                 checked: barItemRow.modelData.enabled
                                                                 onToggled: (value) => {
@@ -2388,31 +2604,33 @@ FloatingWindow {
                                                                 }
                                                             }
 
-                                                            BloxComboBox {
-                                                                Layout.preferredWidth: 145
-                                                                model: ["start", "centre", "end", "hidden"]
-                                                                currentIndex: model.indexOf(barItemRow.modelData.region)
-                                                                onActivated: (selectedIndex, value) => {
-                                                                    if (value !== barItemRow.modelData.region)
-                                                                        root.setBarItemRegion(barItemRow.modelData.id, value);
+                                                            Item {
+                                                                Layout.fillWidth: true
+                                                                Layout.fillHeight: true
 
+                                                                HoverHandler {
+                                                                    cursorShape: Qt.SizeAllCursor
                                                                 }
+
+                                                                DragHandler {
+                                                                    id: emptyDrag
+
+                                                                    target: null
+                                                                    acceptedButtons: Qt.LeftButton
+                                                                }
+
                                                             }
 
-                                                            BloxButton {
-                                                                Layout.preferredWidth: 38
-                                                                text: "↑"
-                                                                enabled: barItemRow.index > 0
-                                                                onClicked: root.moveBarItem(barItemRow.modelData.id, -1)
-                                                            }
+                                                        }
 
-                                                            BloxButton {
-                                                                Layout.preferredWidth: 38
-                                                                text: "↓"
-                                                                enabled: barItemRow.index + 1 < barItemRepeater.count
-                                                                onClicked: root.moveBarItem(barItemRow.modelData.id, 1)
-                                                            }
+                                                        DropArea {
+                                                            anchors.fill: parent
+                                                            z: 2
+                                                            onDropped: (drop) => {
+                                                                if (drop.source && drop.source.barItemId && drop.source.barItemId !== barItemRow.barItemId)
+                                                                    root.moveBarItemTo(drop.source.barItemId, regionSection.modelData, barItemRow.index);
 
+                                                            }
                                                         }
 
                                                     }
@@ -2427,9 +2645,24 @@ FloatingWindow {
 
                                     GridLayout {
                                         Layout.fillWidth: true
-                                        columns: 4
+                                        columns: 6
                                         columnSpacing: 8
                                         rowSpacing: 8
+
+                                        Label {
+                                            text: "Bar"
+                                            color: Theme.muted
+                                        }
+
+                                        BloxComboBox {
+                                            Layout.fillWidth: true
+                                            Layout.columnSpan: 5
+                                            model: ["left", "right", "top", "bottom"]
+                                            currentIndex: model.indexOf(root.shellValue("bar", "position"))
+                                            onActivated: (index, value) => {
+                                                return root.setShellValue("bar", "position", value);
+                                            }
+                                        }
 
                                         Label {
                                             text: "OSD"
@@ -2445,16 +2678,26 @@ FloatingWindow {
                                             }
                                         }
 
-                                        BloxTextField {
-                                            placeholderText: "X offset"
-                                            text: String(root.shellValue("osd", "offset_x"))
-                                            onEditingFinished: root.setShellValue("osd", "offset_x", Math.max(-1000, Math.min(1000, parseInt(text) || 0)))
+                                        Label {
+                                            text: "X offset"
+                                            color: Theme.muted
                                         }
 
                                         BloxTextField {
-                                            placeholderText: "Y offset"
+                                            text: String(root.shellValue("osd", "offset_x"))
+                                            suffix: "px"
+                                            onEditingFinished: root.setShellValue("osd", "offset_x", parseInt(text) || 0)
+                                        }
+
+                                        Label {
+                                            text: "Y offset"
+                                            color: Theme.muted
+                                        }
+
+                                        BloxTextField {
                                             text: String(root.shellValue("osd", "offset_y"))
-                                            onEditingFinished: root.setShellValue("osd", "offset_y", Math.max(-1000, Math.min(1000, parseInt(text) || 0)))
+                                            suffix: "px"
+                                            onEditingFinished: root.setShellValue("osd", "offset_y", parseInt(text) || 0)
                                         }
 
                                         Label {
@@ -2471,16 +2714,26 @@ FloatingWindow {
                                             }
                                         }
 
-                                        BloxTextField {
-                                            placeholderText: "X offset"
-                                            text: String(root.shellValue("notifications", "offset_x"))
-                                            onEditingFinished: root.setShellValue("notifications", "offset_x", Math.max(-1000, Math.min(1000, parseInt(text) || 0)))
+                                        Label {
+                                            text: "X offset"
+                                            color: Theme.muted
                                         }
 
                                         BloxTextField {
-                                            placeholderText: "Y offset"
+                                            text: String(root.shellValue("notifications", "offset_x"))
+                                            suffix: "px"
+                                            onEditingFinished: root.setShellValue("notifications", "offset_x", parseInt(text) || 0)
+                                        }
+
+                                        Label {
+                                            text: "Y offset"
+                                            color: Theme.muted
+                                        }
+
+                                        BloxTextField {
                                             text: String(root.shellValue("notifications", "offset_y"))
-                                            onEditingFinished: root.setShellValue("notifications", "offset_y", Math.max(-1000, Math.min(1000, parseInt(text) || 0)))
+                                            suffix: "px"
+                                            onEditingFinished: root.setShellValue("notifications", "offset_y", parseInt(text) || 0)
                                         }
 
                                     }
@@ -2553,7 +2806,7 @@ FloatingWindow {
                                                 required property string modelData
 
                                                 width: 250
-                                                height: 48
+                                                height: 54
                                                 radius: 8
                                                 color: Theme.background
                                                 border.color: Theme.border
@@ -2564,6 +2817,7 @@ FloatingWindow {
 
                                                     BloxCheckBox {
                                                         Layout.fillWidth: true
+                                                        Layout.alignment: Qt.AlignVCenter
                                                         text: root.targetLabel(modelData)
                                                         checked: {
                                                             root.candidateRevision;
@@ -2577,6 +2831,7 @@ FloatingWindow {
                                                     }
 
                                                     Text {
+                                                        Layout.alignment: Qt.AlignVCenter
                                                         text: root.targetModeLabel(modelData)
                                                         color: root.targetApplyMode(modelData) === "restart" ? Theme.yellow : Theme.green
                                                         font.pixelSize: 9
@@ -2607,7 +2862,7 @@ FloatingWindow {
                                                 required property string modelData
 
                                                 width: 250
-                                                height: 48
+                                                height: 54
                                                 radius: 8
                                                 color: Theme.background
                                                 border.color: Theme.border
@@ -2618,6 +2873,7 @@ FloatingWindow {
 
                                                     BloxCheckBox {
                                                         Layout.fillWidth: true
+                                                        Layout.alignment: Qt.AlignVCenter
                                                         text: root.targetLabel(modelData)
                                                         checked: {
                                                             root.candidateRevision;
@@ -2631,6 +2887,7 @@ FloatingWindow {
                                                     }
 
                                                     Text {
+                                                        Layout.alignment: Qt.AlignVCenter
                                                         visible: root.targetApplyMode(modelData) !== "manual"
                                                         text: root.targetModeLabel(modelData)
                                                         color: root.targetApplyMode(modelData) === "restart" ? Theme.yellow : Theme.green
@@ -2638,6 +2895,8 @@ FloatingWindow {
                                                     }
 
                                                     BloxButton {
+                                                        Layout.alignment: Qt.AlignVCenter
+                                                        Layout.preferredHeight: 32
                                                         visible: root.targetApplyMode(modelData) === "manual"
                                                         text: "Guide"
                                                         onClicked: {
@@ -2680,34 +2939,38 @@ FloatingWindow {
                                     }
 
                                     Label {
-                                        text: "Stylus"
+                                        text: "Generated Files"
                                         color: Theme.foreground
                                         font.family: Theme.bodyFontFamily
                                         font.pixelSize: 17
                                         font.bold: true
                                     }
 
-                                    RowLayout {
+                                    Text {
                                         Layout.fillWidth: true
+                                        text: "Download the generated files for the currently selected targets. Apply or save the theme first so the active generation is up to date."
+                                        color: Theme.muted
+                                        font.family: Theme.bodyFontFamily
+                                        wrapMode: Text.Wrap
+                                    }
 
-                                        Text {
-                                            Layout.fillWidth: true
-                                            text: "Install the generated UserCSS in the Stylus browser extension."
-                                            color: Theme.muted
-                                            wrapMode: Text.Wrap
-                                        }
+                                    Flow {
+                                        Layout.fillWidth: true
+                                        spacing: 8
 
-                                        BloxButton {
-                                            text: "Download file"
-                                            onClicked: root.downloadStylusFile()
-                                        }
-
-                                        BloxButton {
-                                            text: "View guide"
-                                            onClicked: {
-                                                root.guideTarget = "stylus";
-                                                root.showModal("guide");
+                                        Repeater {
+                                            model: {
+                                                root.candidateRevision;
+                                                return root.generatedFiles();
                                             }
+
+                                            BloxButton {
+                                                required property var modelData
+
+                                                text: "⇩  " + root.targetLabel(modelData.target) + " · " + modelData.name
+                                                onClicked: root.downloadGeneratedFile(modelData.target, modelData.file)
+                                            }
+
                                         }
 
                                     }
@@ -2835,30 +3098,15 @@ FloatingWindow {
                                         }
 
                                         BloxButton {
-                                            text: "Import"
+                                            text: "⇩  Import"
                                             onClicked: widgetImportDialog.open()
                                         }
 
                                         BloxButton {
-                                            text: "Export"
+                                            text: "⇧  Export"
                                             onClicked: widgetExportDialog.open()
                                         }
 
-                                    }
-
-                                    Label {
-                                        text: "Style"
-                                        color: Theme.foreground
-                                        font.bold: true
-                                    }
-
-                                    BloxComboBox {
-                                        Layout.fillWidth: true
-                                        model: ["minimal", "compact", "comfortable"]
-                                        currentIndex: root.candidate && root.candidate.widgets ? model.indexOf(root.candidate.widgets.profile) : 0
-                                        onActivated: (index, value) => {
-                                            return root.setWidgetProfile(value);
-                                        }
                                     }
 
                                     Label {
@@ -2935,7 +3183,7 @@ FloatingWindow {
 
                                     Text {
                                         Layout.fillWidth: true
-                                        text: "Drag a widget to position it. Drop near a corner to snap it; drag the lower-right handle to resize."
+                                        text: "Drag a widget to position it. Drop near a corner to snap it; drag any edge to resize."
                                         color: Theme.muted
                                         wrapMode: Text.Wrap
                                     }
@@ -2950,9 +3198,136 @@ FloatingWindow {
                                         color: Theme.background
                                         border.color: Theme.border
 
+                                        Rectangle {
+                                            id: barPreview
+
+                                            property string barPosition: root.candidate && root.candidate.shell && root.candidate.shell.bar ? root.candidate.shell.bar.position : "left"
+                                            readonly property bool horizontal: barPosition === "top" || barPosition === "bottom"
+
+                                            anchors.left: barPosition === "left" || barPosition === "top" || barPosition === "bottom" ? parent.left : undefined
+                                            anchors.right: barPosition === "right" || barPosition === "top" || barPosition === "bottom" ? parent.right : undefined
+                                            anchors.top: barPosition === "top" || barPosition === "left" || barPosition === "right" ? parent.top : undefined
+                                            anchors.bottom: barPosition === "bottom" || barPosition === "left" || barPosition === "right" ? parent.bottom : undefined
+                                            width: horizontal ? parent.width : 18
+                                            height: horizontal ? 18 : parent.height
+                                            z: 4
+                                            color: Theme.withAlpha(Theme.surface, 0.94)
+                                            border.color: Theme.border
+
+                                            Row {
+                                                anchors.left: parent.left
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                visible: barPreview.horizontal
+
+                                                Repeater {
+                                                    model: root.barPreviewItems("start")
+
+                                                    delegate: PreviewBarItem {
+                                                    }
+
+                                                }
+
+                                            }
+
+                                            Row {
+                                                anchors.centerIn: parent
+                                                visible: barPreview.horizontal
+
+                                                Repeater {
+                                                    model: root.barPreviewItems("centre")
+
+                                                    delegate: PreviewBarItem {
+                                                    }
+
+                                                }
+
+                                            }
+
+                                            Row {
+                                                anchors.right: parent.right
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                visible: barPreview.horizontal
+
+                                                Repeater {
+                                                    model: root.barPreviewItems("end")
+
+                                                    delegate: PreviewBarItem {
+                                                    }
+
+                                                }
+
+                                            }
+
+                                            Column {
+                                                anchors.top: parent.top
+                                                anchors.horizontalCenter: parent.horizontalCenter
+                                                visible: !barPreview.horizontal
+
+                                                Repeater {
+                                                    model: root.barPreviewItems("start")
+
+                                                    delegate: PreviewBarItem {
+                                                    }
+
+                                                }
+
+                                            }
+
+                                            Column {
+                                                anchors.centerIn: parent
+                                                visible: !barPreview.horizontal
+
+                                                Repeater {
+                                                    model: root.barPreviewItems("centre")
+
+                                                    delegate: PreviewBarItem {
+                                                    }
+
+                                                }
+
+                                            }
+
+                                            Column {
+                                                anchors.bottom: parent.bottom
+                                                anchors.horizontalCenter: parent.horizontalCenter
+                                                visible: !barPreview.horizontal
+
+                                                Repeater {
+                                                    model: root.barPreviewItems("end")
+
+                                                    delegate: PreviewBarItem {
+                                                    }
+
+                                                }
+
+                                            }
+
+                                            component PreviewBarItem: Item {
+                                                required property var modelData
+
+                                                width: barPreview.horizontal ? 15 : barPreview.width
+                                                height: barPreview.horizontal ? barPreview.height : 15
+
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: root.barPreviewGlyph(parent.modelData.id)
+                                                    color: Theme.foreground
+                                                    font.family: Theme.fontFamily
+                                                    font.pixelSize: 8
+                                                }
+
+                                            }
+
+                                        }
+
+                                        TapHandler {
+                                            acceptedButtons: Qt.LeftButton
+                                            onTapped: root.selectedWidgetIndex = -1
+                                        }
+
                                         Image {
                                             anchors.fill: parent
-                                            source: root.candidate && root.candidate.wallpaper && root.candidate.wallpaper.path ? "file://" + root.candidate.wallpaper.path : ""
+                                            source: root.candidate && root.candidate.wallpaper && root.candidate.wallpaper.path ? root.localFileUrl(root.candidate.wallpaper.path) : "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="
                                             fillMode: Image.PreserveAspectCrop
                                             asynchronous: true
 
@@ -2994,10 +3369,17 @@ FloatingWindow {
                                                 border.width: root.selectedWidgetIndex === index ? 2 : 1
                                                 border.color: root.selectedWidgetIndex === index ? Theme.blue : Theme.border
 
+                                                ScriptPoller {
+                                                    id: previewWidgetContent
+
+                                                    command: root.widgetPreviewCommand(widgetPreview.modelData)
+                                                    interval: Math.max(500, widgetPreview.modelData.interval_ms || 60000)
+                                                }
+
                                                 Text {
                                                     anchors.centerIn: parent
                                                     width: parent.width - 16
-                                                    text: widgetPreview.modelData.name
+                                                    text: previewWidgetContent.raw.trim().length > 0 ? previewWidgetContent.raw : widgetPreview.modelData.name
                                                     color: Theme.foreground
                                                     horizontalAlignment: Text.AlignHCenter
                                                     elide: Text.ElideRight
@@ -3047,6 +3429,108 @@ FloatingWindow {
 
                                                 }
 
+                                                MouseArea {
+                                                    property real startCanvasX: 0
+                                                    property real startPreviewX: 0
+                                                    property real startWidth: 0
+
+                                                    anchors.left: parent.left
+                                                    anchors.top: parent.top
+                                                    anchors.bottom: parent.bottom
+                                                    width: 7
+                                                    cursorShape: Qt.SizeHorCursor
+                                                    onPressed: (mouse) => {
+                                                        const point = mapToItem(widgetCanvas, mouse.x, mouse.y);
+                                                        startCanvasX = point.x;
+                                                        startPreviewX = widgetPreview.x;
+                                                        startWidth = widgetPreview.width;
+                                                        root.selectedWidgetIndex = widgetPreview.index;
+                                                    }
+                                                    onPositionChanged: (mouse) => {
+                                                        if (!pressed)
+                                                            return ;
+
+                                                        const point = mapToItem(widgetCanvas, mouse.x, mouse.y);
+                                                        const delta = Math.min(startWidth - 48, point.x - startCanvasX);
+                                                        widgetPreview.x = startPreviewX + delta;
+                                                        widgetPreview.width = startWidth - delta;
+                                                    }
+                                                    onReleased: root.commitWidgetPreview(widgetPreview.index, widgetPreview.x, widgetPreview.y, widgetPreview.width, widgetPreview.height, widgetCanvas.width, widgetCanvas.height)
+                                                }
+
+                                                MouseArea {
+                                                    property real startCanvasX: 0
+                                                    property real startWidth: 0
+
+                                                    anchors.right: parent.right
+                                                    anchors.top: parent.top
+                                                    anchors.bottom: parent.bottom
+                                                    width: 7
+                                                    cursorShape: Qt.SizeHorCursor
+                                                    onPressed: (mouse) => {
+                                                        startCanvasX = mapToItem(widgetCanvas, mouse.x, mouse.y).x;
+                                                        startWidth = widgetPreview.width;
+                                                        root.selectedWidgetIndex = widgetPreview.index;
+                                                    }
+                                                    onPositionChanged: (mouse) => {
+                                                        if (pressed)
+                                                            widgetPreview.width = Math.max(48, Math.min(widgetCanvas.width - widgetPreview.x, startWidth + mapToItem(widgetCanvas, mouse.x, mouse.y).x - startCanvasX));
+
+                                                    }
+                                                    onReleased: root.commitWidgetPreview(widgetPreview.index, widgetPreview.x, widgetPreview.y, widgetPreview.width, widgetPreview.height, widgetCanvas.width, widgetCanvas.height)
+                                                }
+
+                                                MouseArea {
+                                                    property real startCanvasY: 0
+                                                    property real startPreviewY: 0
+                                                    property real startHeight: 0
+
+                                                    anchors.left: parent.left
+                                                    anchors.right: parent.right
+                                                    anchors.top: parent.top
+                                                    height: 7
+                                                    cursorShape: Qt.SizeVerCursor
+                                                    onPressed: (mouse) => {
+                                                        const point = mapToItem(widgetCanvas, mouse.x, mouse.y);
+                                                        startCanvasY = point.y;
+                                                        startPreviewY = widgetPreview.y;
+                                                        startHeight = widgetPreview.height;
+                                                        root.selectedWidgetIndex = widgetPreview.index;
+                                                    }
+                                                    onPositionChanged: (mouse) => {
+                                                        if (!pressed)
+                                                            return ;
+
+                                                        const point = mapToItem(widgetCanvas, mouse.x, mouse.y);
+                                                        const delta = Math.min(startHeight - 32, point.y - startCanvasY);
+                                                        widgetPreview.y = startPreviewY + delta;
+                                                        widgetPreview.height = startHeight - delta;
+                                                    }
+                                                    onReleased: root.commitWidgetPreview(widgetPreview.index, widgetPreview.x, widgetPreview.y, widgetPreview.width, widgetPreview.height, widgetCanvas.width, widgetCanvas.height)
+                                                }
+
+                                                MouseArea {
+                                                    property real startCanvasY: 0
+                                                    property real startHeight: 0
+
+                                                    anchors.left: parent.left
+                                                    anchors.right: parent.right
+                                                    anchors.bottom: parent.bottom
+                                                    height: 7
+                                                    cursorShape: Qt.SizeVerCursor
+                                                    onPressed: (mouse) => {
+                                                        startCanvasY = mapToItem(widgetCanvas, mouse.x, mouse.y).y;
+                                                        startHeight = widgetPreview.height;
+                                                        root.selectedWidgetIndex = widgetPreview.index;
+                                                    }
+                                                    onPositionChanged: (mouse) => {
+                                                        if (pressed)
+                                                            widgetPreview.height = Math.max(32, Math.min(widgetCanvas.height - widgetPreview.y, startHeight + mapToItem(widgetCanvas, mouse.x, mouse.y).y - startCanvasY));
+
+                                                    }
+                                                    onReleased: root.commitWidgetPreview(widgetPreview.index, widgetPreview.x, widgetPreview.y, widgetPreview.width, widgetPreview.height, widgetCanvas.width, widgetCanvas.height)
+                                                }
+
                                             }
 
                                         }
@@ -3059,6 +3543,19 @@ FloatingWindow {
                                         columns: 4
                                         columnSpacing: 10
                                         rowSpacing: 6
+
+                                        BloxCheckBox {
+                                            Layout.columnSpan: 4
+                                            text: "Automatic size"
+                                            checked: {
+                                                const item = root.selectedWidgetIndex >= 0 && root.selectedWidgetIndex < root.widgetItems().length ? root.widgetItems()[root.selectedWidgetIndex] : null;
+                                                return item && item.width === 0 && item.height === 0;
+                                            }
+                                            onToggled: (checked) => {
+                                                const item = root.widgetItems()[root.selectedWidgetIndex];
+                                                root.updateWidgetGeometry(root.selectedWidgetIndex, item.anchor, item.offset_x, item.offset_y, checked ? 0 : 320, checked ? 0 : 160);
+                                            }
+                                        }
 
                                         Repeater {
                                             model: ["X offset", "Y offset", "Width", "Height"]
@@ -3080,7 +3577,10 @@ FloatingWindow {
                                                 property var selectedItem: root.selectedWidgetIndex >= 0 && root.selectedWidgetIndex < root.widgetItems().length ? root.widgetItems()[root.selectedWidgetIndex] : null
 
                                                 Layout.fillWidth: true
+                                                enabled: modelData === "offset_x" || modelData === "offset_y" || !selectedItem || selectedItem.width > 0 || selectedItem.height > 0
                                                 text: selectedItem ? String(selectedItem[modelData]) : "0"
+                                                ToolTip.visible: hovered && !enabled
+                                                ToolTip.text: "Disable Automatic size to set width and height"
                                                 onEditingFinished: {
                                                     if (!selectedItem)
                                                         return ;
@@ -3205,7 +3705,7 @@ FloatingWindow {
                     }
 
                     BloxButton {
-                        text: "Save"
+                        text: "✓  Save"
                         enabled: root.candidate && root.dirty && root.candidateValid && !root.busy
                         onClicked: root.saveCandidate("")
                     }
@@ -3245,7 +3745,7 @@ FloatingWindow {
                 Rectangle {
                     anchors.centerIn: parent
                     width: 500
-                    height: root.modalKind === "widget" ? 620 : implicitHeight
+                    height: Math.min(root.height - 80, implicitHeight)
                     implicitHeight: modalColumn.implicitHeight + 40
                     radius: 10
                     color: Theme.surface
@@ -3299,7 +3799,7 @@ FloatingWindow {
 
                             visible: root.modalKind === "new" && !root.creationBusy
                             Layout.fillWidth: true
-                            placeholderText: "Display name"
+                            placeholderText: "My Theme"
                             text: root.newThemeName
                             onTextChanged: {
                                 root.newThemeName = text;
@@ -3511,7 +4011,7 @@ FloatingWindow {
 
                             Text {
                                 Layout.fillWidth: true
-                                text: root.guideTarget === "obsidian" ? "1. Open your vault's .obsidian/snippets folder.\n2. Copy the generated blox-theme.css file into it.\n3. In Obsidian, open Appearance → CSS snippets and enable Blox theme." : "1. Open the Stylus extension dashboard.\n2. Choose Import and select the generated blox-system.user.css file.\n3. Replace the previous Blox System Theme entry, then enable it."
+                                text: root.guideTarget === "obsidian" ? "1. Install and select the Minimal theme, then enable the Style Settings plugin.\n2. Open Style Settings in its own pane and choose Import.\n3. Select the generated style-settings.json file and confirm the import." : "1. Open the Stylus extension dashboard.\n2. Choose Import and select the generated blox-system.user.css file.\n3. Replace the previous Blox System Theme entry, then enable it."
                                 color: Theme.foreground
                                 wrapMode: Text.Wrap
                             }
@@ -3519,8 +4019,8 @@ FloatingWindow {
                             BloxButton {
                                 visible: root.guideTarget === "stylus"
                                 Layout.alignment: Qt.AlignRight
-                                text: "Download file"
-                                onClicked: root.downloadStylusFile()
+                                text: "⇩  Download file"
+                                onClicked: root.downloadGeneratedFile("stylus", "stylus/blox-system.user.css")
                             }
 
                         }
@@ -3542,9 +4042,11 @@ FloatingWindow {
 
                                 Layout.fillWidth: true
                                 text: root.widgetDraft ? root.widgetDraft.name : ""
-                                onTextChanged: {
+                                onTextEdited: (value) => {
                                     if (root.widgetDraft)
-                                        root.widgetDraft.name = text;
+                                        root.updateWidgetDraft({
+                                        "name": value
+                                    });
 
                                 }
                             }
@@ -3556,31 +4058,58 @@ FloatingWindow {
 
                             BloxComboBox {
                                 Layout.fillWidth: true
-                                model: ["file", "music", "calendar", "clock", "aquarium", "pipes", "tree", "matrix", "fortune", "train", "custom"]
-                                currentIndex: root.widgetDraft ? model.indexOf(root.widgetDraft.type) : model.length - 1
+                                model: ["file", "music", "calendar", "clock", "decorative", "custom"]
+                                currentIndex: root.widgetDraft ? model.indexOf(root.widgetPreset(root.widgetDraft)) : model.length - 1
                                 onActivated: (index, value) => {
                                     const identity = root.widgetDraft.id;
                                     const name = root.widgetDraft.name;
-                                    root.widgetDraft = root.newWidgetDraft(value);
-                                    root.widgetDraft.id = identity;
-                                    root.widgetDraft.name = name;
+                                    root.widgetDraft = root.newWidgetDraft(value === "decorative" ? "aquarium" : value);
+                                    root.updateWidgetDraft({
+                                        "id": identity,
+                                        "name": name
+                                    });
                                 }
                             }
 
                             Label {
+                                visible: root.widgetDraft && root.widgetPreset(root.widgetDraft) === "decorative"
+                                text: "Decoration"
+                                color: Theme.muted
+                            }
+
+                            BloxComboBox {
+                                visible: root.widgetDraft && root.widgetPreset(root.widgetDraft) === "decorative"
+                                Layout.fillWidth: true
+                                model: ["aquarium", "pipes", "tree", "matrix", "fortune", "train"]
+                                currentIndex: root.widgetDraft ? model.indexOf(root.widgetDraft.type) : 0
+                                onActivated: (index, value) => {
+                                    const replacement = root.newWidgetDraft(value);
+                                    root.updateWidgetDraft({
+                                        "type": value,
+                                        "content_command": replacement.content_command,
+                                        "options": replacement.options
+                                    });
+                                }
+                            }
+
+                            Label {
+                                visible: root.widgetDraft && (root.widgetDraft.type === "custom" || root.widgetDraft.type === "file")
                                 text: "Content command"
                                 color: Theme.muted
                             }
 
                             RowLayout {
+                                visible: root.widgetDraft && (root.widgetDraft.type === "custom" || root.widgetDraft.type === "file")
                                 Layout.fillWidth: true
 
                                 BloxTextField {
                                     Layout.fillWidth: true
                                     text: root.widgetDraft ? root.widgetDraft.content_command : ""
-                                    onTextChanged: {
+                                    onTextEdited: (value) => {
                                         if (root.widgetDraft)
-                                            root.widgetDraft.content_command = text;
+                                            root.updateWidgetDraft({
+                                            "content_command": value
+                                        });
 
                                     }
                                 }
@@ -3594,80 +4123,186 @@ FloatingWindow {
                             }
 
                             Label {
+                                visible: root.widgetDraft && root.widgetDraft.type === "custom"
                                 text: "Left click"
                                 color: Theme.muted
                             }
 
                             BloxTextField {
+                                visible: root.widgetDraft && root.widgetDraft.type === "custom"
                                 Layout.fillWidth: true
                                 text: root.widgetDraft ? root.widgetDraft.left_click_command : ""
-                                onTextChanged: {
+                                onTextEdited: (value) => {
                                     if (root.widgetDraft)
-                                        root.widgetDraft.left_click_command = text;
+                                        root.updateWidgetDraft({
+                                        "left_click_command": value
+                                    });
 
                                 }
                             }
 
                             Label {
+                                visible: root.widgetDraft && root.widgetDraft.type === "custom"
                                 text: "Right click"
                                 color: Theme.muted
                             }
 
                             BloxTextField {
+                                visible: root.widgetDraft && root.widgetDraft.type === "custom"
                                 Layout.fillWidth: true
                                 text: root.widgetDraft ? root.widgetDraft.right_click_command : ""
-                                onTextChanged: {
+                                onTextEdited: (value) => {
                                     if (root.widgetDraft)
-                                        root.widgetDraft.right_click_command = text;
+                                        root.updateWidgetDraft({
+                                        "right_click_command": value
+                                    });
 
                                 }
                             }
 
                             Label {
+                                visible: root.widgetDraft && (root.widgetDraft.type === "custom" || root.widgetDraft.type === "file")
                                 text: "Update (ms)"
                                 color: Theme.muted
                             }
 
                             BloxTextField {
+                                visible: root.widgetDraft && (root.widgetDraft.type === "custom" || root.widgetDraft.type === "file")
                                 Layout.fillWidth: true
                                 text: root.widgetDraft ? String(root.widgetDraft.interval_ms) : "60000"
                                 onEditingFinished: {
                                     if (root.widgetDraft)
-                                        root.widgetDraft.interval_ms = Math.max(250, parseInt(text) || 60000);
+                                        root.updateWidgetDraft({
+                                        "interval_ms": Math.max(250, parseInt(text) || 60000)
+                                    });
 
                                 }
                             }
 
                             Label {
-                                text: "Position"
+                                visible: root.widgetDraft && root.widgetDraft.type === "clock"
+                                text: "Clock options"
+                                color: Theme.muted
+                            }
+
+                            RowLayout {
+                                visible: root.widgetDraft && root.widgetDraft.type === "clock"
+
+                                BloxCheckBox {
+                                    text: "24 hour"
+                                    checked: !(root.widgetDraft && root.widgetDraft.options && root.widgetDraft.options.twelve_hour)
+                                    onToggled: root.updateWidgetOption("twelve_hour", !checked)
+                                }
+
+                                BloxCheckBox {
+                                    text: "Seconds"
+                                    checked: root.widgetDraft && root.widgetDraft.options && root.widgetDraft.options.seconds === true
+                                    onToggled: root.updateWidgetOption("seconds", checked)
+                                }
+
+                                BloxCheckBox {
+                                    text: "Bold"
+                                    checked: root.widgetDraft && root.widgetDraft.options && root.widgetDraft.options.bold === true
+                                    onToggled: root.updateWidgetOption("bold", checked)
+                                }
+
+                                BloxCheckBox {
+                                    text: "Blink"
+                                    checked: root.widgetDraft && root.widgetDraft.options && root.widgetDraft.options.blink === true
+                                    onToggled: root.updateWidgetOption("blink", checked)
+                                }
+
+                                BloxCheckBox {
+                                    text: "Box"
+                                    checked: root.widgetDraft && root.widgetDraft.options && root.widgetDraft.options.box === true
+                                    onToggled: root.updateWidgetOption("box", checked)
+                                }
+
+                            }
+
+                            Label {
+                                visible: root.widgetDraft && root.widgetDraft.type === "calendar"
+                                text: "View"
                                 color: Theme.muted
                             }
 
                             BloxComboBox {
+                                visible: root.widgetDraft && root.widgetDraft.type === "calendar"
                                 Layout.fillWidth: true
-                                model: ["top-left", "top-right", "bottom-left", "bottom-right", "centre"]
-                                currentIndex: root.widgetDraft ? model.indexOf(root.widgetDraft.anchor) : 0
+                                model: ["agenda", "week", "month"]
+                                currentIndex: root.widgetDraft && root.widgetDraft.options ? Math.max(0, model.indexOf(root.widgetDraft.options.view || "agenda")) : 0
                                 onActivated: (index, value) => {
-                                    if (root.widgetDraft)
-                                        root.widgetDraft.anchor = value;
-
+                                    return root.updateWidgetOption("view", value);
                                 }
                             }
 
                             Label {
-                                text: "Shape"
+                                visible: root.widgetDraft && root.widgetDraft.type === "calendar"
+                                text: "Line art"
                                 color: Theme.muted
                             }
 
-                            BloxComboBox {
-                                Layout.fillWidth: true
-                                model: ["auto", "rectangle", "rounded", "circle"]
-                                currentIndex: root.widgetDraft ? model.indexOf(root.widgetDraft.shape) : 0
-                                onActivated: (index, value) => {
-                                    if (root.widgetDraft)
-                                        root.widgetDraft.shape = value;
+                            RowLayout {
+                                visible: root.widgetDraft && root.widgetDraft.type === "calendar"
 
+                                BloxComboBox {
+                                    Layout.fillWidth: true
+                                    model: ["fancy", "unicode", "ascii"]
+                                    currentIndex: root.widgetDraft && root.widgetDraft.options ? Math.max(0, model.indexOf(root.widgetDraft.options.lineart || "unicode")) : 1
+                                    onActivated: (index, value) => {
+                                        return root.updateWidgetOption("lineart", value);
+                                    }
                                 }
+
+                                BloxCheckBox {
+                                    text: "Colour"
+                                    checked: !root.widgetDraft || !root.widgetDraft.options || root.widgetDraft.options.colour !== false
+                                    onToggled: root.updateWidgetOption("colour", checked)
+                                }
+
+                            }
+
+                            Label {
+                                visible: root.widgetDraft && root.widgetDraft.type === "music"
+                                text: "Cava config file"
+                                color: Theme.muted
+                            }
+
+                            BloxTextField {
+                                visible: root.widgetDraft && root.widgetDraft.type === "music"
+                                Layout.fillWidth: true
+                                placeholderText: "~/.config/cava/config"
+                                text: root.widgetDraft && root.widgetDraft.options ? root.widgetDraft.options.config_file || "" : ""
+                                onEditingFinished: root.updateWidgetOption("config_file", text.trim())
+                            }
+
+                            Label {
+                                visible: root.widgetDraft && root.widgetDraft.type === "file"
+                                text: "File options"
+                                color: Theme.muted
+                            }
+
+                            RowLayout {
+                                visible: root.widgetDraft && root.widgetDraft.type === "file"
+
+                                BloxCheckBox {
+                                    text: "Show filename"
+                                    checked: root.widgetDraft && root.widgetDraft.options && root.widgetDraft.options.show_filename === true
+                                    onToggled: root.updateWidgetOption("show_filename", checked)
+                                }
+
+                                BloxCheckBox {
+                                    text: "Markdown"
+                                    checked: root.widgetDraft && root.widgetDraft.options && root.widgetDraft.options.markdown === true
+                                    onToggled: root.updateWidgetOption("markdown", checked)
+                                }
+
+                                BloxCheckBox {
+                                    text: "Auto update"
+                                    checked: !root.widgetDraft || !root.widgetDraft.options || root.widgetDraft.options.auto_update !== false
+                                    onToggled: root.updateWidgetOption("auto_update", checked)
+                                }
+
                             }
 
                         }
@@ -3677,7 +4312,7 @@ FloatingWindow {
 
                             visible: root.modalKind === "duplicate"
                             Layout.fillWidth: true
-                            placeholderText: "Display name"
+                            placeholderText: "My Theme - Copy"
                             text: root.duplicateName
                             onTextChanged: {
                                 root.duplicateName = text;
@@ -3695,7 +4330,7 @@ FloatingWindow {
 
                             visible: root.modalKind === "rename"
                             Layout.fillWidth: true
-                            placeholderText: "Display name"
+                            placeholderText: "My Theme"
                             text: root.renameName
                             onTextChanged: root.renameName = text
                             onAccepted: {
@@ -3743,7 +4378,7 @@ FloatingWindow {
                                 id: modalCancelButton
 
                                 visible: root.modalKind !== "progress" || root.applyProgressComplete
-                                text: root.modalKind === "progress" || root.modalKind === "guide" ? "Close" : "Cancel"
+                                text: root.modalKind === "progress" || root.modalKind === "guide" ? "×  Close" : "Cancel"
                                 onClicked: root.dismissModal()
                             }
 

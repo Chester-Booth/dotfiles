@@ -199,16 +199,23 @@ class RendererTests(unittest.TestCase):
         }
         self.assertTrue(phase7.issubset(files))
         self.assertEqual(self.theme["fonts"]["mono"], json.loads(files["code/settings.json"])["editor.fontFamily"])
-        self.assertEqual("Dark 2026", json.loads(files["code/settings.json"])["workbench.colorTheme"])
-        self.assertIn("sideBarSectionHeader.background", json.loads(files["code/settings.json"])["workbench.colorCustomizations"])
-        self.assertIn("--background-primary:", files["obsidian/blox-theme.css"])
-        self.assertIn("based on the Simple theme", files["obsidian/blox-theme.css"])
+        code_settings = json.loads(files["code/settings.json"])
+        self.assertEqual("Blox Dark 2026", code_settings["workbench.colorTheme"])
+        self.assertNotIn("workbench.colorCustomizations", code_settings)
+        package = json.loads(files["code/package.json"])
+        self.assertEqual("./themes/blox-dark-2026.json", package["contributes"]["themes"][0]["path"])
+        code_theme = json.loads(files["code/themes/blox-dark-2026.json"])
+        self.assertIn("sideBarSectionHeader.background", code_theme["colors"])
+        self.assertTrue(code_theme["semanticHighlighting"])
+        obsidian = json.loads(files["obsidian/style-settings.json"])
+        self.assertEqual(self.theme["colours"]["background"], obsidian["minimal-style@@bg1@@dark"])
+        self.assertEqual(self.theme["colours"]["accent"], obsidian["minimal-style@@ax1@@dark"])
         shell = json.loads(files["quickshell/theme.json"])["shell"]
         self.assertEqual("left", shell["bar"]["position"])
         self.assertEqual(list(DEFAULT_BAR_ITEMS), shell["bar"]["items"])
         self.assertEqual("top-left", shell["osd"]["position"])
         self.assertEqual("bottom-right", shell["notifications"]["position"])
-        self.assertEqual(json.loads(files["code/settings.json"]), json.loads(files["cursor-editor/settings.json"]))
+        self.assertIn("workbench.colorCustomizations", json.loads(files["cursor-editor/settings.json"]))
         self.assertIn("@-moz-document", files["stylus/blox-system.user.css"])
         self.assertIn('color-link default "#cdd6f4"', files["micro/blox-theme.micro"])
         self.assertNotIn('color-link default "#cdd6f4,#242424"', files["micro/blox-theme.micro"])
@@ -245,6 +252,29 @@ class RendererTests(unittest.TestCase):
             candidate["shell"]["bar"]["items"] = [item]
             self.assertTrue(schema_errors(candidate))
 
+    def test_legacy_tray_override_migrates_to_application_tray(self) -> None:
+        self.theme["shell"] = {
+            "bar": {"position": "left", "items": [
+                {"id": "tray", "enabled": False, "region": "hidden", "order": 9},
+            ]},
+            "osd": {"position": "top-left", "offset_x": 0, "offset_y": 0},
+            "notifications": {"position": "bottom-right", "offset_x": 0, "offset_y": 0},
+        }
+        shell = json.loads(render_theme(self.theme)[0]["quickshell/theme.json"])["shell"]
+        items = {item["id"]: item for item in shell["bar"]["items"]}
+        self.assertTrue(items["tray"]["enabled"])
+        self.assertEqual("end", items["tray"]["region"])
+        self.assertFalse(items["application-tray"]["enabled"])
+        self.assertEqual(9, items["application-tray"]["order"])
+
+    def test_shell_offsets_are_not_artificially_limited(self) -> None:
+        self.theme["shell"] = {
+            "bar": {"position": "left", "items": []},
+            "osd": {"position": "top-left", "offset_x": 12000, "offset_y": -12000},
+            "notifications": {"position": "bottom-right", "offset_x": -12000, "offset_y": 12000},
+        }
+        self.assertEqual([], schema_errors(self.theme))
+
     def test_bar_item_validation_rejects_duplicate_ids(self) -> None:
         self.theme["shell"] = {
             "bar": {"position": "left", "items": [
@@ -261,7 +291,7 @@ class RendererTests(unittest.TestCase):
         target_files = {
             "hyprland": "hyprland/theme.lua", "hyprlock": "hyprlock/theme.conf",
             "btop": "btop/theme.theme", "micro": "micro/blox-theme.micro",
-            "glow": "glow/style.json", "code": "code/settings.json",
+            "glow": "glow/style.json", "code": ["code/package.json", "code/settings.json", "code/themes/blox-dark-2026.json"],
             "cursor_editor": "cursor-editor/settings.json", "stylus": "stylus/blox-system.user.css",
             "powerlevel10k": "powerlevel10k/theme.zsh",
             "widgets": "widgets/profile.json",
@@ -272,7 +302,7 @@ class RendererTests(unittest.TestCase):
                 for key in theme["targets"]:
                     theme["targets"][key] = key == target
                 files, _ = render_theme(theme)
-                self.assertEqual([expected], list(files))
+                self.assertEqual(expected if isinstance(expected, list) else [expected], list(files))
 
     def test_ansi_override_is_target_local(self) -> None:
         theme = copy.deepcopy(self.theme)
@@ -405,8 +435,8 @@ class CliContractTests(unittest.TestCase):
         for expected in (
             'text: "Widgets"',
             'text: "New Widget"',
-            'text: "Import"',
-            'text: "Export"',
+            'Import"',
+            'Export"',
             'text: "Save widget"',
             'id: widgetImportDialog',
             'id: widgetExportDialog',
@@ -424,7 +454,6 @@ class CliContractTests(unittest.TestCase):
             'model: Theme.barStartItems',
             'model: Theme.barCentreItems',
             'model: Theme.barEndItems',
-            'model: Theme.barHiddenItems',
             'Theme.barPosition === "left"',
             'Theme.barPosition === "right"',
             'Theme.barPosition === "top"',
@@ -432,9 +461,21 @@ class CliContractTests(unittest.TestCase):
         ):
             with self.subTest(expected=expected):
                 self.assertIn(expected, source)
-        for item_id in ("power", "notes", "workspaces", "clock", "battery", "notifications", "wifi", "sound", "privacy", "awake", "display", "bt", "updates", "tray"):
+        self.assertIn('model: Theme.barHiddenItems.filter', source)
+        for item_id in ("power", "notes", "workspaces", "clock", "battery", "notifications", "wifi", "sound", "privacy", "awake", "display", "bt", "updates", "tray", "application-tray"):
             with self.subTest(item_id=item_id):
                 self.assertIn(f'"{item_id}"', delegate)
+
+    def test_configured_battery_uses_live_status_without_cross_axis_jump(self) -> None:
+        delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
+        self.assertEqual(2, delegate.count("status: root.controller.battery.json"))
+        self.assertIn("implicitWidth: root.horizontal && contentLoader.item", delegate)
+        self.assertIn("implicitHeight: !root.horizontal && contentLoader.item", delegate)
+        battery_start = delegate.index("id: batteryComponent")
+        tray_start = delegate.index("id: trayToggleComponent")
+        application_tray_start = delegate.index("id: applicationTrayComponent")
+        self.assertNotIn("trayToggleItem = root", delegate[battery_start:tray_start])
+        self.assertIn("trayToggleItem = root", delegate[tray_start:application_tray_start])
 
     def test_all_commands_support_human_and_json_output(self) -> None:
         commands = (("list",), ("show", "blox-panel"), ("validate", "blox-panel"), ("render", "blox-panel"), ("preview", "blox-panel"), ("diff", "blox-panel"), ("doctor",))

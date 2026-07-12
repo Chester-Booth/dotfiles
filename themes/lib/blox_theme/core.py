@@ -28,10 +28,10 @@ TARGET_LIMITATIONS = {
     "hyprlock": "Hyprlock changes apply when the next lock process starts",
     "btop": "btop must be restarted after Apply",
     "micro": "Micro must be restarted after Apply",
-    "code": "Code settings apply automatically; use Reload Window for existing windows",
+    "code": "Code theme installs and applies automatically; use Reload Window for existing windows",
     "cursor_editor": "Cursor settings apply automatically; use Reload Window for existing windows",
     "stylus": "Stylus requires manual import or refresh of the generated UserCSS",
-    "obsidian": "Obsidian requires the generated CSS snippet to be copied into a vault and enabled",
+    "obsidian": "Obsidian requires Minimal, Style Settings, and manual import of the generated settings JSON",
     "powerlevel10k": "Powerlevel10k changes apply to new shells",
 }
 
@@ -45,21 +45,28 @@ DEFAULT_BAR_ITEMS = (
     {"id": "workspaces", "enabled": True, "region": "start", "order": 2},
     {"id": "clock", "enabled": True, "region": "centre", "order": 0},
     {"id": "battery", "enabled": True, "region": "end", "order": 0},
-    {"id": "notifications", "enabled": True, "region": "end", "order": 1},
-    {"id": "wifi", "enabled": True, "region": "end", "order": 2},
-    {"id": "sound", "enabled": True, "region": "end", "order": 3},
+    {"id": "tray", "enabled": True, "region": "end", "order": 1},
+    {"id": "notifications", "enabled": True, "region": "end", "order": 2},
+    {"id": "wifi", "enabled": True, "region": "end", "order": 3},
+    {"id": "sound", "enabled": True, "region": "end", "order": 4},
     {"id": "privacy", "enabled": True, "region": "hidden", "order": 0},
     {"id": "awake", "enabled": True, "region": "hidden", "order": 1},
     {"id": "display", "enabled": True, "region": "hidden", "order": 2},
     {"id": "bt", "enabled": True, "region": "hidden", "order": 3},
     {"id": "updates", "enabled": True, "region": "hidden", "order": 4},
-    {"id": "tray", "enabled": True, "region": "hidden", "order": 5},
+    {"id": "application-tray", "enabled": True, "region": "hidden", "order": 5},
 )
 
 
 def resolved_bar_items(bar: dict[str, Any] | None) -> list[dict[str, Any]]:
     """Return a complete, ordered bar registry with optional theme overrides."""
-    overrides = {item["id"]: item for item in (bar or {}).get("items", [])}
+    source = (bar or {}).get("items", [])
+    overrides = {item["id"]: item for item in source}
+    # Prior to the movable drawer toggle, ``tray`` denoted the freedesktop
+    # application tray. A complete old registry never contains the new id, so
+    # migrate that override while giving the new toggle its normal placement.
+    if "tray" in overrides and "application-tray" not in overrides:
+        overrides["application-tray"] = {**overrides.pop("tray"), "id": "application-tray"}
     return [{**default, **overrides.get(default["id"], {})} for default in DEFAULT_BAR_ITEMS]
 
 
@@ -755,7 +762,7 @@ def render_glow(theme: dict[str, Any]) -> str:
     return canonical_json(style)
 
 
-def render_editor(theme: dict[str, Any]) -> str:
+def editor_colours(theme: dict[str, Any]) -> dict[str, str]:
     c = theme["colours"]
     custom = {
         "editor.background": c["background"], "editor.foreground": c["foreground"], "editor.selectionBackground": c["selection_background"],
@@ -783,7 +790,52 @@ def render_editor(theme: dict[str, Any]) -> str:
         "badge.background": c["accent"], "badge.foreground": c["background"],
         "focusBorder": c["accent"], "errorForeground": c["danger"],
     }
-    return canonical_json({"workbench.colorTheme": "Dark 2026", "editor.fontFamily": theme["fonts"]["mono"], "editor.fontSize": theme["fonts"]["editor_size"], "workbench.colorCustomizations": custom})
+    return custom
+
+
+def render_editor(theme: dict[str, Any]) -> str:
+    """Render the small settings fragment shared by Code and Cursor.
+
+    Code receives its colours from a generated extension rather than from
+    ``workbench.colorCustomizations``. Cursor retains this fragment until it
+    grows an equivalent packaged-theme installer.
+    """
+    return canonical_json({"workbench.colorTheme": "Blox Dark 2026", "editor.fontFamily": theme["fonts"]["mono"], "editor.fontSize": theme["fonts"]["editor_size"]})
+
+
+def render_cursor_editor(theme: dict[str, Any]) -> str:
+    return canonical_json({"workbench.colorTheme": "Dark 2026", "editor.fontFamily": theme["fonts"]["mono"], "editor.fontSize": theme["fonts"]["editor_size"], "workbench.colorCustomizations": editor_colours(theme)})
+
+
+def render_code_extension(theme: dict[str, Any]) -> dict[str, str]:
+    package = {
+        "name": "blox-dark-2026", "displayName": "Blox Dark 2026",
+        "description": "Generated Blox colour theme based on Visual Studio Code Dark 2026.",
+        "version": "1.0.0", "publisher": "blox", "engines": {"vscode": "*"},
+        "categories": ["Themes"],
+        "contributes": {"themes": [{"id": "Blox Dark 2026", "label": "Blox Dark 2026", "uiTheme": "vs-dark", "path": "./themes/blox-dark-2026.json"}]},
+    }
+    c = theme["colours"]
+    colour_theme = {
+        "$schema": "vscode://schemas/color-theme", "name": "Blox Dark 2026",
+        "type": "dark", "semanticHighlighting": True,
+        "colors": editor_colours(theme),
+        # Dark 2026 uses the GitHub dark token palette. Preserve that language
+        # while applying the canonical semantic roles to the workbench.
+        "tokenColors": [
+            {"scope": ["comment", "punctuation.definition.comment"], "settings": {"foreground": c["muted"]}},
+            {"scope": ["keyword", "storage", "storage.type"], "settings": {"foreground": c["danger"]}},
+            {"scope": ["string", "string.quoted"], "settings": {"foreground": c["info"]}},
+            {"scope": ["entity.name.function"], "settings": {"foreground": c["mauve"]}},
+            {"scope": ["entity.name.tag", "support.class.component"], "settings": {"foreground": c["success"]}},
+            {"scope": ["constant", "support", "meta.property-name"], "settings": {"foreground": c["info"]}},
+        ],
+    }
+    return {
+        "code/package.json": canonical_json(package),
+        "code/themes/blox-dark-2026.json": canonical_json(colour_theme),
+        "code/settings.json": render_editor(theme),
+    }
 
 
 def render_stylus(theme: dict[str, Any]) -> str:
@@ -810,25 +862,28 @@ scrollbar, ::-webkit-scrollbar-track {{ background: var(--blox-surface); }}
 
 def render_obsidian(theme: dict[str, Any]) -> str:
     c = theme["colours"]
-    variables = {
-        "background-primary": c["background"], "background-primary-alt": c["surface"],
-        "background-secondary": c["surface"], "background-secondary-alt": c["surface_alt"],
-        "background-modifier-border": c["border"], "background-modifier-hover": c["surface_alt"],
-        "text-normal": c["foreground"], "text-muted": c["muted"], "text-faint": c["muted"],
-        "text-accent": c["accent"], "text-accent-hover": c["info"], "text-error": c["danger"],
-        "interactive-accent": c["accent"], "interactive-accent-hover": c["info"],
-        "text-selection": c["selection_background"], "code-background": c["surface"],
-        "titlebar-background": c["surface"], "titlebar-background-focused": c["surface_alt"],
+    # Keys follow Minimal's Style Settings export format. Keeping this as an
+    # import document avoids modifying an arbitrary vault behind the user's
+    # back and composes with Minimal instead of replacing it with a snippet.
+    settings = {
+        "minimal-style@@bg1@@dark": c["background"],
+        "minimal-style@@bg2@@dark": c["surface"],
+        "minimal-style@@bg3@@dark": c["surface_alt"],
+        "minimal-style@@ui1@@dark": c["border"],
+        "minimal-style@@ui2@@dark": c["muted"],
+        "minimal-style@@ui3@@dark": c["accent"],
+        "minimal-style@@tx1@@dark": c["foreground"],
+        "minimal-style@@tx2@@dark": c["muted"],
+        "minimal-style@@ax1@@dark": c["accent"],
+        "minimal-style@@ax2@@dark": c["info"],
+        "minimal-style@@red@@dark": c["danger"],
+        "minimal-style@@yellow@@dark": c["warning"],
+        "minimal-style@@green@@dark": c["success"],
+        "minimal-style@@cyan@@dark": c["teal"],
+        "minimal-style@@blue@@dark": c["info"],
+        "minimal-style@@purple@@dark": c["mauve"],
     }
-    lines = "\n".join(f"  --{name}: {value.lower()};" for name, value in variables.items())
-    return f"""/* Blox theme for Obsidian, based on the Simple theme variable model. */
-.theme-dark, .theme-light {{
-{lines}
-  --font-interface-theme: {theme['fonts']['ui']};
-  --font-text-theme: {theme['fonts']['ui']};
-  --font-monospace-theme: {theme['fonts']['mono']};
-}}
-"""
+    return canonical_json(settings)
 
 
 def render_powerlevel10k(theme: dict[str, Any]) -> str:
@@ -888,13 +943,13 @@ def render_theme(theme: dict[str, Any]) -> tuple[dict[str, str], list[str]]:
     if targets["glow"]:
         files["glow/style.json"] = render_glow(theme)
     if targets["code"]:
-        files["code/settings.json"] = render_editor(theme)
+        files.update(render_code_extension(theme))
     if targets["cursor_editor"]:
-        files["cursor-editor/settings.json"] = render_editor(theme)
+        files["cursor-editor/settings.json"] = render_cursor_editor(theme)
     if targets["stylus"]:
         files["stylus/blox-system.user.css"] = render_stylus(theme)
     if targets.get("obsidian", False):
-        files["obsidian/blox-theme.css"] = render_obsidian(theme)
+        files["obsidian/style-settings.json"] = render_obsidian(theme)
     if targets["powerlevel10k"]:
         files["powerlevel10k/theme.zsh"] = render_powerlevel10k(theme)
     if targets["widgets"]:

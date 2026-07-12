@@ -30,14 +30,29 @@ Item {
         border.color: root.activeFocus || root.checked ? Theme.blue : hover.hovered ? Theme.withAlpha(Theme.foreground, 0.36) : Theme.border
         border.width: root.activeFocus ? 2 : 1
 
-        Text {
+        Canvas {
+            id: tick
+
+            property color strokeColour: Theme.blue
+
             anchors.centerIn: parent
             visible: root.checked
-            text: "✓"
-            color: Theme.blue
-            font.family: Theme.fontFamily
-            font.pixelSize: 12
-            font.bold: true
+            width: 13
+            height: 13
+            onStrokeColourChanged: requestPaint()
+            onPaint: {
+                const context = getContext("2d");
+                context.reset();
+                context.strokeStyle = strokeColour;
+                context.lineWidth = 2;
+                context.lineCap = "round";
+                context.lineJoin = "round";
+                context.beginPath();
+                context.moveTo(2, 6.5);
+                context.lineTo(5.2, 9.5);
+                context.lineTo(11, 3.2);
+                context.stroke();
+            }
         }
 
     }

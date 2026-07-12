@@ -1,6 +1,8 @@
 {
   "btop/theme.theme": "d1fbec6c5120f7e0c4164872d86d6180ec8c30103b1a4c5ac8c9d71d06db1b9b",
-  "code/settings.json": "55b7f719d63f618bcd397054a8b2494a366c9a5c6abcac4284b4f9f78b33b3ad",
+  "code/package.json": "c9fec1adc4189b2c288c6af27e6d5c25842040cd8eba7a81a606b556e0dd3e8f",
+  "code/settings.json": "ea4a5e42ae51c548d71aaa9b4c4f88628f04b40e4c09af76e7e35ff291eaf315",
+  "code/themes/blox-dark-2026.json": "e985c0ee74354aaca757e8afae9a5b4cec932a4d94f8b1cd1e2effb18bce4d50",
   "cursor-editor/settings.json": "55b7f719d63f618bcd397054a8b2494a366c9a5c6abcac4284b4f9f78b33b3ad",
   "cursor/metadata.json": "fba76f6c631ce02f606cae3314cb7d43778eddf911c20ca1195cdfb9df180a4c",
   "glow/style.json": "37dd9cd5b6bcebf7a0048110ea8f19f9fba5b185a6b7c545c6971e174f30e6a0",
@@ -14,9 +16,9 @@
   "hyprlock/theme.conf": "348bdb73d1fd5b699d1f1ac48114ec7ab2eefa1601c57c1124fa5650b5a532a1",
   "kitty/theme.conf": "5a942251e7283d304529f7cf97da8ee9a5400cc76db7488aeb25d42be51cd2fd",
   "micro/blox-theme.micro": "e70961e8d3e7176e08e7bc8544a6b77638ee20dc9b511702d7886e7cb132609f",
-  "obsidian/blox-theme.css": "ba6017d3261e7e41fe5422ae89d83eaf4c349c41beb098314cc0f377abb2e6f0",
+  "obsidian/style-settings.json": "68bd159b2b283ff244333c2e9bd8d61f606bea6dfb8626eeb27e6ca04387cbbb",
   "powerlevel10k/theme.zsh": "b17c43dfde859f79df9f1a54ef96762a2238500c32a21272fe3695401cd7a260",
-  "quickshell/theme.json": "73879a8c757ff9b58c7d693e5549fb7ed4373f131bee9f0df84f3df7742eb595",
+  "quickshell/theme.json": "10d35706e50447dd134a01b6c8ccfb151dc40e5f6bd4c55bc4622af14cbe923e",
   "stylus/blox-system.user.css": "e881fe747255246a965396a1f9cd8d20a2c1e8426f3f215d407a17b4021caa7e",
   "vicinae/theme.toml": "28e424ec7d279627deed5c4e74676dc40c87609ea52693ea4e61b7368d2885e9",
   "widgets/profile.json": "97c3e08e264c7f29cfa444bd46bd84b1a9ececb85b40467df1ea03abbc645387"

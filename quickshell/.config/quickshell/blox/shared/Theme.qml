@@ -237,7 +237,7 @@ Singleton {
     }
 
     function defaultBarItems() : var {
-        return [{"id": "power", "enabled": true, "region": "start", "order": 0}, {"id": "notes", "enabled": true, "region": "start", "order": 1}, {"id": "workspaces", "enabled": true, "region": "start", "order": 2}, {"id": "clock", "enabled": true, "region": "centre", "order": 0}, {"id": "battery", "enabled": true, "region": "end", "order": 0}, {"id": "notifications", "enabled": true, "region": "end", "order": 1}, {"id": "wifi", "enabled": true, "region": "end", "order": 2}, {"id": "sound", "enabled": true, "region": "end", "order": 3}, {"id": "privacy", "enabled": true, "region": "hidden", "order": 0}, {"id": "awake", "enabled": true, "region": "hidden", "order": 1}, {"id": "display", "enabled": true, "region": "hidden", "order": 2}, {"id": "bt", "enabled": true, "region": "hidden", "order": 3}, {"id": "updates", "enabled": true, "region": "hidden", "order": 4}, {"id": "tray", "enabled": true, "region": "hidden", "order": 5}];
+        return [{"id": "power", "enabled": true, "region": "start", "order": 0}, {"id": "notes", "enabled": true, "region": "start", "order": 1}, {"id": "workspaces", "enabled": true, "region": "start", "order": 2}, {"id": "clock", "enabled": true, "region": "centre", "order": 0}, {"id": "battery", "enabled": true, "region": "end", "order": 0}, {"id": "tray", "enabled": true, "region": "end", "order": 1}, {"id": "notifications", "enabled": true, "region": "end", "order": 2}, {"id": "wifi", "enabled": true, "region": "end", "order": 3}, {"id": "sound", "enabled": true, "region": "end", "order": 4}, {"id": "privacy", "enabled": true, "region": "hidden", "order": 0}, {"id": "awake", "enabled": true, "region": "hidden", "order": 1}, {"id": "display", "enabled": true, "region": "hidden", "order": 2}, {"id": "bt", "enabled": true, "region": "hidden", "order": 3}, {"id": "updates", "enabled": true, "region": "hidden", "order": 4}, {"id": "application-tray", "enabled": true, "region": "hidden", "order": 5}];
     }
 
     function resolvedBarItems(overrides) : var {
@@ -245,6 +245,12 @@ Singleton {
         const byId = {};
         for (let index = 0; index < overrides.length; index++)
             byId[overrides[index].id] = overrides[index];
+        if (byId["tray"] && !byId["application-tray"]) {
+            byId["application-tray"] = Object.assign({}, byId["tray"], {
+                "id": "application-tray"
+            });
+            byId["tray"] = null;
+        }
         for (let index = 0; index < defaults.length; index++) {
             const override = byId[defaults[index].id];
             if (override)

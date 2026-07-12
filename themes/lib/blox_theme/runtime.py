@@ -31,16 +31,17 @@ TARGET_FILES = {
     "btop": ("btop/theme.theme",),
     "micro": ("micro/blox-theme.micro",),
     "glow": ("glow/style.json",),
-    "code": ("code/settings.json",),
+    "code": ("code/settings.json", "code/package.json", "code/themes/blox-dark-2026.json"),
     "cursor_editor": ("cursor-editor/settings.json",),
     "stylus": ("stylus/blox-system.user.css",),
-    "obsidian": ("obsidian/blox-theme.css",),
+    "obsidian": ("obsidian/style-settings.json",),
     "powerlevel10k": ("powerlevel10k/theme.zsh",),
 }
 TARGET_REQUIRED_FILES = {
     **{target: files for target, files in TARGET_FILES.items() if target != "gtk"},
     "gtk": ("gtk/gtk-3.0/settings.ini", "gtk/gtk-4.0/settings.ini", "gtk/metadata.json"),
 }
+LEGACY_TARGET_FILES = {"obsidian/blox-theme.css": "obsidian"}
 TARGET_NAMES = tuple(TARGET_FILES)
 GENERATION_PATTERN = re.compile(r"^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$")
 HISTORY_LIMIT = 5
@@ -83,7 +84,7 @@ def _target_for_file(name: str) -> str | None:
     for target, names in TARGET_FILES.items():
         if name in names:
             return target
-    return None
+    return LEGACY_TARGET_FILES.get(name)
 
 
 def configured_targets(theme: dict[str, Any], requested: str | Iterable[str] | None = None) -> tuple[str, ...]:
@@ -184,7 +185,12 @@ def validate_generation(path: Path) -> dict[str, Any]:
             raise RuntimeFailure(f"generation file digest mismatch: {name}")
         if _target_for_file(name) not in manifest["enabled_targets"]:
             raise RuntimeFailure(f"generation target is not enabled for file: {name}")
-    expected_targets = sorted(target for target, names in TARGET_FILES.items() if any((path / name).is_file() for name in names))
+    expected_targets = sorted(
+        target
+        for target, names in TARGET_FILES.items()
+        if any((path / name).is_file() for name in names)
+        or any(legacy_target == target and (path / legacy_name).is_file() for legacy_name, legacy_target in LEGACY_TARGET_FILES.items())
+    )
     if sorted(manifest["enabled_targets"]) != expected_targets or sorted(manifest["target_sources"]) != expected_targets:
         raise RuntimeFailure(f"generation target metadata is inconsistent: {path.name}")
     for target, source in manifest["target_sources"].items():
@@ -1015,14 +1021,19 @@ def run_reload_actions(root: Path, targets: Iterable[str], mode: str = "reload",
                 fragment_path = root / ("current/code/settings.json" if target == "code" else "current/cursor-editor/settings.json")
                 try:
                     fragment = json.loads(fragment_path.read_text(encoding="utf-8"))
+                    if target == "code":
+                        extension = Path(os.environ.get("VSCODE_EXTENSIONS", Path.home() / ".vscode/extensions")) / "blox.blox-dark-2026-1.0.0"
+                        extension.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.rmtree(extension, ignore_errors=True)
+                        shutil.copytree(root / "current/code", extension, ignore=shutil.ignore_patterns("settings.json"))
                     apply_fragment(settings, fragment)
-                    warnings.append(f"{editor} settings applied automatically; use Reload Window for existing windows")
+                    warnings.append(f"{editor} theme applied automatically; use Reload Window for existing windows")
                 except (OSError, json.JSONDecodeError, EditorSettingsFailure) as error:
                     warnings.append(f"{editor} settings were not changed: {error}")
         elif target == "stylus":
             warnings.append("Stylus's generated UserCSS was removed; manually remove any previously imported copy" if mode == "reset" else f"Stylus requires manual import or refresh of {root / 'current/stylus/blox-system.user.css'}")
         elif target == "obsidian":
-            warnings.append("Obsidian's generated snippet was removed; manually remove any installed copy" if mode == "reset" else f"Obsidian requires manual installation of {root / 'current/obsidian/blox-theme.css'}")
+            warnings.append("Obsidian's generated Style Settings import was removed; existing vault settings were not changed" if mode == "reset" else f"Obsidian requires Minimal and Style Settings; manually import {root / 'current/obsidian/style-settings.json'}")
         elif target == "powerlevel10k":
             warnings.append("Powerlevel10k will use the base configuration in new shells" if mode == "reset" else "Powerlevel10k theme changes apply to new shells; source the generated fragment to update the current shell")
     return warnings

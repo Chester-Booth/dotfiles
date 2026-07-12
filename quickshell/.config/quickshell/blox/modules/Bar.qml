@@ -7,11 +7,13 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Services.SystemTray
+import Quickshell.Wayland
 
 Scope {
     id: root
 
     property string openPanel: ""
+    property real openPanelX: 8
     property real openPanelY: 8
     property string scriptRoot: Quickshell.shellDir + "/scripts"
     property bool barOpen: true
@@ -21,6 +23,7 @@ Scope {
     readonly property bool barVisible: barOpen || hoverRevealHeld
     property real barSlide: barVisible ? 1 : 0
     property bool extrasOpen: false
+    property var trayToggleItem: null
     property bool batteryExpanded: false
     property bool clockDateMode: false
     property bool railHovered: false
@@ -66,17 +69,6 @@ Scope {
     property alias caffeine: barStatus.caffeine
     property bool notificationPositionPreviewVisible: false
     readonly property bool horizontalBar: Theme.barPosition === "top" || Theme.barPosition === "bottom"
-    readonly property var notificationPositionPreview: ({
-        "toastId": "position-preview",
-        "timeout": 1800,
-        "notification": {
-            "summary": "Notification position",
-            "body": "Previewing the selected position",
-            "appName": "Theme Picker",
-            "urgency": 1,
-            "image": ""
-        }
-    })
 
     function togglePanel(panel, centerY) {
         openHoverPanel(panel, centerY);
@@ -121,7 +113,10 @@ Scope {
         if (openPanel !== panel)
             inputPopupLocked = false;
 
-        openPanelY = centerY === undefined ? 8 : centerY;
+        if (horizontalBar)
+            openPanelX = centerY === undefined ? 8 : centerY;
+        else
+            openPanelY = centerY === undefined ? 8 : centerY;
         openPanel = panel;
         hoverCloseDelay.stop();
     }
@@ -373,6 +368,7 @@ Scope {
 
     Connections {
         function onNotificationPositionPreviewRequested() {
+            root.diagLog("notification.preview", Theme.notificationPosition);
             root.notificationPositionPreviewVisible = false;
             Qt.callLater(() => {
                 root.notificationPositionPreviewVisible = true;
@@ -386,9 +382,79 @@ Scope {
     Timer {
         id: notificationPreviewTimer
 
-        interval: 1800
+        interval: 2500
         repeat: false
         onTriggered: root.notificationPositionPreviewVisible = false
+    }
+
+    Variants {
+        model: Quickshell.screens
+
+        PanelWindow {
+            id: notificationPositionPreviewWindow
+
+            required property var modelData
+            readonly property bool onLeft: Theme.notificationPosition === "top-left" || Theme.notificationPosition === "bottom-left"
+            readonly property bool onRight: Theme.notificationPosition === "top-right" || Theme.notificationPosition === "bottom-right"
+            readonly property bool onTop: Theme.notificationPosition.indexOf("top") >= 0
+            readonly property bool onBottom: Theme.notificationPosition.indexOf("bottom") >= 0
+
+            screen: modelData
+            visible: true
+            implicitWidth: root.notificationPositionPreviewVisible ? !onLeft && !onRight && screen ? screen.width : 330 : 1
+            implicitHeight: root.notificationPositionPreviewVisible ? 76 : 1
+            exclusiveZone: 0
+            focusable: false
+            color: "transparent"
+            WlrLayershell.layer: WlrLayer.Overlay
+            WlrLayershell.namespace: "blox-notification-position-preview"
+
+            anchors {
+                left: onLeft || !onLeft && !onRight
+                right: onRight || !onLeft && !onRight
+                top: onTop
+                bottom: onBottom
+            }
+
+            margins {
+                left: onLeft ? 12 + Theme.notificationOffsetX : 0
+                right: onRight ? 12 - Theme.notificationOffsetX : 0
+                top: onTop ? 12 + Theme.notificationOffsetY : 0
+                bottom: onBottom ? 12 - Theme.notificationOffsetY : 0
+            }
+
+            Rectangle {
+                visible: root.notificationPositionPreviewVisible
+                width: 330
+                height: parent.height
+                radius: 8
+                color: Theme.surface
+                border.color: Theme.blue
+                x: !notificationPositionPreviewWindow.onLeft && !notificationPositionPreviewWindow.onRight ? (parent.width - width) / 2 + Theme.notificationOffsetX : 0
+
+                Column {
+                    anchors.centerIn: parent
+                    spacing: 3
+
+                    Text {
+                        text: "Notification position"
+                        color: Theme.foreground
+                        font.family: Theme.bodyFontFamily
+                        font.bold: true
+                    }
+
+                    Text {
+                        text: "Previewing " + Theme.notificationPosition
+                        color: Theme.muted
+                        font.family: Theme.bodyFontFamily
+                    }
+
+                }
+
+            }
+
+        }
+
     }
 
     UiState {
@@ -770,30 +836,6 @@ Scope {
 
                         }
 
-                        ExtrasToggleButton {
-                            active: root.extrasOpen
-                            onToggle: root.toggleExtras()
-                        }
-
-                        Column {
-                            visible: root.extrasOpen
-
-                            Repeater {
-                                model: Theme.barHiddenItems
-
-                                BarItemDelegate {
-                                    required property var modelData
-
-                                    itemId: modelData.id
-                                    controller: root
-                                    horizontal: false
-                                    panelExtent: panel.height
-                                }
-
-                            }
-
-                        }
-
                     }
 
                     Row {
@@ -842,25 +884,6 @@ Scope {
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
 
-                        Row {
-                            visible: root.extrasOpen
-
-                            Repeater {
-                                model: Theme.barHiddenItems
-
-                                BarItemDelegate {
-                                    required property var modelData
-
-                                    itemId: modelData.id
-                                    controller: root
-                                    horizontal: true
-                                    panelExtent: panel.height
-                                }
-
-                            }
-
-                        }
-
                         Repeater {
                             model: Theme.barEndItems
 
@@ -875,9 +898,50 @@ Scope {
 
                         }
 
-                        ExtrasToggleButton {
-                            active: root.extrasOpen
-                            onToggle: root.toggleExtras()
+                    }
+
+                    Column {
+                        visible: !root.horizontalBar && root.extrasOpen && root.trayToggleItem
+                        x: root.trayToggleItem ? root.trayToggleItem.mapToItem(configuredRail, 0, 0).x : 0
+                        y: root.trayToggleItem ? root.trayToggleItem.mapToItem(configuredRail, 0, 0).y - height : 0
+
+                        Repeater {
+                            model: Theme.barHiddenItems.filter((item) => {
+                                return item.id !== "tray";
+                            })
+
+                            BarItemDelegate {
+                                required property var modelData
+
+                                itemId: modelData.id
+                                controller: root
+                                horizontal: false
+                                panelExtent: panel.height
+                            }
+
+                        }
+
+                    }
+
+                    Row {
+                        visible: root.horizontalBar && root.extrasOpen && root.trayToggleItem
+                        x: root.trayToggleItem ? root.trayToggleItem.mapToItem(configuredRail, 0, 0).x - width : 0
+                        y: root.trayToggleItem ? root.trayToggleItem.mapToItem(configuredRail, 0, 0).y : 0
+
+                        Repeater {
+                            model: Theme.barHiddenItems.filter((item) => {
+                                return item.id !== "tray";
+                            })
+
+                            BarItemDelegate {
+                                required property var modelData
+
+                                itemId: modelData.id
+                                controller: root
+                                horizontal: true
+                                panelExtent: panel.height
+                            }
+
                         }
 
                     }
@@ -974,7 +1038,9 @@ Scope {
                 panelWindow: panel
                 panelHeight: panel.height
                 screenWidth: panel.screen ? panel.screen.width : 0
+                screenHeight: panel.screen ? panel.screen.height : 0
                 openPanel: root.activeScreen === modelData ? root.openPanel : ""
+                openPanelX: root.openPanelX
                 openPanelY: root.openPanelY
                 trayMenuY: root.trayMenuY
                 trayMenuOpen: root.activeScreen === modelData && root.trayMenuOpen
@@ -1123,12 +1189,14 @@ Scope {
                 readonly property bool onBottom: Theme.notificationPosition.indexOf("bottom") >= 0
 
                 screen: modelData
-                implicitWidth: notificationToasts.width
-                implicitHeight: Math.max(1, notificationToasts.implicitHeight + 12)
+                implicitWidth: modelData ? modelData.width : 1
+                implicitHeight: modelData ? modelData.height : 1
                 exclusiveZone: 0
                 focusable: false
-                visible: root.activeScreen === modelData && (root.notificationPositionPreviewVisible || root.notificationToastsEnabled && root.toastItems.length > 0 && !root.notificationDnd)
+                visible: root.activeScreen === modelData && root.notificationToastsEnabled && root.toastItems.length > 0 && !root.notificationDnd
                 color: "transparent"
+                WlrLayershell.layer: WlrLayer.Overlay
+                WlrLayershell.namespace: "blox-notifications"
 
                 anchors {
                     left: onLeft || !onLeft && !onRight
@@ -1150,8 +1218,8 @@ Scope {
                     anchors.topMargin: 12 + Theme.notificationOffsetY
                     anchors.bottomMargin: 12 - Theme.notificationOffsetY
                     position: Theme.notificationPosition
-                    visible: root.notificationPositionPreviewVisible || root.notificationToastsEnabled && root.toastItems.length > 0 && !root.notificationDnd
-                    toasts: root.notificationPositionPreviewVisible ? [root.notificationPositionPreview] : root.toastItems
+                    visible: root.notificationToastsEnabled && root.toastItems.length > 0 && !root.notificationDnd
+                    toasts: root.toastItems
                     onDismiss: (notification, closeNotification) => {
                         notifications.removeToast(notification);
                         if (notification && closeNotification)

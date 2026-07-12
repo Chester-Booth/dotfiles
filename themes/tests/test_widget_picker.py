@@ -4,6 +4,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 PICKER = ROOT / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml"
+EDIT_MODE = ROOT / "quickshell/.config/quickshell/blox/modules/WidgetEditMode.qml"
 
 
 class WidgetPickerSourceTests(unittest.TestCase):
@@ -24,17 +25,17 @@ class WidgetPickerSourceTests(unittest.TestCase):
         self.assertNotIn('text: "Position"', modal)
         self.assertNotIn('text: "Shape"', modal)
 
-    def test_preview_has_wallpaper_bar_selection_and_edge_resize(self) -> None:
-        self.assertIn("id: widgetCanvas", self.source)
-        self.assertIn("id: barPreview", self.source)
-        self.assertIn('model: root.barPreviewItems("start")', self.source)
-        self.assertIn('model: root.barPreviewItems("centre")', self.source)
-        self.assertIn('model: root.barPreviewItems("end")', self.source)
-        self.assertIn("text: root.barPreviewGlyph(parent.modelData.id)", self.source)
-        self.assertIn('root.selectedWidgetIndex = -1', self.source)
-        self.assertIn('text: "Automatic size"', self.source)
-        self.assertGreaterEqual(self.source.count("cursorShape: Qt.SizeHorCursor"), 2)
-        self.assertGreaterEqual(self.source.count("cursorShape: Qt.SizeVerCursor"), 2)
+    def test_picker_launches_real_widget_edit_mode(self) -> None:
+        self.assertIn('text: "Edit mode"', self.source)
+        self.assertIn("Theme.widgetEditModeRequested();", self.source)
+        self.assertIn("onWidgetEditModeFinished", self.source)
+        edit_mode = EDIT_MODE.read_text(encoding="utf-8")
+        self.assertIn("Shared.DesktopWidget {", edit_mode)
+        self.assertIn("property int selectedIndex", edit_mode)
+        self.assertIn('text: "Automatic size"', edit_mode)
+        self.assertIn('text: "Visibility"', edit_mode)
+        self.assertGreaterEqual(edit_mode.count("Qt.SizeHorCursor"), 1)
+        self.assertGreaterEqual(edit_mode.count("Qt.SizeVerCursor"), 1)
 
 
 if __name__ == "__main__":

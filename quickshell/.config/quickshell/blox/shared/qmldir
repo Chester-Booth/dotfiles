@@ -1,4 +1,5 @@
 singleton Theme 1.0 Theme.qml
+singleton Lucide 1.0 Lucide.qml
 RailButton 1.0 RailButton.qml
 BarItemDelegate 1.0 BarItemDelegate.qml
 PanelRailButton 1.0 PanelRailButton.qml
@@ -22,3 +23,4 @@ BloxTextField 1.0 BloxTextField.qml
 BloxComboBox 1.0 BloxComboBox.qml
 BloxCheckBox 1.0 BloxCheckBox.qml
 BloxFontPicker 1.0 BloxFontPicker.qml
+DesktopWidget 1.0 DesktopWidget.qml

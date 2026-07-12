@@ -1,5 +1,6 @@
 import "../services"
 import "../shared"
+import "../shared" as Shared
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
@@ -10,6 +11,68 @@ Scope {
     id: root
 
     property string scriptRoot: Quickshell.shellDir + "/scripts"
+    property bool editMode: false
+    property bool editWorkspaceEntered: false
+    property var editItems: []
+
+    signal editSaved(string widgetsJson)
+
+    function cloneItems(items) {
+        return JSON.parse(JSON.stringify(items || []));
+    }
+
+    function beginEdit() {
+        if (editMode)
+            return "editing";
+
+        editItems = cloneItems(Theme.widgetItems.filter((item) => {
+            return item.enabled;
+        }));
+        editMode = true;
+        editWorkspaceEntered = true;
+        Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({ workspace = \"name:blox-widget-edit\" })"]);
+        return "editing";
+    }
+
+    function cancelEdit() {
+        editMode = false;
+        editItems = [];
+        leaveEditWorkspace();
+        Theme.widgetEditModeFinished("");
+        return "cancelled";
+    }
+
+    function leaveEditWorkspace() {
+        if (!editWorkspaceEntered)
+            return ;
+
+        editWorkspaceEntered = false;
+        Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({ workspace = \"previous\" })"]);
+    }
+
+    function saveEdit() {
+        const editedById = {
+        };
+        editItems.forEach((item) => {
+            return editedById[item.id] = item;
+        });
+        Theme.widgetItems = Theme.widgetItems.map((item) => {
+            return editedById[item.id] || item;
+        });
+        const payload = JSON.stringify(Theme.widgetItems);
+        editSaved(payload);
+        Theme.widgetEditModeFinished(payload);
+        editMode = false;
+        editItems = [];
+        leaveEditWorkspace();
+        return payload;
+    }
+
+    function replaceEditItem(index, item) {
+        const items = editItems.slice();
+        items[index] = item;
+        editItems = items;
+    }
 
     function run(command) {
         if (command.length === 0)
@@ -22,19 +85,6 @@ Scope {
         return String(command || "").replace(/\$SCRIPT_ROOT/g, root.scriptRoot);
     }
 
-    function isTerminalPreset(type) {
-        return ["music", "clock", "aquarium", "pipes", "tree", "matrix", "train"].indexOf(type) >= 0;
-    }
-
-    function widgetContentCommand(widget) {
-        if (!root.isTerminalPreset(widget.type))
-            return ["sh", "-c", root.commandFor(widget.content_command)];
-
-        const columns = widget.width > 0 ? Math.max(10, Math.floor(widget.width / Math.max(6, Theme.widgetFontSize * 0.6))) : 60;
-        const rows = widget.height > 0 ? Math.max(4, Math.floor(widget.height / Math.max(10, Theme.widgetFontSize * 1.25))) : 20;
-        return [root.scriptRoot + "/overlays/terminal-frame.py", widget.type, "--command", widget.content_command, "--columns", String(columns), "--rows", String(rows)];
-    }
-
     function activeWorkspaceEmpty() {
         return workspaceState.json.empty === true;
     }
@@ -44,6 +94,14 @@ Scope {
 
         command: [root.scriptRoot + "/overlays/workspace-empty.sh"]
         interval: 300000
+    }
+
+    Connections {
+        function onWidgetEditModeRequested() {
+            root.beginEdit();
+        }
+
+        target: Theme
     }
 
     Connections {
@@ -71,13 +129,13 @@ Scope {
             readonly property bool atBottom: modelData.anchor === "bottom-left" || modelData.anchor === "bottom-right"
 
             screen: Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
-            implicitWidth: modelData.anchor === "centre" ? 1 : widgetBox.width
-            implicitHeight: modelData.anchor === "centre" ? 1 : widgetBox.height
+            implicitWidth: modelData.anchor === "centre" ? 1 : widgetRenderer.width
+            implicitHeight: modelData.anchor === "centre" ? 1 : widgetRenderer.height
             exclusiveZone: 0
             exclusionMode: ExclusionMode.Ignore
             focusable: false
             color: "transparent"
-            visible: modelData.visibility !== "empty-workspace" || root.activeWorkspaceEmpty()
+            visible: !root.editMode && (modelData.visibility !== "empty-workspace" || root.activeWorkspaceEmpty())
             WlrLayershell.layer: WlrLayer.Background
             WlrLayershell.namespace: "blox-widget-" + modelData.id
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
@@ -96,29 +154,20 @@ Scope {
                 bottom: widgetWindow.atBottom ? modelData.offset_y : 0
             }
 
-            ScriptPoller {
-                id: widgetContent
-
-                command: root.widgetContentCommand(widgetWindow.modelData)
-                interval: widgetWindow.modelData.interval_ms
-            }
-
-            OverlayBox {
-                id: widgetBox
+            Shared.DesktopWidget {
+                id: widgetRenderer
 
                 x: widgetWindow.modelData.anchor === "centre" ? Math.round((parent.width - width) / 2) + widgetWindow.modelData.offset_x : 0
                 y: widgetWindow.modelData.anchor === "centre" ? Math.round((parent.height - height) / 2) + widgetWindow.modelData.offset_y : 0
-                text: widgetContent.raw.length > 0 ? widgetContent.raw : "Loading..."
-                desiredWidth: widgetWindow.modelData.width
-                desiredHeight: widgetWindow.modelData.height
-                shape: widgetWindow.modelData.shape
+                widget: widgetWindow.modelData
+                scriptRoot: root.scriptRoot
                 onLeftClicked: {
                     root.run(root.commandFor(widgetWindow.modelData.left_click_command));
-                    widgetContent.refresh();
+                    widgetRenderer.refresh();
                 }
                 onRightClicked: {
                     root.run(root.commandFor(widgetWindow.modelData.right_click_command));
-                    widgetContent.refresh();
+                    widgetRenderer.refresh();
                 }
             }
 
@@ -126,49 +175,37 @@ Scope {
 
     }
 
-    component OverlayBox: Rectangle {
-        id: box
+    WidgetEditMode {
+        active: root.editMode
+        items: root.editItems
+        onItemChanged: (index, item) => {
+            return root.replaceEditItem(index, item);
+        }
+        onExitRequested: root.cancelEdit()
+        onSaveRequested: root.saveEdit()
+    }
 
-        property string text: ""
-        property int desiredWidth: 0
-        property int desiredHeight: 0
-        property string shape: "auto"
-
-        signal leftClicked()
-        signal rightClicked()
-
-        width: desiredWidth > 0 ? desiredWidth : content.implicitWidth + Theme.widgetPadding * 2
-        height: desiredHeight > 0 ? desiredHeight : content.implicitHeight + Theme.widgetPadding * 2
-        color: Theme.withAlpha(Theme.background, Theme.widgetOpacity)
-        radius: shape === "circle" ? Math.min(width, height) / 2 : shape === "rounded" ? Math.max(10, Theme.widgetRadius) : shape === "rectangle" ? 0 : Theme.widgetRadius
-
-        Text {
-            id: content
-
-            anchors.left: parent.left
-            anchors.top: parent.top
-            anchors.margins: Theme.widgetPadding
-            text: box.text
-            color: Theme.foreground
-            font.family: Theme.bodyFontFamily
-            font.pixelSize: Theme.widgetFontSize
-            wrapMode: Text.NoWrap
-            horizontalAlignment: Text.AlignLeft
-            verticalAlignment: Text.AlignTop
+    IpcHandler {
+        function open() : string {
+            return root.beginEdit();
         }
 
-        MouseArea {
-            anchors.fill: parent
-            acceptedButtons: Qt.LeftButton | Qt.RightButton
-            cursorShape: Qt.PointingHandCursor
-            onClicked: (event) => {
-                if (event.button === Qt.RightButton)
-                    box.rightClicked();
-                else
-                    box.leftClicked();
-            }
+        function close() : string {
+            return root.cancelEdit();
         }
 
+        function save() : string {
+            return root.saveEdit();
+        }
+
+        function status() : string {
+            return JSON.stringify({
+                "active": root.editMode,
+                "items": root.editItems
+            });
+        }
+
+        target: "widget-edit"
     }
 
 }

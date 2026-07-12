@@ -60,6 +60,8 @@ Singleton {
 
     signal osdPositionPreviewRequested()
     signal notificationPositionPreviewRequested()
+    signal widgetEditModeRequested()
+    signal widgetEditModeFinished(string widgetsJson)
 
     function withAlpha(colour, opacity) : color {
         return Qt.rgba(colour.r, colour.g, colour.b, opacity);
@@ -306,6 +308,8 @@ Singleton {
             bodyFontFamily = data.fonts.ui;
             loadShell(data.shell);
             loadWidgetSource(data.widgets ? data.widgets.profile : "minimal");
+            if (data.widgets && data.widgets.items)
+                widgetItems = data.widgets.items;
             return true;
         } catch (error) {
             console.warn("[blox.theme] rejected source preview: " + error);
@@ -373,7 +377,7 @@ Singleton {
         }
         onFileChanged: {
             if (!root.previewActive)
-                reload();
+                reloadWidgets();
 
         }
     }

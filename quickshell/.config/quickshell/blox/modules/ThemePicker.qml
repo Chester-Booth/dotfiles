@@ -62,6 +62,7 @@ FloatingWindow {
     property var widgetDraft: null
     property int widgetEditIndex: -1
     property int selectedWidgetIndex: -1
+    property bool widgetEditModePending: false
     property bool exportIncludeWallpaper: true
     property bool exportIncludeWidgets: true
     property string generatedDownloadTarget: ""
@@ -657,25 +658,25 @@ FloatingWindow {
         });
     }
 
-    function barPreviewGlyph(id) {
-        const glyphs = {
-            "power": "⏻",
-            "notes": "󰭦",
-            "workspaces": "󰀼",
-            "clock": "󱖓",
-            "battery": "󰁹",
-            "tray": "󰔀",
-            "notifications": "󰂜",
-            "wifi": "󰐩",
-            "sound": "󰕾",
-            "privacy": "󰕹",
-            "awake": "󰕶",
-            "display": "󰃠",
-            "bt": "󰂯",
-            "updates": "󰇚",
-            "application-tray": "󰸕"
+    function barPreviewIcon(id) {
+        const icons = {
+            "power": "power",
+            "notes": "notebook-tabs",
+            "workspaces": "grid-2x2",
+            "clock": "clock",
+            "battery": "battery",
+            "tray": "panels-top-left",
+            "notifications": "bell",
+            "wifi": "wifi",
+            "sound": "volume-2",
+            "privacy": "shield",
+            "awake": "coffee",
+            "display": "sun",
+            "bt": "bluetooth",
+            "updates": "refresh-cw",
+            "application-tray": "app-window"
         };
-        return glyphs[id] || "•";
+        return icons[id] || "app-window";
     }
 
     function widgetItems() {
@@ -774,7 +775,7 @@ FloatingWindow {
             "left_click_command": "",
             "right_click_command": "",
             "interval_ms": 60000,
-            "visibility": "always",
+            "visibility": "empty-workspace",
             "anchor": "top-left",
             "offset_x": 20,
             "offset_y": 20,
@@ -851,6 +852,15 @@ FloatingWindow {
         widgetEditIndex = index;
         widgetDraft = index >= 0 ? JSON.parse(JSON.stringify(widgetItems()[index])) : newWidgetDraft("custom");
         showModal("widget");
+    }
+
+    function openWidgetEditMode() {
+        if (!candidate || widgetEditModePending)
+            return ;
+
+        widgetEditModePending = true;
+        rendered = false;
+        Theme.widgetEditModeRequested();
     }
 
     function saveWidgetDraft() {
@@ -1380,6 +1390,26 @@ FloatingWindow {
             hideTimer.restart();
     }
 
+    Connections {
+        function onWidgetEditModeFinished(widgetsJson) {
+            if (!root.widgetEditModePending)
+                return ;
+
+            root.widgetEditModePending = false;
+            if (widgetsJson.length > 0) {
+                try {
+                    root.setWidgetItems(JSON.parse(widgetsJson));
+                    root.statusMessage = "Widget positions updated from edit mode.";
+                } catch (error) {
+                    root.errorMessage = "Could not read the widget edit result: " + error;
+                }
+            }
+            root.rendered = true;
+        }
+
+        target: Theme
+    }
+
     Timer {
         id: hideTimer
 
@@ -1794,7 +1824,8 @@ FloatingWindow {
                     }
 
                     BloxButton {
-                        text: "×  Close"
+                        iconName: "x"
+                        text: "Close"
                         onClicked: root.requestClose()
                     }
 
@@ -1834,7 +1865,9 @@ FloatingWindow {
 
                             BloxButton {
                                 Layout.fillWidth: true
-                                text: "＋  New theme"
+                                iconName: "plus"
+                                iconSize: 20
+                                text: "New theme"
                                 enabled: root.candidate && !root.dirty && !root.busy
                                 onClicked: newThemeMenu.open()
 
@@ -1886,14 +1919,16 @@ FloatingWindow {
 
                                 BloxButton {
                                     Layout.fillWidth: true
-                                    text: "⇩  Import"
+                                    iconName: "download"
+                                    text: "Import"
                                     enabled: !root.dirty && !root.busy
                                     onClicked: root.openImportDialog()
                                 }
 
                                 BloxButton {
                                     Layout.fillWidth: true
-                                    text: "⇧  Export"
+                                    iconName: "upload"
+                                    text: "Export"
                                     enabled: root.candidate && root.sourceDigest.length > 0 && !root.dirty && !root.busy
                                     onClicked: root.openExportDialog()
                                 }
@@ -1973,10 +2008,10 @@ FloatingWindow {
 
                                         Text {
                                             anchors.centerIn: parent
-                                            text: "⋮"
+                                            text: Lucide.icon("ellipsis")
                                             color: kebabMouse.containsMouse || themeActions.visible ? Theme.foreground : Theme.muted
-                                            font.family: Theme.bodyFontFamily
-                                            font.pixelSize: 20
+                                            font.family: Lucide.family
+                                            font.pixelSize: 18
                                         }
 
                                         MouseArea {
@@ -2509,6 +2544,11 @@ FloatingWindow {
                                                     Layout.fillWidth: true
                                                     Layout.preferredHeight: 12
                                                     z: 1
+                                                    onEntered: (drag) => {
+                                                        if (drag.source && drag.source.barItemId)
+                                                            root.moveBarItemTo(drag.source.barItemId, regionSection.modelData, barItemRepeater.count);
+
+                                                    }
                                                     onDropped: (drop) => {
                                                         if (drop.source && drop.source.barItemId)
                                                             root.moveBarItemTo(drop.source.barItemId, regionSection.modelData, barItemRepeater.count);
@@ -2550,6 +2590,7 @@ FloatingWindow {
                                                         Drag.source: barItemRow
                                                         Drag.hotSpot.x: width / 2
                                                         Drag.hotSpot.y: height / 2
+                                                        z: handleDrag.active || emptyDrag.active ? 20 : 0
 
                                                         RowLayout {
                                                             anchors.fill: parent
@@ -2560,22 +2601,12 @@ FloatingWindow {
                                                                 Layout.preferredWidth: 18
                                                                 Layout.fillHeight: true
 
-                                                                Column {
+                                                                Text {
                                                                     anchors.centerIn: parent
-                                                                    spacing: 3
-
-                                                                    Repeater {
-                                                                        model: 3
-
-                                                                        Rectangle {
-                                                                            width: 14
-                                                                            height: 2
-                                                                            radius: 1
-                                                                            color: handleHover.hovered ? Theme.foreground : Theme.muted
-                                                                        }
-
-                                                                    }
-
+                                                                    text: Lucide.icon("grip-vertical")
+                                                                    color: handleHover.hovered ? Theme.foreground : Theme.muted
+                                                                    font.family: Lucide.family
+                                                                    font.pixelSize: 17
                                                                 }
 
                                                                 HoverHandler {
@@ -2587,7 +2618,7 @@ FloatingWindow {
                                                                 DragHandler {
                                                                     id: handleDrag
 
-                                                                    target: null
+                                                                    target: barItemRow
                                                                     acceptedButtons: Qt.LeftButton
                                                                 }
 
@@ -2615,7 +2646,7 @@ FloatingWindow {
                                                                 DragHandler {
                                                                     id: emptyDrag
 
-                                                                    target: null
+                                                                    target: barItemRow
                                                                     acceptedButtons: Qt.LeftButton
                                                                 }
 
@@ -2625,7 +2656,13 @@ FloatingWindow {
 
                                                         DropArea {
                                                             anchors.fill: parent
+                                                            enabled: !(handleDrag.active || emptyDrag.active)
                                                             z: 2
+                                                            onEntered: (drag) => {
+                                                                if (drag.source && drag.source.barItemId && drag.source.barItemId !== barItemRow.barItemId)
+                                                                    root.moveBarItemTo(drag.source.barItemId, regionSection.modelData, barItemRow.index);
+
+                                                            }
                                                             onDropped: (drop) => {
                                                                 if (drop.source && drop.source.barItemId && drop.source.barItemId !== barItemRow.barItemId)
                                                                     root.moveBarItemTo(drop.source.barItemId, regionSection.modelData, barItemRow.index);
@@ -2967,7 +3004,8 @@ FloatingWindow {
                                             BloxButton {
                                                 required property var modelData
 
-                                                text: "⇩  " + root.targetLabel(modelData.target) + " · " + modelData.name
+                                                iconName: "download"
+                                                text: root.targetLabel(modelData.target) + " · " + modelData.name
                                                 onClicked: root.downloadGeneratedFile(modelData.target, modelData.file)
                                             }
 
@@ -3058,7 +3096,8 @@ FloatingWindow {
                                                             BloxButton {
                                                                 visible: overrideEditor.overrideValue.length > 0
                                                                 Layout.preferredWidth: 38
-                                                                text: "↺"
+                                                                iconName: "rotate-ccw"
+                                                                text: ""
                                                                 onClicked: root.setOverride(overrideEditor.targetName, overrideEditor.modelData, "")
                                                             }
 
@@ -3093,17 +3132,26 @@ FloatingWindow {
                                         }
 
                                         BloxButton {
+                                            iconName: "grid-2x2"
+                                            text: "Edit mode"
+                                            onClicked: root.openWidgetEditMode()
+                                        }
+
+                                        BloxButton {
+                                            iconName: "plus"
                                             text: "New Widget"
                                             onClicked: root.openWidgetEditor(-1)
                                         }
 
                                         BloxButton {
-                                            text: "⇩  Import"
+                                            iconName: "download"
+                                            text: "Import"
                                             onClicked: widgetImportDialog.open()
                                         }
 
                                         BloxButton {
-                                            text: "⇧  Export"
+                                            iconName: "upload"
+                                            text: "Export"
                                             onClicked: widgetExportDialog.open()
                                         }
 
@@ -3176,12 +3224,14 @@ FloatingWindow {
                                     }
 
                                     Label {
+                                        visible: false
                                         text: "Position"
                                         color: Theme.foreground
                                         font.bold: true
                                     }
 
                                     Text {
+                                        visible: false
                                         Layout.fillWidth: true
                                         text: "Drag a widget to position it. Drop near a corner to snap it; drag any edge to resize."
                                         color: Theme.muted
@@ -3191,6 +3241,7 @@ FloatingWindow {
                                     Rectangle {
                                         id: widgetCanvas
 
+                                        visible: false
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: Math.min(520, width * 9 / 16)
                                         clip: true
@@ -3310,9 +3361,9 @@ FloatingWindow {
 
                                                 Text {
                                                     anchors.centerIn: parent
-                                                    text: root.barPreviewGlyph(parent.modelData.id)
+                                                    text: Lucide.icon(root.barPreviewIcon(parent.modelData.id))
                                                     color: Theme.foreground
-                                                    font.family: Theme.fontFamily
+                                                    font.family: Lucide.family
                                                     font.pixelSize: 8
                                                 }
 
@@ -3538,7 +3589,7 @@ FloatingWindow {
                                     }
 
                                     GridLayout {
-                                        visible: root.selectedWidgetIndex >= 0 && root.selectedWidgetIndex < root.widgetItems().length
+                                        visible: false
                                         Layout.fillWidth: true
                                         columns: 4
                                         columnSpacing: 10
@@ -3705,7 +3756,8 @@ FloatingWindow {
                     }
 
                     BloxButton {
-                        text: "✓  Save"
+                        iconName: "save"
+                        text: "Save"
                         enabled: root.candidate && root.dirty && root.candidateValid && !root.busy
                         onClicked: root.saveCandidate("")
                     }
@@ -4019,7 +4071,8 @@ FloatingWindow {
                             BloxButton {
                                 visible: root.guideTarget === "stylus"
                                 Layout.alignment: Qt.AlignRight
-                                text: "⇩  Download file"
+                                iconName: "download"
+                                text: "Download file"
                                 onClicked: root.downloadGeneratedFile("stylus", "stylus/blox-system.user.css")
                             }
 
@@ -4378,7 +4431,8 @@ FloatingWindow {
                                 id: modalCancelButton
 
                                 visible: root.modalKind !== "progress" || root.applyProgressComplete
-                                text: root.modalKind === "progress" || root.modalKind === "guide" ? "×  Close" : "Cancel"
+                                iconName: root.modalKind === "progress" || root.modalKind === "guide" ? "x" : ""
+                                text: root.modalKind === "progress" || root.modalKind === "guide" ? "Close" : "Cancel"
                                 onClicked: root.dismissModal()
                             }
 

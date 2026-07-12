@@ -11,8 +11,13 @@ Item {
     property real panelExtent: 0
 
     function mappedCentre(item, centre) {
-        const point = item.mapToItem(root, item.width / 2, centre);
-        return root.horizontal ? root.x + point.x : root.y + point.y;
+        // mapToItem(root) only includes this delegate's local offset. Once an
+        // item is moved between the start, centre and end layouts that misses
+        // the layout ancestors, so the popout remains near its old region.
+        // A null target maps into the panel window's scene coordinates, which
+        // are exactly the coordinates expected by PopupWindow.anchor.rect.
+        const point = item.mapToItem(null, item.width / 2, centre);
+        return root.horizontal ? point.x : point.y;
     }
 
     // Keep the cross-axis extent stable. Content such as the expandable battery
@@ -163,7 +168,10 @@ Item {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onEntered: root.controller.hoverButtonEntered("calendar", root.controller.openPanelY, "calendar")
+                    onEntered: {
+                        const point = mapToItem(null, width / 2, height / 2);
+                        root.controller.hoverButtonEntered("calendar", root.horizontal ? point.x : point.y, "calendar");
+                    }
                     onExited: root.controller.hoverButtonExited("calendar")
                     onClicked: root.controller.clockDateMode = !root.controller.clockDateMode
                 }
@@ -177,17 +185,23 @@ Item {
     Component {
         id: batteryComponent
 
-        Flow {
-            flow: root.horizontal ? Flow.LeftToRight : Flow.TopToBottom
-            width: root.horizontal ? implicitWidth : Theme.buttonSize
-            height: root.horizontal ? Theme.buttonSize : implicitHeight
+        Item {
+            implicitWidth: root.horizontal && root.controller.batteryExpanded ? Theme.buttonSize * 2 : Theme.buttonSize
+            implicitHeight: !root.horizontal && root.controller.batteryExpanded ? Theme.buttonSize * 2 : Theme.buttonSize
+            width: implicitWidth
+            height: implicitHeight
 
             BatteryRailButton {
+                id: batteryButton
+
+                x: 0
+                y: 0
                 status: root.controller.battery.json
                 popupY: root.panelExtent - 24
                 onToggleExpanded: {
+                    const expanded = !root.controller.batteryExpanded;
                     root.controller.closeDrawers();
-                    root.controller.batteryExpanded = !root.controller.batteryExpanded;
+                    root.controller.batteryExpanded = expanded;
                 }
                 onSystemPanelRequested: (centre) => {
                     return root.controller.togglePanel("system", root.mappedCentre(this, centre));
@@ -199,6 +213,8 @@ Item {
             }
 
             BatteryCapacityTile {
+                x: root.horizontal ? batteryButton.width : 0
+                y: root.horizontal ? 0 : batteryButton.height
                 status: root.controller.battery.json
                 expanded: root.controller.batteryExpanded
                 onCollapse: root.controller.batteryExpanded = false

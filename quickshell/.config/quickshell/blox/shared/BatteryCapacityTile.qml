@@ -18,7 +18,7 @@ Rectangle {
         if (!Number.isFinite(capacity) || capacity < 0 || capacity > 100)
             return "";
 
-        return String(Math.round(capacity));
+        return String(Math.round(capacity)) + "%";
     }
 
     Layout.alignment: Qt.AlignHCenter

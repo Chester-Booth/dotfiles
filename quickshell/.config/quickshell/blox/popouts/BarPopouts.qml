@@ -238,7 +238,7 @@ Item {
 
         anchorWindow: root.panelWindow
         anchorX: root.popupX(mediaPlayer.implicitWidth, root.openPanelX)
-        anchorY: Math.max(8, systemWindow.anchorY - mediaPlayer.implicitHeight - 8)
+        anchorY: Theme.barPosition === "left" || Theme.barPosition === "right" ? Math.max(8, systemWindow.anchorY - mediaPlayer.implicitHeight - 8) : root.popupY(mediaPlayer.implicitHeight, root.openPanelY)
         contentWidth: 330
         contentHeight: mediaPlayer.implicitHeight
         open: root.openPanel === "audio"

@@ -37,7 +37,8 @@ class WidgetPickerSourceTests(unittest.TestCase):
         self.assertGreaterEqual(edit_mode.count("Qt.SizeHorCursor"), 1)
         self.assertGreaterEqual(edit_mode.count("Qt.SizeVerCursor"), 1)
         self.assertIn("height: 48", edit_mode)
-        self.assertIn("positionGrid.implicitWidth", edit_mode)
+        self.assertIn("width: root.selectedItem ? 300", edit_mode)
+        self.assertIn('text: "Scale"', edit_mode)
 
 
 if __name__ == "__main__":

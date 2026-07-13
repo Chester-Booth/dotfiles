@@ -58,6 +58,7 @@ Item {
     // offsets left- and centre-anchored cards even though their anchor is
     // technically correct.
     width: toastWidth
+    height: implicitHeight
     implicitHeight: toastColumn.implicitHeight
     onToastsChanged: pruneEntranceHistory()
 

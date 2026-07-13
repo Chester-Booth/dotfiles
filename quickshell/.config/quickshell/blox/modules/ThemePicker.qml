@@ -347,13 +347,16 @@ FloatingWindow {
 
     function openPicker() {
         hideTimer.stop();
+        // An interrupted widget-edit transition used to leave the picker open
+        // internally but permanently hidden.  Opening the picker is an
+        // explicit request to return to it, so always cancel that transient
+        // mode first.
+        widgetEditModePending = false;
+        Theme.widgetEditModeCancelRequested();
+        Quickshell.execDetached(["sh", "-c", "if [ \"$(hyprctl activeworkspace -j | jq -r .name)\" = blox-widget-edit ]; then hyprctl dispatch 'hl.dsp.focus({ workspace = \"previous\" })' >/dev/null; fi; sleep 0.15; workspace=$(hyprctl activeworkspace -j | jq -r .id); hyprctl dispatch movetoworkspacesilent \"$workspace,title:^(Blox Theme Picker)$\" >/dev/null"]);
         open = true;
         rendered = true;
-        Qt.callLater(() => {
-            if (root.rendered && root._backingWindow)
-                root._backingWindow.requestActivate();
-
-        });
+        revealTimer.restart();
         statusMessage = "Loading themes…";
         if (themes.length === 0)
             refreshThemes(false);
@@ -449,9 +452,9 @@ FloatingWindow {
 
     function setWidgetProfile(value) {
         const next = cloneCandidate();
-        next.widgets = {
-            "profile": value
+        next.widgets = next.widgets || {
         };
+        next.widgets.profile = value;
         markCandidate(next);
     }
 
@@ -765,7 +768,7 @@ FloatingWindow {
         const commands = {
             "music": "cava",
             "calendar": "gcalcli agenda",
-            "clock": "tty-clock -c",
+            "clock": "tty-clock",
             "aquarium": "asciiquarium",
             "pipes": "pipes.sh",
             "tree": "cbonsai -l",
@@ -790,7 +793,8 @@ FloatingWindow {
             "height": 0,
             "shape": "auto",
             "options": {
-                "auto_size": true
+                "auto_size": true,
+                "scale": 1
             }
         };
     }
@@ -824,7 +828,7 @@ FloatingWindow {
 
         next.options[key] = value;
         if (next.type === "clock") {
-            const flags = ["tty-clock", "-c"];
+            const flags = ["tty-clock"];
             if (next.options.twelve_hour)
                 flags.push("-t");
 
@@ -1453,6 +1457,25 @@ FloatingWindow {
         }
 
         target: Theme
+    }
+
+    Timer {
+        id: revealTimer
+
+        interval: 320
+        repeat: false
+        onTriggered: {
+            if (!root.open || !root.rendered)
+                return ;
+
+            // Floating windows keep their Hyprland workspace across hides.
+            // Move a picker stranded by widget edit mode back to the workspace
+            Qt.callLater(() => {
+                if (root.open && root._backingWindow)
+                    root._backingWindow.requestActivate();
+
+            });
+        }
     }
 
     Timer {
@@ -2636,15 +2659,26 @@ FloatingWindow {
                                                         radius: 8
                                                         color: handleDrag.active || emptyDrag.active ? Theme.withAlpha(Theme.blue, 0.15) : Theme.background
                                                         border.color: handleDrag.active || emptyDrag.active ? Theme.blue : Theme.border
-                                                        Drag.active: handleDrag.active || emptyDrag.active
-                                                        Drag.source: barItemRow
-                                                        // Keep the layout-owned pill in place and move only the
-                                                        // drag hot spot. Moving the delegate itself makes the
-                                                        // layout immediately restore its position as soon as the
-                                                        // pointer leaves the pill, which cancels cross-pill drops.
-                                                        Drag.hotSpot.x: handleDrag.active ? handleDrag.parent.x + handleDrag.centroid.position.x : emptyDrag.active ? emptyDrag.parent.x + emptyDrag.centroid.position.x : width / 2
-                                                        Drag.hotSpot.y: handleDrag.active ? handleDrag.parent.y + handleDrag.centroid.position.y : emptyDrag.active ? emptyDrag.parent.y + emptyDrag.centroid.position.y : height / 2
                                                         z: handleDrag.active || emptyDrag.active ? 20 : 0
+
+                                                        // The layout owns the pill's position, so use a tiny proxy
+                                                        // as the actual drag source.  Dragging only the pill's hot
+                                                        // spot does not move the QML drag point and the drag leaves
+                                                        // every DropArea as soon as the pointer exits this row.
+                                                        Item {
+                                                            id: barDragProxy
+
+                                                            property string barItemId: barItemRow.barItemId
+
+                                                            width: 1
+                                                            height: 1
+                                                            x: barItemRow.width / 2
+                                                            y: barItemRow.height / 2
+                                                            Drag.active: handleDrag.active || emptyDrag.active
+                                                            Drag.source: barDragProxy
+                                                            Drag.hotSpot.x: width / 2
+                                                            Drag.hotSpot.y: height / 2
+                                                        }
 
                                                         RowLayout {
                                                             anchors.fill: parent
@@ -2672,8 +2706,14 @@ FloatingWindow {
                                                                 DragHandler {
                                                                     id: handleDrag
 
-                                                                    target: null
+                                                                    target: barDragProxy
                                                                     acceptedButtons: Qt.LeftButton
+                                                                    onActiveChanged: {
+                                                                        if (!active) {
+                                                                            barDragProxy.x = barItemRow.width / 2;
+                                                                            barDragProxy.y = barItemRow.height / 2;
+                                                                        }
+                                                                    }
                                                                 }
 
                                                             }
@@ -2700,8 +2740,14 @@ FloatingWindow {
                                                                 DragHandler {
                                                                     id: emptyDrag
 
-                                                                    target: null
+                                                                    target: barDragProxy
                                                                     acceptedButtons: Qt.LeftButton
+                                                                    onActiveChanged: {
+                                                                        if (!active) {
+                                                                            barDragProxy.x = barItemRow.width / 2;
+                                                                            barDragProxy.y = barItemRow.height / 2;
+                                                                        }
+                                                                    }
                                                                 }
 
                                                             }
@@ -3213,6 +3259,26 @@ FloatingWindow {
                                     visible: root.editorMode === "widgets"
                                     Layout.fillWidth: true
                                     spacing: 12
+
+                                    Label {
+                                        text: "Style"
+                                        color: Theme.foreground
+                                        font.pixelSize: 17
+                                        font.bold: true
+                                    }
+
+                                    BloxComboBox {
+                                        Layout.fillWidth: true
+                                        model: ["minimal", "compact", "comfortable"]
+                                        currentIndex: {
+                                            root.candidateRevision;
+                                            const profile = root.candidate && root.candidate.widgets ? root.candidate.widgets.profile : "minimal";
+                                            return Math.max(0, model.indexOf(profile));
+                                        }
+                                        onActivated: (index, value) => {
+                                            return root.setWidgetProfile(value);
+                                        }
+                                    }
 
                                     RowLayout {
                                         Layout.fillWidth: true
@@ -4431,6 +4497,8 @@ FloatingWindow {
 
                             RowLayout {
                                 visible: root.widgetDraft && root.widgetDraft.type === "file"
+                                Layout.fillWidth: true
+                                Layout.rightMargin: 10
 
                                 BloxCheckBox {
                                     text: "Show filename"

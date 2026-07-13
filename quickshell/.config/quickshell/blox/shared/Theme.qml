@@ -61,6 +61,7 @@ Singleton {
     signal osdPositionPreviewRequested()
     signal notificationPositionPreviewRequested()
     signal widgetEditModeRequested()
+    signal widgetEditModeCancelRequested()
     signal widgetEditModeFinished(string widgetsJson)
 
     function withAlpha(colour, opacity) : color {

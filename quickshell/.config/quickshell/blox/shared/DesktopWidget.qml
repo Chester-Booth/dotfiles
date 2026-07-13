@@ -14,8 +14,10 @@ Rectangle {
     property string terminalFrame: ""
     readonly property bool terminalPreset: ["music", "clock", "aquarium", "pipes", "tree", "matrix", "train"].indexOf(widget.type) >= 0
     readonly property bool autoSize: widget.options && widget.options.auto_size === true
-    readonly property int configuredWidth: overrideWidth > 0 ? overrideWidth : autoSize ? 0 : Number(widget.width || 0)
-    readonly property int configuredHeight: overrideHeight > 0 ? overrideHeight : autoSize ? 0 : Number(widget.height || 0)
+    readonly property real widgetScale: Math.max(0.25, Math.min(4, Number(widget.options && widget.options.scale || 1)))
+    readonly property real scaledPadding: Theme.widgetPadding * widgetScale
+    readonly property int configuredWidth: autoSize ? 0 : Number(widget.width || 0)
+    readonly property int configuredHeight: autoSize ? 0 : Number(widget.height || 0)
 
     signal leftClicked()
     signal rightClicked()
@@ -28,8 +30,10 @@ Rectangle {
         if (!root.terminalPreset)
             return ["sh", "-c", root.expandedCommand(root.widget.content_command)];
 
-        const columns = root.configuredWidth > 0 ? Math.max(10, Math.floor(root.configuredWidth / Math.max(6, Theme.widgetFontSize * 0.6))) : 60;
-        const rows = root.configuredHeight > 0 ? Math.max(4, Math.floor(root.configuredHeight / Math.max(10, Theme.widgetFontSize * 1.25))) : 20;
+        const logicalWidth = root.overrideWidth > 0 ? root.overrideWidth / root.widgetScale : root.configuredWidth;
+        const logicalHeight = root.overrideHeight > 0 ? root.overrideHeight / root.widgetScale : root.configuredHeight;
+        const columns = logicalWidth > 0 ? Math.max(10, Math.floor(logicalWidth / Math.max(6, Theme.widgetFontSize * 0.6))) : 60;
+        const rows = logicalHeight > 0 ? Math.max(4, Math.floor(logicalHeight / Math.max(10, Theme.widgetFontSize * 1.25))) : 20;
         return [root.scriptRoot + "/overlays/terminal-frame.py", root.widget.type, "--stream", "--frame-ms", "100", "--command", root.expandedCommand(root.widget.content_command), "--columns", String(columns), "--rows", String(rows)];
     }
 
@@ -44,8 +48,8 @@ Rectangle {
         }
     }
 
-    width: configuredWidth > 0 ? configuredWidth : content.implicitWidth + Theme.widgetPadding * 2
-    height: configuredHeight > 0 ? configuredHeight : content.implicitHeight + Theme.widgetPadding * 2
+    width: overrideWidth > 0 ? overrideWidth : configuredWidth > 0 ? configuredWidth * widgetScale : content.implicitWidth + scaledPadding * 2
+    height: overrideHeight > 0 ? overrideHeight : configuredHeight > 0 ? configuredHeight * widgetScale : content.implicitHeight + scaledPadding * 2
     color: widget.type === "aquarium" ? "#000000" : Theme.withAlpha(Theme.background, Theme.widgetOpacity)
     radius: widget.shape === "circle" ? Math.min(width, height) / 2 : widget.shape === "rounded" ? Math.max(10, Theme.widgetRadius) : widget.shape === "rectangle" ? 0 : Theme.widgetRadius
 
@@ -100,12 +104,12 @@ Rectangle {
 
         anchors.left: parent.left
         anchors.top: parent.top
-        anchors.margins: Theme.widgetPadding
+        anchors.margins: root.scaledPadding
         text: root.terminalPreset ? (root.terminalFrame.length > 0 ? root.terminalFrame : "Loading…") : (contentPoller.raw.length > 0 ? contentPoller.raw : "Loading…")
         textFormat: root.terminalPreset ? Text.RichText : Text.PlainText
         color: Theme.foreground
         font.family: root.terminalPreset ? Theme.monoFontFamily : Theme.bodyFontFamily
-        font.pixelSize: Theme.widgetFontSize
+        font.pixelSize: Theme.widgetFontSize * root.widgetScale
         wrapMode: Text.NoWrap
         horizontalAlignment: Text.AlignLeft
         verticalAlignment: Text.AlignTop

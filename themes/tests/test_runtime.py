@@ -171,6 +171,38 @@ class RuntimeTests(unittest.TestCase):
         for name in changed_files:
             self.assertNotEqual(before[name], (after_path / name).read_bytes(), name)
 
+    def test_wallpaper_apply_writes_config_then_restarts_hyprpaper(self) -> None:
+        runner = FakeCommands()
+        apply_theme(
+            self.canonical_path,
+            self.canonical,
+            ("wallpaper",),
+            run_command=runner,
+        )
+
+        config = self.state / "integration/hyprpaper.conf"
+        contents = config.read_text(encoding="utf-8")
+        self.assertIn(f"path = {Path(self.canonical['wallpaper']['path']).expanduser().resolve()}", contents)
+        self.assertIn(f"fit_mode = {self.canonical['wallpaper']['fit']}", contents)
+        self.assertIn(
+            ["systemctl", "--user", "stop", "blox-hyprpaper.service"],
+            runner.commands,
+        )
+        self.assertIn(["pkill", "-x", "hyprpaper"], runner.commands)
+        self.assertIn(
+            [
+                "systemd-run",
+                "--user",
+                "--unit=blox-hyprpaper",
+                "--collect",
+                "--quiet",
+                "hyprpaper",
+                "--config",
+                str(config),
+            ],
+            runner.commands,
+        )
+
     def test_render_failure_cannot_expose_partial_generation(self) -> None:
         self.apply_canonical()
         before = os.readlink(self.state / "current")

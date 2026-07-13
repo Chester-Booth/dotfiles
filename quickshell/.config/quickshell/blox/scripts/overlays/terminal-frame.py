@@ -20,7 +20,7 @@ import time
 
 PRESET_COMMANDS: dict[str, tuple[str, ...]] = {
     "music": ("cava",),
-    "clock": ("tty-clock", "-c"),
+    "clock": ("tty-clock",),
     "aquarium": ("asciiquarium",),
     "pipes": ("pipes.sh",),
     "tree": ("cbonsai", "-l"),
@@ -46,6 +46,32 @@ class AnsiScreen:
         self.foreground_colour: str | None = None
         self.background_colour: str | None = None
         self.bold = False
+        self.scroll_top = 0
+        self.scroll_bottom = rows - 1
+        self.saved_cursor = (0, 0)
+
+    def _blank_row(self) -> tuple[list[str], list[tuple[str | None, str | None, bool]]]:
+        return ([" "] * self.columns, [(None, None, False)] * self.columns)
+
+    def _reverse_index(self) -> None:
+        if self.row == self.scroll_top:
+            cells, styles = self._blank_row()
+            self.cells.insert(self.scroll_top, cells)
+            self.styles.insert(self.scroll_top, styles)
+            del self.cells[self.scroll_bottom + 1]
+            del self.styles[self.scroll_bottom + 1]
+        else:
+            self.row = max(self.scroll_top, self.row - 1)
+
+    def _index(self) -> None:
+        if self.row == self.scroll_bottom:
+            del self.cells[self.scroll_top]
+            del self.styles[self.scroll_top]
+            cells, styles = self._blank_row()
+            self.cells.insert(self.scroll_bottom, cells)
+            self.styles.insert(self.scroll_bottom, styles)
+        else:
+            self.row = min(self.rows - 1, self.row + 1)
 
     def feed(self, data: bytes) -> None:
         for char in data.decode("utf-8", errors="replace"):
@@ -57,6 +83,15 @@ class AnsiScreen:
                     self.state = "string"
                 elif char in "()*+":
                     self.state = "charset"
+                elif char == "M":
+                    self._reverse_index()
+                    self.state = "text"
+                elif char == "7":
+                    self.saved_cursor = (self.row, self.column)
+                    self.state = "text"
+                elif char == "8":
+                    self.row, self.column = self.saved_cursor
+                    self.state = "text"
                 else:
                     self.state = "text"
                 continue
@@ -83,7 +118,7 @@ class AnsiScreen:
             elif char == "\r":
                 self.column = 0
             elif char == "\n":
-                self.row = min(self.rows - 1, self.row + 1)
+                self._index()
             elif char == "\b":
                 self.column = max(0, self.column - 1)
             elif char == "\t":
@@ -115,10 +150,30 @@ class AnsiScreen:
             self.column = min(self.columns - 1, self.column + amount)
         elif final == "D":
             self.column = max(0, self.column - amount)
+        elif final == "E":
+            self.row = min(self.rows - 1, self.row + amount)
+            self.column = 0
+        elif final == "F":
+            self.row = max(0, self.row - amount)
+            self.column = 0
         elif final == "G":
             self.column = max(0, min(self.columns - 1, amount - 1))
         elif final == "d":
             self.row = max(0, min(self.rows - 1, amount - 1))
+        elif final == "r":
+            top = (values[0] or 1) - 1
+            bottom = (values[1] if len(values) > 1 and values[1] else self.rows) - 1
+            if 0 <= top < bottom < self.rows:
+                self.scroll_top = top
+                self.scroll_bottom = bottom
+            else:
+                self.scroll_top = 0
+                self.scroll_bottom = self.rows - 1
+            self.row = self.column = 0
+        elif final == "s":
+            self.saved_cursor = (self.row, self.column)
+        elif final == "u":
+            self.row, self.column = self.saved_cursor
         elif final == "J":
             mode = values[0]
             if mode in (2, 3):
@@ -132,6 +187,36 @@ class AnsiScreen:
             start, end = (0, self.columns) if mode == 2 else ((0, self.column + 1) if mode == 1 else (self.column, self.columns))
             self.cells[self.row][start:end] = [" "] * (end - start)
             self.styles[self.row][start:end] = [(None, None, False)] * (end - start)
+        elif final == "L":
+            for _ in range(min(amount, self.scroll_bottom - self.row + 1)):
+                cells, styles = self._blank_row()
+                self.cells.insert(self.row, cells)
+                self.styles.insert(self.row, styles)
+                del self.cells[self.scroll_bottom + 1]
+                del self.styles[self.scroll_bottom + 1]
+        elif final == "M":
+            for _ in range(min(amount, self.scroll_bottom - self.row + 1)):
+                del self.cells[self.row]
+                del self.styles[self.row]
+                cells, styles = self._blank_row()
+                self.cells.insert(self.scroll_bottom, cells)
+                self.styles.insert(self.scroll_bottom, styles)
+        elif final == "P":
+            count = min(amount, self.columns - self.column)
+            del self.cells[self.row][self.column:self.column + count]
+            del self.styles[self.row][self.column:self.column + count]
+            self.cells[self.row].extend([" "] * count)
+            self.styles[self.row].extend([(None, None, False)] * count)
+        elif final == "@":
+            count = min(amount, self.columns - self.column)
+            self.cells[self.row][self.column:self.column] = [" "] * count
+            self.styles[self.row][self.column:self.column] = [(None, None, False)] * count
+            del self.cells[self.row][self.columns:]
+            del self.styles[self.row][self.columns:]
+        elif final == "X":
+            end = min(self.columns, self.column + amount)
+            self.cells[self.row][self.column:end] = [" "] * (end - self.column)
+            self.styles[self.row][self.column:end] = [(None, None, False)] * (end - self.column)
         elif final == "m":
             # Preserve shapes drawn with coloured terminal backgrounds (notably
             # tty-clock) even though the QML widget supplies the final colour.
@@ -204,7 +289,15 @@ class AnsiScreen:
             lines.pop()
         return "\n".join(lines)
 
-    def rich_text(self) -> str:
+    def rich_text(self, crop: bool = False) -> str:
+        occupied = [
+            (row, column)
+            for row in range(self.rows)
+            for column in range(self.columns)
+            if self.cells[row][column] != " " or self.styles[row][column][1] is not None
+        ]
+        first_row = min((position[0] for position in occupied), default=0) if crop else 0
+        first_column = min((position[1] for position in occupied), default=0) if crop else 0
         last_row = max(
             (
                 row
@@ -215,7 +308,7 @@ class AnsiScreen:
             default=-1,
         )
         lines: list[str] = []
-        for row in range(last_row + 1):
+        for row in range(first_row, last_row + 1):
             last_column = max(
                 (
                     column
@@ -226,7 +319,7 @@ class AnsiScreen:
             )
             pieces: list[str] = []
             active = None
-            for column in range(last_column + 1):
+            for column in range(first_column, last_column + 1):
                 style = self.styles[row][column]
                 if style != active:
                     if active is not None:
@@ -258,6 +351,10 @@ def command_for(preset: str, requested: str = "") -> tuple[str, ...]:
     command = tuple(shlex.split(requested))
     if not command or os.path.basename(command[0]) != default[0]:
         raise ValueError(f"{preset} widgets must run {default[0]}")
+    if preset == "clock":
+        # The widget owns its geometry, so tty-clock must draw from the PTY's
+        # top-left instead of centring and adding terminal-sized padding.
+        command = tuple(argument for argument in command if argument != "-c")
     if len(command) > 24 or any(len(argument) > 256 or "\x00" in argument for argument in command):
         raise ValueError("terminal widget command options exceed the safety limits")
     return command
@@ -299,7 +396,7 @@ def capture(command: tuple[str, ...], rows: int, columns: int, duration: float, 
     return screen.text()
 
 
-def stream(command: tuple[str, ...], rows: int, columns: int, frame_interval: float, max_bytes_per_frame: int) -> int:
+def stream(command: tuple[str, ...], rows: int, columns: int, frame_interval: float, max_bytes_per_frame: int, crop: bool = False) -> int:
     """Run a terminal program once and emit newline-delimited rich-text frames."""
     master, slave = pty.openpty()
     termios.tcsetwinsize(slave, (rows, columns))
@@ -331,13 +428,13 @@ def stream(command: tuple[str, ...], rows: int, columns: int, frame_interval: fl
                 screen.feed(chunk)
             now = time.monotonic()
             if now >= next_frame:
-                rendered = screen.rich_text()
+                rendered = screen.rich_text(crop=crop)
                 if rendered and rendered != previous:
                     print(json.dumps(rendered, ensure_ascii=False), flush=True)
                     previous = rendered
                 next_frame = now + frame_interval
                 received = 0
-        rendered = screen.rich_text()
+        rendered = screen.rich_text(crop=crop)
         if rendered and rendered != previous:
             print(json.dumps(rendered, ensure_ascii=False), flush=True)
         return process.wait()
@@ -369,7 +466,7 @@ def main() -> int:
     try:
         command = command_for(args.preset, args.command)
         if args.stream:
-            return stream(command, rows, columns, max(0.05, min(1.0, args.frame_ms / 1000)), 256 * 1024)
+            return stream(command, rows, columns, max(0.05, min(1.0, args.frame_ms / 1000)), 256 * 1024, crop=args.preset == "clock")
         rendered = capture(command, rows, columns, duration, 256 * 1024)
     except FileNotFoundError:
         print(f"{PRESET_COMMANDS[args.preset][0]} is not installed")

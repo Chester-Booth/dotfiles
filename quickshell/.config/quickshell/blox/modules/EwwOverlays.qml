@@ -101,6 +101,12 @@ Scope {
             root.beginEdit();
         }
 
+        function onWidgetEditModeCancelRequested() {
+            if (root.editMode)
+                root.cancelEdit();
+
+        }
+
         target: Theme
     }
 
@@ -162,29 +168,20 @@ Scope {
                 widget: widgetWindow.modelData
                 scriptRoot: root.scriptRoot
                 onLeftClicked: {
-                    widgetAction.run(root.commandFor(widgetWindow.modelData.left_click_command));
+                    root.run(root.commandFor(widgetWindow.modelData.left_click_command));
+                    actionRefresh.restart();
                 }
                 onRightClicked: {
-                    widgetAction.run(root.commandFor(widgetWindow.modelData.right_click_command));
+                    root.run(root.commandFor(widgetWindow.modelData.right_click_command));
+                    actionRefresh.restart();
                 }
             }
 
-            Process {
-                id: widgetAction
+            Timer {
+                id: actionRefresh
 
-                function run(action) {
-                    if (action.length === 0) {
-                        widgetRenderer.refresh();
-                        return ;
-                    }
-                    if (running)
-                        return ;
-
-                    command = ["sh", "-c", action];
-                    running = true;
-                }
-
-                onExited: widgetRenderer.refresh()
+                interval: 500
+                onTriggered: widgetRenderer.refresh()
             }
 
         }

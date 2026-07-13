@@ -15,22 +15,22 @@ class NotificationRuntimeTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn("width: toastWidth", stack)
+        self.assertIn("height: implicitHeight", stack)
         self.assertIn("x: 0", stack)
         self.assertNotIn("width: visibleWidth + dismissTravel", stack)
         self.assertNotIn("x: root.dismissTravel + root.sidePadding", stack)
 
-    def test_position_preview_uses_the_runtime_toast_stack(self) -> None:
+    def test_position_preview_uses_a_real_desktop_notification(self) -> None:
         bar = (
             REPOSITORY / "quickshell/.config/quickshell/blox/modules/Bar.qml"
         ).read_text(encoding="utf-8")
-        preview = bar.split("id: notificationPositionPreviewWindow", 1)[1].split(
-            "UiState {", 1
-        )[0]
+        preview = bar.split(
+            "function onNotificationPositionPreviewRequested()", 1
+        )[1].split("target: Theme", 1)[0]
 
-        self.assertIn("NotificationToastStack {", preview)
-        self.assertIn('"summary": "Notification position"', preview)
-        self.assertIn("position: Theme.notificationPosition", preview)
-        self.assertNotIn('text: "Previewing " + Theme.notificationPosition', preview)
+        self.assertIn('Quickshell.execDetached(["notify-send"', preview)
+        self.assertIn('"Previewing " + Theme.notificationPosition', preview)
+        self.assertNotIn("notificationPositionPreviewWindow", bar)
 
 
 if __name__ == "__main__":

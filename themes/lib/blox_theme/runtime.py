@@ -896,11 +896,37 @@ def _reload_wallpaper(root: Path, mode: str, run_command: Callable[[list[str]], 
             data = json.loads(source.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as error:
             return f"Wallpaper metadata is invalid: {error}"
-    wallpaper = str(Path(data["path"]).expanduser())
-    command = ["hyprctl", "hyprpaper", "wallpaper", f",{wallpaper},{data['fit']}"]
+    wallpaper = str(Path(data["path"]).expanduser().resolve())
+    config = root / "integration/hyprpaper.conf"
+    config.parent.mkdir(parents=True, exist_ok=True)
+    temporary = config.with_name(f".{config.name}-{uuid.uuid4().hex}")
+    _write_text(
+        temporary,
+        "splash = false\nipc = true\n\nwallpaper {\n"
+        f"    monitor =\n    path = {wallpaper}\n    fit_mode = {data['fit']}\n"
+        "}\n",
+    )
+    os.replace(temporary, config)
+    _fsync_directory(config.parent)
+
+    # Restarting from the generated configuration keeps the on-disk source and
+    # the live daemon in sync.  A stale daemon may not expose an IPC socket, so
+    # the wallpaper command alone is not a reliable live update.
+    run_command(["systemctl", "--user", "stop", "blox-hyprpaper.service"])
+    run_command(["pkill", "-x", "hyprpaper"])
+    command = [
+        "systemd-run",
+        "--user",
+        "--unit=blox-hyprpaper",
+        "--collect",
+        "--quiet",
+        "hyprpaper",
+        "--config",
+        str(config),
+    ]
     result = run_command(command)
     if result.returncode != 0:
-        return f"Hyprpaper reload failed; run: {_command_text(command)}"
+        return f"Hyprpaper restart failed; run: {_command_text(command)}"
     return None
 
 

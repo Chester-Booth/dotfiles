@@ -160,6 +160,30 @@ class ThemeLibraryMutationTests(unittest.TestCase):
 
 
 class PickerIntegrationSourceTests(unittest.TestCase):
+    def test_widget_style_selector_preserves_widget_items(self) -> None:
+        qml = (
+            REPOSITORY
+            / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml"
+        ).read_text(encoding="utf-8")
+        setter = qml.split("function setWidgetProfile(value)", 1)[1].split(
+            "function setTarget", 1
+        )[0]
+        widgets = qml.split('visible: root.editorMode === "widgets"', 1)[1].split(
+            'text: "List"', 1
+        )[0]
+
+        self.assertIn('text: "Style"', widgets)
+        self.assertIn('["minimal", "compact", "comfortable"]', widgets)
+        self.assertIn("next.widgets.profile = value", setter)
+        self.assertNotIn('next.widgets = {\n            "profile": value', setter)
+
+    def test_bar_item_drag_uses_a_moving_proxy(self) -> None:
+        qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
+        self.assertIn("id: barDragProxy", qml)
+        self.assertEqual(2, qml.count("target: barDragProxy"))
+        self.assertIn("Drag.source: barDragProxy", qml)
+        self.assertNotIn("Drag.source: barItemRow", qml)
+
     def test_picker_uses_json_api_and_has_confirmation_paths(self) -> None:
         qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
         rules = (REPOSITORY / "hyprland/.config/hypr/conf.d/rules.lua").read_text(encoding="utf-8")
@@ -170,6 +194,9 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn("parentWindow: root._backingWindow", qml)
         self.assertIn("visible: open && !widgetEditModePending", qml)
         self.assertIn("hideTimer.stop()", qml)
+        self.assertIn("Theme.widgetEditModeCancelRequested()", qml)
+        self.assertIn("hl.dsp.focus({ workspace = \\\"previous\\\" })", qml)
+        self.assertIn("hyprctl dispatch movetoworkspacesilent", qml)
         self.assertIn("root._backingWindow.requestActivate()", qml)
         self.assertIn("root.contentItem.QsWindow.window.startSystemMove()", qml)
         self.assertIn('title = "^Blox Theme Picker$"', rules)
@@ -187,6 +214,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn('runApi("new-template", ["show", "blox-panel"])', qml)
         self.assertIn('text: "From blank"', qml)
         self.assertIn('text: "From wallpaper"', qml)
+        self.assertIn("Layout.rightMargin: 10", qml)
         self.assertIn('text: "Wallpaper"', qml)
         self.assertNotIn('text: "Generate"', qml)
         self.assertIn("acceptedButtons: Qt.LeftButton | Qt.RightButton", qml)
@@ -318,9 +346,8 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn('"Tray"', advanced)
         self.assertIn("root.setBarItemEnabled(barItemRow.modelData.id, value)", advanced)
         self.assertIn("Drag.active: handleDrag.active || emptyDrag.active", advanced)
-        self.assertEqual(2, advanced.count("target: null"))
-        self.assertIn("handleDrag.parent.x + handleDrag.centroid.position.x", advanced)
-        self.assertIn("emptyDrag.parent.y + emptyDrag.centroid.position.y", advanced)
+        self.assertEqual(2, advanced.count("target: barDragProxy"))
+        self.assertIn("Drag.source: barDragProxy", advanced)
         self.assertIn("root.moveBarItemTo(drop.source.barItemId", advanced)
         self.assertNotIn('text: "↑"', advanced)
         self.assertNotIn('text: "↓"', advanced)

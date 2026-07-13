@@ -43,11 +43,29 @@ class AnsiScreenTests(unittest.TestCase):
         self.assertIn("background-color:#005faf", rendered)
         self.assertIn("red", rendered)
 
+    def test_reverse_index_scroll_region_does_not_leave_aquarium_trails(self) -> None:
+        screen = terminal_frame.AnsiScreen(6, 8)
+        screen.feed(b"top\r\nold-1\r\nold-2\r\nold-3\r\nfooter\x1b[2;4r\x1b[2;1H\x1bMnew")
+        self.assertEqual("top\nnew\nold-1\nold-2\nfooter", screen.text())
+
+    def test_cursor_save_restore_and_character_erase_replace_clock_cells(self) -> None:
+        screen = terminal_frame.AnsiScreen(2, 8)
+        screen.feed(b"12:08\x1b7\x1b[1;4H\x1b[2X04\x1b8!")
+        self.assertEqual("12:04!", screen.text())
+
+    def test_clock_frame_can_crop_terminal_padding(self) -> None:
+        screen = terminal_frame.AnsiScreen(5, 10)
+        screen.feed(b"\x1b[3;5H\x1b[42m  X\x1b[0m")
+        rendered = screen.rich_text(crop=True)
+        self.assertFalse(rendered.startswith("<br>"))
+        self.assertEqual(3, rendered.count("&nbsp;") + rendered.count("X"))
+
 
 class TerminalWidgetSafetyTests(unittest.TestCase):
     def test_only_known_presets_can_be_resolved(self) -> None:
-        self.assertEqual(("tty-clock", "-c"), terminal_frame.command_for("clock"))
-        self.assertEqual(("tty-clock", "-c", "-s"), terminal_frame.command_for("clock", "tty-clock -c -s"))
+        self.assertEqual(("tty-clock",), terminal_frame.command_for("clock"))
+        self.assertEqual(("tty-clock", "-s"), terminal_frame.command_for("clock", "tty-clock -s"))
+        self.assertEqual(("tty-clock", "-s"), terminal_frame.command_for("clock", "tty-clock -c -s"))
         with self.assertRaisesRegex(ValueError, "must run tty-clock"):
             terminal_frame.command_for("clock", "sh -c 'tty-clock; touch /tmp/nope'")
         with self.assertRaisesRegex(ValueError, "unsupported"):

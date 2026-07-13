@@ -469,8 +469,8 @@ class CliContractTests(unittest.TestCase):
     def test_configured_battery_uses_live_status_without_cross_axis_jump(self) -> None:
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
         self.assertEqual(2, delegate.count("status: root.controller.battery.json"))
-        self.assertIn("implicitWidth: root.horizontal && contentLoader.item", delegate)
-        self.assertIn("implicitHeight: !root.horizontal && contentLoader.item", delegate)
+        self.assertIn("implicitWidth: !contentVisible ? 0 : root.horizontal", delegate)
+        self.assertIn("implicitHeight: !contentVisible ? 0 : !root.horizontal", delegate)
         battery_start = delegate.index("id: batteryComponent")
         tray_start = delegate.index("id: trayToggleComponent")
         application_tray_start = delegate.index("id: applicationTrayComponent")
@@ -486,6 +486,8 @@ class CliContractTests(unittest.TestCase):
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
         application_tray = delegate.split("id: applicationTrayComponent", 1)[1]
         self.assertIn("flow: root.horizontal ? Flow.LeftToRight : Flow.TopToBottom", application_tray)
+        self.assertIn("trayCount * Theme.buttonSize", application_tray)
+        self.assertIn("anchors.fill: parent", application_tray)
 
     def test_fan_and_gpu_are_configurable_runtime_items(self) -> None:
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
@@ -496,6 +498,8 @@ class CliContractTests(unittest.TestCase):
         self.assertIn('profile !== "Quiet"', delegate)
         self.assertIn('gpuMode === "gaming" ? "󰪫"', delegate)
         self.assertIn('gpuMode !== "eco"', delegate)
+        self.assertIn("visible: contentVisible", delegate)
+        self.assertIn("readonly property bool contentVisible", delegate)
 
     def test_all_commands_support_human_and_json_output(self) -> None:
         commands = (("list",), ("show", "blox-panel"), ("validate", "blox-panel"), ("render", "blox-panel"), ("preview", "blox-panel"), ("diff", "blox-panel"), ("doctor",))

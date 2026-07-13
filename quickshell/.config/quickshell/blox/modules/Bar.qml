@@ -67,7 +67,6 @@ Scope {
     property alias touchpad: barStatus.touchpad
     property alias privacy: barStatus.privacy
     property alias caffeine: barStatus.caffeine
-    property bool notificationPositionPreviewVisible: false
     readonly property bool horizontalBar: Theme.barPosition === "top" || Theme.barPosition === "bottom"
 
     function togglePanel(panel, centerY) {
@@ -369,81 +368,10 @@ Scope {
     Connections {
         function onNotificationPositionPreviewRequested() {
             root.diagLog("notification.preview", Theme.notificationPosition);
-            root.notificationPositionPreviewVisible = false;
-            Qt.callLater(() => {
-                root.notificationPositionPreviewVisible = true;
-                notificationPreviewTimer.restart();
-            });
+            Quickshell.execDetached(["notify-send", "--app-name", "Theme picker", "--expire-time", "2500", "Notification position", "Previewing " + Theme.notificationPosition]);
         }
 
         target: Theme
-    }
-
-    Timer {
-        id: notificationPreviewTimer
-
-        interval: 2500
-        repeat: false
-        onTriggered: root.notificationPositionPreviewVisible = false
-    }
-
-    Variants {
-        model: Quickshell.screens
-
-        PanelWindow {
-            id: notificationPositionPreviewWindow
-
-            required property var modelData
-            readonly property bool onLeft: Theme.notificationPosition === "top-left" || Theme.notificationPosition === "bottom-left"
-            readonly property bool onRight: Theme.notificationPosition === "top-right" || Theme.notificationPosition === "bottom-right"
-            readonly property bool onTop: Theme.notificationPosition.indexOf("top") >= 0
-            readonly property bool onBottom: Theme.notificationPosition.indexOf("bottom") >= 0
-
-            screen: modelData
-            visible: true
-            implicitWidth: root.notificationPositionPreviewVisible ? screen ? screen.width : 1 : 1
-            implicitHeight: root.notificationPositionPreviewVisible ? screen ? screen.height : 1 : 1
-            exclusiveZone: 0
-            focusable: false
-            color: "transparent"
-            WlrLayershell.layer: WlrLayer.Overlay
-            WlrLayershell.namespace: "blox-notification-position-preview"
-
-            anchors {
-                left: onLeft || !onLeft && !onRight
-                right: onRight || !onLeft && !onRight
-                top: onTop
-                bottom: onBottom
-            }
-
-            NotificationToastStack {
-                visible: root.notificationPositionPreviewVisible
-                anchors.left: notificationPositionPreviewWindow.onLeft ? parent.left : undefined
-                anchors.right: notificationPositionPreviewWindow.onRight ? parent.right : undefined
-                anchors.horizontalCenter: !notificationPositionPreviewWindow.onLeft && !notificationPositionPreviewWindow.onRight ? parent.horizontalCenter : undefined
-                anchors.top: notificationPositionPreviewWindow.onTop ? parent.top : undefined
-                anchors.bottom: notificationPositionPreviewWindow.onBottom ? parent.bottom : undefined
-                anchors.leftMargin: 12 + Theme.notificationOffsetX
-                anchors.rightMargin: 12 - Theme.notificationOffsetX
-                anchors.horizontalCenterOffset: Theme.notificationOffsetX
-                anchors.topMargin: 12 + Theme.notificationOffsetY
-                anchors.bottomMargin: 12 - Theme.notificationOffsetY
-                position: Theme.notificationPosition
-                toasts: root.notificationPositionPreviewVisible ? [{
-                    "toastId": "position-preview-" + Theme.notificationPosition,
-                    "expiresAt": Date.now() + 3000,
-                    "timeout": 3000,
-                    "notification": {
-                        "summary": "Notification position",
-                        "body": "Previewing " + Theme.notificationPosition,
-                        "appName": "Theme picker",
-                        "image": ""
-                    }
-                }] : []
-            }
-
-        }
-
     }
 
     UiState {

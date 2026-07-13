@@ -9,6 +9,7 @@ Item {
     required property var controller
     property bool horizontal: false
     property real panelExtent: 0
+    readonly property bool contentVisible: contentLoader.item !== null && contentLoader.item.visible
 
     function mappedCentre(item, centre) {
         // mapToItem(root) only includes this delegate's local offset. Once an
@@ -23,8 +24,9 @@ Item {
     // Keep the cross-axis extent stable. Content such as the expandable battery
     // percentage must only grow along the bar, otherwise a click recentres the
     // whole vertical section and makes neighbouring icons jump sideways.
-    implicitWidth: root.horizontal && contentLoader.item ? Math.max(Theme.buttonSize, contentLoader.item.implicitWidth || contentLoader.item.width) : Theme.buttonSize
-    implicitHeight: !root.horizontal && contentLoader.item ? Math.max(Theme.buttonSize, contentLoader.item.implicitHeight || contentLoader.item.height) : Theme.buttonSize
+    visible: contentVisible
+    implicitWidth: !contentVisible ? 0 : root.horizontal && contentLoader.item ? Math.max(Theme.buttonSize, contentLoader.item.implicitWidth || contentLoader.item.width) : Theme.buttonSize
+    implicitHeight: !contentVisible ? 0 : !root.horizontal && contentLoader.item ? Math.max(Theme.buttonSize, contentLoader.item.implicitHeight || contentLoader.item.height) : Theme.buttonSize
     width: implicitWidth
     height: implicitHeight
 
@@ -479,15 +481,16 @@ Item {
         id: applicationTrayComponent
 
         Item {
-            implicitWidth: trayFlow.implicitWidth
-            implicitHeight: trayFlow.implicitHeight
+            readonly property int trayCount: SystemTray.items.length
+
+            implicitWidth: root.horizontal ? trayCount * Theme.buttonSize : Theme.buttonSize
+            implicitHeight: root.horizontal ? Theme.buttonSize : trayCount * Theme.buttonSize
 
             Flow {
                 id: trayFlow
 
+                anchors.fill: parent
                 flow: root.horizontal ? Flow.LeftToRight : Flow.TopToBottom
-                width: root.horizontal ? implicitWidth : Theme.buttonSize
-                height: root.horizontal ? Theme.buttonSize : implicitHeight
 
                 Repeater {
                     model: SystemTray.items

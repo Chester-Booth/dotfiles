@@ -12,18 +12,34 @@ class WidgetRuntimeSourceTests(unittest.TestCase):
         self.assertNotIn("component OverlayBox", source)
         self.assertIn('modelData.visibility !== "empty-workspace" || root.activeWorkspaceEmpty()', source)
         self.assertIn("visible: !root.editMode", source)
-        self.assertIn("widgetAction.run", source)
-        self.assertIn("onExited: widgetRenderer.refresh()", source)
+        self.assertIn("root.run(root.commandFor", source)
+        self.assertIn("onTriggered: widgetRenderer.refresh()", source)
 
     def test_renderer_honours_auto_size_and_terminal_monospace(self) -> None:
         source = (ROOT / "quickshell/.config/quickshell/blox/shared/DesktopWidget.qml").read_text(encoding="utf-8")
         self.assertIn("readonly property bool autoSize", source)
+        self.assertIn("readonly property real widgetScale", source)
+        self.assertIn("Theme.widgetFontSize * root.widgetScale", source)
         self.assertIn("autoSize ? 0 : Number(widget.width", source)
         self.assertIn("root.terminalPreset ? Theme.monoFontFamily", source)
         self.assertIn('"--stream"', source)
         self.assertIn("stdout: SplitParser", source)
         self.assertIn("Text.RichText", source)
         self.assertIn('widget.type === "aquarium" ? "#000000"', source)
+
+    def test_widget_edit_mode_persists_auto_size_and_scale(self) -> None:
+        source = (ROOT / "quickshell/.config/quickshell/blox/modules/WidgetEditMode.qml").read_text(encoding="utf-8")
+        self.assertIn("function selectedAutoSize()", source)
+        self.assertIn("selectedItem.options.auto_size", source)
+        self.assertIn('options.scale = Math.max(0.25, Math.min(4', source)
+        self.assertIn("width: root.selectedItem ? 300", source)
+
+    def test_custom_actions_launch_detached_and_refresh_afterwards(self) -> None:
+        source = (ROOT / "quickshell/.config/quickshell/blox/modules/EwwOverlays.qml").read_text(encoding="utf-8")
+        self.assertIn("root.run(root.commandFor(widgetWindow.modelData.left_click_command))", source)
+        self.assertIn("root.run(root.commandFor(widgetWindow.modelData.right_click_command))", source)
+        self.assertIn("actionRefresh.restart()", source)
+        self.assertNotIn("widgetAction.run", source)
 
     def test_widget_file_changes_reload_the_widget_profile(self) -> None:
         source = (ROOT / "quickshell/.config/quickshell/blox/shared/Theme.qml").read_text(encoding="utf-8")

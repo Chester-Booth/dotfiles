@@ -61,8 +61,9 @@ PanelWindow {
             next.offset_y = Math.round(bottom ? height - itemY - itemHeight : itemY);
         }
         if (resized) {
-            next.width = Math.round(itemWidth);
-            next.height = Math.round(itemHeight);
+            const scale = Math.max(0.25, Math.min(4, Number(next.options && next.options.scale || 1)));
+            next.width = Math.round(itemWidth / scale);
+            next.height = Math.round(itemHeight / scale);
             if (!next.options)
                 next.options = {
             };
@@ -81,6 +82,16 @@ PanelWindow {
             next[key] = values[key];
         });
         itemChanged(selectedIndex, next);
+    }
+
+    function selectedAutoSize() {
+        if (!selectedItem)
+            return true;
+
+        if (selectedItem.options && selectedItem.options.auto_size !== undefined)
+            return selectedItem.options.auto_size === true;
+
+        return Number(selectedItem.width || 0) === 0 && Number(selectedItem.height || 0) === 0;
     }
 
     screen: Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
@@ -226,7 +237,7 @@ PanelWindow {
         z: 2
         x: root.width - width - 20
         y: 20
-        width: root.selectedItem ? Math.max(320, positionGrid.implicitWidth + 24) : buttonRow.implicitWidth + 58
+        width: root.selectedItem ? 300 : buttonRow.implicitWidth + 58
         height: root.selectedItem ? positionGrid.implicitHeight + 72 : buttonRow.implicitHeight + 16
         color: Theme.surface
         border.width: 1
@@ -313,7 +324,7 @@ PanelWindow {
             BloxCheckBox {
                 Layout.columnSpan: 2
                 text: "Automatic size"
-                checked: root.selectedItem && root.selectedItem.width === 0 && root.selectedItem.height === 0
+                checked: root.selectedAutoSize()
                 onToggled: (checked) => {
                     if (!root.selectedItem)
                         return ;
@@ -322,8 +333,31 @@ PanelWindow {
                     });
                     options.auto_size = checked;
                     root.updateSelected({
-                        "width": checked ? 0 : Math.max(320, root.selectedItem.width || 0),
-                        "height": checked ? 0 : Math.max(160, root.selectedItem.height || 0),
+                        "width": checked ? 0 : Math.max(160, root.selectedItem.width || 0),
+                        "height": checked ? 0 : Math.max(80, root.selectedItem.height || 0),
+                        "options": options
+                    });
+                }
+            }
+
+            Label {
+                text: "Scale"
+                color: Theme.muted
+            }
+
+            BloxTextField {
+                Layout.fillWidth: true
+                suffix: "×"
+                text: root.selectedItem && root.selectedItem.options ? String(root.selectedItem.options.scale || 1) : "1"
+                onEditingFinished: {
+                    if (!root.selectedItem)
+                        return ;
+
+                    const options = root.clone(root.selectedItem.options || {
+                    });
+                    const parsed = Number(text);
+                    options.scale = Math.max(0.25, Math.min(4, isNaN(parsed) ? 1 : parsed));
+                    root.updateSelected({
                         "options": options
                     });
                 }
@@ -358,7 +392,7 @@ PanelWindow {
                     BloxTextField {
                         Layout.fillWidth: true
                         suffix: "px"
-                        enabled: parent.modelData.key === "offset_x" || parent.modelData.key === "offset_y" || !root.selectedItem || root.selectedItem.width > 0 || root.selectedItem.height > 0
+                        enabled: parent.modelData.key === "offset_x" || parent.modelData.key === "offset_y" || !root.selectedAutoSize()
                         text: root.selectedItem ? String(root.selectedItem[parent.modelData.key] || 0) : "0"
                         ToolTip.visible: hovered && !enabled
                         ToolTip.text: "Disable Automatic size to set width and height"

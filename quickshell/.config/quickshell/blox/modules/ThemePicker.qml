@@ -345,6 +345,14 @@ FloatingWindow {
         runApi(refreshOnly ? "list-refresh" : "list", ["list"]);
     }
 
+    function recoverPickerWorkspace() {
+        // The picker is recreated on the widget-edit workspace when Save
+        // finishes. Move that existing window to the current workspace using
+        // Hyprland's structured Lua dispatcher; the legacy
+        // `movetoworkspacesilent` syntax is rejected by current Hyprland.
+        Quickshell.execDetached(["sh", "-c", "if [ \"$(hyprctl activeworkspace -j | jq -r .name)\" = blox-widget-edit ]; then hyprctl dispatch 'hl.dsp.focus({ workspace = \"previous\" })' >/dev/null; sleep 0.15; fi; workspace=$(hyprctl activeworkspace -j | jq -r .id); [ -n \"$workspace\" ] || exit 0; hyprctl dispatch \"hl.dsp.window.move({ workspace = \\\"$workspace\\\", follow = false, window = \\\"title:^Blox Theme Picker$\\\" })\" >/dev/null"]);
+    }
+
     function openPicker() {
         hideTimer.stop();
         // An interrupted widget-edit transition used to leave the picker open
@@ -353,9 +361,9 @@ FloatingWindow {
         // mode first.
         widgetEditModePending = false;
         Theme.widgetEditModeCancelRequested();
-        Quickshell.execDetached(["sh", "-c", "if [ \"$(hyprctl activeworkspace -j | jq -r .name)\" = blox-widget-edit ]; then hyprctl dispatch 'hl.dsp.focus({ workspace = \"previous\" })' >/dev/null; fi; sleep 0.15; workspace=$(hyprctl activeworkspace -j | jq -r .id); hyprctl dispatch movetoworkspacesilent \"$workspace,title:^(Blox Theme Picker)$\" >/dev/null"]);
         open = true;
         rendered = true;
+        recoverPickerWorkspace();
         revealTimer.restart();
         statusMessage = "Loading themes…";
         if (themes.length === 0)
@@ -1454,6 +1462,8 @@ FloatingWindow {
                 }
             }
             root.rendered = true;
+            root.recoverPickerWorkspace();
+            revealTimer.restart();
         }
 
         target: Theme

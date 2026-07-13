@@ -9,7 +9,9 @@ RailButton {
     signal openRequested()
 
     icon: horizontal ? "󰅂" : "󰅀"
-    iconRotation: active ? 180 : 0
+    // The collapsed arrow points towards the concealed tray items (outwards
+    // from the toggle). Once expanded it points back towards the toggle.
+    iconRotation: active ? 0 : 180
     accent: Theme.foreground
     onClicked: root.toggle()
     onHovered: root.openRequested()

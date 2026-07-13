@@ -510,6 +510,11 @@ class CliContractTests(unittest.TestCase):
         self.assertIn("readonly property int trayCount: trayRepeater.count", application_tray)
         self.assertNotIn("SystemTray.items.length", application_tray)
 
+    def test_tray_toggle_points_outwards_when_closed_and_inwards_when_open(self) -> None:
+        toggle = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/ExtrasToggleButton.qml").read_text(encoding="utf-8")
+        self.assertIn('icon: horizontal ? "󰅂" : "󰅀"', toggle)
+        self.assertIn("iconRotation: active ? 0 : 180", toggle)
+
     def test_all_commands_support_human_and_json_output(self) -> None:
         commands = (("list",), ("show", "blox-panel"), ("validate", "blox-panel"), ("render", "blox-panel"), ("preview", "blox-panel"), ("diff", "blox-panel"), ("doctor",))
         for arguments in commands:

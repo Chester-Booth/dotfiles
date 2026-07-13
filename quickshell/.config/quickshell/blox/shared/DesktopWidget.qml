@@ -68,7 +68,10 @@ Rectangle {
 
     width: overrideWidth > 0 ? overrideWidth : configuredWidth > 0 ? configuredWidth * widgetScale : (widget.type === "clock" ? clockContentWidth : content.implicitWidth) + scaledPadding * 2
     height: overrideHeight > 0 ? overrideHeight : configuredHeight > 0 ? configuredHeight * widgetScale : (widget.type === "clock" ? clockContentHeight : content.implicitHeight) + scaledPadding * 2
-    color: widget.type === "clock" ? "transparent" : widget.type === "aquarium" ? "#000000" : Theme.withAlpha(Theme.background, Theme.widgetOpacity)
+    // The terminal renderer maps ANSI black to Gruvbox's terminal black.  Use
+    // that same colour behind asciiquarium so its unpainted cells and the
+    // surrounding widget do not form two visibly different backgrounds.
+    color: widget.type === "clock" ? "transparent" : widget.type === "aquarium" ? "#1d2021" : Theme.withAlpha(Theme.background, Theme.widgetOpacity)
     radius: widget.shape === "circle" ? Math.min(width, height) / 2 : widget.shape === "rounded" ? Math.max(10, Theme.widgetRadius) : widget.shape === "rectangle" ? 0 : Theme.widgetRadius
 
     ScriptPoller {

@@ -536,6 +536,12 @@ class CliContractTests(unittest.TestCase):
             self.assertIn(f"osdWindow.{edge}", source)
             self.assertNotIn(f"parent.{edge}", source)
 
+    def test_osd_animation_translates_from_its_configured_screen_edge(self) -> None:
+        source = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/Osd.qml").read_text(encoding="utf-8")
+        self.assertIn("transform: Translate", source)
+        self.assertIn("osdWindow.onTop ? -osdCard.height - 34 - Theme.osdOffsetY : osdCard.height + 34 - Theme.osdOffsetY", source)
+        self.assertNotIn("y: root.showing ? (osdWindow.onTop", source)
+
     def test_missing_theme_and_malformed_json_exit_codes(self) -> None:
         missing = run_cli("show", "definitely-missing", "--json")
         self.assertEqual(4, missing.returncode)

@@ -382,8 +382,10 @@ Scope {
             }
 
             Rectangle {
+                id: osdCard
+
                 x: osdWindow.onLeft ? 28 + Theme.osdOffsetX : osdWindow.onRight ? parent.width - width - 28 + Theme.osdOffsetX : Math.round((parent.width - width) / 2) + Theme.osdOffsetX
-                y: root.showing ? (osdWindow.onTop ? 28 + Theme.osdOffsetY : parent.height - height - 28 + Theme.osdOffsetY) : osdWindow.onTop ? -height - 6 : parent.height + 6
+                y: osdWindow.onTop ? 28 + Theme.osdOffsetY : parent.height - height - 28 + Theme.osdOffsetY
                 width: 292
                 height: 72
                 radius: 8
@@ -501,17 +503,22 @@ Scope {
 
                 }
 
-                Behavior on opacity {
-                    NumberAnimation {
-                        duration: 140
-                        easing.type: Easing.OutCubic
+                transform: Translate {
+                    y: root.showing ? 0 : osdWindow.onTop ? -osdCard.height - 34 - Theme.osdOffsetY : osdCard.height + 34 - Theme.osdOffsetY
+
+                    Behavior on y {
+                        NumberAnimation {
+                            duration: 190
+                            easing.type: Easing.OutCubic
+                        }
+
                     }
 
                 }
 
-                Behavior on y {
+                Behavior on opacity {
                     NumberAnimation {
-                        duration: 190
+                        duration: 140
                         easing.type: Easing.OutCubic
                     }
 

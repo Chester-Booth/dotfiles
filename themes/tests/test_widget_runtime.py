@@ -29,7 +29,7 @@ class WidgetRuntimeSourceTests(unittest.TestCase):
         self.assertIn('root.widget.type !== "clock" ? Text.RichText : Text.PlainText', source)
         self.assertIn("stdout: SplitParser", source)
         self.assertIn("Text.RichText", source)
-        self.assertIn('widget.type === "aquarium" ? "#000000"', source)
+        self.assertIn('widget.type === "aquarium" ? "#1d2021"', source)
 
     def test_clock_uses_an_atomic_canvas_frame(self) -> None:
         source = (ROOT / "quickshell/.config/quickshell/blox/shared/DesktopWidget.qml").read_text(encoding="utf-8")
@@ -47,12 +47,27 @@ class WidgetRuntimeSourceTests(unittest.TestCase):
         self.assertIn('options.scale = Math.max(0.25, Math.min(4', source)
         self.assertIn("width: root.selectedItem ? 300", source)
 
+    def test_widget_edit_mode_returns_to_its_origin_workspace(self) -> None:
+        overlays = (ROOT / "quickshell/.config/quickshell/blox/modules/EwwOverlays.qml").read_text(encoding="utf-8")
+        theme = (ROOT / "quickshell/.config/quickshell/blox/shared/Theme.qml").read_text(encoding="utf-8")
+        self.assertIn('property string editReturnWorkspace: ""', overlays)
+        self.assertIn("Hyprland.focusedWorkspace ? String(Hyprland.focusedWorkspace.id)", overlays)
+        self.assertIn('returnWorkspace || "previous"', overlays)
+        self.assertEqual(2, overlays.count("Theme.widgetEditModeFinished("))
+        self.assertIn("signal widgetEditModeFinished(string widgetsJson, string returnWorkspace)", theme)
+
     def test_custom_actions_launch_detached_and_refresh_afterwards(self) -> None:
         source = (ROOT / "quickshell/.config/quickshell/blox/modules/EwwOverlays.qml").read_text(encoding="utf-8")
         self.assertIn("root.run(root.commandFor(widgetWindow.modelData.left_click_command))", source)
         self.assertIn("root.run(root.commandFor(widgetWindow.modelData.right_click_command))", source)
         self.assertIn("actionRefresh.restart()", source)
         self.assertNotIn("widgetAction.run", source)
+
+    def test_widget_input_is_limited_to_the_visible_renderer(self) -> None:
+        source = (ROOT / "quickshell/.config/quickshell/blox/modules/EwwOverlays.qml").read_text(encoding="utf-8")
+        widget_window = source.split("id: widgetWindow", 1)[1].split("WidgetEditMode {", 1)[0]
+        self.assertIn("mask: Region {", widget_window)
+        self.assertIn("item: widgetRenderer", widget_window)
 
     def test_widget_file_changes_reload_the_widget_profile(self) -> None:
         source = (ROOT / "quickshell/.config/quickshell/blox/shared/Theme.qml").read_text(encoding="utf-8")

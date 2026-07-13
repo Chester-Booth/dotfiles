@@ -62,7 +62,7 @@ Singleton {
     signal notificationPositionPreviewRequested()
     signal widgetEditModeRequested()
     signal widgetEditModeCancelRequested()
-    signal widgetEditModeFinished(string widgetsJson)
+    signal widgetEditModeFinished(string widgetsJson, string returnWorkspace)
 
     function withAlpha(colour, opacity) : color {
         return Qt.rgba(colour.r, colour.g, colour.b, opacity);

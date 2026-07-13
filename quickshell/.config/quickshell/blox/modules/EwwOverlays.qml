@@ -13,6 +13,7 @@ Scope {
     property string scriptRoot: Quickshell.shellDir + "/scripts"
     property bool editMode: false
     property bool editWorkspaceEntered: false
+    property string editReturnWorkspace: ""
     property var editItems: []
 
     signal editSaved(string widgetsJson)
@@ -28,6 +29,7 @@ Scope {
         editItems = cloneItems(Theme.widgetItems.filter((item) => {
             return item.enabled;
         }));
+        editReturnWorkspace = Hyprland.focusedWorkspace ? String(Hyprland.focusedWorkspace.id) : "";
         editMode = true;
         editWorkspaceEntered = true;
         Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({ workspace = \"name:blox-widget-edit\" })"]);
@@ -37,17 +39,20 @@ Scope {
     function cancelEdit() {
         editMode = false;
         editItems = [];
-        leaveEditWorkspace();
-        Theme.widgetEditModeFinished("");
+        const returnWorkspace = leaveEditWorkspace();
+        Theme.widgetEditModeFinished("", returnWorkspace);
         return "cancelled";
     }
 
     function leaveEditWorkspace() {
         if (!editWorkspaceEntered)
-            return ;
+            return editReturnWorkspace;
 
+        const returnWorkspace = editReturnWorkspace;
         editWorkspaceEntered = false;
-        Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({ workspace = \"previous\" })"]);
+        editReturnWorkspace = "";
+        Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({ workspace = \"" + (returnWorkspace || "previous") + "\" })"]);
+        return returnWorkspace;
     }
 
     function saveEdit() {
@@ -60,11 +65,11 @@ Scope {
             return editedById[item.id] || item;
         });
         const payload = JSON.stringify(Theme.widgetItems);
-        editSaved(payload);
-        Theme.widgetEditModeFinished(payload);
         editMode = false;
         editItems = [];
-        leaveEditWorkspace();
+        const returnWorkspace = leaveEditWorkspace();
+        editSaved(payload);
+        Theme.widgetEditModeFinished(payload, returnWorkspace);
         return payload;
     }
 
@@ -182,6 +187,13 @@ Scope {
 
                 interval: 500
                 onTriggered: widgetRenderer.refresh()
+            }
+
+            // A centred widget's anchored layer surface spans the whole
+            // output.  Limit its input region to the renderer so its
+            // transparent area cannot steal clicks from other widgets.
+            mask: Region {
+                item: widgetRenderer
             }
 
         }

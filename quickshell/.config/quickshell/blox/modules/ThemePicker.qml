@@ -345,12 +345,12 @@ FloatingWindow {
         runApi(refreshOnly ? "list-refresh" : "list", ["list"]);
     }
 
-    function recoverPickerWorkspace() {
+    function recoverPickerWorkspace(returnWorkspace) {
         // The picker is recreated on the widget-edit workspace when Save
         // finishes. Move that existing window to the current workspace using
         // Hyprland's structured Lua dispatcher; the legacy
         // `movetoworkspacesilent` syntax is rejected by current Hyprland.
-        Quickshell.execDetached(["sh", "-c", "if [ \"$(hyprctl activeworkspace -j | jq -r .name)\" = blox-widget-edit ]; then hyprctl dispatch 'hl.dsp.focus({ workspace = \"previous\" })' >/dev/null; sleep 0.15; fi; workspace=$(hyprctl activeworkspace -j | jq -r .id); [ -n \"$workspace\" ] || exit 0; hyprctl dispatch \"hl.dsp.window.move({ workspace = \\\"$workspace\\\", follow = false, window = \\\"title:^Blox Theme Picker$\\\" })\" >/dev/null"]);
+        Quickshell.execDetached(["sh", "-c", "requested=$1; if [ -n \"$requested\" ]; then hyprctl dispatch \"hl.dsp.focus({ workspace = \\\"$requested\\\" })\" >/dev/null; sleep 0.15; workspace=$requested; else if [ \"$(hyprctl activeworkspace -j | jq -r .name)\" = blox-widget-edit ]; then hyprctl dispatch 'hl.dsp.focus({ workspace = \"previous\" })' >/dev/null; sleep 0.15; fi; workspace=$(hyprctl activeworkspace -j | jq -r .id); fi; [ -n \"$workspace\" ] || exit 0; hyprctl dispatch \"hl.dsp.window.move({ workspace = \\\"$workspace\\\", follow = false, window = \\\"title:^Blox Theme Picker$\\\" })\" >/dev/null", "blox-picker-recover", String(returnWorkspace || "")]);
     }
 
     function openPicker() {
@@ -363,7 +363,7 @@ FloatingWindow {
         Theme.widgetEditModeCancelRequested();
         open = true;
         rendered = true;
-        recoverPickerWorkspace();
+        recoverPickerWorkspace("");
         revealTimer.restart();
         statusMessage = "Loading themes…";
         if (themes.length === 0)
@@ -1448,7 +1448,7 @@ FloatingWindow {
     }
 
     Connections {
-        function onWidgetEditModeFinished(widgetsJson) {
+        function onWidgetEditModeFinished(widgetsJson, returnWorkspace) {
             if (!root.widgetEditModePending)
                 return ;
 
@@ -1462,7 +1462,7 @@ FloatingWindow {
                 }
             }
             root.rendered = true;
-            root.recoverPickerWorkspace();
+            root.recoverPickerWorkspace(returnWorkspace);
             revealTimer.restart();
         }
 

@@ -1149,6 +1149,14 @@ Scope {
                     }
                 }
 
+                // The layer surface spans the output so notification positioning can
+                // use every screen edge. Restrict pointer input to the visible toast
+                // stack; without this mask the transparent remainder of the overlay
+                // blocks applications and the bar while a notification is visible.
+                mask: Region {
+                    item: notificationToasts
+                }
+
             }
 
         }

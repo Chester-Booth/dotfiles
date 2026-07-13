@@ -32,6 +32,19 @@ class NotificationRuntimeTests(unittest.TestCase):
         self.assertIn('"Previewing " + Theme.notificationPosition', preview)
         self.assertNotIn("notificationPositionPreviewWindow", bar)
 
+    def test_full_screen_toast_surface_only_accepts_input_on_the_stack(self) -> None:
+        bar = (
+            REPOSITORY / "quickshell/.config/quickshell/blox/modules/Bar.qml"
+        ).read_text(encoding="utf-8")
+        toast_window = bar.split("id: notificationToastWindow", 1)[1].split(
+            "SystemClock {", 1
+        )[0]
+
+        self.assertIn("implicitWidth: modelData ? modelData.width : 1", toast_window)
+        self.assertIn("implicitHeight: modelData ? modelData.height : 1", toast_window)
+        self.assertIn("mask: Region {", toast_window)
+        self.assertIn("item: notificationToasts", toast_window)
+
 
 if __name__ == "__main__":
     unittest.main()

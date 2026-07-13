@@ -1154,7 +1154,13 @@ Scope {
                 // stack; without this mask the transparent remainder of the overlay
                 // blocks applications and the bar while a notification is visible.
                 mask: Region {
-                    item: notificationToasts
+                    // Bind window-local geometry explicitly so the input region is
+                    // rebuilt when the hidden toast window appears and the stack's
+                    // implicit height changes.
+                    x: notificationToasts.x
+                    y: notificationToasts.y
+                    width: notificationToasts.width
+                    height: notificationToasts.height
                 }
 
             }

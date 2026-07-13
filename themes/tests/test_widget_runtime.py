@@ -23,9 +23,22 @@ class WidgetRuntimeSourceTests(unittest.TestCase):
         self.assertIn("autoSize ? 0 : Number(widget.width", source)
         self.assertIn("root.terminalPreset ? Theme.monoFontFamily", source)
         self.assertIn('"--stream"', source)
+        self.assertIn('readonly property bool streamedTerminalPreset: terminalPreset && widget.type !== "clock"', source)
+        self.assertIn('root.widget.type === "clock" ? 1000', source)
+        self.assertIn('root.widget.type === "clock" ? (contentPoller.raw.length > 0', source)
+        self.assertIn('root.widget.type !== "clock" ? Text.RichText : Text.PlainText', source)
         self.assertIn("stdout: SplitParser", source)
         self.assertIn("Text.RichText", source)
         self.assertIn('widget.type === "aquarium" ? "#000000"', source)
+
+    def test_clock_uses_an_atomic_canvas_frame(self) -> None:
+        source = (ROOT / "quickshell/.config/quickshell/blox/shared/DesktopWidget.qml").read_text(encoding="utf-8")
+        self.assertIn('property string clockFrame: ""', source)
+        self.assertIn("renderTarget: Canvas.Image", source)
+        self.assertIn("context.clearRect(0, 0, width, height)", source)
+        self.assertIn("context.fillRect(0, 0, width, height)", source)
+        self.assertIn('if (character === "█")', source)
+        self.assertIn("clockCanvas.requestPaint()", source)
 
     def test_widget_edit_mode_persists_auto_size_and_scale(self) -> None:
         source = (ROOT / "quickshell/.config/quickshell/blox/modules/WidgetEditMode.qml").read_text(encoding="utf-8")

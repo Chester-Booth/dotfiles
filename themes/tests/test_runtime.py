@@ -182,6 +182,7 @@ class RuntimeTests(unittest.TestCase):
 
         config = self.state / "integration/hyprpaper.conf"
         contents = config.read_text(encoding="utf-8")
+        self.assertIn("    monitor = \n", contents)
         self.assertIn(f"path = {Path(self.canonical['wallpaper']['path']).expanduser().resolve()}", contents)
         self.assertIn(f"fit_mode = {self.canonical['wallpaper']['fit']}", contents)
         self.assertIn(
@@ -475,7 +476,19 @@ class RuntimeCliTests(unittest.TestCase):
             root = Path(temporary)
             fake_bin = root / "bin"
             fake_bin.mkdir()
-            for name in ("quickshell", "vicinae", "hyprctl", "kitty"):
+            # Every external command used by the targets in this integration
+            # test must be isolated. In particular, letting systemd-run escape
+            # the fake PATH replaces the user's live Hyprpaper service with a
+            # transient service whose TemporaryDirectory is then deleted.
+            for name in (
+                "hyprctl",
+                "kitty",
+                "pkill",
+                "quickshell",
+                "systemctl",
+                "systemd-run",
+                "vicinae",
+            ):
                 executable = fake_bin / name
                 executable.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
                 executable.chmod(0o755)

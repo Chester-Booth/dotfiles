@@ -60,6 +60,20 @@ class AnsiScreenTests(unittest.TestCase):
         self.assertFalse(rendered.startswith("<br>"))
         self.assertEqual(3, rendered.count("&nbsp;") + rendered.count("X"))
 
+    def test_clock_block_frame_is_plain_text_and_crops_terminal_padding(self) -> None:
+        screen = terminal_frame.AnsiScreen(5, 12)
+        screen.feed(b"\x1b[3;5H\x1b[42m  \x1b[49m  \x1b[42m  \x1b[0m\x1b[4;5Hdate")
+        rendered = screen.block_text(crop=True)
+        self.assertEqual("██  ██\ndate", rendered)
+        self.assertNotIn("<span", rendered)
+
+    def test_clock_block_frame_fully_replaces_changed_background_cells(self) -> None:
+        screen = terminal_frame.AnsiScreen(2, 8)
+        screen.feed(b"\x1b[42m      \x1b[49m")
+        self.assertEqual("██████", screen.block_text(crop=True))
+        screen.feed(b"\r\x1b[42m  \x1b[49m    ")
+        self.assertEqual("██", screen.block_text(crop=True))
+
 
 class TerminalWidgetSafetyTests(unittest.TestCase):
     def test_only_known_presets_can_be_resolved(self) -> None:
@@ -98,6 +112,39 @@ class TerminalWidgetSafetyTests(unittest.TestCase):
             with mock.patch("builtins.print", side_effect=lambda value, **_kwargs: frames.append(json.loads(value))):
                 terminal_frame.stream(("sh", "-c", command), 4, 20, 0.05, 1024)
         self.assertGreaterEqual(len(set(frames)), 2)
+
+    def test_clock_stream_emits_plain_block_frames(self) -> None:
+        command = "printf '\\033[42m  \\033[49m'; sleep 0.06; printf '\\r\\033[42m    \\033[49m'"
+        frames: list[str] = []
+        with mock.patch("builtins.print", side_effect=lambda value, **_kwargs: frames.append(json.loads(value))):
+            terminal_frame.stream(("sh", "-c", command), 4, 20, 0.05, 1024, crop=True, block=True)
+        self.assertIn("██", frames)
+        self.assertIn("████", frames)
+        self.assertTrue(all("<" not in frame for frame in frames))
+
+    def test_clock_snapshot_stream_uses_fresh_complete_screens(self) -> None:
+        first = terminal_frame.AnsiScreen(2, 8)
+        first.feed(b"\x1b[42m  \x1b[49m")
+        second = terminal_frame.AnsiScreen(2, 8)
+        second.feed(b"\x1b[42m    \x1b[49m")
+        frames: list[str] = []
+        with mock.patch.object(terminal_frame, "capture_screen", side_effect=[first, second]) as capture_screen, \
+             mock.patch("builtins.print", side_effect=lambda value, **_kwargs: frames.append(json.loads(value))):
+            terminal_frame.snapshot_stream(("tty-clock", "-s"), 4, 20, frame_interval=0, max_frames=2)
+        self.assertEqual(["██", "████"], frames)
+        self.assertEqual(2, capture_screen.call_count)
+
+    def test_stream_waits_for_ncurses_redraw_to_settle(self) -> None:
+        command = (
+            "printf '\\033[2JOLD'; sleep 0.08; "
+            "printf '\\033[2JX'; sleep 0.015; printf 'YZ'; sleep 0.08"
+        )
+        frames: list[str] = []
+        with mock.patch("builtins.print", side_effect=lambda value, **_kwargs: frames.append(json.loads(value))):
+            terminal_frame.stream(("sh", "-c", command), 4, 20, 0.05, 1024, crop=True, block=True)
+        self.assertIn("OLD", frames)
+        self.assertIn("XYZ", frames)
+        self.assertNotIn("X", frames)
 
 
 if __name__ == "__main__":

@@ -903,7 +903,10 @@ def _reload_wallpaper(root: Path, mode: str, run_command: Callable[[list[str]], 
     _write_text(
         temporary,
         "splash = false\nipc = true\n\nwallpaper {\n"
-        f"    monitor =\n    path = {wallpaper}\n    fit_mode = {data['fit']}\n"
+        # Hyprpaper's fallback target is an intentionally blank value. Keep a
+        # space after '=': Hyprlang treats a bare `monitor =` as a missing
+        # assignment, so the daemon starts without creating a wallpaper target.
+        f"    monitor = \n    path = {wallpaper}\n    fit_mode = {data['fit']}\n"
         "}\n",
     )
     os.replace(temporary, config)

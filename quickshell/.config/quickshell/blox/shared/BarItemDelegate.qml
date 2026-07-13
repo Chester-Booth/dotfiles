@@ -9,7 +9,8 @@ Item {
     required property var controller
     property bool horizontal: false
     property real panelExtent: 0
-    readonly property bool contentVisible: contentLoader.item !== null && contentLoader.item.visible
+    readonly property bool runtimeSuppressed: itemId === "fan" ? controller.systemInfo.json.profile === undefined || controller.systemInfo.json.profile === "Quiet" : itemId === "gpu" ? controller.systemInfo.json.gpuMode === undefined || controller.systemInfo.json.gpuMode === "eco" : false
+    readonly property bool contentVisible: contentLoader.item !== null && !runtimeSuppressed
 
     function mappedCentre(item, centre) {
         // mapToItem(root) only includes this delegate's local offset. Once an
@@ -481,7 +482,7 @@ Item {
         id: applicationTrayComponent
 
         Item {
-            readonly property int trayCount: SystemTray.items.length
+            readonly property int trayCount: trayRepeater.count
 
             implicitWidth: root.horizontal ? trayCount * Theme.buttonSize : Theme.buttonSize
             implicitHeight: root.horizontal ? Theme.buttonSize : trayCount * Theme.buttonSize
@@ -493,6 +494,8 @@ Item {
                 flow: root.horizontal ? Flow.LeftToRight : Flow.TopToBottom
 
                 Repeater {
+                    id: trayRepeater
+
                     model: SystemTray.items
 
                     TrayRailItem {

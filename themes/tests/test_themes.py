@@ -499,7 +499,16 @@ class CliContractTests(unittest.TestCase):
         self.assertIn('gpuMode === "gaming" ? "󰪫"', delegate)
         self.assertIn('gpuMode !== "eco"', delegate)
         self.assertIn("visible: contentVisible", delegate)
-        self.assertIn("readonly property bool contentVisible", delegate)
+        self.assertIn("readonly property bool runtimeSuppressed", delegate)
+        self.assertIn("contentLoader.item !== null && !runtimeSuppressed", delegate)
+        self.assertNotIn("contentLoader.item !== null && contentLoader.item.visible", delegate)
+
+    def test_application_tray_uses_the_repeater_count(self) -> None:
+        delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
+        application_tray = delegate.split("id: applicationTrayComponent", 1)[1]
+        self.assertIn("id: trayRepeater", application_tray)
+        self.assertIn("readonly property int trayCount: trayRepeater.count", application_tray)
+        self.assertNotIn("SystemTray.items.length", application_tray)
 
     def test_all_commands_support_human_and_json_output(self) -> None:
         commands = (("list",), ("show", "blox-panel"), ("validate", "blox-panel"), ("render", "blox-panel"), ("preview", "blox-panel"), ("diff", "blox-panel"), ("doctor",))

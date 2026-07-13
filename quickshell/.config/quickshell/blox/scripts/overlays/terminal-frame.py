@@ -340,6 +340,36 @@ class AnsiScreen:
             lines.append("".join(pieces))
         return "<br>".join(lines)
 
+    def block_text(self, crop: bool = False) -> str:
+        """Render terminal background cells as stable foreground block glyphs.
+
+        Qt's rich-text renderer can retain stale background-painted spaces when
+        a rapidly changing span becomes shorter.  That is particularly visible
+        with tty-clock, whose digits are made entirely from background-coloured
+        spaces.  Converting those cells to ordinary glyphs gives Qt a complete
+        plain-text frame to replace on every tick.
+        """
+        occupied = [
+            (row, column)
+            for row in range(self.rows)
+            for column in range(self.columns)
+            if self.cells[row][column] != " " or self.styles[row][column][1] is not None
+        ]
+        if not occupied:
+            return ""
+        first_row = min(row for row, _column in occupied) if crop else 0
+        first_column = min(column for _row, column in occupied) if crop else 0
+        last_row = max(row for row, _column in occupied)
+        last_column = max(column for _row, column in occupied)
+        lines = []
+        for row in range(first_row, last_row + 1):
+            line = "".join(
+                "█" if self.styles[row][column][1] is not None else self.cells[row][column]
+                for column in range(first_column, last_column + 1)
+            )
+            lines.append(line.rstrip())
+        return "\n".join(lines)
+
 
 def command_for(preset: str, requested: str = "") -> tuple[str, ...]:
     try:
@@ -360,7 +390,7 @@ def command_for(preset: str, requested: str = "") -> tuple[str, ...]:
     return command
 
 
-def capture(command: tuple[str, ...], rows: int, columns: int, duration: float, max_bytes: int) -> str:
+def capture_screen(command: tuple[str, ...], rows: int, columns: int, duration: float, max_bytes: int) -> AnsiScreen:
     master, slave = pty.openpty()
     termios.tcsetwinsize(slave, (rows, columns))
     environment = {**os.environ, "TERM": "xterm-256color", "COLUMNS": str(columns), "LINES": str(rows)}
@@ -393,10 +423,60 @@ def capture(command: tuple[str, ...], rows: int, columns: int, duration: float, 
                 os.killpg(process.pid, signal.SIGKILL)
                 process.wait(timeout=0.2)
         os.close(master)
-    return screen.text()
+    return screen
 
 
-def stream(command: tuple[str, ...], rows: int, columns: int, frame_interval: float, max_bytes_per_frame: int, crop: bool = False) -> int:
+def capture(command: tuple[str, ...], rows: int, columns: int, duration: float, max_bytes: int) -> str:
+    return capture_screen(command, rows, columns, duration, max_bytes).text()
+
+
+def snapshot_stream(
+    command: tuple[str, ...],
+    rows: int,
+    columns: int,
+    frame_interval: float = 0.5,
+    max_frames: int | None = None,
+) -> int:
+    """Emit complete clock snapshots from short-lived tty-clock processes.
+
+    tty-clock updates its persistent ncurses screen through several partial
+    writes. A fresh process always paints a complete initial screen, so taking
+    independent snapshots prevents an intermediate digit from reaching QML.
+    """
+    previous = ""
+    attempts = 0
+    previous_sigterm = signal.getsignal(signal.SIGTERM)
+
+    def stop_stream(_signum: int, _frame: object) -> None:
+        raise SystemExit(0)
+
+    signal.signal(signal.SIGTERM, stop_stream)
+    try:
+        while max_frames is None or attempts < max_frames:
+            started = time.monotonic()
+            screen = capture_screen(command, rows, columns, 0.12, 256 * 1024)
+            rendered = screen.block_text(crop=True)
+            if rendered and rendered != previous:
+                print(json.dumps(rendered, ensure_ascii=False), flush=True)
+                previous = rendered
+            attempts += 1
+            remaining = frame_interval - (time.monotonic() - started)
+            if remaining > 0 and (max_frames is None or attempts < max_frames):
+                time.sleep(remaining)
+        return 0
+    finally:
+        signal.signal(signal.SIGTERM, previous_sigterm)
+
+
+def stream(
+    command: tuple[str, ...],
+    rows: int,
+    columns: int,
+    frame_interval: float,
+    max_bytes_per_frame: int,
+    crop: bool = False,
+    block: bool = False,
+) -> int:
     """Run a terminal program once and emit newline-delimited rich-text frames."""
     master, slave = pty.openpty()
     termios.tcsetwinsize(slave, (rows, columns))
@@ -405,6 +485,11 @@ def stream(command: tuple[str, ...], rows: int, columns: int, frame_interval: fl
     os.close(slave)
     screen = AnsiScreen(rows, columns)
     next_frame = time.monotonic()
+    last_input = next_frame
+    # Ncurses redraws a logical frame through several writes. Do not publish
+    # the transient screen between those writes: Qt would otherwise retain a
+    # half-drawn tty-clock digit until the following update.
+    settle_interval = min(0.03, frame_interval / 2)
     received = 0
     previous = ""
     previous_sigterm = signal.getsignal(signal.SIGTERM)
@@ -426,15 +511,16 @@ def stream(command: tuple[str, ...], rows: int, columns: int, frame_interval: fl
                     break
                 received += len(chunk)
                 screen.feed(chunk)
+                last_input = time.monotonic()
             now = time.monotonic()
-            if now >= next_frame:
-                rendered = screen.rich_text(crop=crop)
+            if now >= next_frame and now - last_input >= settle_interval:
+                rendered = screen.block_text(crop=crop) if block else screen.rich_text(crop=crop)
                 if rendered and rendered != previous:
                     print(json.dumps(rendered, ensure_ascii=False), flush=True)
                     previous = rendered
                 next_frame = now + frame_interval
                 received = 0
-        rendered = screen.rich_text(crop=crop)
+        rendered = screen.block_text(crop=crop) if block else screen.rich_text(crop=crop)
         if rendered and rendered != previous:
             print(json.dumps(rendered, ensure_ascii=False), flush=True)
         return process.wait()
@@ -466,8 +552,21 @@ def main() -> int:
     try:
         command = command_for(args.preset, args.command)
         if args.stream:
-            return stream(command, rows, columns, max(0.05, min(1.0, args.frame_ms / 1000)), 256 * 1024, crop=args.preset == "clock")
-        rendered = capture(command, rows, columns, duration, 256 * 1024)
+            if args.preset == "clock":
+                return snapshot_stream(command, rows, columns, max(0.5, args.frame_ms / 1000))
+            return stream(
+                command,
+                rows,
+                columns,
+                max(0.05, min(1.0, args.frame_ms / 1000)),
+                256 * 1024,
+                crop=False,
+                block=False,
+            )
+        if args.preset == "clock":
+            rendered = capture_screen(command, rows, columns, duration, 256 * 1024).block_text(crop=True)
+        else:
+            rendered = capture(command, rows, columns, duration, 256 * 1024)
     except FileNotFoundError:
         print(f"{PRESET_COMMANDS[args.preset][0]} is not installed")
         return 0

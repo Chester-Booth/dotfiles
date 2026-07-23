@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
 import html
 import json
 import os
@@ -28,6 +29,33 @@ PRESET_COMMANDS: dict[str, tuple[str, ...]] = {
     "train": ("sl",),
 }
 CSI_FINAL = re.compile(r"[@-~]")
+PR_SET_PDEATHSIG = 1
+
+
+def terminate_with_parent(parent_pid: int) -> None:
+    """Ensure a terminal child cannot survive its renderer being killed."""
+    if parent_pid <= 1:
+        os.kill(os.getpid(), signal.SIGTERM)
+        return
+    libc = ctypes.CDLL(None, use_errno=True)
+    if libc.prctl(PR_SET_PDEATHSIG, signal.SIGTERM, 0, 0, 0) != 0:
+        raise OSError(ctypes.get_errno(), "prctl(PR_SET_PDEATHSIG) failed")
+    if os.getppid() != parent_pid:
+        os.kill(os.getpid(), signal.SIGTERM)
+
+
+def spawn_terminal(command: tuple[str, ...], slave: int, environment: dict[str, str]) -> subprocess.Popen[bytes]:
+    parent_pid = os.getpid()
+    return subprocess.Popen(
+        command,
+        stdin=slave,
+        stdout=slave,
+        stderr=slave,
+        env=environment,
+        start_new_session=True,
+        close_fds=True,
+        preexec_fn=lambda: terminate_with_parent(parent_pid),
+    )
 
 
 class AnsiScreen:
@@ -394,7 +422,7 @@ def capture_screen(command: tuple[str, ...], rows: int, columns: int, duration: 
     master, slave = pty.openpty()
     termios.tcsetwinsize(slave, (rows, columns))
     environment = {**os.environ, "TERM": "xterm-256color", "COLUMNS": str(columns), "LINES": str(rows)}
-    process = subprocess.Popen(command, stdin=slave, stdout=slave, stderr=slave, env=environment, start_new_session=True, close_fds=True)
+    process = spawn_terminal(command, slave, environment)
     os.close(slave)
     screen = AnsiScreen(rows, columns)
     deadline = time.monotonic() + duration
@@ -476,20 +504,20 @@ def stream(
     max_bytes_per_frame: int,
     crop: bool = False,
     block: bool = False,
+    plain: bool = False,
+    settle_time: float | None = None,
 ) -> int:
     """Run a terminal program once and emit newline-delimited rich-text frames."""
     master, slave = pty.openpty()
     termios.tcsetwinsize(slave, (rows, columns))
     environment = {**os.environ, "TERM": "xterm-256color", "COLUMNS": str(columns), "LINES": str(rows)}
-    process = subprocess.Popen(command, stdin=slave, stdout=slave, stderr=slave, env=environment, start_new_session=True, close_fds=True)
+    process = spawn_terminal(command, slave, environment)
     os.close(slave)
     screen = AnsiScreen(rows, columns)
     next_frame = time.monotonic()
     last_input = next_frame
-    # Ncurses redraws a logical frame through several writes. Do not publish
-    # the transient screen between those writes: Qt would otherwise retain a
-    # half-drawn tty-clock digit until the following update.
-    settle_interval = min(0.03, frame_interval / 2)
+    settle_interval = settle_time if settle_time is not None else min(0.03, frame_interval / 2)
+    publish_deadline = next_frame + settle_interval
     received = 0
     previous = ""
     previous_sigterm = signal.getsignal(signal.SIGTERM)
@@ -501,7 +529,11 @@ def stream(
     try:
         while process.poll() is None:
             now = time.monotonic()
-            ready, _, _ = select.select([master], [], [], min(0.05, max(0, next_frame - now)))
+            if now < next_frame:
+                wait_until = next_frame
+            else:
+                wait_until = min(publish_deadline, last_input + settle_interval)
+            ready, _, _ = select.select([master], [], [], min(0.05, max(0, wait_until - now)))
             if ready:
                 try:
                     chunk = os.read(master, min(8192, max_bytes_per_frame - received))
@@ -513,14 +545,15 @@ def stream(
                 screen.feed(chunk)
                 last_input = time.monotonic()
             now = time.monotonic()
-            if now >= next_frame and now - last_input >= settle_interval:
-                rendered = screen.block_text(crop=crop) if block else screen.rich_text(crop=crop)
+            if now >= next_frame and (now - last_input >= settle_interval or now >= publish_deadline):
+                rendered = screen.block_text(crop=crop) if block else screen.text() if plain else screen.rich_text(crop=crop)
                 if rendered and rendered != previous:
                     print(json.dumps(rendered, ensure_ascii=False), flush=True)
                     previous = rendered
-                next_frame = now + frame_interval
+                next_frame = max(next_frame + frame_interval, now)
+                publish_deadline = next_frame + settle_interval
                 received = 0
-        rendered = screen.block_text(crop=crop) if block else screen.rich_text(crop=crop)
+        rendered = screen.block_text(crop=crop) if block else screen.text() if plain else screen.rich_text(crop=crop)
         if rendered and rendered != previous:
             print(json.dumps(rendered, ensure_ascii=False), flush=True)
         return process.wait()
@@ -543,7 +576,9 @@ def main() -> int:
     parser.add_argument("--columns", type=int, default=60)
     parser.add_argument("--duration-ms", type=int, default=350)
     parser.add_argument("--stream", action="store_true")
+    parser.add_argument("--plain", action="store_true")
     parser.add_argument("--frame-ms", type=int, default=100)
+    parser.add_argument("--settle-ms", type=int, default=0)
     parser.add_argument("--command", default="")
     args = parser.parse_args()
     rows = max(4, min(80, args.rows))
@@ -553,15 +588,22 @@ def main() -> int:
         command = command_for(args.preset, args.command)
         if args.stream:
             if args.preset == "clock":
-                return snapshot_stream(command, rows, columns, max(0.5, args.frame_ms / 1000))
+                return snapshot_stream(
+                    command,
+                    rows,
+                    columns,
+                    max(0.5, min(1.0, args.frame_ms / 1000)),
+                )
             return stream(
                 command,
                 rows,
                 columns,
-                max(0.05, min(1.0, args.frame_ms / 1000)),
+                max(0.01, min(1.0, args.frame_ms / 1000)),
                 256 * 1024,
                 crop=False,
                 block=False,
+                plain=args.plain,
+                settle_time=max(0.001, min(0.25, args.settle_ms / 1000)) if args.settle_ms > 0 else None,
             )
         if args.preset == "clock":
             rendered = capture_screen(command, rows, columns, duration, 256 * 1024).block_text(crop=True)
@@ -578,4 +620,5 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    terminate_with_parent(os.getppid())
     raise SystemExit(main())

@@ -172,6 +172,7 @@ Scope {
                 y: widgetWindow.modelData.anchor === "centre" ? Math.round((parent.height - height) / 2) + widgetWindow.modelData.offset_y : 0
                 widget: widgetWindow.modelData
                 scriptRoot: root.scriptRoot
+                renderUpdates: widgetWindow.visible
                 onLeftClicked: {
                     root.run(root.commandFor(widgetWindow.modelData.left_click_command));
                     actionRefresh.restart();

@@ -22,6 +22,28 @@ Item {
         return root.horizontal ? point.x : point.y;
     }
 
+    function publishNotificationPosition() {
+        if (itemId !== "notifications" || horizontal !== controller.horizontalBar || !contentLoader.item)
+            return ;
+
+        controller.notificationPanelY = mappedCentre(contentLoader.item, contentLoader.item.height / 2);
+    }
+
+    onXChanged: publishNotificationPosition()
+    onYChanged: publishNotificationPosition()
+    onWidthChanged: publishNotificationPosition()
+    onHeightChanged: publishNotificationPosition()
+    onHorizontalChanged: publishNotificationPosition()
+    Component.onCompleted: publishNotificationPosition()
+
+    Connections {
+        target: root.controller
+
+        function onHorizontalBarChanged() {
+            root.publishNotificationPosition();
+        }
+    }
+
     // Keep the cross-axis extent stable. Content such as the expandable battery
     // percentage must only grow along the bar, otherwise a click recentres the
     // whole vertical section and makes neighbouring icons jump sideways.
@@ -35,6 +57,7 @@ Item {
         id: contentLoader
 
         anchors.centerIn: parent
+        onLoaded: root.publishNotificationPosition()
         sourceComponent: {
             const components = {
                 "power": powerComponent,
@@ -143,14 +166,14 @@ Item {
         id: clockComponent
 
         Item {
-            implicitWidth: root.horizontal ? 62 : verticalClock.implicitWidth
+            implicitWidth: root.horizontal ? Math.ceil(horizontalClock.implicitWidth) + 16 : verticalClock.implicitWidth
             implicitHeight: root.horizontal ? Theme.buttonSize : verticalClock.implicitHeight
 
             RailClock {
                 id: verticalClock
 
                 visible: !root.horizontal
-                text: root.controller.railClockText()
+                text: root.controller.railClockText(root.horizontal)
                 dateMode: root.controller.clockDateMode
                 onHovered: (centre) => {
                     return root.controller.hoverButtonEntered("calendar", root.mappedCentre(this, centre), "calendar");
@@ -160,27 +183,29 @@ Item {
             }
 
             Text {
-                anchors.fill: parent
+                id: horizontalClock
+
+                anchors.centerIn: parent
                 visible: root.horizontal
-                text: String(root.controller.railClockText()).replace(/\n/g, ":")
+                text: String(root.controller.railClockText(root.horizontal))
                 color: root.controller.clockDateMode ? Theme.foreground : Theme.blue
                 font.family: Theme.fontFamily
                 font.pixelSize: 14
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
+            }
 
-                MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onEntered: {
-                        const point = mapToItem(null, width / 2, height / 2);
-                        root.controller.hoverButtonEntered("calendar", root.horizontal ? point.x : point.y, "calendar");
-                    }
-                    onExited: root.controller.hoverButtonExited("calendar")
-                    onClicked: root.controller.clockDateMode = !root.controller.clockDateMode
+            MouseArea {
+                anchors.fill: parent
+                visible: root.horizontal
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onEntered: {
+                    const point = mapToItem(null, width / 2, height / 2);
+                    root.controller.hoverButtonEntered("calendar", root.horizontal ? point.x : point.y, "calendar");
                 }
-
+                onExited: root.controller.hoverButtonExited("calendar")
+                onClicked: root.controller.clockDateMode = !root.controller.clockDateMode
             }
 
         }
@@ -238,10 +263,12 @@ Item {
             panel: "notifications"
             active: root.controller.openPanel === panel
             onPanelClicked: (panel, centre) => {
+                root.publishNotificationPosition();
                 root.controller.closeDrawers();
                 root.controller.togglePanel(panel, root.mappedCentre(this, centre));
             }
             onPanelHovered: (panel, centre, source) => {
+                root.publishNotificationPosition();
                 return root.controller.hoverButtonEntered(panel, root.mappedCentre(this, centre), source);
             }
             onPanelExited: (source) => {
@@ -256,7 +283,7 @@ Item {
         id: wifiComponent
 
         PanelRailButton {
-            icon: root.controller.network.json.icon || "󰔩"
+            icon: root.controller.network.json.icon || "󰤩"
             accent: root.controller.network.json.class === "wifi" ? Theme.green : Theme.yellow
             panel: "network"
             active: root.controller.openPanel === panel
@@ -456,12 +483,6 @@ Item {
             flow: root.horizontal ? Flow.LeftToRight : Flow.TopToBottom
             width: root.horizontal ? implicitWidth : Theme.buttonSize
             height: root.horizontal ? Theme.buttonSize : implicitHeight
-            Component.onCompleted: root.controller.trayToggleItem = root
-            Component.onDestruction: {
-                if (root.controller.trayToggleItem === root)
-                    root.controller.trayToggleItem = null;
-
-            }
 
             ExtrasToggleButton {
                 horizontal: root.horizontal
@@ -486,6 +507,8 @@ Item {
 
             implicitWidth: root.horizontal ? trayCount * Theme.buttonSize : Theme.buttonSize
             implicitHeight: root.horizontal ? Theme.buttonSize : trayCount * Theme.buttonSize
+            width: implicitWidth
+            height: implicitHeight
 
             Flow {
                 id: trayFlow

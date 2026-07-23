@@ -19,15 +19,30 @@ audio_state() {
 
 previous="$(audio_state || true)"
 monitor_pid=""
+watchdog_pid=""
+parent_pid="$PPID"
+shell_pid="$$"
 
 cleanup() {
 	if [[ -n "$monitor_pid" ]]; then
 		kill "$monitor_pid" 2>/dev/null || true
 		wait "$monitor_pid" 2>/dev/null || true
 	fi
+	if [[ -n "$watchdog_pid" ]]; then
+		kill "$watchdog_pid" 2>/dev/null || true
+		wait "$watchdog_pid" 2>/dev/null || true
+	fi
 }
 
 trap cleanup EXIT INT TERM
+
+(
+	while kill -0 "$parent_pid" 2>/dev/null; do
+		sleep 1
+	done
+	kill -TERM "$shell_pid" 2>/dev/null || true
+) &
+watchdog_pid="$!"
 
 pactl subscribe 2>/dev/null > >(
 	while IFS= read -r event; do

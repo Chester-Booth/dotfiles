@@ -365,27 +365,34 @@ Scope {
             readonly property bool onRight: Theme.osdPosition === "top-right" || Theme.osdPosition === "bottom-right"
             readonly property bool onTop: Theme.osdPosition.indexOf("top") >= 0
             readonly property bool onBottom: Theme.osdPosition.indexOf("bottom") >= 0
+            readonly property bool horizontallyCentred: !onLeft && !onRight
+            readonly property real restingGap: Math.max(0, onTop ? 28 + Theme.osdOffsetY : 28 - Theme.osdOffsetY)
 
             screen: modelData
             visible: root.rendered
-            implicitWidth: modelData ? modelData.width : 1
-            implicitHeight: modelData ? modelData.height : 1
+            implicitWidth: 292 + (horizontallyCentred ? 2 * Math.abs(Theme.osdOffsetX) : 0)
+            implicitHeight: 72 + restingGap
             exclusiveZone: 0
             focusable: false
             color: "transparent"
 
             anchors {
-                left: onLeft || !onLeft && !onRight
-                right: onRight || !onLeft && !onRight
+                left: onLeft
+                right: onRight
                 top: onTop
                 bottom: onBottom
+            }
+
+            margins {
+                left: onLeft ? 28 + Theme.osdOffsetX : 0
+                right: onRight ? 28 - Theme.osdOffsetX : 0
             }
 
             Rectangle {
                 id: osdCard
 
-                x: osdWindow.onLeft ? 28 + Theme.osdOffsetX : osdWindow.onRight ? parent.width - width - 28 + Theme.osdOffsetX : Math.round((parent.width - width) / 2) + Theme.osdOffsetX
-                y: osdWindow.onTop ? 28 + Theme.osdOffsetY : parent.height - height - 28 + Theme.osdOffsetY
+                x: osdWindow.horizontallyCentred ? Math.abs(Theme.osdOffsetX) + Theme.osdOffsetX : 0
+                y: osdWindow.onTop ? osdWindow.restingGap : 0
                 width: 292
                 height: 72
                 radius: 8
@@ -504,7 +511,7 @@ Scope {
                 }
 
                 transform: Translate {
-                    y: root.showing ? 0 : osdWindow.onTop ? -osdCard.height - 34 - Theme.osdOffsetY : osdCard.height + 34 - Theme.osdOffsetY
+                    y: root.showing ? 0 : osdWindow.onTop ? -osdCard.height - osdCard.y : osdWindow.height - osdCard.y
 
                     Behavior on y {
                         NumberAnimation {
@@ -532,6 +539,11 @@ Scope {
 
                 }
 
+            }
+
+            // OSD cards are informational only. Keep their input region empty so
+            // pointer events always reach the application underneath.
+            mask: Region {
             }
 
         }

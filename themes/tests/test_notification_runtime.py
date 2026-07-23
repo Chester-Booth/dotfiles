@@ -42,12 +42,17 @@ class NotificationRuntimeTests(unittest.TestCase):
 
         self.assertIn("implicitWidth: modelData ? modelData.width : 1", toast_window)
         self.assertIn("implicitHeight: modelData ? modelData.height : 1", toast_window)
+        self.assertIn("left: true", toast_window)
+        self.assertIn("right: true", toast_window)
         self.assertIn("mask: Region {", toast_window)
         self.assertIn("x: notificationToasts.x", toast_window)
         self.assertIn("y: notificationToasts.y", toast_window)
         self.assertIn("width: notificationToasts.width", toast_window)
         self.assertIn("height: notificationToasts.height", toast_window)
         self.assertNotIn("item: notificationToasts", toast_window)
+        self.assertIn("x: notificationToastWindow.onLeft ? 12 + Theme.notificationOffsetX", toast_window)
+        self.assertIn("y: notificationToastWindow.onTop ? 12 + Theme.notificationOffsetY", toast_window)
+        self.assertNotIn("anchors.left: notificationToastWindow.onLeft", toast_window)
 
 
 if __name__ == "__main__":

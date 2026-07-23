@@ -249,7 +249,7 @@ Item {
         anchorY: Theme.barPosition === "left" || Theme.barPosition === "right" ? Math.max(8, systemWindow.anchorY - mediaPlayer.implicitHeight - 8) : root.popupY(mediaPlayer.implicitHeight, root.openPanelY)
         contentWidth: 330
         contentHeight: mediaPlayer.implicitHeight
-        open: root.openPanel === "audio"
+        open: root.openPanel === "audio" && mediaPlayer.hasPlayers
         onHoverEntered: root.hoverEntered()
         onHoverExited: root.hoverExited()
 

@@ -465,6 +465,23 @@ class CliContractTests(unittest.TestCase):
         for item_id in ("power", "notes", "workspaces", "clock", "battery", "notifications", "wifi", "sound", "privacy", "awake", "display", "bt", "updates", "fan", "gpu", "tray", "application-tray"):
             with self.subTest(item_id=item_id):
                 self.assertIn(f'"{item_id}"', delegate)
+        edge_trigger = source.split("MouseArea {", 1)[1].split("Rectangle {", 1)[0]
+        self.assertIn("readonly property int triggerLength", edge_trigger)
+        self.assertIn("width: root.horizontalBar ? triggerLength : 1", edge_trigger)
+        self.assertIn("height: root.horizontalBar ? 1 : triggerLength", edge_trigger)
+        self.assertIn("parent.width - width", edge_trigger)
+        self.assertIn(": parent.height - height", edge_trigger)
+        self.assertIn("root.enterEdgeTrigger()", edge_trigger)
+        self.assertIn("root.leaveEdgeTrigger()", edge_trigger)
+        self.assertIn('Theme.barPosition === "bottom"', edge_trigger)
+        self.assertIn('Theme.barPosition === "right"', edge_trigger)
+        self.assertIn("function publishNotificationPosition()", delegate)
+        self.assertIn("horizontal !== controller.horizontalBar", delegate)
+        self.assertIn("controller.notificationPanelY = mappedCentre", delegate)
+        self.assertIn("onHorizontalChanged: publishNotificationPosition()", delegate)
+        self.assertIn("function onHorizontalBarChanged()", delegate)
+        self.assertIn('icon: root.controller.network.json.icon || "󰤩"', delegate)
+        self.assertNotIn('icon: root.controller.network.json.icon || "󰔩"', delegate)
 
     def test_configured_battery_uses_live_status_without_cross_axis_jump(self) -> None:
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
@@ -475,7 +492,16 @@ class CliContractTests(unittest.TestCase):
         tray_start = delegate.index("id: trayToggleComponent")
         application_tray_start = delegate.index("id: applicationTrayComponent")
         self.assertNotIn("trayToggleItem = root", delegate[battery_start:tray_start])
-        self.assertIn("trayToggleItem = root", delegate[tray_start:application_tray_start])
+        self.assertNotIn("trayToggleItem = root", delegate[tray_start:application_tray_start])
+        clock = delegate.split("id: clockComponent", 1)[1].split("id: batteryComponent", 1)[0]
+        self.assertIn("Math.ceil(horizontalClock.implicitWidth) + 16", clock)
+        self.assertIn("id: horizontalClock", clock)
+        self.assertIn("anchors.centerIn: parent", clock)
+        bar = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/Bar.qml").read_text(encoding="utf-8")
+        self.assertIn("property var verticalTrayToggleItem", bar)
+        self.assertIn("property var horizontalTrayToggleItem", bar)
+        self.assertIn("readonly property point horizontalTrayPoint", bar)
+        self.assertIn("const geometryDependency = width + height", bar)
 
     def test_horizontal_popouts_use_screen_geometry_and_do_not_overlap(self) -> None:
         popouts = (REPOSITORY / "quickshell/.config/quickshell/blox/popouts/BarPopouts.qml").read_text(encoding="utf-8")
@@ -488,6 +514,10 @@ class CliContractTests(unittest.TestCase):
         self.assertIn("flow: root.horizontal ? Flow.LeftToRight : Flow.TopToBottom", application_tray)
         self.assertIn("trayCount * Theme.buttonSize", application_tray)
         self.assertIn("anchors.fill: parent", application_tray)
+
+    def test_media_popout_is_hidden_without_a_player(self) -> None:
+        popouts = (REPOSITORY / "quickshell/.config/quickshell/blox/popouts/BarPopouts.qml").read_text(encoding="utf-8")
+        self.assertIn('open: root.openPanel === "audio" && mediaPlayer.hasPlayers', popouts)
 
     def test_fan_and_gpu_are_configurable_runtime_items(self) -> None:
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
@@ -508,6 +538,8 @@ class CliContractTests(unittest.TestCase):
         application_tray = delegate.split("id: applicationTrayComponent", 1)[1]
         self.assertIn("id: trayRepeater", application_tray)
         self.assertIn("readonly property int trayCount: trayRepeater.count", application_tray)
+        self.assertIn("width: implicitWidth", application_tray)
+        self.assertIn("height: implicitHeight", application_tray)
         self.assertNotIn("SystemTray.items.length", application_tray)
 
     def test_tray_toggle_points_outwards_when_closed_and_inwards_when_open(self) -> None:
@@ -532,14 +564,16 @@ class CliContractTests(unittest.TestCase):
     def test_osd_position_uses_window_edge_flags(self) -> None:
         source = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/Osd.qml").read_text(encoding="utf-8")
         self.assertIn("id: osdWindow", source)
-        for edge in ("onLeft", "onRight", "onTop"):
-            self.assertIn(f"osdWindow.{edge}", source)
+        for edge in ("onLeft", "onRight", "onTop", "onBottom"):
+            self.assertIn(f"readonly property bool {edge}", source)
             self.assertNotIn(f"parent.{edge}", source)
+        for edge in ("left", "right", "top", "bottom"):
+            self.assertIn(f"{edge}: on{edge.title()}", source)
 
     def test_osd_animation_translates_from_its_configured_screen_edge(self) -> None:
         source = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/Osd.qml").read_text(encoding="utf-8")
         self.assertIn("transform: Translate", source)
-        self.assertIn("osdWindow.onTop ? -osdCard.height - 34 - Theme.osdOffsetY : osdCard.height + 34 - Theme.osdOffsetY", source)
+        self.assertIn("osdWindow.onTop ? -osdCard.height - osdCard.y : osdWindow.height - osdCard.y", source)
         self.assertNotIn("y: root.showing ? (osdWindow.onTop", source)
 
     def test_missing_theme_and_malformed_json_exit_codes(self) -> None:

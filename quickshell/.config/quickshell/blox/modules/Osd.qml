@@ -180,7 +180,7 @@ Scope {
 
     Connections {
         function onOsdPositionPreviewRequested() {
-            root.showNotice("OSD position", "Previewing the selected position", "󰍹", "info", "1400");
+            root.showNotice("OSD position", "Previewing the selected position", "󰍹", "info", 1400);
         }
 
         target: Theme

@@ -25,6 +25,14 @@ class OsdRuntimeTests(unittest.TestCase):
         self.assertIn("right: onRight", window)
         self.assertIn("mask: Region {\n            }", window)
 
+    def test_position_preview_uses_a_numeric_duration(self) -> None:
+        source = (
+            REPOSITORY / "quickshell/.config/quickshell/blox/modules/Osd.qml"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('"󰍹", "info", 1400);', source)
+        self.assertNotIn('"󰍹", "info", "1400");', source)
+
 
 if __name__ == "__main__":
     unittest.main()

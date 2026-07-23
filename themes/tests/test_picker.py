@@ -4,6 +4,7 @@ import copy
 import hashlib
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -494,6 +495,17 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         script_provider = settings["providers"]["scripts"]
         self.assertTrue(script_provider["enabled"])
         self.assertNotIn("preferences", script_provider)
+
+        apply_script = scripts / "apply-theme.sh"
+        missing_argument = subprocess.run(
+            [str(apply_script)],
+            cwd=REPOSITORY,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(2, missing_argument.returncode)
+        self.assertEqual("Usage: apply-theme.sh <theme-id>\n", missing_argument.stderr)
 
     def test_theme_picker_desktop_fallbacks_are_discoverable(self) -> None:
         applications = REPOSITORY / "applications/.local/share/applications"

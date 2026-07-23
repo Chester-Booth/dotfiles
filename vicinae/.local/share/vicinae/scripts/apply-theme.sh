@@ -9,5 +9,10 @@
 # @vicinae.description Validate and apply a saved Blox theme.
 set -euo pipefail
 
+if (( $# != 1 )); then
+    printf 'Usage: %s <theme-id>\n' "${0##*/}" >&2
+    exit 2
+fi
+
 repo_root=$(git -C "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" rev-parse --show-toplevel)
 exec "$repo_root/themes/bin/themectl" apply "$1" --json

@@ -938,7 +938,7 @@ Scope {
                     visible: false
                     y: Math.round((parent.height - height) / 2)
                     z: 20
-                    text: root.railClockText()
+                    text: root.railClockText(root.horizontalBar)
                     dateMode: root.clockDateMode
                     onHovered: (centerY) => {
                         return root.hoverButtonEntered("calendar", centerY, "calendar");

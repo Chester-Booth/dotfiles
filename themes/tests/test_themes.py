@@ -497,6 +497,8 @@ class CliContractTests(unittest.TestCase):
         self.assertIn("function onHorizontalBarChanged()", delegate)
         self.assertIn('icon: root.controller.network.json.icon || "󰤩"', delegate)
         self.assertNotIn('icon: root.controller.network.json.icon || "󰔩"', delegate)
+        self.assertIn("text: root.railClockText(root.horizontalBar)", source)
+        self.assertNotIn("text: root.railClockText()", source)
 
     def test_configured_battery_uses_live_status_without_cross_axis_jump(self) -> None:
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")

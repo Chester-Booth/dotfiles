@@ -21,7 +21,7 @@
    },
    "theme": {
       "dark": {
-         "name": "blox-panel",
+         "name": "blox-generated",
          "icon_theme": "Adwaita"
       }
    },
@@ -36,6 +36,9 @@
       "files:search"
    ],
    "providers": {
+      "scripts": {
+         "enabled": true
+      },
       "applications": {
          "preferences": {
             "defaultAction": "focus",

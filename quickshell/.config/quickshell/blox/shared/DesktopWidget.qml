@@ -1,0 +1,232 @@
+import "../services"
+import QtQuick
+import Quickshell
+import Quickshell.Io
+
+Rectangle {
+    id: root
+
+    required property var widget
+    property string scriptRoot: Quickshell.shellDir + "/scripts"
+    property bool interactive: true
+    property bool renderUpdates: true
+    property int overrideWidth: 0
+    property int overrideHeight: 0
+    property string terminalFrame: ""
+    property string clockFrame: ""
+    readonly property bool terminalPreset: ["music", "clock", "aquarium", "pipes", "tree", "matrix", "train"].indexOf(widget.type) >= 0
+    readonly property bool streamedTerminalPreset: terminalPreset
+    readonly property bool persistentTerminalPreset: ["music", "clock", "aquarium", "pipes", "matrix"].indexOf(widget.type) >= 0
+    readonly property int terminalFrameMilliseconds: widget.type === "music" ? 16 : widget.type === "aquarium" || widget.type === "clock" ? 500 : 250
+    readonly property bool autoSize: widget.options && widget.options.auto_size === true
+    readonly property real widgetScale: Math.max(0.25, Math.min(4, Number(widget.options && widget.options.scale || 1)))
+    readonly property real scaledPadding: Theme.widgetPadding * widgetScale
+    readonly property int configuredWidth: autoSize ? 0 : Number(widget.width || 0)
+    readonly property int configuredHeight: autoSize ? 0 : Number(widget.height || 0)
+    readonly property int clockColumns: {
+        let maximum = 0;
+        const lines = clockFrame.split("\n");
+        for (let index = 0; index < lines.length; index++) maximum = Math.max(maximum, lines[index].length)
+        return maximum;
+    }
+    readonly property int clockRows: clockFrame.length > 0 ? clockFrame.split("\n").length : 1
+    readonly property int clockCellWidth: Math.ceil(clockMetrics.averageCharacterWidth)
+    readonly property int clockLineHeight: Math.ceil(clockMetrics.height)
+    readonly property int clockContentWidth: clockColumns * clockCellWidth
+    readonly property int clockContentHeight: clockRows * clockLineHeight
+
+    signal leftClicked()
+    signal rightClicked()
+
+    function expandedCommand(command) {
+        return String(command || "").replace(/\$SCRIPT_ROOT/g, root.scriptRoot);
+    }
+
+    function contentCommand() {
+        if (!root.terminalPreset)
+            return ["sh", "-c", root.expandedCommand(root.widget.content_command)];
+
+        const logicalWidth = root.overrideWidth > 0 ? root.overrideWidth / root.widgetScale : root.configuredWidth;
+        const logicalHeight = root.overrideHeight > 0 ? root.overrideHeight / root.widgetScale : root.configuredHeight;
+        const columns = logicalWidth > 0 ? Math.max(10, Math.floor(logicalWidth / Math.max(6, Theme.widgetFontSize * 0.6))) : 60;
+        const rows = logicalHeight > 0 ? Math.max(4, Math.floor(logicalHeight / Math.max(10, Theme.widgetFontSize * 1.25))) : 20;
+        const command = [root.scriptRoot + "/overlays/terminal-frame.py", root.widget.type, "--command", root.expandedCommand(root.widget.content_command), "--columns", String(columns), "--rows", String(rows)];
+        if (root.streamedTerminalPreset)
+            command.splice(2, 0, "--stream", "--frame-ms", String(root.terminalFrameMilliseconds));
+        else
+            command.splice(2, 0, "--duration-ms", "300");
+        if (root.widget.type === "music")
+            command.push("--plain");
+
+        return command;
+    }
+
+    function refresh() {
+        if (root.streamedTerminalPreset) {
+            if (terminalProcess.running)
+                terminalProcess.signal(15);
+            else
+                terminalProcess.running = true;
+        } else {
+            contentPoller.refresh();
+        }
+    }
+
+    width: overrideWidth > 0 ? overrideWidth : configuredWidth > 0 ? configuredWidth * widgetScale : (widget.type === "clock" ? clockContentWidth : content.implicitWidth) + scaledPadding * 2
+    height: overrideHeight > 0 ? overrideHeight : configuredHeight > 0 ? configuredHeight * widgetScale : (widget.type === "clock" ? clockContentHeight : content.implicitHeight) + scaledPadding * 2
+    // The terminal renderer maps ANSI black to Gruvbox's terminal black.  Use
+    // that same colour behind asciiquarium so its unpainted cells and the
+    // surrounding widget do not form two visibly different backgrounds.
+    color: widget.type === "clock" ? "transparent" : widget.type === "aquarium" ? "#1d2021" : Theme.withAlpha(Theme.background, Theme.widgetOpacity)
+    radius: widget.shape === "circle" ? Math.min(width, height) / 2 : widget.shape === "rounded" ? Math.max(10, Theme.widgetRadius) : widget.shape === "rectangle" ? 0 : Theme.widgetRadius
+
+    ScriptPoller {
+        id: contentPoller
+
+        command: root.streamedTerminalPreset ? [] : root.contentCommand()
+        interval: root.widget.type === "clock" ? 1000 : Math.max(250, Number(root.widget.interval_ms || 60000))
+    }
+
+    Connections {
+        function onRawChanged() {
+            if (root.widget.type !== "clock" || contentPoller.raw.length === 0)
+                return ;
+
+            root.clockFrame = contentPoller.raw;
+        }
+
+        target: contentPoller
+    }
+
+    Process {
+        // Ignore incomplete output; the next complete frame replaces it.
+
+        id: terminalProcess
+
+        command: root.contentCommand()
+        running: root.streamedTerminalPreset
+        onExited: {
+            if (root.persistentTerminalPreset)
+                terminalRestart.restart();
+
+        }
+        Component.onDestruction: {
+            terminalRestart.stop();
+            if (running)
+                signal(15);
+
+        }
+
+        stdout: SplitParser {
+            splitMarker: "\n"
+            onRead: (data) => {
+                if (!root.renderUpdates)
+                    return ;
+
+                try {
+                    const frame = JSON.parse(data);
+                    if (root.widget.type === "clock")
+                        root.clockFrame = frame;
+                    else
+                        root.terminalFrame = frame;
+                } catch (error) {
+                }
+            }
+        }
+
+    }
+
+    Timer {
+        id: terminalRestart
+
+        interval: 500
+        repeat: false
+        onTriggered: {
+            if (root.persistentTerminalPreset && !terminalProcess.running)
+                terminalProcess.running = true;
+
+        }
+    }
+
+    Text {
+        id: content
+
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.margins: root.scaledPadding
+        text: root.widget.type === "clock" ? (root.clockFrame.length > 0 ? root.clockFrame : "Loading…") : root.terminalPreset ? (root.terminalFrame.length > 0 ? root.terminalFrame : "Loading…") : (contentPoller.raw.length > 0 ? contentPoller.raw : "Loading…")
+        textFormat: root.terminalPreset && root.widget.type !== "clock" && root.widget.type !== "music" ? Text.RichText : Text.PlainText
+        color: Theme.foreground
+        font.family: root.terminalPreset ? Theme.monoFontFamily : Theme.bodyFontFamily
+        font.pixelSize: root.terminalPreset ? Math.max(1, Math.round(Theme.widgetFontSize * root.widgetScale)) : Theme.widgetFontSize * root.widgetScale
+        lineHeightMode: root.widget.type === "music" ? Text.FixedHeight : Text.ProportionalHeight
+        lineHeight: root.widget.type === "music" ? font.pixelSize : 1
+        wrapMode: Text.NoWrap
+        horizontalAlignment: Text.AlignLeft
+        verticalAlignment: Text.AlignTop
+        visible: root.widget.type !== "clock"
+    }
+
+    FontMetrics {
+        id: clockMetrics
+
+        font.family: Theme.monoFontFamily
+        font.pixelSize: Theme.widgetFontSize * root.widgetScale
+    }
+
+    Canvas {
+        id: clockCanvas
+
+        anchors.fill: parent
+        visible: root.widget.type === "clock"
+        renderTarget: Canvas.Image
+        onPaint: {
+            const context = getContext("2d");
+            context.clearRect(0, 0, width, height);
+            context.fillStyle = Theme.withAlpha(Theme.background, Theme.widgetOpacity);
+            context.fillRect(0, 0, width, height);
+            context.fillStyle = Theme.foreground;
+            context.font = clockMetrics.font.pixelSize + "px " + clockMetrics.font.family;
+            context.textBaseline = "alphabetic";
+            const lines = root.clockFrame.split("\n");
+            for (let row = 0; row < lines.length; row++) {
+                for (let column = 0; column < lines[row].length; column++) {
+                    const character = lines[row][column];
+                    if (character === "█")
+                        context.fillRect(root.scaledPadding + column * root.clockCellWidth, root.scaledPadding + row * root.clockLineHeight, root.clockCellWidth, root.clockLineHeight);
+                    else if (character !== " ")
+                        context.fillText(character, root.scaledPadding + column * root.clockCellWidth, root.scaledPadding + row * root.clockLineHeight + clockMetrics.ascent);
+                }
+            }
+        }
+        onWidthChanged: requestPaint()
+        onHeightChanged: requestPaint()
+
+        Connections {
+            function onClockFrameChanged() {
+                clockCanvas.requestPaint();
+            }
+
+            function onWidgetScaleChanged() {
+                clockCanvas.requestPaint();
+            }
+
+            target: root
+        }
+
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        enabled: root.interactive
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        cursorShape: Qt.PointingHandCursor
+        onClicked: (event) => {
+            if (event.button === Qt.RightButton)
+                root.rightClicked();
+            else
+                root.leftClicked();
+        }
+    }
+
+}

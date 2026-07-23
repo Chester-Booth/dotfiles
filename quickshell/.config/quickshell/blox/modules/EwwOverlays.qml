@@ -1,4 +1,6 @@
 import "../services"
+import "../shared"
+import "../shared" as Shared
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
@@ -9,26 +11,87 @@ Scope {
     id: root
 
     property string scriptRoot: Quickshell.shellDir + "/scripts"
+    property bool editMode: false
+    property bool editWorkspaceEntered: false
+    property string editReturnWorkspace: ""
+    property var editItems: []
+
+    signal editSaved(string widgetsJson)
+
+    function cloneItems(items) {
+        return JSON.parse(JSON.stringify(items || []));
+    }
+
+    function beginEdit() {
+        if (editMode)
+            return "editing";
+
+        editItems = cloneItems(Theme.widgetItems.filter((item) => {
+            return item.enabled;
+        }));
+        editReturnWorkspace = Hyprland.focusedWorkspace ? String(Hyprland.focusedWorkspace.id) : "";
+        editMode = true;
+        editWorkspaceEntered = true;
+        Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({ workspace = \"name:blox-widget-edit\" })"]);
+        return "editing";
+    }
+
+    function cancelEdit() {
+        editMode = false;
+        editItems = [];
+        const returnWorkspace = leaveEditWorkspace();
+        Theme.widgetEditModeFinished("", returnWorkspace);
+        return "cancelled";
+    }
+
+    function leaveEditWorkspace() {
+        if (!editWorkspaceEntered)
+            return editReturnWorkspace;
+
+        const returnWorkspace = editReturnWorkspace;
+        editWorkspaceEntered = false;
+        editReturnWorkspace = "";
+        Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({ workspace = \"" + (returnWorkspace || "previous") + "\" })"]);
+        return returnWorkspace;
+    }
+
+    function saveEdit() {
+        const editedById = {
+        };
+        editItems.forEach((item) => {
+            return editedById[item.id] = item;
+        });
+        Theme.widgetItems = Theme.widgetItems.map((item) => {
+            return editedById[item.id] || item;
+        });
+        const payload = JSON.stringify(Theme.widgetItems);
+        editMode = false;
+        editItems = [];
+        const returnWorkspace = leaveEditWorkspace();
+        editSaved(payload);
+        Theme.widgetEditModeFinished(payload, returnWorkspace);
+        return payload;
+    }
+
+    function replaceEditItem(index, item) {
+        const items = editItems.slice();
+        items[index] = item;
+        editItems = items;
+    }
 
     function run(command) {
         if (command.length === 0)
             return ;
 
         Quickshell.execDetached(["sh", "-c", command]);
-        actionRefreshDelay.restart();
+    }
+
+    function commandFor(command) {
+        return String(command || "").replace(/\$SCRIPT_ROOT/g, root.scriptRoot);
     }
 
     function activeWorkspaceEmpty() {
         return workspaceState.json.empty === true;
-    }
-
-    function refreshOverlays() {
-        todoContent.refresh();
-        gcalContent.refresh();
-    }
-
-    Component.onCompleted: {
-        generatedRefresh.running = true;
     }
 
     ScriptPoller {
@@ -38,169 +101,137 @@ Scope {
         interval: 300000
     }
 
-    ScriptPoller {
-        id: todoContent
+    Connections {
+        function onWidgetEditModeRequested() {
+            root.beginEdit();
+        }
 
-        command: [root.scriptRoot + "/overlays/todo-content.sh"]
-        interval: 60000
-    }
+        function onWidgetEditModeCancelRequested() {
+            if (root.editMode)
+                root.cancelEdit();
 
-    ScriptPoller {
-        id: gcalContent
+        }
 
-        command: [root.scriptRoot + "/overlays/gcal-content.sh"]
-        interval: 60000
-    }
-
-    Timer {
-        id: actionRefreshDelay
-
-        interval: 500
-        onTriggered: root.refreshOverlays()
-    }
-
-    Process {
-        id: generatedRefresh
-
-        command: [root.scriptRoot + "/todo/generated-refresh.sh"]
-        onExited: root.refreshOverlays()
+        target: Theme
     }
 
     Connections {
         function onRawEvent(event) {
-            if (event.name === "workspace" || event.name === "workspacev2" || event.name === "openwindow" || event.name === "closewindow") {
+            if (event.name === "workspace" || event.name === "workspacev2" || event.name === "openwindow" || event.name === "closewindow")
                 workspaceState.refresh();
-                root.refreshOverlays();
-            }
+
         }
 
         target: Hyprland
     }
 
     Variants {
-        model: Quickshell.screens.length > 0 ? [Quickshell.screens[0]] : []
+        model: Theme.widgetItems.filter((item) => {
+            return item.enabled;
+        })
 
         PanelWindow {
-            id: todoWindow
+            id: widgetWindow
 
             required property var modelData
+            readonly property bool atLeft: modelData.anchor === "top-left" || modelData.anchor === "bottom-left"
+            readonly property bool atRight: modelData.anchor === "top-right" || modelData.anchor === "bottom-right"
+            readonly property bool atTop: modelData.anchor === "top-left" || modelData.anchor === "top-right"
+            readonly property bool atBottom: modelData.anchor === "bottom-left" || modelData.anchor === "bottom-right"
 
-            screen: modelData
-            implicitWidth: todoBox.width
-            implicitHeight: todoBox.height
+            screen: Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
+            implicitWidth: modelData.anchor === "centre" ? 1 : widgetRenderer.width
+            implicitHeight: modelData.anchor === "centre" ? 1 : widgetRenderer.height
             exclusiveZone: 0
             exclusionMode: ExclusionMode.Ignore
             focusable: false
             color: "transparent"
-            visible: root.activeWorkspaceEmpty()
+            visible: !root.editMode && (modelData.visibility !== "empty-workspace" || root.activeWorkspaceEmpty())
             WlrLayershell.layer: WlrLayer.Background
-            WlrLayershell.namespace: "todo-overlay"
+            WlrLayershell.namespace: "blox-widget-" + modelData.id
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
             anchors {
-                left: true
-                top: true
+                left: widgetWindow.atLeft || modelData.anchor === "centre"
+                right: widgetWindow.atRight || modelData.anchor === "centre"
+                top: widgetWindow.atTop || modelData.anchor === "centre"
+                bottom: widgetWindow.atBottom || modelData.anchor === "centre"
             }
 
             margins {
-                left: 20
-                top: 20
+                left: widgetWindow.atLeft ? modelData.offset_x : 0
+                right: widgetWindow.atRight ? modelData.offset_x : 0
+                top: widgetWindow.atTop ? modelData.offset_y : 0
+                bottom: widgetWindow.atBottom ? modelData.offset_y : 0
             }
 
-            OverlayBox {
-                id: todoBox
+            Shared.DesktopWidget {
+                id: widgetRenderer
 
-                text: todoContent.raw.length > 0 ? todoContent.raw : "Loading..."
-                onLeftClicked: root.run(root.scriptRoot + "/overlays/cycle-todo.sh")
-                onRightClicked: root.run(root.scriptRoot + "/overlays/open-todo-editor.sh")
+                x: widgetWindow.modelData.anchor === "centre" ? Math.round((parent.width - width) / 2) + widgetWindow.modelData.offset_x : 0
+                y: widgetWindow.modelData.anchor === "centre" ? Math.round((parent.height - height) / 2) + widgetWindow.modelData.offset_y : 0
+                widget: widgetWindow.modelData
+                scriptRoot: root.scriptRoot
+                renderUpdates: widgetWindow.visible
+                onLeftClicked: {
+                    root.run(root.commandFor(widgetWindow.modelData.left_click_command));
+                    actionRefresh.restart();
+                }
+                onRightClicked: {
+                    root.run(root.commandFor(widgetWindow.modelData.right_click_command));
+                    actionRefresh.restart();
+                }
+            }
+
+            Timer {
+                id: actionRefresh
+
+                interval: 500
+                onTriggered: widgetRenderer.refresh()
+            }
+
+            // A centred widget's anchored layer surface spans the whole
+            // output.  Limit its input region to the renderer so its
+            // transparent area cannot steal clicks from other widgets.
+            mask: Region {
+                item: widgetRenderer
             }
 
         }
 
     }
 
-    Variants {
-        model: Quickshell.screens.length > 0 ? [Quickshell.screens[0]] : []
-
-        PanelWindow {
-            id: gcalWindow
-
-            required property var modelData
-
-            screen: modelData
-            implicitWidth: gcalBox.width
-            implicitHeight: gcalBox.height
-            exclusiveZone: 0
-            exclusionMode: ExclusionMode.Ignore
-            focusable: false
-            color: "transparent"
-            visible: root.activeWorkspaceEmpty()
-            WlrLayershell.layer: WlrLayer.Background
-            WlrLayershell.namespace: "gcal-overlay"
-            WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
-
-            anchors {
-                right: true
-                bottom: true
-            }
-
-            margins {
-                right: 20
-                bottom: 20
-            }
-
-            OverlayBox {
-                id: gcalBox
-
-                text: gcalContent.raw.length > 0 ? gcalContent.raw : "Loading..."
-                onLeftClicked: root.run(root.scriptRoot + "/overlays/cycle-gcal.sh")
-                onRightClicked: root.run(root.scriptRoot + "/overlays/open-gcal.sh")
-            }
-
+    WidgetEditMode {
+        active: root.editMode
+        items: root.editItems
+        onItemChanged: (index, item) => {
+            return root.replaceEditItem(index, item);
         }
-
+        onExitRequested: root.cancelEdit()
+        onSaveRequested: root.saveEdit()
     }
 
-    component OverlayBox: Rectangle {
-        id: box
-
-        property string text: ""
-
-        signal leftClicked()
-        signal rightClicked()
-
-        width: content.implicitWidth + 40
-        height: content.implicitHeight + 40
-        color: "#4d000000"
-        radius: 0
-
-        Text {
-            id: content
-
-            anchors.left: parent.left
-            anchors.top: parent.top
-            anchors.margins: 20
-            text: box.text
-            color: "#ffffff"
-            font.family: "Google Sans Code NF"
-            font.pixelSize: 14
-            wrapMode: Text.NoWrap
-            horizontalAlignment: Text.AlignLeft
-            verticalAlignment: Text.AlignTop
+    IpcHandler {
+        function open() : string {
+            return root.beginEdit();
         }
 
-        MouseArea {
-            anchors.fill: parent
-            acceptedButtons: Qt.LeftButton | Qt.RightButton
-            cursorShape: Qt.PointingHandCursor
-            onClicked: (event) => {
-                if (event.button === Qt.RightButton)
-                    box.rightClicked();
-                else
-                    box.leftClicked();
-            }
+        function close() : string {
+            return root.cancelEdit();
         }
 
+        function save() : string {
+            return root.saveEdit();
+        }
+
+        function status() : string {
+            return JSON.stringify({
+                "active": root.editMode,
+                "items": root.editItems
+            });
+        }
+
+        target: "widget-edit"
     }
 
 }

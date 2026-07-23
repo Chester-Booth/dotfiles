@@ -6,6 +6,7 @@ Rectangle {
     id: root
 
     property string icon: ""
+    property string iconFontFamily: Theme.fontFamily
     property string label: ""
     property color accent: Theme.foreground
     property bool active: false
@@ -31,7 +32,7 @@ Rectangle {
         anchors.fill: parent
         text: root.icon
         color: root.accent
-        font.family: Theme.fontFamily
+        font.family: root.iconFontFamily
         font.pixelSize: Theme.iconSize
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
@@ -44,6 +45,7 @@ Rectangle {
             }
 
         }
+
     }
 
     Text {

@@ -30,13 +30,13 @@ uses it to refresh expenses-generated todo markdown files.
 Layout:
 
 - `shell.qml` - Quickshell entrypoint.
-- `modules/` - top-level shell surfaces, including the left rail and Eww-style todo/calendar overlays.
+- `modules/` - top-level shell surfaces, including the rail, overlays and IPC-opened theme picker.
 - `shared/` - theme and reusable UI pieces.
 - `services/` - status polling, persisted UI state, action execution, notification,
   workspace, and derived-content controllers.
 - `popouts/` - click-open panel surfaces.
 - `scripts/status/` - JSON status producers for the rail and popouts.
-- `scripts/{calendar,display,gpu,network,power,todo,update,workspaces}/` - action and domain backends.
+- `scripts/{calendar,display,gpu,network,power,theme,todo,update,workspaces}/` - action and domain backends.
 - `scripts/overlays/` - background todo/calendar overlay helpers.
 - `scripts/contracts/status.json` - expected JSON contracts for status-producing scripts.
 

@@ -7,11 +7,13 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Services.SystemTray
+import Quickshell.Wayland
 
 Scope {
     id: root
 
     property string openPanel: ""
+    property real openPanelX: 8
     property real openPanelY: 8
     property string scriptRoot: Quickshell.shellDir + "/scripts"
     property bool barOpen: true
@@ -64,9 +66,19 @@ Scope {
     property alias touchpad: barStatus.touchpad
     property alias privacy: barStatus.privacy
     property alias caffeine: barStatus.caffeine
+    readonly property bool horizontalBar: Theme.barPosition === "top" || Theme.barPosition === "bottom"
 
     function togglePanel(panel, centerY) {
         openHoverPanel(panel, centerY);
+    }
+
+    function enterEdgeTrigger() {
+        edgeTriggerRelease.stop();
+        edgeTriggerHovered = true;
+    }
+
+    function leaveEdgeTrigger() {
+        edgeTriggerRelease.restart();
     }
 
     function syncActiveScreenToFocus() {
@@ -108,7 +120,10 @@ Scope {
         if (openPanel !== panel)
             inputPopupLocked = false;
 
-        openPanelY = centerY === undefined ? 8 : centerY;
+        if (horizontalBar)
+            openPanelX = centerY === undefined ? 8 : centerY;
+        else
+            openPanelY = centerY === undefined ? 8 : centerY;
         openPanel = panel;
         hoverCloseDelay.stop();
     }
@@ -297,8 +312,8 @@ Scope {
         return content.updateIcon();
     }
 
-    function railClockText() {
-        return content.railClockText();
+    function railClockText(horizontal) {
+        return content.railClockText(horizontal);
     }
 
     function panelTitle() {
@@ -356,6 +371,15 @@ Scope {
     Component.onCompleted: {
         diagLog("component.completed", "bar loaded");
         syncActiveScreenToFocus();
+    }
+
+    Connections {
+        function onNotificationPositionPreviewRequested() {
+            root.diagLog("notification.preview", Theme.notificationPosition);
+            Quickshell.execDetached(["notify-send", "--app-name", "Theme picker", "--expire-time", "2500", "Notification position", "Previewing " + Theme.notificationPosition]);
+        }
+
+        target: Theme
     }
 
     UiState {
@@ -474,6 +498,14 @@ Scope {
         }
     }
 
+    Timer {
+        id: edgeTriggerRelease
+
+        interval: 140
+        repeat: false
+        onTriggered: root.edgeTriggerHovered = false
+    }
+
     Variants {
         model: Quickshell.screens
 
@@ -495,37 +527,42 @@ Scope {
             }
 
             screen: modelData
-            implicitWidth: root.barVisible || root.barSlide > 0.01 ? Theme.railWidth : 1
+            implicitWidth: root.horizontalBar ? modelData.width : (root.barVisible || root.barSlide > 0.01 ? Theme.railWidth : 1)
+            implicitHeight: root.horizontalBar ? (root.barVisible || root.barSlide > 0.01 ? Theme.railWidth : 1) : modelData.height
             exclusiveZone: root.barOpen ? Math.round(Theme.railWidth * root.barSlide) : 0
             focusable: false
             visible: true
             color: "transparent"
 
             anchors {
-                left: true
-                top: true
-                bottom: true
+                left: Theme.barPosition === "left"
+                right: Theme.barPosition === "right"
+                top: Theme.barPosition === "top" || !root.horizontalBar
+                bottom: Theme.barPosition === "bottom" || !root.horizontalBar
             }
 
             MouseArea {
                 z: -1
-                x: 0
-                y: parent.height - height
-                width: 1
-                height: Math.ceil(parent.height / 5)
+                readonly property int triggerLength: Math.ceil((root.horizontalBar ? parent.width : parent.height) / 5)
+
+                x: root.horizontalBar ? parent.width - width : Theme.barPosition === "right" ? parent.width - width : 0
+                y: root.horizontalBar ? Theme.barPosition === "bottom" ? parent.height - height : 0 : parent.height - height
+                width: root.horizontalBar ? triggerLength : 1
+                height: root.horizontalBar ? 1 : triggerLength
                 acceptedButtons: Qt.NoButton
                 hoverEnabled: true
                 onEntered: {
                     panel.claimScreen();
-                    root.edgeTriggerHovered = true;
+                    root.enterEdgeTrigger();
                 }
-                onExited: root.edgeTriggerHovered = false
+                onExited: root.leaveEdgeTrigger()
             }
 
             Rectangle {
-                x: Math.round(-Theme.railWidth * (1 - root.barSlide))
-                width: Theme.railWidth
-                height: parent.height
+                x: Theme.barPosition === "left" ? Math.round(-Theme.railWidth * (1 - root.barSlide)) : Theme.barPosition === "right" ? Math.round(Theme.railWidth * (1 - root.barSlide)) : 0
+                y: Theme.barPosition === "top" ? Math.round(-Theme.railWidth * (1 - root.barSlide)) : Theme.barPosition === "bottom" ? Math.round(Theme.railWidth * (1 - root.barSlide)) : 0
+                width: root.horizontalBar ? parent.width : Theme.railWidth
+                height: root.horizontalBar ? Theme.railWidth : parent.height
                 color: Theme.background
 
                 HoverHandler {
@@ -545,6 +582,7 @@ Scope {
                 ColumnLayout {
                     id: railLayout
 
+                    visible: false
                     anchors.fill: parent
                     anchors.topMargin: 4
                     anchors.bottomMargin: 4
@@ -663,13 +701,244 @@ Scope {
 
                 }
 
+                Item {
+                    id: configuredRail
+
+                    property var verticalTrayToggleItem: null
+                    property var horizontalTrayToggleItem: null
+                    readonly property point verticalTrayPoint: mappedTrayPoint(verticalTrayToggleItem)
+                    readonly property point horizontalTrayPoint: mappedTrayPoint(horizontalTrayToggleItem)
+
+                    function mappedTrayPoint(item) {
+                        if (!item)
+                            return Qt.point(0, 0);
+
+                        // mapToItem() does not create bindings to ancestor
+                        // geometry. Read it directly so previews which rotate
+                        // the bar recalculate the drawer position.
+                        const geometryDependency = width + height + item.x + item.y + item.width + item.height + item.parent.x + item.parent.y;
+                        return item.mapToItem(configuredRail, 0, 0);
+                    }
+
+                    function registerTrayToggle(item, horizontal) {
+                        if (item.itemId !== "tray")
+                            return ;
+
+                        if (horizontal)
+                            horizontalTrayToggleItem = item;
+                        else
+                            verticalTrayToggleItem = item;
+                    }
+
+                    function unregisterTrayToggle(item, horizontal) {
+                        if (horizontal && horizontalTrayToggleItem === item)
+                            horizontalTrayToggleItem = null;
+                        else if (!horizontal && verticalTrayToggleItem === item)
+                            verticalTrayToggleItem = null;
+                    }
+
+                    anchors.fill: parent
+                    anchors.margins: 4
+
+                    Column {
+                        id: verticalStart
+
+                        visible: !root.horizontalBar
+                        anchors.top: parent.top
+                        anchors.horizontalCenter: parent.horizontalCenter
+
+                        Repeater {
+                            model: Theme.barStartItems
+
+                            BarItemDelegate {
+                                required property var modelData
+
+                                itemId: modelData.id
+                                controller: root
+                                horizontal: false
+                                panelExtent: panel.height
+                                Component.onCompleted: configuredRail.registerTrayToggle(this, false)
+                                Component.onDestruction: configuredRail.unregisterTrayToggle(this, false)
+                            }
+
+                        }
+
+                    }
+
+                    Column {
+                        visible: !root.horizontalBar
+                        anchors.centerIn: parent
+
+                        Repeater {
+                            model: Theme.barCentreItems
+
+                            BarItemDelegate {
+                                required property var modelData
+
+                                itemId: modelData.id
+                                controller: root
+                                horizontal: false
+                                panelExtent: panel.height
+                                Component.onCompleted: configuredRail.registerTrayToggle(this, false)
+                                Component.onDestruction: configuredRail.unregisterTrayToggle(this, false)
+                            }
+
+                        }
+
+                    }
+
+                    Column {
+                        id: verticalEnd
+
+                        visible: !root.horizontalBar
+                        anchors.bottom: parent.bottom
+                        anchors.horizontalCenter: parent.horizontalCenter
+
+                        Repeater {
+                            model: Theme.barEndItems
+
+                            BarItemDelegate {
+                                required property var modelData
+
+                                itemId: modelData.id
+                                controller: root
+                                horizontal: false
+                                panelExtent: panel.height
+                                Component.onCompleted: configuredRail.registerTrayToggle(this, false)
+                                Component.onDestruction: configuredRail.unregisterTrayToggle(this, false)
+                            }
+
+                        }
+
+                    }
+
+                    Row {
+                        visible: root.horizontalBar
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        Repeater {
+                            model: Theme.barStartItems
+
+                            BarItemDelegate {
+                                required property var modelData
+
+                                itemId: modelData.id
+                                controller: root
+                                horizontal: true
+                                panelExtent: panel.height
+                                Component.onCompleted: configuredRail.registerTrayToggle(this, true)
+                                Component.onDestruction: configuredRail.unregisterTrayToggle(this, true)
+                            }
+
+                        }
+
+                    }
+
+                    Row {
+                        visible: root.horizontalBar
+                        anchors.centerIn: parent
+
+                        Repeater {
+                            model: Theme.barCentreItems
+
+                            BarItemDelegate {
+                                required property var modelData
+
+                                itemId: modelData.id
+                                controller: root
+                                horizontal: true
+                                panelExtent: panel.height
+                                Component.onCompleted: configuredRail.registerTrayToggle(this, true)
+                                Component.onDestruction: configuredRail.unregisterTrayToggle(this, true)
+                            }
+
+                        }
+
+                    }
+
+                    Row {
+                        visible: root.horizontalBar
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        Repeater {
+                            model: Theme.barEndItems
+
+                            BarItemDelegate {
+                                required property var modelData
+
+                                itemId: modelData.id
+                                controller: root
+                                horizontal: true
+                                panelExtent: panel.height
+                                Component.onCompleted: configuredRail.registerTrayToggle(this, true)
+                                Component.onDestruction: configuredRail.unregisterTrayToggle(this, true)
+                            }
+
+                        }
+
+                    }
+
+                    Column {
+                        visible: !root.horizontalBar && root.extrasOpen && configuredRail.verticalTrayToggleItem
+                        z: 100
+                        x: configuredRail.verticalTrayPoint.x
+                        y: configuredRail.verticalTrayPoint.y - height - spacing
+                        spacing: 2
+
+                        Repeater {
+                            model: Theme.barHiddenItems.filter((item) => {
+                                return item.id !== "tray";
+                            })
+
+                            BarItemDelegate {
+                                required property var modelData
+
+                                itemId: modelData.id
+                                controller: root
+                                horizontal: false
+                                panelExtent: panel.height
+                            }
+
+                        }
+
+                    }
+
+                    Row {
+                        visible: root.horizontalBar && root.extrasOpen && configuredRail.horizontalTrayToggleItem
+                        z: 100
+                        x: configuredRail.horizontalTrayPoint.x - width - spacing
+                        y: configuredRail.horizontalTrayPoint.y
+                        spacing: 2
+
+                        Repeater {
+                            model: Theme.barHiddenItems.filter((item) => {
+                                return item.id !== "tray";
+                            })
+
+                            BarItemDelegate {
+                                required property var modelData
+
+                                itemId: modelData.id
+                                controller: root
+                                horizontal: true
+                                panelExtent: panel.height
+                            }
+
+                        }
+
+                    }
+
+                }
+
                 RailClock {
                     id: clockText
 
-                    anchors.horizontalCenter: parent.horizontalCenter
+                    visible: false
                     y: Math.round((parent.height - height) / 2)
                     z: 20
-                    text: root.railClockText()
+                    text: root.railClockText(root.horizontalBar)
                     dateMode: root.clockDateMode
                     onHovered: (centerY) => {
                         return root.hoverButtonEntered("calendar", centerY, "calendar");
@@ -681,6 +950,7 @@ Scope {
                 ExtrasDrawer {
                     id: extrasViewport
 
+                    visible: false
                     open: root.extrasOpen
                     topLimit: clockText.y + clockText.height + 4
                     bottomLimit: railLayout.y + extrasToggle.y
@@ -752,7 +1022,9 @@ Scope {
                 panelWindow: panel
                 panelHeight: panel.height
                 screenWidth: panel.screen ? panel.screen.width : 0
+                screenHeight: panel.screen ? panel.screen.height : 0
                 openPanel: root.activeScreen === modelData ? root.openPanel : ""
+                openPanelX: root.openPanelX
                 openPanelY: root.openPanelY
                 trayMenuY: root.trayMenuY
                 trayMenuOpen: root.activeScreen === modelData && root.trayMenuOpen
@@ -895,25 +1167,37 @@ Scope {
             PanelWindow {
                 id: notificationToastWindow
 
+                readonly property bool onLeft: Theme.notificationPosition === "top-left" || Theme.notificationPosition === "bottom-left"
+                readonly property bool onRight: Theme.notificationPosition === "top-right" || Theme.notificationPosition === "bottom-right"
+                readonly property bool onTop: Theme.notificationPosition.indexOf("top") >= 0
+                readonly property bool onBottom: Theme.notificationPosition.indexOf("bottom") >= 0
+
                 screen: modelData
-                implicitWidth: notificationToasts.width
-                implicitHeight: Math.max(1, notificationToasts.implicitHeight + 12)
+                implicitWidth: modelData ? modelData.width : 1
+                implicitHeight: modelData ? modelData.height : 1
                 exclusiveZone: 0
                 focusable: false
                 visible: root.activeScreen === modelData && root.notificationToastsEnabled && root.toastItems.length > 0 && !root.notificationDnd
                 color: "transparent"
+                WlrLayershell.layer: WlrLayer.Overlay
+                WlrLayershell.namespace: "blox-notifications"
 
                 anchors {
+                    left: true
                     right: true
-                    bottom: true
+                    top: onTop
+                    bottom: onBottom
                 }
 
                 NotificationToastStack {
                     id: notificationToasts
 
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                    anchors.bottomMargin: 12
+                    // Numeric placement clears cleanly when a live preview moves
+                    // between opposite edges. Conditional anchors can retain both
+                    // sides for a frame and stretch the stack to the old edge.
+                    x: notificationToastWindow.onLeft ? 12 + Theme.notificationOffsetX : notificationToastWindow.onRight ? parent.width - width - 12 + Theme.notificationOffsetX : Math.round((parent.width - width) / 2 + Theme.notificationOffsetX)
+                    y: notificationToastWindow.onTop ? 12 + Theme.notificationOffsetY : parent.height - height - 12 + Theme.notificationOffsetY
+                    position: Theme.notificationPosition
                     visible: root.notificationToastsEnabled && root.toastItems.length > 0 && !root.notificationDnd
                     toasts: root.toastItems
                     onDismiss: (notification, closeNotification) => {
@@ -925,6 +1209,18 @@ Scope {
                     onActivate: (notification) => {
                         return root.focusNotificationSource(notification);
                     }
+                }
+
+                // The full-output surface gives every notification position the same
+                // coordinate space. Only the visible cards accept pointer input.
+                mask: Region {
+                    // Bind window-local geometry explicitly so the input region is
+                    // rebuilt when the hidden toast window appears and the stack's
+                    // implicit height changes.
+                    x: notificationToasts.x
+                    y: notificationToasts.y
+                    width: notificationToasts.width
+                    height: notificationToasts.height
                 }
 
             }

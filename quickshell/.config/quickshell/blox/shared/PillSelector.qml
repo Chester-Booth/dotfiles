@@ -98,7 +98,7 @@ ColumnLayout {
             width: (parent.width - 6) / Math.max(1, root.options.length)
             height: parent.height - 6
             radius: 13
-            color: "#66453d3d"
+            color: Theme.withAlpha(Theme.surfaceAlt, 0.4)
             visible: root.selectedIndex >= 0
 
             Behavior on x {
@@ -123,7 +123,7 @@ ColumnLayout {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     radius: 13
-                    color: optionMouse.containsMouse ? "#333b3c4a" : "transparent"
+                    color: optionMouse.containsMouse ? Theme.withAlpha(Theme.surfaceAlt, 0.2) : "transparent"
 
                     Text {
                         anchors.centerIn: parent

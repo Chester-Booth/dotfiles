@@ -1,0 +1,112 @@
+{
+  "colours": {
+    "accent": "#98cbff",
+    "background": "#0d141b",
+    "border": "#8a919b",
+    "danger": "#ffb4ab",
+    "foreground": "#dce3ee",
+    "info": "#98cbff",
+    "mauve": "#b9c6ea",
+    "muted": "#c0c7d1",
+    "selection_background": "#98cbff",
+    "selection_foreground": "#003354",
+    "success": "#c1c2f9",
+    "surface": "#192028",
+    "surface_alt": "#242b33",
+    "teal": "#c1c2f9",
+    "warning": "#b9c6ea"
+  },
+  "cursor": {
+    "base": "Bibata-Modern-Classic",
+    "base_colour": "#98cbff",
+    "colour_source": "theme",
+    "handedness": "right",
+    "mode": "generated",
+    "outline_colour": "#003354",
+    "sizes": [
+      22,
+      24
+    ],
+    "watch_background": "#0d141b"
+  },
+  "fonts": {
+    "editor_size": 13,
+    "gtk_size": 11,
+    "mono": "JetBrainsMono Nerd Font Mono",
+    "panel": "JetBrainsMono Nerd Font Propo",
+    "terminal_size": 12,
+    "ui": "JetBrains Mono"
+  },
+  "generator": {
+    "backend": "matugen",
+    "mapping_version": 1,
+    "options": {
+      "contrast": 0.0,
+      "mode": "dark",
+      "scheme": "scheme-vibrant",
+      "source_colour_index": 0
+    },
+    "version": "4.1.0",
+    "wallpaper_sha256": "be664856e59fe057e34b08a65c8e7c201b6890f1619fc2de9da39d239b408a0f"
+  },
+  "gtk": {
+    "base_theme": "Graphite-Dark-compact",
+    "colour_source": "theme",
+    "mode": "generated"
+  },
+  "icons": {
+    "theme": "Adwaita"
+  },
+  "id": "top-down-wide",
+  "name": "Top Down Wide Desktop Theme",
+  "schema_version": 1,
+  "shell": {
+    "bar": {
+      "position": "bottom"
+    },
+    "notifications": {
+      "offset_x": 0,
+      "offset_y": 0,
+      "position": "bottom-left"
+    },
+    "osd": {
+      "offset_x": 0,
+      "offset_y": 0,
+      "position": "centre-top"
+    }
+  },
+  "targets": {
+    "btop": true,
+    "code": true,
+    "cursor": true,
+    "cursor_editor": true,
+    "glow": true,
+    "grub": false,
+    "gtk": true,
+    "hyprland": true,
+    "hyprlock": true,
+    "kitty": true,
+    "micro": true,
+    "obsidian": true,
+    "powerlevel10k": true,
+    "quickshell": true,
+    "sddm": false,
+    "stylus": true,
+    "vicinae": true,
+    "wallpaper": true,
+    "widgets": true
+  },
+  "terminal": {
+    "ansi_source": "derived",
+    "canvas": "#0d141b",
+    "chrome_background": "#0d141b"
+  },
+  "variant": "dark",
+  "wallpaper": {
+    "fit": "cover",
+    "path": "~/Pictures/wallpapers/top-down-wide.png"
+  },
+  "widgets": {
+    "profile": "comfortable"
+  }
+}

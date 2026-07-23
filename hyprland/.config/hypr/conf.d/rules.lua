@@ -19,8 +19,11 @@ hl.window_rule({ match = { class = "^(thunar)$" }, float = true, size = { 800, 6
 hl.window_rule({ match = { class = "^(Thunar)$" }, float = true, size = { 800, 600 } })
 
 -- File dialogs float and are centred.
-hl.window_rule({ match = { title = "^(Open File|Open Files|Save File|Save As|Save Workspace|Select Folder|Open Folder|File Upload)$" }, float = true, size = { 800, 600 } })
-hl.window_rule({ match = { title = "^(Open File|Open Files|Save File|Save As|Select Folder|Open Folder|File Upload)$" }, center = true })
+hl.window_rule({ match = { title = "^(Open File|Open Files|Save File|Save As|Save Workspace|Select Folder|Open Folder|File Upload|Choose a wallpaper)$" }, float = true, size = { 800, 600 } })
+hl.window_rule({ match = { title = "^(Open File|Open Files|Save File|Save As|Select Folder|Open Folder|File Upload|Choose a wallpaper)$" }, center = true })
+
+-- The theme picker is a movable regular window which remains floating.
+hl.window_rule({ match = { title = "^Blox Theme Picker$" }, float = true, center = true, size = { 1320, 860 } })
 hl.window_rule({
     match = {
         class = "^(xdg-desktop-portal-gtk)$",

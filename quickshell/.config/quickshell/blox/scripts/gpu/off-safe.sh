@@ -16,7 +16,14 @@ if ! gpu_is_on; then
 fi
 
 if ! wait_for_gpu_nodes_idle; then
-	gpu_notify -u normal -e "GPU Manager" "NVIDIA GPU is still in use; leaving it powered on." -i dialog-warning
+	busy_processes="$(gpu_busy_processes || true)"
+	if [[ -n "$busy_processes" ]]; then
+		message="NVIDIA GPU is in use by ${busy_processes}; close it and try Eco mode again."
+	else
+		message="NVIDIA GPU is still in use; close GPU applications and try Eco mode again."
+	fi
+	printf '%s\n' "$message" >&2
+	gpu_notify -u normal -e "GPU Manager" "$message" -i dialog-warning
 	exit 1
 fi
 

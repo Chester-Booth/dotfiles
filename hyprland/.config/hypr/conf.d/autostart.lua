@@ -14,6 +14,7 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("hypridle")
     hl.exec_cmd("~/.config/quickshell/blox/scripts/display/blue-light-mode.sh")
     hl.exec_cmd("vicinae server")
+    hl.exec_cmd([[bash -c "sleep 2 && ~/.config/quickshell/blox/scripts/theme/reconcile.sh"]])
     hl.exec_cmd("zen-browser")
 
     -- Cloud sync is handled by user systemd timers.

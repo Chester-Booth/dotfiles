@@ -45,6 +45,24 @@ gpu_nodes_in_use() {
 	sudo fuser "${nodes[@]}" &>/dev/null
 }
 
+gpu_busy_processes() {
+	local nodes=()
+	local pids=()
+	local pid_list
+
+	shopt -s nullglob
+	nodes=(/dev/nvidia*)
+	shopt -u nullglob
+
+	((${#nodes[@]} > 0)) || return 1
+	read -r -a pids <<<"$(sudo fuser "${nodes[@]}" 2>/dev/null || true)"
+	((${#pids[@]} > 0)) || return 1
+
+	printf -v pid_list '%s,' "${pids[@]}"
+	ps -o comm= -p "${pid_list%,}" 2>/dev/null |
+		awk 'NF && !seen[$0]++ { names[++count] = $0 } END { for (i = 1; i <= count; i++) printf "%s%s", names[i], (i < count ? ", " : ORS) }'
+}
+
 wait_for_gpu_nodes_idle() {
 	local attempts="${1:-$gpu_idle_attempts}"
 	local delay="${2:-$gpu_idle_delay}"

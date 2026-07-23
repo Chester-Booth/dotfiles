@@ -90,6 +90,7 @@ export JAVA_HOME=/usr/lib/jvm/java-21-openjdk
 
 # for vesktop
 export XDG_CONFIG_HOME="$HOME/.config"
+export GLOW_STYLE="$XDG_CONFIG_HOME/glow/blox-theme.json"
 
 
 

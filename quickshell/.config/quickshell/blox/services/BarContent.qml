@@ -115,13 +115,39 @@ QtObject {
         return value < 10 ? "0" + value : String(value);
     }
 
-    function railClockText() {
+    function railClockText(horizontal) {
         if (clockDateMode) {
-            const days = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
-            return days[now.getDay()] + "\n" + twoDigit(now.getDate()) + "\n" + twoDigit(now.getMonth() + 1) + "\n" + twoDigit(now.getFullYear() % 100);
+            const days = horizontal
+                ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+                : ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+            if (horizontal) {
+                return days[now.getDay()]
+                    + " " + twoDigit(now.getDate())
+                    + "/" + twoDigit(now.getMonth() + 1)
+                    + "/" + now.getFullYear();
+            }
+
+            return days[now.getDay()]
+                + "\n" + twoDigit(now.getDate())
+                + "\n" + twoDigit(now.getMonth() + 1)
+                + "\n" + twoDigit(now.getFullYear() % 100);
         }
+
         const hour = now.getHours() % 12 || 12;
-        return twoDigit(hour) + "\n" + twoDigit(now.getMinutes()) + "\n" + twoDigit(now.getSeconds());
+
+        if (horizontal) {
+            const ampmState = now.getHours() < 12 ? "AM" : "PM";
+
+            return twoDigit(hour)
+                + ":" + twoDigit(now.getMinutes())
+                + ":" + twoDigit(now.getSeconds())
+                + " " + ampmState;
+        }
+
+        return twoDigit(hour)
+            + "\n" + twoDigit(now.getMinutes())
+            + "\n" + twoDigit(now.getSeconds());
     }
 
     function elapsedText(ms) {

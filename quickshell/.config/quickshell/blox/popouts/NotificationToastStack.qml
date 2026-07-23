@@ -6,11 +6,16 @@ Item {
     id: root
 
     property var toasts: []
+    property string position: "bottom-right"
+    readonly property bool entersFromLeft: position === "top-left" || position === "bottom-left"
+    readonly property bool entersVertically: position === "centre-top" || position === "centre-bottom"
+    readonly property real entranceX: entersVertically ? 0 : entersFromLeft ? -dismissTravel : dismissTravel
+    readonly property real entranceY: !entersVertically ? 0 : position === "centre-top" ? -120 : 120
     readonly property int toastWidth: 330
     readonly property int sidePadding: 12
-    readonly property int visibleWidth: toastWidth + sidePadding * 2
     readonly property int dismissTravel: toastWidth + sidePadding
-    property var animatedToastIds: ({})
+    property var animatedToastIds: ({
+    })
 
     signal dismiss(var notification, bool closeNotification)
     signal activate(var notification)
@@ -35,7 +40,8 @@ Item {
     }
 
     function pruneEntranceHistory() {
-        const retained = {};
+        const retained = {
+        };
         const current = toasts || [];
         for (let i = 0; i < current.length; i++) {
             const toastId = current[i].toastId;
@@ -46,14 +52,20 @@ Item {
         animatedToastIds = retained;
     }
 
-    width: visibleWidth + dismissTravel
+    // Keep the item's bounds identical to the visible card.  The toasts may
+    // travel beyond those bounds while animating because this item lives in a
+    // full-screen layer surface.  Including that travel area in our width
+    // offsets left- and centre-anchored cards even though their anchor is
+    // technically correct.
+    width: toastWidth
+    height: implicitHeight
     implicitHeight: toastColumn.implicitHeight
     onToastsChanged: pruneEntranceHistory()
 
     Column {
         id: toastColumn
 
-        x: root.dismissTravel + root.sidePadding
+        x: 0
         width: root.toastWidth
         spacing: 8
 
@@ -76,11 +88,13 @@ Item {
 
                     closeNotificationOnDismiss = closeNotification;
                     dismissing = true;
-                    x = root.dismissTravel;
+                    x = root.entranceX;
+                    y = root.entranceY;
                     dismissTimer.restart();
                 }
 
-                x: root.dismissTravel
+                x: root.entranceX
+                y: root.entranceY
                 width: root.toastWidth
                 height: toastBody.implicitHeight + 18
                 opacity: dismissing ? 0 : 1
@@ -91,8 +105,11 @@ Item {
                 Component.onCompleted: {
                     animateHorizontalMovement = root.takeEntranceAnimation(modelData.toastId);
                     x = 0;
+                    y = 0;
                     if (!animateHorizontalMovement)
-                        Qt.callLater(() => animateHorizontalMovement = true);
+                        Qt.callLater(() => {
+                        return animateHorizontalMovement = true;
+                    });
 
                 }
 
@@ -235,6 +252,16 @@ Item {
                 }
 
                 Behavior on x {
+                    enabled: toast.animateHorizontalMovement && !toastMouse.drag.active
+
+                    NumberAnimation {
+                        duration: 180
+                        easing.type: Easing.OutCubic
+                    }
+
+                }
+
+                Behavior on y {
                     enabled: toast.animateHorizontalMovement && !toastMouse.drag.active
 
                     NumberAnimation {

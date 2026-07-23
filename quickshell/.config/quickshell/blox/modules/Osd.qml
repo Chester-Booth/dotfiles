@@ -178,6 +178,14 @@ Scope {
         showFor(durationMs);
     }
 
+    Connections {
+        function onOsdPositionPreviewRequested() {
+            root.showNotice("OSD position", "Previewing the selected position", "󰍹", "info", 1400);
+        }
+
+        target: Theme
+    }
+
     IpcHandler {
         function volume(percent: string, muted: string) : string {
             root.show("volume", percent, muted);
@@ -350,24 +358,41 @@ Scope {
         model: Quickshell.screens
 
         PanelWindow {
+            id: osdWindow
+
             required property var modelData
+            readonly property bool onLeft: Theme.osdPosition === "top-left" || Theme.osdPosition === "bottom-left"
+            readonly property bool onRight: Theme.osdPosition === "top-right" || Theme.osdPosition === "bottom-right"
+            readonly property bool onTop: Theme.osdPosition.indexOf("top") >= 0
+            readonly property bool onBottom: Theme.osdPosition.indexOf("bottom") >= 0
+            readonly property bool horizontallyCentred: !onLeft && !onRight
+            readonly property real restingGap: Math.max(0, onTop ? 28 + Theme.osdOffsetY : 28 - Theme.osdOffsetY)
 
             screen: modelData
             visible: root.rendered
-            implicitWidth: 348
-            implicitHeight: 128
+            implicitWidth: 292 + (horizontallyCentred ? 2 * Math.abs(Theme.osdOffsetX) : 0)
+            implicitHeight: 72 + restingGap
             exclusiveZone: 0
             focusable: false
             color: "transparent"
 
             anchors {
-                left: true
-                top: true
+                left: onLeft
+                right: onRight
+                top: onTop
+                bottom: onBottom
+            }
+
+            margins {
+                left: onLeft ? 28 + Theme.osdOffsetX : 0
+                right: onRight ? 28 - Theme.osdOffsetX : 0
             }
 
             Rectangle {
-                x: 28
-                y: root.showing ? 28 : -height - 6
+                id: osdCard
+
+                x: osdWindow.horizontallyCentred ? Math.abs(Theme.osdOffsetX) + Theme.osdOffsetX : 0
+                y: osdWindow.onTop ? osdWindow.restingGap : 0
                 width: 292
                 height: 72
                 radius: 8
@@ -485,6 +510,19 @@ Scope {
 
                 }
 
+                transform: Translate {
+                    y: root.showing ? 0 : osdWindow.onTop ? -osdCard.height - osdCard.y : osdWindow.height - osdCard.y
+
+                    Behavior on y {
+                        NumberAnimation {
+                            duration: 190
+                            easing.type: Easing.OutCubic
+                        }
+
+                    }
+
+                }
+
                 Behavior on opacity {
                     NumberAnimation {
                         duration: 140
@@ -493,7 +531,7 @@ Scope {
 
                 }
 
-                Behavior on y {
+                Behavior on x {
                     NumberAnimation {
                         duration: 190
                         easing.type: Easing.OutCubic
@@ -501,6 +539,11 @@ Scope {
 
                 }
 
+            }
+
+            // OSD cards are informational only. Keep their input region empty so
+            // pointer events always reach the application underneath.
+            mask: Region {
             }
 
         }

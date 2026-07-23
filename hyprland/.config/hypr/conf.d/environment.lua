@@ -3,7 +3,6 @@ hl.env("XCURSOR_SIZE", "20")
 hl.env("HYPRCURSOR_SIZE", "20")
 
 hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
-hl.env("GTK_THEME", "Graphite-Dark-compact")
 hl.env("GDK_BACKEND", "wayland,x11")
 hl.env("QT_QPA_PLATFORM", "wayland;xcb")
 hl.env("QT_QPA_PLATFORMTHEME", "gtk3")

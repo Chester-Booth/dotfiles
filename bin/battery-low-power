@@ -22,29 +22,25 @@ find_battery_dir() {
 
 run_low_power_mode() {
     local capacity="$1"
-    local action_failed=0
+    local failed_actions=()
 
     if ! "$script_root/osd/control.sh" brightness-set 0; then
-        action_failed=1
+        failed_actions+=(brightness)
     fi
 
     if ! "$script_root/gpu/modes/igpu60.sh" --quiet; then
-        action_failed=1
+        failed_actions+=(gpu)
     fi
 
     if ! rfkill block bluetooth; then
-        action_failed=1
+        failed_actions+=(bluetooth)
     fi
 
-    if (( action_failed == 0 )); then
+    if (( ${#failed_actions[@]} == 0 )); then
         notify-send -i battery-low "Low Power Mode Active" "Battery at ${capacity}%. Brightness minimized, iGPU 60 Hz mode enabled, and Bluetooth disabled."
-        mkdir -p "$state_dir"
-        printf '%s\n' "$capacity" > "$state_file"
     else
-        logger -t battery-low-power "Low-power mode retry deferred because the NVIDIA GPU is still busy after resume."
+        logger -t battery-low-power "Low-power mode was only partially applied; failed actions: ${failed_actions[*]}. It will not be reapplied until the battery recovers or starts charging."
     fi
-
-    (( action_failed == 0 ))
 }
 
 main() {
@@ -72,6 +68,11 @@ main() {
         exit 0
     fi
 
+    # Record the threshold crossing before applying anything. This makes the
+    # operation edge-triggered even when one action fails, so later timer runs
+    # do not override manual brightness, GPU, or Bluetooth changes.
+    mkdir -p "$state_dir"
+    printf '%s\n' "$capacity" > "$state_file"
     run_low_power_mode "$capacity"
 }
 

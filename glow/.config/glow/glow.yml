@@ -1,4 +1,7 @@
 # style name or JSON path (default "auto")
+# GLOW_STYLE supplies the absolute XDG-aware managed path. Glow 2.1.2 passes
+# unexpanded config paths to Glamour, so neither "~" nor "$XDG_CONFIG_HOME"
+# is safe here.
 style: "auto"
 # mouse wheel support (TUI-mode only)
 mouse: true

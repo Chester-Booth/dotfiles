@@ -4,6 +4,7 @@
 **/.local/share/Trash
 **/Downloads
 /eww/
+!/AGENTS.md
 /waybar/
 /wofi/
 /quickshell/.config/quickshell/blox/env

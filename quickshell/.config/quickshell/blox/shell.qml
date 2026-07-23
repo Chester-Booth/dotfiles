@@ -26,4 +26,7 @@ Scope {
     EwwOverlays {
     }
 
+    ThemePicker {
+    }
+
 }

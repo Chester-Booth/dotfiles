@@ -153,19 +153,31 @@ Rectangle {
         }
     }
 
-    Text {
+    Canvas {
         id: indicator
 
+        property color strokeColour: hover.hovered || popup.visible ? Theme.foreground : Theme.muted
+
         anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.bottom: parent.bottom
-        width: 34
-        text: popup.visible ? "▴" : "▾"
-        color: Theme.muted
-        font.family: Theme.fontFamily
-        font.pixelSize: 12
-        horizontalAlignment: Text.AlignHCenter
-        verticalAlignment: Text.AlignVCenter
+        anchors.rightMargin: 8
+        anchors.verticalCenter: parent.verticalCenter
+        width: 18
+        height: 18
+        rotation: popup.visible ? 180 : 0
+        onStrokeColourChanged: requestPaint()
+        onPaint: {
+            const context = getContext("2d");
+            context.reset();
+            context.strokeStyle = strokeColour;
+            context.lineWidth = 2.2;
+            context.lineCap = "round";
+            context.lineJoin = "round";
+            context.beginPath();
+            context.moveTo(3.5, 6.5);
+            context.lineTo(9, 11.5);
+            context.lineTo(14.5, 6.5);
+            context.stroke();
+        }
 
         MouseArea {
             anchors.fill: parent

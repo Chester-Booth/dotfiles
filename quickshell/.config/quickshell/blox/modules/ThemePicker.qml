@@ -79,6 +79,15 @@ FloatingWindow {
     property real colourSaturation: 0
     property real colourValue: 1
     property string colourHex: "#ffffff"
+    property bool barDragActive: false
+    property string barDragItemId: ""
+    property string barDragLabel: ""
+    property string barDropRegion: ""
+    property int barDropIndex: -1
+    property string barDropTarget: ""
+    property real barDragOriginX: 0
+    property real barDragOriginY: 0
+    property alias barDragProxyItem: barDragProxy
     readonly property bool dirty: candidate !== null && JSON.stringify(candidate) !== baselineJson
     readonly property string apiPath: Quickshell.shellDir + "/scripts/theme/themectl.sh"
     readonly property string scriptRoot: Quickshell.shellDir + "/scripts"
@@ -89,6 +98,74 @@ FloatingWindow {
     readonly property var unavailableTargetKeys: ["sddm", "grub"]
     readonly property var coreTargetKeys: ["quickshell", "widgets", "wallpaper", "hyprland", "hyprlock", "cursor"]
     readonly property var applicationTargetKeys: ["vicinae", "kitty", "gtk", "btop", "micro", "glow", "code", "cursor_editor", "stylus", "obsidian", "powerlevel10k"]
+    readonly property var barRegions: ["start", "centre", "end", "tray"]
+
+    function beginBarDrag(row, itemId) {
+        const point = row.mapToItem(pickerRoot, 0, 0);
+        barDragItemId = itemId;
+        barDragLabel = barItemLabel(itemId);
+        barDragProxy.width = row.width;
+        barDragProxy.height = row.height;
+        barDragProxy.x = point.x;
+        barDragProxy.y = point.y;
+        barDragOriginX = point.x;
+        barDragOriginY = point.y;
+        barDropRegion = "";
+        barDropIndex = -1;
+        barDropTarget = "";
+        barDragActive = true;
+    }
+
+    function moveBarDragProxy(deltaX, deltaY) {
+        if (!barDragActive)
+            return ;
+
+        barDragProxy.x = barDragOriginX + deltaX;
+        barDragProxy.y = barDragOriginY + deltaY;
+    }
+
+    function scrollBarDrag() {
+        if (!barDragActive)
+            return ;
+
+        const viewport = editorScroll.mapToItem(pickerRoot, 0, 0);
+        const pointerY = barDragProxy.y + barDragProxy.height / 2;
+        const edge = 54;
+        const maximum = Math.max(editorScroll.originY, editorScroll.originY + editorScroll.contentHeight - editorScroll.height);
+        if (pointerY > viewport.y + editorScroll.height - edge)
+            editorScroll.contentY = Math.min(maximum, editorScroll.contentY + 14);
+        else if (pointerY < viewport.y + edge)
+            editorScroll.contentY = Math.max(editorScroll.originY, editorScroll.contentY - 14);
+    }
+
+    function setBarDropTarget(region, index, target) {
+        if (!barDragActive)
+            return ;
+
+        barDropRegion = region;
+        barDropIndex = index;
+        barDropTarget = target;
+    }
+
+    function commitBarDrop() {
+        if (barDragItemId.length > 0 && barDropRegion.length > 0 && barDropIndex >= 0)
+            moveBarItemTo(barDragItemId, barDropRegion, barDropIndex);
+
+    }
+
+    function endBarDrag() {
+        barDragActive = false;
+        barDragItemId = "";
+        barDragLabel = "";
+        barDropRegion = "";
+        barDropIndex = -1;
+        barDropTarget = "";
+    }
+
+    function finishBarDrag() {
+        commitBarDrop();
+        endBarDrag();
+    }
 
     function targetAvailable(key) {
         return unavailableTargetKeys.indexOf(key) < 0;
@@ -129,6 +206,57 @@ FloatingWindow {
         const green = parseInt(value.slice(2, 4), 16);
         const blue = parseInt(value.slice(4, 6), 16);
         return (red * 299 + green * 587 + blue * 114) / 1000 > 145 ? "#111111" : "#f5f5f5";
+    }
+
+    function validColour(value, fallback) {
+        return /^#[0-9a-fA-F]{6}$/.test(String(value || "")) ? value : (fallback || "transparent");
+    }
+
+    function themePreviewColour(entry, key, fallback) {
+        const colours = entry && entry.preview ? entry.preview.colours || {
+        } : {
+        };
+        return validColour(colours[key], fallback);
+    }
+
+    function pathBasename(path) {
+        const parts = String(path || "").split("/");
+        return parts.length > 0 ? parts[parts.length - 1] : "";
+    }
+
+    function themePreviewSubtitle(entry) {
+        if (entry.unsaved)
+            return "Unsaved draft";
+
+        const wallpaper = entry.preview ? pathBasename(entry.preview.wallpaper) : "";
+        const uiFont = entry.preview && entry.preview.fonts ? entry.preview.fonts.ui : "";
+        return wallpaper || uiFont || "No preview data";
+    }
+
+    function themePreviewBarPosition(entry) {
+        const bar = entry && entry.preview ? entry.preview.bar || {
+        } : {
+        };
+        const position = String(bar.position || "left");
+        return ["left", "right", "top", "bottom"].indexOf(position) >= 0 ? position : "left";
+    }
+
+    function themePreviewBarCount(entry, region) {
+        const bar = entry && entry.preview ? entry.preview.bar || {
+        } : {
+        };
+        const items = Array.isArray(bar.items) ? bar.items : [];
+        let count = 0;
+        for (let index = 0; index < items.length; ++index) {
+            if (items[index].enabled && items[index].region === region)
+                count += 1;
+        }
+        return count;
+    }
+
+    function longestWord(text) {
+        const words = String(text || "").split(" ");
+        return words.reduce((longest, word) => word.length > longest.length ? word : longest, "");
     }
 
     function themeDigest(id) {
@@ -217,7 +345,8 @@ FloatingWindow {
     }
 
     function loadPickerColour(value) {
-        const hex = String(value || "#ffffff").replace("#", "");
+        const normalised = /^#[0-9a-fA-F]{6}$/.test(String(value || "")) ? value : "#ffffff";
+        const hex = String(normalised).replace("#", "");
         const red = parseInt(hex.slice(0, 2), 16) / 255;
         const green = parseInt(hex.slice(2, 4), 16) / 255;
         const blue = parseInt(hex.slice(4, 6), 16) / 255;
@@ -554,6 +683,7 @@ FloatingWindow {
 
     function normaliseBarItemOrders(items) {
         const regions = ["start", "centre", "end", "hidden"];
+        const ordered = [];
         for (let regionIndex = 0; regionIndex < regions.length; ++regionIndex) {
             const region = regions[regionIndex];
             const members = items.filter((item) => {
@@ -561,9 +691,12 @@ FloatingWindow {
             }).sort((left, right) => {
                 return left.order - right.order;
             });
-            for (let index = 0; index < members.length; ++index) members[index].order = index
+            for (let index = 0; index < members.length; ++index) {
+                members[index].order = index;
+                ordered.push(members[index]);
+            }
         }
-        return items;
+        return ordered;
     }
 
     function setBarItems(items) {
@@ -633,6 +766,12 @@ FloatingWindow {
         if (!selected)
             return ;
 
+        const sourceRegion = selected.region;
+        const sourceIndex = items.filter((item) => {
+            return item.region === sourceRegion;
+        }).findIndex((item) => {
+            return item.id === id;
+        });
         const groups = {
             "start": [],
             "centre": [],
@@ -646,6 +785,9 @@ FloatingWindow {
         }
         selected.region = region;
         const destination = groups[region];
+        if (region === sourceRegion && destinationIndex > sourceIndex)
+            destinationIndex -= 1;
+
         destination.splice(Math.max(0, Math.min(destination.length, destinationIndex)), 0, selected);
         const next = [];
         for (const group of ["start", "centre", "end", "hidden"]) {
@@ -1129,6 +1271,17 @@ FloatingWindow {
         showModal("new");
     }
 
+    function blankTheme(template, inputs) {
+        const blank = JSON.parse(JSON.stringify(template));
+        blank.id = inputs.id;
+        blank.name = inputs.name;
+        delete blank.generator;
+        for (const key of semanticKeys) blank.colours[key] = ""
+        for (const role of ["ui", "mono", "panel"]) blank.fonts[role] = ""
+        blank.wallpaper.path = "";
+        return blank;
+    }
+
     function startNewTheme(fromWallpaper) {
         if (!newThemeName.trim() || !newThemeId.trim())
             return ;
@@ -1336,10 +1489,7 @@ FloatingWindow {
             Qt.callLater(restoreOverlayFocus);
             validatePreview();
         } else if (completedAction === "new-template") {
-            const blank = JSON.parse(JSON.stringify(response.data));
-            blank.id = request.inputs.id;
-            blank.name = request.inputs.name;
-            delete blank.generator;
+            const blank = blankTheme(response.data, request.inputs);
             candidate = blank;
             selectedId = candidate.id;
             sourceDigest = "";
@@ -2043,37 +2193,267 @@ FloatingWindow {
                                     id: themeDelegate
 
                                     required property var modelData
+                                    readonly property bool selected: modelData.id === root.selectedId
+                                    readonly property color previewBackground: root.themePreviewColour(modelData, "background", Theme.background)
+                                    readonly property color previewSurface: root.themePreviewColour(modelData, "surface", Theme.surface)
+                                    readonly property color previewSurfaceAlt: root.themePreviewColour(modelData, "surface_alt", Theme.surfaceAlt)
+                                    readonly property color previewForeground: root.themePreviewColour(modelData, "foreground", Theme.foreground)
+                                    readonly property color previewMuted: root.themePreviewColour(modelData, "muted", Theme.muted)
+                                    readonly property color previewAccent: root.themePreviewColour(modelData, "accent", Theme.blue)
+                                    readonly property color previewSuccess: root.themePreviewColour(modelData, "success", Theme.green)
+                                    readonly property color previewWarning: root.themePreviewColour(modelData, "warning", Theme.yellow)
+                                    readonly property string previewFont: modelData.preview && modelData.preview.fonts && modelData.preview.fonts.ui ? modelData.preview.fonts.ui : Theme.bodyFontFamily
+                                    readonly property string previewBarPosition: root.themePreviewBarPosition(modelData)
+                                    readonly property bool verticalBar: previewBarPosition === "left" || previewBarPosition === "right"
+                                    readonly property real maxPreviewWidth: width * 0.50
+                                    readonly property real minPreviewWidth: width * 0.30
+                                    readonly property real normalWrapWidth: Math.max(themeTitleMetrics.advanceWidth * 0.65, longestWordMetrics.advanceWidth)
+                                    readonly property real previewWidth: Math.max(minPreviewWidth, Math.min(maxPreviewWidth, width - 59 - normalWrapWidth))
+                                    readonly property bool previewAtMinimum: previewWidth <= minPreviewWidth + 0.5
 
                                     width: themeList.width - (themeList.contentHeight > themeList.height ? 10 : 0)
-                                    height: 62
-                                    radius: 6
-                                    color: modelData.id === root.selectedId ? Theme.surfaceAlt : mouse.containsMouse ? Theme.withAlpha(Theme.surfaceAlt, 0.62) : "transparent"
-                                    border.color: modelData.unsaved ? Theme.yellow : modelData.id === Theme.activeThemeId ? Theme.blue : "transparent"
-                                    border.width: modelData.unsaved || modelData.id === Theme.activeThemeId ? 1 : 0
+                                    height: 82
+                                    radius: 10
+                                    color: selected ? previewSurface : mouse.containsMouse ? Qt.lighter(previewBackground, 1.13) : previewBackground
+                                    border.color: modelData.unsaved ? previewWarning : selected ? previewAccent : mouse.containsMouse ? previewForeground : modelData.id === Theme.activeThemeId ? previewAccent : previewSurfaceAlt
+                                    border.width: selected ? 2 : 1
+                                    scale: mouse.containsMouse && !selected ? 1.008 : 1
+                                    transformOrigin: Item.Center
 
-                                    Column {
-                                        anchors.left: parent.left
-                                        anchors.right: kebab.left
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        anchors.margins: 10
-                                        spacing: 3
+                                    Behavior on color {
+                                        ColorAnimation {
+                                            duration: 110
+                                        }
+                                    }
 
-                                        Text {
-                                            text: modelData.name
-                                            color: Theme.foreground
-                                            font.family: Theme.bodyFontFamily
-                                            font.pixelSize: 14
-                                            elide: Text.ElideRight
-                                            width: parent.width
+                                    Behavior on border.color {
+                                        ColorAnimation {
+                                            duration: 110
+                                        }
+                                    }
+
+                                    Behavior on scale {
+                                        NumberAnimation {
+                                            duration: 110
+                                            easing.type: Easing.OutCubic
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        id: themeThumbnail
+
+                                        x: 8
+                                        y: 8
+                                        width: themeDelegate.previewWidth
+                                        height: themeDelegate.height - 16
+                                        radius: 7
+                                        color: themeDelegate.previewSurface
+                                        clip: true
+
+                                        Image {
+                                            anchors.fill: parent
+                                            anchors.margins: 3
+                                            source: themeDelegate.modelData.preview && themeDelegate.modelData.preview.wallpaper ? root.localFileUrl(themeDelegate.modelData.preview.wallpaper) : ""
+                                            fillMode: Image.PreserveAspectCrop
+                                            visible: source.toString().length > 0
+                                        }
+
+                                        Rectangle {
+                                            anchors.fill: parent
+                                            anchors.margins: 3
+                                            radius: 5
+                                            color: "#18000000"
+                                        }
+
+                                        Rectangle {
+                                            id: themeBarPreview
+
+                                            x: themeDelegate.previewBarPosition === "right" ? parent.width - width - 3 : 3
+                                            y: themeDelegate.previewBarPosition === "bottom" ? parent.height - height - 3 : 3
+                                            width: themeDelegate.verticalBar ? 5 : parent.width - 6
+                                            height: themeDelegate.verticalBar ? parent.height - 6 : 5
+                                            color: themeDelegate.previewSurface
+
+                                            Row {
+                                                anchors.left: parent.left
+                                                anchors.leftMargin: 2
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                spacing: 1
+                                                visible: !themeDelegate.verticalBar
+
+                                                Repeater {
+                                                    model: root.themePreviewBarCount(themeDelegate.modelData, "start")
+
+                                                    Rectangle {
+                                                        width: 2
+                                                        height: 2
+                                                        radius: 1
+                                                        color: themeDelegate.previewForeground
+                                                    }
+                                                }
+                                            }
+
+                                            Row {
+                                                anchors.centerIn: parent
+                                                spacing: 1
+                                                visible: !themeDelegate.verticalBar
+
+                                                Repeater {
+                                                    model: root.themePreviewBarCount(themeDelegate.modelData, "centre")
+
+                                                    Rectangle {
+                                                        width: 2
+                                                        height: 2
+                                                        radius: 1
+                                                        color: themeDelegate.previewAccent
+                                                    }
+                                                }
+                                            }
+
+                                            Row {
+                                                anchors.right: parent.right
+                                                anchors.rightMargin: 2
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                spacing: 1
+                                                visible: !themeDelegate.verticalBar
+
+                                                Repeater {
+                                                    model: root.themePreviewBarCount(themeDelegate.modelData, "end")
+
+                                                    Rectangle {
+                                                        width: 2
+                                                        height: 2
+                                                        radius: 1
+                                                        color: themeDelegate.previewForeground
+                                                    }
+                                                }
+                                            }
+
+                                            Column {
+                                                anchors.top: parent.top
+                                                anchors.topMargin: 2
+                                                anchors.horizontalCenter: parent.horizontalCenter
+                                                spacing: 1
+                                                visible: themeDelegate.verticalBar
+
+                                                Repeater {
+                                                    model: root.themePreviewBarCount(themeDelegate.modelData, "start")
+
+                                                    Rectangle {
+                                                        width: 2
+                                                        height: 2
+                                                        radius: 1
+                                                        color: themeDelegate.previewForeground
+                                                    }
+                                                }
+                                            }
+
+                                            Column {
+                                                anchors.centerIn: parent
+                                                spacing: 1
+                                                visible: themeDelegate.verticalBar
+
+                                                Repeater {
+                                                    model: root.themePreviewBarCount(themeDelegate.modelData, "centre")
+
+                                                    Rectangle {
+                                                        width: 2
+                                                        height: 2
+                                                        radius: 1
+                                                        color: themeDelegate.previewAccent
+                                                    }
+                                                }
+                                            }
+
+                                            Column {
+                                                anchors.bottom: parent.bottom
+                                                anchors.bottomMargin: 2
+                                                anchors.horizontalCenter: parent.horizontalCenter
+                                                spacing: 1
+                                                visible: themeDelegate.verticalBar
+
+                                                Repeater {
+                                                    model: root.themePreviewBarCount(themeDelegate.modelData, "end")
+
+                                                    Rectangle {
+                                                        width: 2
+                                                        height: 2
+                                                        radius: 1
+                                                        color: themeDelegate.previewForeground
+                                                    }
+                                                }
+                                            }
+
+                                        }
+
+                                    }
+
+                                    Item {
+                                        id: themeIdentity
+
+                                        x: themeThumbnail.x + themeThumbnail.width + 10
+                                        y: 7
+                                        width: themeDelegate.width - x - 8
+                                        height: themeDelegate.height - 14
+
+                                        TextMetrics {
+                                            id: themeTitleMetrics
+
+                                            font.family: themeDelegate.previewFont
+                                            font.pixelSize: 17
+                                            font.bold: true
+                                            text: themeDelegate.modelData.name
+                                        }
+
+                                        TextMetrics {
+                                            id: longestWordMetrics
+
+                                            font.family: themeDelegate.previewFont
+                                            font.pixelSize: 17
+                                            font.bold: true
+                                            text: root.longestWord(themeDelegate.modelData.name)
+                                        }
+
+                                        Row {
+                                            id: themePalette
+
+                                            anchors.left: parent.left
+                                            anchors.bottom: parent.bottom
+                                            spacing: 5
+
+                                            Repeater {
+                                                model: [themeDelegate.previewAccent, themeDelegate.previewSuccess, themeDelegate.previewWarning, themeDelegate.previewForeground]
+
+                                                Rectangle {
+                                                    required property color modelData
+
+                                                    width: Math.max(14, Math.min(24, (themeIdentity.width - 15) / 4))
+                                                    height: 6
+                                                    radius: 3
+                                                    color: modelData
+                                                }
+                                            }
                                         }
 
                                         Text {
-                                            text: modelData.unsaved ? "UNSAVED  ·  " + modelData.variant : modelData.variant
-                                            color: modelData.unsaved ? Theme.yellow : Theme.muted
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: 10
-                                            elide: Text.ElideRight
-                                            width: parent.width
+                                            anchors.left: parent.left
+                                            anchors.right: parent.right
+                                            anchors.rightMargin: 33
+                                            anchors.bottom: themePalette.top
+                                            anchors.bottomMargin: 4
+                                            height: 42
+                                            text: themeDelegate.modelData.name
+                                            color: themeDelegate.previewForeground
+                                            font.family: themeDelegate.previewFont
+                                            font.pixelSize: 17
+                                            font.bold: true
+                                            fontSizeMode: themeDelegate.previewAtMinimum ? Text.Fit : Text.FixedSize
+                                            minimumPixelSize: 1
+                                            horizontalAlignment: Text.AlignLeft
+                                            verticalAlignment: Text.AlignBottom
+                                            wrapMode: Text.WordWrap
+                                            elide: Text.ElideNone
+                                            clip: true
                                         }
 
                                     }
@@ -2081,18 +2461,19 @@ FloatingWindow {
                                     Rectangle {
                                         id: kebab
 
+                                        z: 2
                                         anchors.right: parent.right
                                         anchors.rightMargin: 7
                                         anchors.verticalCenter: parent.verticalCenter
                                         width: 30
                                         height: 34
                                         radius: 8
-                                        color: kebabMouse.containsMouse || themeActions.visible ? Theme.withAlpha(Theme.blue, 0.22) : "transparent"
+                                        color: kebabMouse.containsMouse || themeActions.visible ? Theme.withAlpha(themeDelegate.previewAccent, 0.22) : "transparent"
 
                                         Text {
                                             anchors.centerIn: parent
                                             text: Lucide.icon("ellipsis")
-                                            color: kebabMouse.containsMouse || themeActions.visible ? Theme.foreground : Theme.muted
+                                            color: kebabMouse.containsMouse || themeActions.visible ? themeDelegate.previewForeground : themeDelegate.previewMuted
                                             font.family: Lucide.family
                                             font.pixelSize: 18
                                         }
@@ -2398,7 +2779,7 @@ FloatingWindow {
                                                 width: 112
                                                 height: 72
                                                 radius: 6
-                                                color: root.candidate && root.candidate.colours ? root.candidate.colours[modelData] : "transparent"
+                                                color: root.candidate && root.candidate.colours ? root.validColour(root.candidate.colours[modelData], "transparent") : "transparent"
                                                 border.color: Theme.withAlpha(Theme.foreground, 0.45)
                                                 ToolTip.visible: semanticHover.hovered && semanticLabel.truncated
                                                 ToolTip.text: modelData.replace(/_/g, " ")
@@ -2474,11 +2855,52 @@ FloatingWindow {
                                     }
 
                                     Label {
-                                        text: "Font samples"
+                                        text: "Fonts"
                                         color: Theme.foreground
                                         font.family: Theme.bodyFontFamily
                                         font.pixelSize: 17
                                         font.bold: true
+                                    }
+
+                                    GridLayout {
+                                        Layout.fillWidth: true
+                                        columns: 3
+                                        columnSpacing: 10
+
+                                        Repeater {
+                                            model: ["ui", "mono", "panel"]
+
+                                            ColumnLayout {
+                                                required property string modelData
+
+                                                Layout.fillWidth: true
+
+                                                Label {
+                                                    text: modelData
+                                                    color: Theme.muted
+                                                }
+
+                                                BloxFontPicker {
+                                                    Layout.fillWidth: true
+                                                    families: root.fontFamilies
+                                                    value: {
+                                                        root.candidateRevision;
+                                                        return root.candidate && root.candidate.fonts ? root.candidate.fonts[modelData] : "";
+                                                    }
+                                                    onAccepted: (family) => {
+                                                        return root.setFont(modelData, family);
+                                                    }
+                                                }
+
+                                            }
+
+                                        }
+
+                                    }
+
+                                    Label {
+                                        text: "Font samples"
+                                        color: Theme.muted
                                     }
 
                                     Rectangle {
@@ -2558,7 +2980,7 @@ FloatingWindow {
                                                     Layout.fillWidth: true
                                                     height: 38
                                                     radius: 9
-                                                    color: root.candidate ? root.candidate.colours[modelData] : "transparent"
+                                                    color: root.candidate ? root.validColour(root.candidate.colours[modelData], "transparent") : "transparent"
                                                     border.color: colourHover.hovered ? Theme.foreground : Theme.border
                                                     border.width: colourHover.hovered ? 2 : 1
 
@@ -2602,7 +3024,7 @@ FloatingWindow {
 
                                     Text {
                                         Layout.fillWidth: true
-                                        text: "Choose which bar items are shown and arrange them within each section. Hidden items remain available in the expanded section."
+                                        text: "Choose which bar items are shown and arrange them within each section. Tray items remain available in the expanded section."
                                         color: Theme.muted
                                         font.family: Theme.bodyFontFamily
                                         wrapMode: Text.Wrap
@@ -2623,26 +3045,33 @@ FloatingWindow {
                                                 Layout.fillWidth: true
                                                 spacing: 5
 
-                                                DropArea {
-                                                    Layout.fillWidth: true
-                                                    Layout.preferredHeight: 12
-                                                    z: 1
-                                                    onEntered: (drag) => {
-                                                        if (drag.source && drag.source.barItemId)
-                                                            root.moveBarItemTo(drag.source.barItemId, regionSection.modelData, barItemRepeater.count);
-
-                                                    }
-                                                    onDropped: (drop) => {
-                                                        if (drop.source && drop.source.barItemId)
-                                                            root.moveBarItemTo(drop.source.barItemId, regionSection.modelData, barItemRepeater.count);
-
-                                                    }
-                                                }
-
                                                 Label {
                                                     text: regionSection.modelData === "hidden" ? "Tray" : regionSection.modelData.charAt(0).toUpperCase() + regionSection.modelData.slice(1)
                                                     color: Theme.blue
                                                     font.bold: true
+                                                }
+
+                                                DropArea {
+                                                    Layout.fillWidth: true
+                                                    Layout.preferredHeight: 12
+                                                    z: 1
+                                                    onEntered: root.setBarDropTarget(regionSection.modelData, 0, "start:" + regionSection.modelData)
+                                                    onDropped: (drop) => {
+                                                        if (drop.source === root.barDragProxyItem)
+                                                            root.finishBarDrag();
+
+                                                    }
+
+                                                    Rectangle {
+                                                        anchors.left: parent.left
+                                                        anchors.right: parent.right
+                                                        anchors.verticalCenter: parent.verticalCenter
+                                                        height: 3
+                                                        radius: 2
+                                                        visible: root.barDragActive && root.barDropTarget === "start:" + regionSection.modelData
+                                                        color: Theme.blue
+                                                    }
+
                                                 }
 
                                                 Repeater {
@@ -2671,25 +3100,6 @@ FloatingWindow {
                                                         border.color: handleDrag.active || emptyDrag.active ? Theme.blue : Theme.border
                                                         z: handleDrag.active || emptyDrag.active ? 20 : 0
 
-                                                        // The layout owns the pill's position, so use a tiny proxy
-                                                        // as the actual drag source.  Dragging only the pill's hot
-                                                        // spot does not move the QML drag point and the drag leaves
-                                                        // every DropArea as soon as the pointer exits this row.
-                                                        Item {
-                                                            id: barDragProxy
-
-                                                            property string barItemId: barItemRow.barItemId
-
-                                                            width: 1
-                                                            height: 1
-                                                            x: barItemRow.width / 2
-                                                            y: barItemRow.height / 2
-                                                            Drag.active: handleDrag.active || emptyDrag.active
-                                                            Drag.source: barDragProxy
-                                                            Drag.hotSpot.x: width / 2
-                                                            Drag.hotSpot.y: height / 2
-                                                        }
-
                                                         RowLayout {
                                                             anchors.fill: parent
                                                             anchors.margins: 8
@@ -2716,13 +3126,14 @@ FloatingWindow {
                                                                 DragHandler {
                                                                     id: handleDrag
 
-                                                                    target: barDragProxy
+                                                                    target: null
                                                                     acceptedButtons: Qt.LeftButton
+                                                                    onTranslationChanged: root.moveBarDragProxy(translation.x, translation.y)
                                                                     onActiveChanged: {
-                                                                        if (!active) {
-                                                                            barDragProxy.x = barItemRow.width / 2;
-                                                                            barDragProxy.y = barItemRow.height / 2;
-                                                                        }
+                                                                        if (active)
+                                                                            root.beginBarDrag(barItemRow, barItemRow.barItemId);
+                                                                        else if (root.barDragActive)
+                                                                            Qt.callLater(root.finishBarDrag);
                                                                     }
                                                                 }
 
@@ -2750,16 +3161,45 @@ FloatingWindow {
                                                                 DragHandler {
                                                                     id: emptyDrag
 
-                                                                    target: barDragProxy
+                                                                    target: null
                                                                     acceptedButtons: Qt.LeftButton
+                                                                    onTranslationChanged: root.moveBarDragProxy(translation.x, translation.y)
                                                                     onActiveChanged: {
-                                                                        if (!active) {
-                                                                            barDragProxy.x = barItemRow.width / 2;
-                                                                            barDragProxy.y = barItemRow.height / 2;
-                                                                        }
+                                                                        if (active)
+                                                                            root.beginBarDrag(barItemRow, barItemRow.barItemId);
+                                                                        else if (root.barDragActive)
+                                                                            Qt.callLater(root.finishBarDrag);
                                                                     }
                                                                 }
 
+                                                            }
+
+                                                            BloxButton {
+                                                                Layout.preferredWidth: 34
+                                                                Layout.preferredHeight: 32
+                                                                compact: true
+                                                                iconName: "chevron-up"
+                                                                enabled: barItemRow.index > 0
+                                                                onClicked: root.moveBarItem(barItemRow.barItemId, -1)
+                                                            }
+
+                                                            BloxButton {
+                                                                Layout.preferredWidth: 34
+                                                                Layout.preferredHeight: 32
+                                                                compact: true
+                                                                iconName: "chevron-down"
+                                                                enabled: barItemRow.index < barItemRepeater.count - 1
+                                                                onClicked: root.moveBarItem(barItemRow.barItemId, 1)
+                                                            }
+
+                                                            BloxComboBox {
+                                                                Layout.preferredWidth: 116
+                                                                Layout.preferredHeight: 32
+                                                                model: root.barRegions
+                                                                currentIndex: model.indexOf(barItemRow.modelData.region === "hidden" ? "tray" : barItemRow.modelData.region)
+                                                                onActivated: (index, value) => {
+                                                                    return root.setBarItemRegion(barItemRow.barItemId, value === "tray" ? "hidden" : value);
+                                                                }
                                                             }
 
                                                         }
@@ -2769,15 +3209,30 @@ FloatingWindow {
                                                             enabled: !(handleDrag.active || emptyDrag.active)
                                                             z: 2
                                                             onEntered: (drag) => {
-                                                                if (drag.source && drag.source.barItemId && drag.source.barItemId !== barItemRow.barItemId)
-                                                                    root.moveBarItemTo(drag.source.barItemId, regionSection.modelData, barItemRow.index);
-
+                                                                const insertion = drag.y < height / 2 ? barItemRow.index : barItemRow.index + 1;
+                                                                root.setBarDropTarget(regionSection.modelData, insertion, barItemRow.barItemId);
+                                                            }
+                                                            onPositionChanged: (drag) => {
+                                                                const insertion = drag.y < height / 2 ? barItemRow.index : barItemRow.index + 1;
+                                                                root.setBarDropTarget(regionSection.modelData, insertion, barItemRow.barItemId);
                                                             }
                                                             onDropped: (drop) => {
-                                                                if (drop.source && drop.source.barItemId && drop.source.barItemId !== barItemRow.barItemId)
-                                                                    root.moveBarItemTo(drop.source.barItemId, regionSection.modelData, barItemRow.index);
+                                                                if (drop.source === root.barDragProxyItem)
+                                                                    root.finishBarDrag();
 
                                                             }
+                                                        }
+
+                                                        Rectangle {
+                                                            anchors.left: parent.left
+                                                            anchors.right: parent.right
+                                                            anchors.top: root.barDropIndex === barItemRow.index ? parent.top : undefined
+                                                            anchors.bottom: root.barDropIndex === barItemRow.index + 1 ? parent.bottom : undefined
+                                                            height: 3
+                                                            radius: 2
+                                                            z: 40
+                                                            visible: root.barDragActive && root.barDropTarget === barItemRow.barItemId
+                                                            color: Theme.blue
                                                         }
 
                                                     }
@@ -3942,6 +4397,38 @@ FloatingWindow {
 
             }
 
+            Rectangle {
+                id: barDragProxy
+
+                property string barItemId: root.barDragItemId
+
+                z: 1000
+                visible: root.barDragActive
+                radius: 8
+                color: Theme.withAlpha(Theme.surface, 0.98)
+                border.color: Theme.blue
+                border.width: 2
+                Drag.active: root.barDragActive
+                Drag.source: barDragProxy
+                Drag.hotSpot.x: width / 2
+                Drag.hotSpot.y: height / 2
+
+                Text {
+                    anchors.centerIn: parent
+                    text: root.barDragLabel
+                    color: Theme.foreground
+                    font.family: Theme.bodyFontFamily
+                }
+
+            }
+
+            Timer {
+                interval: 16
+                repeat: true
+                running: root.barDragActive
+                onTriggered: root.scrollBarDrag()
+            }
+
             FocusScope {
                 id: modalFocusScope
 
@@ -4940,7 +5427,7 @@ FloatingWindow {
                                             width: 34
                                             height: 34
                                             radius: 8
-                                            color: root.candidate ? root.candidate.colours[modelData] : "transparent"
+                                            color: root.candidate ? root.validColour(root.candidate.colours[modelData], "transparent") : "transparent"
                                             border.color: presetHover.hovered ? Theme.foreground : Theme.border
 
                                             HoverHandler {

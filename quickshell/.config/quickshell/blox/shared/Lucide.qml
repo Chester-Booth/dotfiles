@@ -16,6 +16,8 @@ Singleton {
         "bluetooth": 57436,
         "clock": 57479,
         "coffee": 57494,
+        "chevron-down": 57453,
+        "chevron-up": 57456,
         "download": 57522,
         "ellipsis": 57526,
         "fan": 58233,

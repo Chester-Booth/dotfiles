@@ -18,7 +18,7 @@ THEMES = Path(__file__).resolve().parents[1]
 REPOSITORY = THEMES.parent
 sys.path.insert(0, str(THEMES / "lib"))
 
-from blox_theme.core import DEFAULT_BAR_ITEMS, dependency_checks, derive_ansi, load_theme, render_manifest, render_theme, schema_errors, validate_theme
+from blox_theme.core import DEFAULT_BAR_ITEMS, dependency_checks, derive_ansi, list_themes, load_theme, render_manifest, render_theme, schema_errors, validate_theme
 
 
 def run_cli(*arguments: str, environment: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -211,10 +211,15 @@ class RendererTests(unittest.TestCase):
         self.assertEqual(self.theme["colours"]["background"], obsidian["minimal-style@@bg1@@dark"])
         self.assertEqual(self.theme["colours"]["accent"], obsidian["minimal-style@@ax1@@dark"])
         shell = json.loads(files["quickshell/theme.json"])["shell"]
-        self.assertEqual("left", shell["bar"]["position"])
-        self.assertEqual(list(DEFAULT_BAR_ITEMS), shell["bar"]["items"])
-        self.assertEqual("top-left", shell["osd"]["position"])
-        self.assertEqual("bottom-right", shell["notifications"]["position"])
+        expected_shell = self.theme.get("shell", {})
+        self.assertEqual(expected_shell.get("bar", {}).get("position", "left"), shell["bar"]["position"])
+        expected_bar_items = self.theme.get("shell", {}).get("bar", {}).get("items", list(DEFAULT_BAR_ITEMS))
+        self.assertEqual(
+            {item["id"]: item for item in expected_bar_items},
+            {item["id"]: item for item in shell["bar"]["items"]},
+        )
+        self.assertEqual(expected_shell.get("osd", {}).get("position", "top-left"), shell["osd"]["position"])
+        self.assertEqual(expected_shell.get("notifications", {}).get("position", "bottom-right"), shell["notifications"]["position"])
         self.assertIn("workbench.colorCustomizations", json.loads(files["cursor-editor/settings.json"]))
         self.assertIn("@-moz-document", files["stylus/blox-system.user.css"])
         self.assertIn('color-link default "#cdd6f4"', files["micro/blox-theme.micro"])
@@ -541,6 +546,19 @@ class CliContractTests(unittest.TestCase):
         self.assertIn("width: implicitWidth", application_tray)
         self.assertIn("height: implicitHeight", application_tray)
         self.assertNotIn("SystemTray.items.length", application_tray)
+        bar = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/Bar.qml").read_text(encoding="utf-8")
+        hidden_drawers = bar.split("model: Theme.barHiddenItems", 1)[0].rsplit("Column {", 1)[1]
+        self.assertIn("z: 100", hidden_drawers)
+
+    def test_theme_list_exposes_visual_preview_data(self) -> None:
+        entries = list_themes()
+        self.assertTrue(entries)
+        preview = entries[0]["preview"]
+        self.assertIn("colours", preview)
+        self.assertIn("wallpaper", preview)
+        self.assertEqual({"ui", "mono", "panel"}, set(preview["fonts"]))
+        self.assertIn(preview["bar"]["position"], {"left", "right", "top", "bottom"})
+        self.assertTrue(preview["bar"]["items"])
 
     def test_tray_toggle_points_outwards_when_closed_and_inwards_when_open(self) -> None:
         toggle = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/ExtrasToggleButton.qml").read_text(encoding="utf-8")

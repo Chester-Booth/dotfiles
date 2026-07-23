@@ -180,9 +180,16 @@ class PickerIntegrationSourceTests(unittest.TestCase):
     def test_bar_item_drag_uses_a_moving_proxy(self) -> None:
         qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
         self.assertIn("id: barDragProxy", qml)
-        self.assertEqual(2, qml.count("target: barDragProxy"))
+        self.assertGreaterEqual(qml.count("target: null"), 2)
         self.assertIn("Drag.source: barDragProxy", qml)
         self.assertNotIn("Drag.source: barItemRow", qml)
+        drag_section = qml.split('model: ["start", "centre", "end", "hidden"]', 1)[1].split('text: "Bar"', 1)[0]
+        self.assertIn("onPositionChanged:", drag_section)
+        self.assertIn("root.finishBarDrag()", drag_section)
+        self.assertIn("root.setBarDropTarget", drag_section)
+        self.assertIn('color: Theme.blue', drag_section)
+        self.assertIn("z: 1000", qml)
+        self.assertEqual(1, qml.count("id: barDragProxy"))
 
     def test_picker_uses_json_api_and_has_confirmation_paths(self) -> None:
         qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
@@ -350,12 +357,27 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn('model: ["start", "centre", "end", "hidden"]', advanced)
         self.assertIn('"Tray"', advanced)
         self.assertIn("root.setBarItemEnabled(barItemRow.modelData.id, value)", advanced)
-        self.assertIn("Drag.active: handleDrag.active || emptyDrag.active", advanced)
-        self.assertEqual(2, advanced.count("target: barDragProxy"))
+        self.assertIn("Drag.active: root.barDragActive", qml)
+        self.assertEqual(2, advanced.count("target: null"))
+        self.assertEqual(2, advanced.count("onTranslationChanged: root.moveBarDragProxy"))
         self.assertIn("Drag.source: barDragProxy", advanced)
-        self.assertIn("root.moveBarItemTo(drop.source.barItemId", advanced)
-        self.assertNotIn('text: "↑"', advanced)
-        self.assertNotIn('text: "↓"', advanced)
+        self.assertIn("root.finishBarDrag()", advanced)
+        self.assertIn('iconName: "chevron-up"', advanced)
+        self.assertIn('iconName: "chevron-down"', advanced)
+        self.assertNotIn('ToolTip.text: "Move up"', advanced)
+        self.assertNotIn('ToolTip.text: "Move down"', advanced)
+        self.assertIn("onClicked: root.moveBarItem(barItemRow.barItemId, -1)", advanced)
+        self.assertIn("onClicked: root.moveBarItem(barItemRow.barItemId, 1)", advanced)
+        self.assertIn("model: root.barRegions", advanced)
+        self.assertIn('value === "tray" ? "hidden" : value', advanced)
+        normalise = qml.split("function normaliseBarItemOrders(items)", 1)[1].split("function setBarItems", 1)[0]
+        self.assertIn("ordered.push(members[index])", normalise)
+        self.assertIn("return ordered", normalise)
+        header = advanced.index('text: regionSection.modelData === "hidden" ? "Tray"')
+        first_drop_target = advanced.index('"start:" + regionSection.modelData')
+        self.assertLess(header, first_drop_target)
+        self.assertIn("function scrollBarDrag()", qml)
+        self.assertIn("running: root.barDragActive", qml)
         self.assertIn("Theme.resolvedBarItems(overrides)", qml)
         self.assertIn("Theme.loadShell(next.shell)", qml)
 
@@ -381,6 +403,8 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn("Keys.onPressed", font_picker)
         self.assertIn("event.key === Qt.Key_Space", font_picker)
         self.assertIn("required property int index", font_picker)
+        self.assertIn("Canvas {", font_picker)
+        self.assertNotIn('text: popup.visible ? "▴" : "▾"', font_picker)
         combo_box = (shared / "BloxComboBox.qml").read_text(encoding="utf-8")
         self.assertIn("modal: true", combo_box)
         self.assertNotIn("modal: false", combo_box)
@@ -392,6 +416,31 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn("signal accepted()", text_field)
         self.assertIn("function focusEditor(selectAllText)", text_field)
         self.assertIn("root.editingFinished();", text_field)
+
+    def test_blank_theme_starts_without_selected_visual_inputs(self) -> None:
+        qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
+        blank = qml.split("function blankTheme(", 1)[1].split("function startNewTheme(", 1)[0]
+        self.assertIn('blank.colours[key] = ""', blank)
+        self.assertIn('blank.fonts[role] = ""', blank)
+        self.assertIn('blank.wallpaper.path = ""', blank)
+
+    def test_simple_mode_contains_font_pickers(self) -> None:
+        qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
+        simple = qml.split('visible: root.editorMode === "overview"', 1)[1].split('visible: root.editorMode === "advanced"', 1)[0]
+        self.assertIn('text: "Fonts"', simple)
+        self.assertIn("BloxFontPicker {", simple)
+
+    def test_theme_list_uses_source_colours_wallpaper_and_fonts(self) -> None:
+        qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
+        theme_list = qml.split("id: themeList", 1)[1].split("id: editorScroll", 1)[0]
+        self.assertIn("id: themeThumbnail", theme_list)
+        self.assertIn("modelData.preview.wallpaper", theme_list)
+        self.assertIn("modelData.preview.fonts.ui", theme_list)
+        self.assertIn("root.themePreviewColour", theme_list)
+        self.assertIn("id: themeBarPreview", theme_list)
+        self.assertIn("root.themePreviewBarCount", theme_list)
+        self.assertIn("fontSizeMode: themeDelegate.previewAtMinimum ? Text.Fit : Text.FixedSize", theme_list)
+        self.assertNotIn('text: modelData.unsaved ? "UNSAVED  ·  " + modelData.variant : modelData.variant', theme_list)
 
     def test_picker_modal_keyboard_and_scroll_affordances_are_explicit(self) -> None:
         qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")

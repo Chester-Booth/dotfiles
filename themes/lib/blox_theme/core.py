@@ -130,7 +130,27 @@ def list_themes() -> list[dict[str, Any]]:
     for path in sorted((themes_dir() / "themes").glob("*.json")):
         try:
             data = load_json(path)
-            entries.append({"id": data.get("id", path.stem), "name": data.get("name", path.stem), "variant": data.get("variant"), "path": str(path), "source_sha256": hashlib.sha256(path.read_bytes()).hexdigest()})
+            entries.append(
+                {
+                    "id": data.get("id", path.stem),
+                    "name": data.get("name", path.stem),
+                    "variant": data.get("variant"),
+                    "path": str(path),
+                    "source_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                    "preview": {
+                        "colours": data.get("colours", {}),
+                        "wallpaper": data.get("wallpaper", {}).get("path", ""),
+                        "fonts": {
+                            role: data.get("fonts", {}).get(role, "")
+                            for role in ("ui", "mono", "panel")
+                        },
+                        "bar": {
+                            "position": data.get("shell", {}).get("bar", {}).get("position", "left"),
+                            "items": resolved_bar_items(data.get("shell", {}).get("bar")),
+                        },
+                    },
+                }
+            )
         except (OSError, json.JSONDecodeError):
             entries.append({"id": path.stem, "name": path.stem, "variant": None, "path": str(path), "invalid": True})
     return entries

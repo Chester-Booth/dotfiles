@@ -10,13 +10,14 @@ Rectangle {
     property bool destructive: false
     property bool checkable: false
     property bool checked: false
+    property bool compact: false
     readonly property bool hovered: hover.hovered
     readonly property bool down: tap.pressed
 
     signal clicked()
 
     implicitHeight: 36
-    implicitWidth: Math.max(76, buttonContent.implicitWidth + 30)
+    implicitWidth: compact ? Math.max(34, buttonContent.implicitWidth + 18) : Math.max(76, buttonContent.implicitWidth + 30)
     radius: 9
     color: !enabled ? Theme.withAlpha(Theme.surface, 0.42) : down ? Theme.withAlpha(accent, 0.26) : checked ? Theme.withAlpha(accent, 0.18) : hovered ? Theme.surfaceAlt : Theme.surface
     border.color: activeFocus || checked ? accent : hovered ? Theme.withAlpha(Theme.foreground, 0.34) : Theme.border

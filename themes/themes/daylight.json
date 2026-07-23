@@ -1,0 +1,112 @@
+{
+  "colours": {
+    "accent": "#2d628c",
+    "background": "#f7f9ff",
+    "border": "#72787f",
+    "danger": "#ba1a1a",
+    "foreground": "#181c20",
+    "info": "#2d628c",
+    "mauve": "#51606f",
+    "muted": "#42474e",
+    "selection_background": "#2d628c",
+    "selection_foreground": "#ffffff",
+    "success": "#67587a",
+    "surface": "#eceef3",
+    "surface_alt": "#e6e8ee",
+    "teal": "#67587a",
+    "warning": "#51606f"
+  },
+  "cursor": {
+    "base": "Bibata-Modern-Classic",
+    "base_colour": "#2d628c",
+    "colour_source": "theme",
+    "handedness": "right",
+    "mode": "generated",
+    "outline_colour": "#ffffff",
+    "sizes": [
+      22,
+      24
+    ],
+    "watch_background": "#f7f9ff"
+  },
+  "fonts": {
+    "editor_size": 13,
+    "gtk_size": 11,
+    "mono": "JetBrains Mono",
+    "panel": "Google Sans",
+    "terminal_size": 12,
+    "ui": "Inter"
+  },
+  "generator": {
+    "backend": "matugen",
+    "mapping_version": 1,
+    "options": {
+      "contrast": 0.0,
+      "mode": "light",
+      "scheme": "scheme-tonal-spot",
+      "source_colour_index": 0
+    },
+    "version": "4.1.0",
+    "wallpaper_sha256": "10d04915d94fe5ca1f2ed1ac63c2968ac904992900357064d28434998792a054"
+  },
+  "gtk": {
+    "base_theme": "Graphite-Dark-compact",
+    "colour_source": "theme",
+    "mode": "generated"
+  },
+  "icons": {
+    "theme": "Adwaita"
+  },
+  "id": "daylight",
+  "name": "Daylight",
+  "schema_version": 1,
+  "shell": {
+    "bar": {
+      "position": "top"
+    },
+    "notifications": {
+      "offset_x": 0,
+      "offset_y": 0,
+      "position": "bottom-right"
+    },
+    "osd": {
+      "offset_x": 0,
+      "offset_y": 0,
+      "position": "centre-bottom"
+    }
+  },
+  "targets": {
+    "btop": true,
+    "code": true,
+    "cursor": true,
+    "cursor_editor": true,
+    "glow": true,
+    "grub": false,
+    "gtk": true,
+    "hyprland": true,
+    "hyprlock": true,
+    "kitty": true,
+    "micro": true,
+    "obsidian": true,
+    "powerlevel10k": true,
+    "quickshell": true,
+    "sddm": false,
+    "stylus": true,
+    "vicinae": true,
+    "wallpaper": true,
+    "widgets": true
+  },
+  "terminal": {
+    "ansi_source": "derived",
+    "canvas": "#f7f9ff",
+    "chrome_background": "#f7f9ff"
+  },
+  "variant": "light",
+  "wallpaper": {
+    "fit": "cover",
+    "path": "/home/blox/Code/personal/dotfiles/wallpapers/wallpapers/daylight.png"
+  },
+  "widgets": {
+    "profile": "minimal"
+  }
+}

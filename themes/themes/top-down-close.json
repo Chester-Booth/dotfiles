@@ -1,0 +1,112 @@
+{
+  "colours": {
+    "accent": "#b9d079",
+    "background": "#10141a",
+    "border": "#8a919f",
+    "danger": "#ffb4ab",
+    "foreground": "#e0e2ec",
+    "info": "#b9d079",
+    "mauve": "#e3bada",
+    "muted": "#c0c7d5",
+    "selection_background": "#b9d079",
+    "selection_foreground": "#283500",
+    "success": "#abc8f7",
+    "surface": "#1c2026",
+    "surface_alt": "#262a31",
+    "teal": "#abc8f7",
+    "warning": "#e3bada"
+  },
+  "cursor": {
+    "base": "Bibata-Modern-Classic",
+    "base_colour": "#b9d079",
+    "colour_source": "theme",
+    "handedness": "right",
+    "mode": "generated",
+    "outline_colour": "#283500",
+    "sizes": [
+      22,
+      24
+    ],
+    "watch_background": "#10141a"
+  },
+  "fonts": {
+    "editor_size": 13,
+    "gtk_size": 11,
+    "mono": "MartianMono Nerd Font Mono",
+    "panel": "MartianMono Nerd Font Propo",
+    "terminal_size": 12,
+    "ui": "Google Sans Display"
+  },
+  "generator": {
+    "backend": "matugen",
+    "mapping_version": 1,
+    "options": {
+      "contrast": 0.0,
+      "mode": "dark",
+      "scheme": "scheme-expressive",
+      "source_colour_index": 0
+    },
+    "version": "4.1.0",
+    "wallpaper_sha256": "e9a89e7bfe325a1760d4963948cfb64bfd87c6e91b5a30ae646453a9ffea7df8"
+  },
+  "gtk": {
+    "base_theme": "Graphite-Dark-compact",
+    "colour_source": "theme",
+    "mode": "generated"
+  },
+  "icons": {
+    "theme": "Adwaita"
+  },
+  "id": "top-down-close",
+  "name": "Top Down Close",
+  "schema_version": 1,
+  "shell": {
+    "bar": {
+      "position": "right"
+    },
+    "notifications": {
+      "offset_x": 0,
+      "offset_y": 0,
+      "position": "top-right"
+    },
+    "osd": {
+      "offset_x": 0,
+      "offset_y": 0,
+      "position": "centre-bottom"
+    }
+  },
+  "targets": {
+    "btop": true,
+    "code": true,
+    "cursor": true,
+    "cursor_editor": true,
+    "glow": true,
+    "grub": false,
+    "gtk": true,
+    "hyprland": true,
+    "hyprlock": true,
+    "kitty": true,
+    "micro": true,
+    "obsidian": true,
+    "powerlevel10k": true,
+    "quickshell": true,
+    "sddm": false,
+    "stylus": true,
+    "vicinae": true,
+    "wallpaper": true,
+    "widgets": true
+  },
+  "terminal": {
+    "ansi_source": "derived",
+    "canvas": "#10141a",
+    "chrome_background": "#10141a"
+  },
+  "variant": "dark",
+  "wallpaper": {
+    "fit": "cover",
+    "path": "/home/blox/Code/personal/dotfiles/wallpapers/wallpapers/top-down-close.png"
+  },
+  "widgets": {
+    "profile": "compact"
+  }
+}

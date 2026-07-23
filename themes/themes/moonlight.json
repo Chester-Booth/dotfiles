@@ -47,7 +47,7 @@
       "source_colour_index": 0
     },
     "version": "4.1.0",
-    "wallpaper_sha256": "94febd8eb17fb610e954f4fd78b4071a87deac827d2b0d59bf17310a5ec94997"
+    "wallpaper_sha256": "bb6948ac1ba89836d133c3fdeae72f7030bebcc47b3f06a7322b2558076ca21f"
   },
   "gtk": {
     "base_theme": "Graphite-Dark-compact",
@@ -92,6 +92,6 @@
   },
   "wallpaper": {
     "fit": "cover",
-    "path": "/home/blox/Code/personal/dotfiles/wallpapers/wallpapers/moonlight.png"
+    "path": "~/Pictures/wallpapers/moonlight.png"
   }
 }

@@ -104,7 +104,7 @@
   "variant": "dark",
   "wallpaper": {
     "fit": "cover",
-    "path": "/home/blox/Code/personal/dotfiles/wallpapers/wallpapers/top-down-wide.png"
+    "path": "~/Pictures/wallpapers/top-down-wide.png"
   },
   "widgets": {
     "profile": "comfortable"

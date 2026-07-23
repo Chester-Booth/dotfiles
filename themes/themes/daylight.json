@@ -47,7 +47,7 @@
       "source_colour_index": 0
     },
     "version": "4.1.0",
-    "wallpaper_sha256": "10d04915d94fe5ca1f2ed1ac63c2968ac904992900357064d28434998792a054"
+    "wallpaper_sha256": "d02134d58f1169bd9c9b613922c8a64d8234e8fc86d87cb9779291f6565ed82c"
   },
   "gtk": {
     "base_theme": "Graphite-Dark-compact",
@@ -104,7 +104,7 @@
   "variant": "light",
   "wallpaper": {
     "fit": "cover",
-    "path": "/home/blox/Code/personal/dotfiles/wallpapers/wallpapers/daylight.png"
+    "path": "~/Pictures/wallpapers/daylight.png"
   },
   "widgets": {
     "profile": "minimal"

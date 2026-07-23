@@ -37,12 +37,7 @@
    ],
    "providers": {
       "scripts": {
-         "enabled": true,
-         "preferences": {
-            "customDirs": [
-               "/home/blox/Code/personal/dotfiles/vicinae/.local/share/vicinae/scripts"
-            ]
-         }
+         "enabled": true
       },
       "applications": {
          "preferences": {

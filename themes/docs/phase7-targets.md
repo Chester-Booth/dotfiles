@@ -9,7 +9,7 @@ never edits generated state in place and never requests elevation.
 | Hyprlock | `hyprlock/theme.conf` | `hyprlock.conf` sources the managed link; the next lock process reads it. |
 | btop | `btop/theme.theme` | `btop.conf` names the managed theme; restart btop. |
 | Micro | `micro/blox-theme.micro` | A managed colourscheme link is installed; restart Micro. |
-| Glow | `glow/style.json` | `glow.yml` names the managed JSON style; the next invocation reads it. |
+| Glow | `glow/style.json` | `GLOW_STYLE` points to the managed JSON style under `XDG_CONFIG_HOME`; the next invocation reads it. |
 | Code/Cursor | `code/settings.json`, `cursor-editor/settings.json` | Generated fragments contain only owned editor font and workbench colour keys. Merge them into user settings and run **Reload Window**; unrelated settings are never rewritten. |
 | Stylus | `stylus/blox-system.user.css` | Import or refresh manually in Stylus. Website font replacement is intentionally absent. |
 | Powerlevel10k | `powerlevel10k/theme.zsh` | `.p10k.zsh` conditionally sources the managed fragment; new shells read it. |

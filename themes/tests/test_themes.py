@@ -31,6 +31,16 @@ class ThemeSchemaTests(unittest.TestCase):
         result = validate_theme(theme)
         self.assertEqual([], result.errors)
 
+    def test_bundled_wallpapers_are_home_relative_and_match_generator_digest(self) -> None:
+        for theme_id in ("grass", "moonlight", "side-pywal", "daylight", "top-down-close", "top-down-wide"):
+            with self.subTest(theme=theme_id):
+                _, theme = load_theme(theme_id)
+                source = theme["wallpaper"]["path"]
+                wallpaper = Path(source).expanduser()
+                self.assertTrue(source.startswith("~/Pictures/wallpapers/"))
+                self.assertTrue(wallpaper.is_file())
+                self.assertEqual(theme["generator"]["wallpaper_sha256"], hashlib.sha256(wallpaper.read_bytes()).hexdigest())
+
     def test_invalid_fixtures_fail_schema_validation(self) -> None:
         fixtures = THEMES / "tests/fixtures"
         for fixture in (fixtures / "invalid-colour.json", fixtures / "unknown-field.json"):

@@ -491,8 +491,9 @@ class PickerIntegrationSourceTests(unittest.TestCase):
             self.assertTrue(os.access(path, os.X_OK))
         settings_text = (REPOSITORY / "vicinae/.config/vicinae/settings.json").read_text(encoding="utf-8")
         settings = json.loads("\n".join(line for line in settings_text.splitlines() if not line.lstrip().startswith("//")))
-        configured = settings["providers"]["scripts"]["preferences"]["customDirs"]
-        self.assertEqual([str(scripts)], configured)
+        script_provider = settings["providers"]["scripts"]
+        self.assertTrue(script_provider["enabled"])
+        self.assertNotIn("preferences", script_provider)
 
     def test_theme_picker_desktop_fallbacks_are_discoverable(self) -> None:
         applications = REPOSITORY / "applications/.local/share/applications"

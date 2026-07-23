@@ -100,6 +100,18 @@ class RuntimeTests(unittest.TestCase):
         for executable in ("quickshell", "vicinae", "hyprctl", "kitty"):
             self.assertIn(executable, flattened)
 
+    def test_glow_style_uses_the_xdg_managed_loader(self) -> None:
+        glow_link, _ = phase7_loader_specs(self.state)["glow"]
+        self.assertEqual(self.root / "config/glow/blox-theme.json", glow_link)
+        environment = (REPOSITORY / "environment/.config/environment.d/10-hyprland-appearance.conf").read_text(encoding="utf-8")
+        shell = (REPOSITORY / "shell/home/.zshrc").read_text(encoding="utf-8")
+        glow_config = (REPOSITORY / "glow/.config/glow/glow.yml").read_text(encoding="utf-8")
+        self.assertIn("XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-${HOME}/.config}", environment)
+        self.assertIn("GLOW_STYLE=${XDG_CONFIG_HOME}/glow/blox-theme.json", environment)
+        self.assertIn('export GLOW_STYLE="$XDG_CONFIG_HOME/glow/blox-theme.json"', shell)
+        self.assertIn('style: "auto"', glow_config)
+        self.assertNotIn("/home/blox", glow_config)
+
     def test_installed_cursor_bypasses_builder_and_removes_generated_link(self) -> None:
         self.apply_canonical()
         installed = copy.deepcopy(self.canonical)

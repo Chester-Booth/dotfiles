@@ -89,6 +89,6 @@
   },
   "wallpaper": {
     "fit": "cover",
-    "path": "/home/blox/Code/personal/dotfiles/wallpapers/wallpapers/side.png"
+    "path": "~/Pictures/wallpapers/side.png"
   }
 }

@@ -5,6 +5,22 @@ local function exec(cmd)
     return hl.dsp.exec_cmd(cmd)
 end
 
+local function shortcut_guide(action)
+    hl.dispatch(exec("quickshell ipc -c blox call shortcutGuide " .. action))
+end
+
+local function super_bind(keys, action, options)
+    hl.bind(mainMod .. " + " .. keys, function()
+        shortcut_guide("cancel")
+        if type(action) == "function" then
+            action()
+        else
+            hl.dispatch(action)
+        end
+    end, options)
+end
+
+-- Keep the Super bind list mirrored in Quickshell's ShortcutGuideWindow.qml.
 local function resize_active_width(ratio)
     return function()
         local window = hl.get_active_window()
@@ -110,80 +126,99 @@ local function swap_active_with_master()
     end
 end
 
-hl.bind(mainMod .. " + T", exec(programs.terminal))
-hl.bind(mainMod .. " + Q", exec("/home/blox/.local/bin/ktr killactive"))
-hl.bind(mainMod .. " + L", exec("~/.config/quickshell/blox/scripts/power/safe.sh lock"))
-hl.bind(mainMod .. " + E", exec(programs.file_manager))
-hl.bind(mainMod .. " + M", exec("kitty --class micro-active -e /home/blox/.local/bin/micro"))
-hl.bind(mainMod .. " + space", exec(programs.menu))
-hl.bind(mainMod .. " + N", exec("quickshell ipc -c blox call notifications toggle"))
-hl.bind(mainMod .. " + SHIFT + O", exec("~/.config/hypr/scripts/toggle-orca.sh"))
+for _, key in ipairs({ "SUPER_L", "SUPER_R" }) do
+    hl.bind(key, function()
+        shortcut_guide("arm")
+    end, { non_consuming = true, transparent = true, ignore_mods = true })
+    hl.bind(mainMod .. " + " .. key, function()
+        shortcut_guide("release")
+    end, { release = true, non_consuming = true, transparent = true })
+end
+
+hl.bind("Escape", function()
+    shortcut_guide("close")
+end, { non_consuming = true, transparent = true, ignore_mods = true })
+
+super_bind("T", exec(programs.terminal))
+super_bind("Q", exec("/home/blox/.local/bin/ktr killactive"))
+super_bind("L", exec("~/.config/quickshell/blox/scripts/power/safe.sh lock"))
+super_bind("E", exec(programs.file_manager))
+super_bind("M", exec("kitty --class micro-active -e /home/blox/.local/bin/micro"))
+super_bind("space", exec(programs.menu))
+super_bind("N", exec("quickshell ipc -c blox call notifications toggle"))
+super_bind("SHIFT + O", exec("~/.config/hypr/scripts/toggle-orca.sh"))
 
 -- Move focus with mainMod + arrow keys.
-hl.bind(mainMod .. " + left", hl.dsp.focus({ direction = "l" }))
-hl.bind(mainMod .. " + right", hl.dsp.focus({ direction = "r" }))
-hl.bind(mainMod .. " + up", hl.dsp.focus({ direction = "u" }))
-hl.bind(mainMod .. " + down", hl.dsp.focus({ direction = "d" }))
+super_bind("left", hl.dsp.focus({ direction = "l" }))
+super_bind("right", hl.dsp.focus({ direction = "r" }))
+super_bind("up", hl.dsp.focus({ direction = "u" }))
+super_bind("down", hl.dsp.focus({ direction = "d" }))
 
 -- Move the active window with mainMod + SHIFT + arrow keys.
-hl.bind(mainMod .. " + SHIFT + left", hl.dsp.window.move({ direction = "l" }))
-hl.bind(mainMod .. " + SHIFT + right", hl.dsp.window.move({ direction = "r" }))
-hl.bind(mainMod .. " + SHIFT + up", hl.dsp.window.move({ direction = "u" }))
-hl.bind(mainMod .. " + SHIFT + down", hl.dsp.window.move({ direction = "d" }))
+super_bind("SHIFT + left", hl.dsp.window.move({ direction = "l" }))
+super_bind("SHIFT + right", hl.dsp.window.move({ direction = "r" }))
+super_bind("SHIFT + up", hl.dsp.window.move({ direction = "u" }))
+super_bind("SHIFT + down", hl.dsp.window.move({ direction = "d" }))
 
 -- Switch workspaces with mainMod + [0-9].
 for key = 1, 9 do
-    hl.bind(mainMod .. " + " .. key, hl.dsp.focus({ workspace = tostring(key) }))
+    super_bind(tostring(key), hl.dsp.focus({ workspace = tostring(key) }))
 end
-hl.bind(mainMod .. " + 0", hl.dsp.focus({ workspace = "10" }))
+super_bind("0", hl.dsp.focus({ workspace = "10" }))
 
 -- Move active window to a workspace with mainMod + SHIFT + [0-9].
 for key = 1, 9 do
-    hl.bind(mainMod .. " + SHIFT + " .. key, hl.dsp.window.move({ workspace = tostring(key) }))
+    super_bind("SHIFT + " .. key, hl.dsp.window.move({ workspace = tostring(key) }))
 end
-hl.bind(mainMod .. " + SHIFT + 0", hl.dsp.window.move({ workspace = "10" }))
+super_bind("SHIFT + 0", hl.dsp.window.move({ workspace = "10" }))
 
 -- Special workspace.
-hl.bind(mainMod .. " + grave", hl.dsp.workspace.toggle_special("magic"))
-hl.bind(mainMod .. " + SHIFT + grave", hl.dsp.window.move({ workspace = "special:magic" }))
+super_bind("grave", hl.dsp.workspace.toggle_special("magic"))
+super_bind("SHIFT + grave", hl.dsp.window.move({ workspace = "special:magic" }))
 
 -- DP-1 workspaces.
 for index = 1, 10 do
     local key = "F" .. index
     local workspace = tostring(index + 10)
-    hl.bind(mainMod .. " + " .. key, hl.dsp.focus({ workspace = workspace }))
-    hl.bind(mainMod .. " + SHIFT + " .. key, hl.dsp.window.move({ workspace = workspace }))
+    super_bind(key, hl.dsp.focus({ workspace = workspace }))
+    super_bind("SHIFT + " .. key, hl.dsp.window.move({ workspace = workspace }))
 end
 
 -- HDMI-A-1 workspaces.
-hl.bind(mainMod .. " + F11", hl.dsp.focus({ workspace = "21" }))
-hl.bind(mainMod .. " + F12", hl.dsp.focus({ workspace = "22" }))
-hl.bind(mainMod .. " + SHIFT + F11", hl.dsp.window.move({ workspace = "21" }))
-hl.bind(mainMod .. " + SHIFT + F12", hl.dsp.window.move({ workspace = "22" }))
+super_bind("F11", hl.dsp.focus({ workspace = "21" }))
+super_bind("F12", hl.dsp.focus({ workspace = "22" }))
+super_bind("SHIFT + F11", hl.dsp.window.move({ workspace = "21" }))
+super_bind("SHIFT + F12", hl.dsp.window.move({ workspace = "22" }))
 
 -- Scroll through existing workspaces with mainMod + scroll.
-hl.bind(mainMod .. " + mouse_down", hl.dsp.focus({ workspace = "e+1" }))
-hl.bind(mainMod .. " + mouse_up", hl.dsp.focus({ workspace = "e-1" }))
+super_bind("mouse_down", hl.dsp.focus({ workspace = "e+1" }))
+super_bind("mouse_up", hl.dsp.focus({ workspace = "e-1" }))
 
 -- Tab through existing workspaces with mainMod + tab.
-hl.bind(mainMod .. " + SHIFT + Tab", hl.dsp.focus({ workspace = "m-1" }), { repeating = true })
-hl.bind(mainMod .. " + Tab", hl.dsp.focus({ workspace = "m+1" }), { repeating = true })
+super_bind("SHIFT + Tab", hl.dsp.focus({ workspace = "m-1" }), { repeating = true })
+super_bind("Tab", hl.dsp.focus({ workspace = "m+1" }), { repeating = true })
 
 -- Move/resize windows with mainMod + LMB/RMB and dragging.
+hl.bind(mainMod .. " + mouse:272", function()
+    shortcut_guide("cancel")
+end, { non_consuming = true, transparent = true })
+hl.bind(mainMod .. " + mouse:273", function()
+    shortcut_guide("cancel")
+end, { non_consuming = true, transparent = true })
 hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true })
 hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 
 -- Resize the active window to a percentage of its monitor width.
-hl.bind(mainMod .. " + code:87", resize_active_width(0.70))
-hl.bind(mainMod .. " + code:88", resize_active_width(0.50))
-hl.bind(mainMod .. " + code:89", resize_active_width(0.30))
-hl.bind(mainMod .. " + code:83", adjust_active_width(0.05), { repeating = true })
-hl.bind(mainMod .. " + code:85", adjust_active_width(-0.05), { repeating = true })
-hl.bind(mainMod .. " + code:90", toggle_active_pin())
-hl.bind(mainMod .. " + code:84", swap_active_with_master)
-hl.bind(mainMod .. " + code:79", hl.dsp.window.float({ action = "toggle" }))
-hl.bind(mainMod .. " + code:80", hl.dsp.window.fullscreen({ mode = "maximized", action = "toggle" }))
-hl.bind(mainMod .. " + code:81", hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle" }))
+super_bind("code:87", resize_active_width(0.70))
+super_bind("code:88", resize_active_width(0.50))
+super_bind("code:89", resize_active_width(0.30))
+super_bind("code:83", adjust_active_width(0.05), { repeating = true })
+super_bind("code:85", adjust_active_width(-0.05), { repeating = true })
+super_bind("code:90", toggle_active_pin())
+super_bind("code:84", swap_active_with_master)
+super_bind("code:79", hl.dsp.window.float({ action = "toggle" }))
+super_bind("code:80", hl.dsp.window.fullscreen({ mode = "maximized", action = "toggle" }))
+super_bind("code:81", hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle" }))
 
 -- Laptop multimedia keys for volume and LCD brightness.
 hl.bind("XF86AudioRaiseVolume", exec("~/.config/quickshell/blox/scripts/osd/control.sh volume-up 2"), { repeating = true, locked = true })
@@ -219,18 +254,18 @@ hl.bind("KP_Add", hl.dsp.send_shortcut({ mods = "CONTROL SHIFT", key = "TAB", wi
 
 -- Screenshot region capture.
 hl.bind("Print", exec("hyprshot -m output"))
-hl.bind(mainMod .. " + SHIFT + S", exec([[bash -c 'pgrep -x slurp >/dev/null && pkill -x slurp || hyprshot -m region']]))
-hl.bind(mainMod .. " + ALT + S", exec([[bash -c 'pgrep -x slurp >/dev/null && pkill -x slurp || hyprshot -m region --freeze --cursor']]))
-hl.bind(mainMod .. " + SHIFT + T", exec("~/.config/hypr/scripts/ocr-region-to-clipboard.sh"))
+super_bind("SHIFT + S", exec([[bash -c 'pgrep -x slurp >/dev/null && pkill -x slurp || hyprshot -m region']]))
+super_bind("ALT + S", exec([[bash -c 'pgrep -x slurp >/dev/null && pkill -x slurp || hyprshot -m region --freeze --cursor']]))
+super_bind("SHIFT + T", exec("~/.config/hypr/scripts/ocr-region-to-clipboard.sh"))
 
 -- Colour picker toggle.
-hl.bind(mainMod .. " + SHIFT + C", exec([[bash -c 'pgrep -x hyprpicker >/dev/null && pkill -x hyprpicker || hyprpicker -a &']]))
+super_bind("SHIFT + C", exec([[bash -c 'pgrep -x hyprpicker >/dev/null && pkill -x hyprpicker || hyprpicker -a &']]))
 
 -- Clipboard manager toggle.
-hl.bind(mainMod .. " + V", exec([[vicinae deeplink 'vicinae://launch/clipboard/history']]))
+super_bind("V", exec([[vicinae deeplink 'vicinae://launch/clipboard/history']]))
 
 -- Toggle bar.
-hl.bind(mainMod .. " + backslash", exec("quickshell ipc -c blox call bar toggle"))
+super_bind("backslash", exec("quickshell ipc -c blox call bar toggle"))
 
 -- Emoji picker.
-hl.bind(mainMod .. " + period", exec([[vicinae deeplink 'vicinae://launch/core/search-emojis']]))
+super_bind("period", exec([[vicinae deeplink 'vicinae://launch/core/search-emojis']]))

@@ -1,3 +1,5 @@
+-- When Super binds change, update the explicit model in ShortcutGuideWindow.qml.
+
 -- Ignore maximise requests from apps.
 hl.window_rule({ match = { class = ".*" }, suppress_event = "maximize" })
 

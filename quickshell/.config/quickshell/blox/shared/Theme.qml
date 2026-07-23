@@ -18,6 +18,7 @@ Singleton {
     property color red: "#f38ba8"
     property color green: "#a6e3a1"
     property color yellow: "#f9e2af"
+    property color accent: "#89b4fa"
     property color blue: "#89b4fa"
     property color mauve: "#f5c2e7"
     property color teal: "#94e2d5"
@@ -82,6 +83,7 @@ Singleton {
         red = "#f38ba8";
         green = "#a6e3a1";
         yellow = "#f9e2af";
+        accent = "#89b4fa";
         blue = "#89b4fa";
         mauve = "#f5c2e7";
         teal = "#94e2d5";
@@ -162,6 +164,7 @@ Singleton {
             red = data.compatibility.red;
             green = data.compatibility.green;
             yellow = data.compatibility.yellow;
+            accent = data.colours.accent;
             blue = data.compatibility.blue;
             mauve = data.compatibility.mauve;
             teal = data.compatibility.teal;

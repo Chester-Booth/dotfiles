@@ -62,7 +62,13 @@ hl.window_rule({ match = { class = "^(micro-active)$" }, float = true, size = { 
 hl.window_rule({ match = { class = "^(nvidia-settings)$" }, float = true })
 hl.window_rule({ match = { class = "^(nvidia-settings)$" }, size = { 800, 600 } })
 
-hl.window_rule({ match = { title = "^(Picture-in-Picture)$" }, float = true, pin = true, move = { "((monitor_w*0.69))", "((monitor_h*0.06))" } })
+hl.window_rule({
+    match = { title = "^(Picture-in-picture)$" },
+    float = true,
+    pin = true,
+    move = { "((monitor_w*0.69))", "((monitor_h*0.06))" },
+    opacity = "1.0 override 1.0 override 1.0 override",
+})
 
 hl.window_rule({ match = { workspace = "name:special:magic" }, size = { 600, 500 }, float = true, move = { "((monitor_w*0.05))", "((monitor_h*0.07))" } })
 

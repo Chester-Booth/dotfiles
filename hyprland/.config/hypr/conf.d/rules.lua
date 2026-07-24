@@ -19,6 +19,7 @@ end
 
 hl.window_rule({ match = { class = "^(thunar)$" }, float = true, size = { 800, 600 } })
 hl.window_rule({ match = { class = "^(Thunar)$" }, float = true, size = { 800, 600 } })
+hl.window_rule({ match = { class = "^(file-roller|org[.]gnome[.]FileRoller)$" }, float = true, size = { 800, 600 } })
 
 -- File dialogs float and are centred.
 hl.window_rule({ match = { title = "^(Open File|Open Files|Save File|Save As|Save Workspace|Select Folder|Open Folder|File Upload|Choose a wallpaper)$" }, float = true, size = { 800, 600 } })

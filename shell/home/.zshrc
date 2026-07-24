@@ -69,6 +69,7 @@ alias m='micro'
 alias cpwd='printf "%s" "$PWD" | wl-copy'
 alias cd..="cd .."
 alias codex="codex --yolo"
+alias ns='notify-send'
 
 # git alias
 alias gs='git status --short'

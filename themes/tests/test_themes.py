@@ -331,12 +331,15 @@ class RendererTests(unittest.TestCase):
     def test_generated_gtk_outputs_settings_css_and_limitations(self) -> None:
         files, _ = render_theme(self.theme)
         metadata = json.loads(files["gtk/metadata.json"])
+        gtk4 = files["gtk/gtk-4.0/gtk.css"]
         self.assertTrue(metadata["generated_css"])
         self.assertEqual("partial-user-css", metadata["libadwaita_support"])
         self.assertIn("gtk-theme-name=Graphite-Dark-compact", files["gtk/gtk-3.0/settings.ini"])
         self.assertIn("gtk-font-name=Google Sans 11", files["gtk/gtk-4.0/settings.ini"])
         self.assertIn("@define-color blox_accent #89b4fa;", files["gtk/gtk-3.0/gtk.css"])
-        self.assertIn("switch:checked", files["gtk/gtk-4.0/gtk.css"])
+        self.assertIn("switch:checked", gtk4)
+        self.assertIn("\nwindow {\n", gtk4)
+        self.assertNotIn("\n.background {\n", gtk4)
 
     def test_installed_gtk_mode_emits_no_generated_css(self) -> None:
         theme = copy.deepcopy(self.theme)

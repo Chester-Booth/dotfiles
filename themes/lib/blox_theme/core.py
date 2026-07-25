@@ -619,8 +619,7 @@ iconview,
 def render_gtk4(theme: dict[str, Any]) -> str:
     return _gtk_definitions(theme) + """
 
-window,
-.background {
+window {
   background-color: @blox_bg;
   color: @blox_fg;
 }

@@ -15,6 +15,10 @@ Validated on 1 July 2026 with GTK 3.24.52, GTK 4.22.4 and Libadwaita
   files and matching `gsettings` values. Existing applications generally need
   to restart.
 - Installed mode switches settings but deliberately emits no generated CSS.
+- GTK 4's generic `.background` class also marks popovers. Generated CSS
+  therefore colours `window` directly and leaves the outer popover node
+  transparent; `popover > contents` still receives the generated surface
+  colour.
 
 ## Libadwaita boundary
 

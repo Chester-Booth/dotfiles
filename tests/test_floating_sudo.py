@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from contextlib import redirect_stdout
 import importlib.machinery
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -20,33 +22,63 @@ loader.exec_module(floating_sudo)
 
 
 class ParseRequestTests(unittest.TestCase):
+    def test_help_documents_the_full_call_contract(self):
+        output = io.StringIO()
+        with redirect_stdout(output):
+            self.assertEqual(floating_sudo.main(["floating_sudo", "--help"]), 0)
+        help_text = output.getvalue()
+        self.assertIn("command > what > why", help_text)
+        self.assertIn("one description line per command or package", help_text)
+        self.assertIn("Risk level: level > reasoning", help_text)
+        self.assertIn("without a leading sudo", help_text)
+
     def test_valid_request(self):
         request = floating_sudo.parse_request(
-            "sudo pacman -S obs-studio\nNeeded for recording.\nRisk level: low",
+            "sudo pacman -S obs-studio\npacman -S obs-studio > Install OBS Studio > Record the demo\nRisk level: low > It comes from the configured package source",
             ["pacman", "-S", "obs-studio"],
         )
         self.assertEqual(request["command"], ["pacman", "-S", "obs-studio"])
 
     def test_quoted_argument(self):
         request = floating_sudo.parse_request(
-            "sudo printf '%s\\n' 'two words'\nPrint test text.\nRisk level: low",
+            "sudo printf '%s\\n' 'two words'\nprintf > Print test text > Check quoted arguments\nRisk level: low > It only writes to the terminal",
             ["printf", "%s\\n", "two words"],
         )
         self.assertEqual(request["display"], "sudo printf '%s\\n' 'two words'")
 
-    def test_extra_reason_lines_are_kept(self):
+    def test_multiline_description_is_kept(self):
         request = floating_sudo.parse_request(
-            "sudo true\nFirst line.\nSecond line.\nRisk level: medium", ["true"]
+            "sudo true\ntrue > First action > First reason\ntrue > Second action > Second reason\nRisk level: medium > Used to test the format",
+            ["true"],
         )
-        self.assertEqual(request["reason"], "First line.\nSecond line.")
+        self.assertEqual(
+            request["description"],
+            "true > First action > First reason\ntrue > Second action > Second reason",
+        )
+        self.assertEqual(request["risk_reasoning"], "Used to test the format")
 
     def test_rejects_bad_requests(self):
         bad_requests = [
-            ("sudo true\r\nReason.\r\nRisk level: low", ["true"]),
-            ("sudo true\n\nRisk level: low", ["true"]),
-            ("sudo true\nReason.\nRisk level: severe", ["true"]),
-            ("sudo true\nReason.\nRisk level: low", ["false"]),
-            ("sudo sudo true\nReason.\nRisk level: low", ["sudo", "true"]),
+            (
+                "sudo true\r\ntrue > Test CRLF > Check line endings\r\nRisk level: low > Safe",
+                ["true"],
+            ),
+            ("sudo true\nMissing separators\nRisk level: low > Safe", ["true"]),
+            ("sudo true\n > Missing what > Has why\nRisk level: low > Safe", ["true"]),
+            ("sudo true\ntrue > Missing why\nRisk level: low > Safe", ["true"]),
+            ("sudo true\ntrue > Missing why\nRisk level: low >", ["true"]),
+            (
+                "sudo true\ntrue > Test risk > Reject bad level\nRisk level: severe > Unknown",
+                ["true"],
+            ),
+            (
+                "sudo true\ntrue > Test mismatch > Bind display to argv\nRisk level: low > Safe",
+                ["false"],
+            ),
+            (
+                "sudo sudo true\nsudo true > Test leading sudo > Prevent nested sudo\nRisk level: low > Safe",
+                ["sudo", "true"],
+            ),
         ]
         for description, command in bad_requests:
             with self.subTest(description=description, command=command):
@@ -63,8 +95,9 @@ class ChildTests(unittest.TestCase):
                 {
                     "display": "sudo true",
                     "command": ["true"],
-                    "reason": "Harmless test.",
+                    "description": "true > Test the wrapper > Harmless test",
                     "risk": "low",
+                    "risk_reasoning": "It changes nothing",
                 }
             )
         )
@@ -117,12 +150,16 @@ class ChildTests(unittest.TestCase):
 
 class ParentTests(unittest.TestCase):
     def test_missing_gui_fails_closed(self):
-        description = "sudo true\nHarmless test.\nRisk level: low"
+        description = (
+            "sudo true\ntrue > Test the wrapper > Harmless test\nRisk level: low > It changes nothing"
+        )
         with mock.patch.dict(os.environ, {}, clear=True):
             self.assertEqual(floating_sudo.parent(description, ["true"]), 125)
 
     def test_cancel_cleans_private_directory(self):
-        description = "sudo true\nHarmless test.\nRisk level: low"
+        description = (
+            "sudo true\ntrue > Test the wrapper > Harmless test\nRisk level: low > It changes nothing"
+        )
         with tempfile.TemporaryDirectory() as runtime:
             environment = {"XDG_RUNTIME_DIR": runtime, "WAYLAND_DISPLAY": "wayland-1"}
             process = mock.Mock()

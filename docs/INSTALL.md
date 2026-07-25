@@ -46,7 +46,18 @@ ln -sfn "$PWD/quickshell/.config/quickshell/blox" ~/.config/quickshell/blox
 ln -sfn "$PWD/bin/battery-low-power" ~/.local/bin/battery-low-power
 ln -sfn "$PWD/bin/fprint-check.sh" ~/.local/bin/fprint-check.sh
 ln -sfn "$PWD/bin/fprint-reenroll.sh" ~/.local/bin/fprint-reenroll.sh
+ln -sfn "$PWD/bin/floating_sudo" ~/.local/bin/floating_sudo
 ```
+
+`floating_sudo` needs Kitty, sudo, Python 3, a graphical session, and
+`XDG_RUNTIME_DIR`. Check its reject path before approving a command:
+
+```sh
+floating_sudo $'sudo /usr/bin/true\nCheck the approval window.\nRisk level: low' /usr/bin/true
+```
+
+Press Enter to reject it. Run the same command again and enter `y` to test the
+approval path.
 
 Keep any stale `~/.config/waybar`, `~/.config/eww`, or `~/.config/wofi` links
 disconnected unless intentionally booting the old setup.

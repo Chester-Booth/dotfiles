@@ -1,0 +1,231 @@
+#!/usr/bin/env python3
+"""Show and approve a sudo command in a floating Kitty window."""
+
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+import shlex
+import shutil
+import subprocess
+import sys
+import tempfile
+from typing import Any
+
+KITTY = Path("/usr/bin/kitty")
+SUDO = Path("/usr/bin/sudo")
+NOTIFY_SEND = Path("/usr/bin/notify-send")
+REJECTED = 125
+EXEC_FAILED = 126
+MISSING_TOOL = 127
+INTERRUPTED = 130
+RISKS = {"low", "medium", "high"}
+RESET = "\033[0m"
+BOLD = "\033[1m"
+CYAN = "\033[96m"
+GREEN = "\033[92m"
+YELLOW = "\033[93m"
+RED = "\033[91m"
+
+
+class RequestError(ValueError):
+    pass
+
+
+def fail(message: str, code: int = REJECTED) -> int:
+    print(f"floating_sudo: {message}", file=sys.stderr)
+    return code
+
+
+def parse_request(description: str, command: list[str]) -> dict[str, Any]:
+    lines = description.split("\n")
+    if len(lines) < 3:
+        raise RequestError("description must contain a command, reason and risk")
+    if not command:
+        raise RequestError("command must not be empty")
+    if command[0] == "sudo" or Path(command[0]).name == "sudo":
+        raise RequestError("command arguments must omit sudo")
+
+    displayed = lines[0]
+    reason_lines = lines[1:-1]
+    risk_line = lines[-1]
+    if not reason_lines or any(not line.strip() for line in reason_lines):
+        raise RequestError("reason must not be blank")
+    prefix = "Risk level: "
+    if not risk_line.startswith(prefix) or risk_line[len(prefix) :] not in RISKS:
+        raise RequestError("risk must be low, medium or high")
+
+    canonical = shlex.join(["sudo", *command])
+    if displayed != canonical:
+        raise RequestError(f"displayed command must be exactly: {canonical}")
+
+    return {
+        "command": command,
+        "display": canonical,
+        "reason": "\n".join(reason_lines),
+        "risk": risk_line[len(prefix) :],
+    }
+
+
+def atomic_json(path: Path, value: dict[str, Any]) -> None:
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as output:
+            json.dump(value, output)
+            output.write("\n")
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def read_json(path: Path) -> dict[str, Any]:
+    with path.open(encoding="utf-8") as source:
+        value = json.load(source)
+    if not isinstance(value, dict):
+        raise ValueError("expected an object")
+    return value
+
+
+def notify(message: str) -> None:
+    if NOTIFY_SEND.is_file():
+        subprocess.run(
+            [str(NOTIFY_SEND), "floating_sudo", message],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+
+
+def styled(colour: str, text: str, *, bold: bool = False) -> str:
+    weight = BOLD if bold else ""
+    return f"{weight}{colour}{text}{RESET}"
+
+
+def child(request_path: Path) -> int:
+    result_path = request_path.with_name("result.json")
+    try:
+        request = read_json(request_path)
+        command = request["command"]
+        if (
+            not isinstance(command, list)
+            or not command
+            or not all(isinstance(part, str) for part in command)
+            or request["display"] != shlex.join(["sudo", *command])
+            or not isinstance(request["reason"], str)
+            or not request["reason"].strip()
+            or request["risk"] not in RISKS
+        ):
+            raise ValueError("invalid request")
+    except (OSError, ValueError, KeyError, json.JSONDecodeError) as error:
+        return fail(f"could not read request: {error}")
+
+    risk_colours = {"low": GREEN, "medium": YELLOW, "high": RED}
+    print(f"{BOLD}Command{RESET}")
+    print(styled(CYAN, request["display"], bold=True))
+    print()
+    print(f"{BOLD}Reason{RESET}")
+    print(request["reason"])
+    print()
+    print(f"{BOLD}Risk{RESET}")
+    print(
+        styled(
+            risk_colours[request["risk"]],
+            request["risk"].upper(),
+            bold=True,
+        )
+    )
+    try:
+        response = input(f"\n{BOLD}Approve?{RESET} [y/N] ")
+        approved = response.strip().casefold() == "y"
+    except EOFError:
+        approved = False
+    if not approved:
+        atomic_json(result_path, {"outcome": "rejected", "code": REJECTED})
+        print(f"{BOLD}\nRejected. Nothing was run.{RESET}")
+        notify("Request rejected")
+        return REJECTED
+
+    print(f"{BOLD}\nApproved. Running sudo now.{RESET}")
+    try:
+        completed = subprocess.run([str(SUDO), "--", *command], check=False)
+        code = completed.returncode
+        if code < 0:
+            code = 128 + abs(code)
+        atomic_json(result_path, {"outcome": "completed", "code": code})
+        print(f"{BOLD}\nCommand finished with exit code {code}.{RESET}")
+        notify(f"Command finished with exit code {code}")
+        return code
+    except OSError as error:
+        atomic_json(result_path, {"outcome": "error", "code": EXEC_FAILED})
+        return fail(f"could not run sudo: {error}", EXEC_FAILED)
+
+
+def parent(description: str, command: list[str]) -> int:
+    try:
+        request = parse_request(description, command)
+    except RequestError as error:
+        return fail(str(error))
+
+    if not (os.environ.get("WAYLAND_DISPLAY") or os.environ.get("DISPLAY")):
+        return fail("no graphical session is available")
+    for path in (KITTY, SUDO):
+        if not path.is_file():
+            return fail(f"required tool is missing: {path}", MISSING_TOOL)
+
+    runtime = os.environ.get("XDG_RUNTIME_DIR")
+    if not runtime or not Path(runtime).is_dir():
+        return fail("XDG_RUNTIME_DIR is not available")
+
+    request_dir = Path(tempfile.mkdtemp(prefix="floating-sudo-", dir=runtime))
+    os.chmod(request_dir, 0o700)
+    request_path = request_dir / "request.json"
+    result_path = request_dir / "result.json"
+    process: subprocess.Popen[bytes] | None = None
+    try:
+        atomic_json(request_path, request)
+        process = subprocess.Popen(
+            [
+                str(KITTY),
+                "--class",
+                "floating-sudo",
+                "--title",
+                "Approve privileged command",
+                str(Path(__file__).resolve()),
+                "--child",
+                str(request_path),
+            ]
+        )
+        process.wait()
+        if not result_path.is_file():
+            return fail("request was cancelled")
+        result = read_json(result_path)
+        code = result.get("code")
+        if not isinstance(code, int) or not 0 <= code <= 255:
+            return fail("child returned an invalid result", EXEC_FAILED)
+        return code
+    except KeyboardInterrupt:
+        if process is not None and process.poll() is None:
+            process.terminate()
+        return fail("request interrupted", INTERRUPTED)
+    except FileNotFoundError as error:
+        return fail(f"required tool is missing: {error.filename}", MISSING_TOOL)
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        return fail(f"request failed: {error}", EXEC_FAILED)
+    finally:
+        shutil.rmtree(request_dir, ignore_errors=True)
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) == 3 and argv[1] == "--child":
+        return child(Path(argv[2]))
+    if len(argv) < 3:
+        return fail("usage: floating_sudo DESCRIPTION COMMAND [ARG ...]")
+    return parent(argv[1], argv[2:])
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))

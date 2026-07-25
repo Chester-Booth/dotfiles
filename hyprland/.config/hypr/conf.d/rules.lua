@@ -50,6 +50,7 @@ hl.window_rule({ match = { class = "^(todo)$", title = "^(todo)$" }, float = tru
 hl.window_rule({ match = { class = "^(quickshell_todo)$", title = "^(quickshell_todo)$" }, float = true, pin = true })
 hl.window_rule({ match = { class = "^(update)$", title = "^(update)$" }, float = true, size = { 860, 570 } })
 hl.window_rule({ match = { class = "^(update-list)$", title = "^(update-list)$" }, float = true, size = { 400, 600 } })
+hl.window_rule({ match = { class = "^(floating-sudo)$" }, float = true, center = true, size = { 720, 520 } })
 
 hl.window_rule({ match = { title = "^(Fingerprint Enrollment)$" }, float = true, size = { 400, 600 } })
 hl.window_rule({ match = { title = "^(Open folder as vault)$" }, float = true, size = { 800, 100 } })

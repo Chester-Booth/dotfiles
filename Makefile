@@ -1,9 +1,9 @@
 SHELL := /usr/bin/env bash
 QS := quickshell/.config/quickshell/blox
 
-.PHONY: check format lint doctor qmlformat shfmt shellcheck lua-check py-compile validate-status validate-themes systemd-verify diff-check
+.PHONY: check format lint doctor qmlformat shfmt shellcheck lua-check py-compile test-floating-sudo validate-status validate-themes systemd-verify diff-check
 
-check: lua-check py-compile validate-status validate-themes systemd-verify diff-check
+check: lua-check py-compile test-floating-sudo validate-status validate-themes systemd-verify diff-check
 
 format: qmlformat shfmt
 
@@ -43,6 +43,10 @@ py-compile:
 	@while IFS= read -r -d '' file; do \
 		python3 -c 'import ast, pathlib, sys; path = pathlib.Path(sys.argv[1]); ast.parse(path.read_text(), filename=str(path))' "$$file"; \
 	done < <(find themes -type f -name '*.py' -print0)
+	@python3 -c 'import ast, pathlib; path = pathlib.Path("bin/floating_sudo"); ast.parse(path.read_text(), filename=str(path))'
+
+test-floating-sudo:
+	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests/test_floating_sudo.py -v
 
 validate-status:
 	@$(QS)/scripts/validate-status.py --timeout 10

@@ -161,6 +161,17 @@ class ThemeLibraryMutationTests(unittest.TestCase):
 
 
 class PickerIntegrationSourceTests(unittest.TestCase):
+    def test_quickshell_modules_are_registered_for_live_reload(self) -> None:
+        modules = REPOSITORY / "quickshell/.config/quickshell/blox/modules"
+        registered = {
+            line.split()[0]
+            for line in (modules / "qmldir").read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        }
+        available = {path.stem for path in modules.glob("*.qml")}
+
+        self.assertEqual(available, registered)
+
     def test_widget_style_selector_preserves_widget_items(self) -> None:
         qml = (
             REPOSITORY

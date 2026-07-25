@@ -1,3 +1,4 @@
+import "../shared"
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
@@ -10,8 +11,12 @@ Scope {
     property bool guideOpen: false
     property bool rendered: false
     property var targetScreen: null
+    property var targetMonitor: null
+    property var targetWorkspace: null
     property var captureSource: null
     property string captureTitle: ""
+    property string wallpaperSource: ""
+    property string wallpaperFit: "cover"
 
     function focusedScreen() {
         for (const screen of Quickshell.screens) {
@@ -23,10 +28,25 @@ Scope {
     }
 
     function takeSnapshot() {
+        Hyprland.refreshToplevels();
         targetScreen = focusedScreen();
-        const toplevel = Hyprland.activeToplevel;
-        captureSource = toplevel ? toplevel.wayland : null;
-        captureTitle = toplevel ? toplevel.title : "Desktop";
+        targetMonitor = targetScreen ? Hyprland.monitorFor(targetScreen) : null;
+        targetWorkspace = targetMonitor ? targetMonitor.activeWorkspace : null;
+        captureSource = targetScreen;
+        captureTitle = targetScreen ? targetScreen.name : "Desktop";
+    }
+
+    function loadWallpaper(raw) {
+        try {
+            const data = JSON.parse(raw);
+            const path = String(data.path || "");
+            wallpaperSource = path.startsWith("~/") ? "file://" + Quickshell.env("HOME") + path.slice(1) : path.startsWith("/") ? "file://" + path : path;
+            wallpaperFit = String(data.fit || "cover");
+        } catch (error) {
+            console.warn("[blox.shortcut-guide] rejected wallpaper state: " + error);
+            wallpaperSource = "";
+            wallpaperFit = "cover";
+        }
     }
 
     function arm() : string {
@@ -35,6 +55,7 @@ Scope {
 
         hideTimer.stop();
         takeSnapshot();
+        rendered = true;
         armed = true;
         holdTimer.restart();
         return "armed";
@@ -59,6 +80,7 @@ Scope {
     function close() : string {
         armed = false;
         holdTimer.stop();
+        snapshotRevealTimer.stop();
         guideOpen = false;
         hideTimer.restart();
         return "hidden";
@@ -68,7 +90,8 @@ Scope {
         armed = false;
         holdTimer.stop();
         takeSnapshot();
-        reveal();
+        rendered = true;
+        snapshotRevealTimer.restart();
         return "visible";
     }
 
@@ -109,6 +132,18 @@ Scope {
         target: "shortcutGuide"
     }
 
+    FileView {
+        id: wallpaperFile
+
+        path: Theme.stateRoot + "/blox-theme/current/hypr/wallpaper.json"
+        preload: true
+        blockLoading: true
+        watchChanges: true
+        printErrors: false
+        onLoaded: root.loadWallpaper(text())
+        onFileChanged: reload()
+    }
+
     Timer {
         id: holdTimer
 
@@ -130,8 +165,18 @@ Scope {
             if (!root.guideOpen) {
                 root.rendered = false;
                 root.captureSource = null;
+                root.targetMonitor = null;
+                root.targetWorkspace = null;
             }
         }
+    }
+
+    Timer {
+        id: snapshotRevealTimer
+
+        interval: 120
+        repeat: false
+        onTriggered: root.reveal()
     }
 
     Variants {
@@ -145,6 +190,10 @@ Scope {
             rendered: root.rendered && root.targetScreen === modelData
             captureSource: root.captureSource
             captureTitle: root.captureTitle
+            captureMonitor: root.targetMonitor
+            captureWorkspace: root.targetWorkspace
+            wallpaperSource: root.wallpaperSource
+            wallpaperFit: root.wallpaperFit
             onCloseRequested: root.close()
         }
 

@@ -3,6 +3,7 @@
 **/node_modules
 **/.local/share/Trash
 **/Downloads
+/btop/.config/btop/btop.conf
 /eww/
 !/AGENTS.md
 /waybar/

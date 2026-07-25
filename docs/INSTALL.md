@@ -54,7 +54,9 @@ disconnected unless intentionally booting the old setup.
 Link or copy the optional user-level app/config files you want:
 
 ```sh
-mkdir -p ~/.config/Code/User ~/.config/gtk-3.0 ~/.config/gtk-4.0 ~/.config/xsettingsd ~/.config/environment.d ~/.local/share/flatpak/overrides ~/.local/share/icons/default
+mkdir -p ~/.config/Code/User ~/.config/Thunar ~/.config/gtk-3.0 ~/.config/gtk-4.0 ~/.config/xsettingsd ~/.config/environment.d ~/.local/share/flatpak/overrides ~/.local/share/icons/default
+ln -sfn "$PWD/applications/.config/mimeapps.list" ~/.config/mimeapps.list
+ln -sfn "$PWD/thunar/.config/Thunar/uca.xml" ~/.config/Thunar/uca.xml
 ln -sfn "$PWD/code/.config/Code/User/chatLanguageModels.json" ~/.config/Code/User/chatLanguageModels.json
 ln -sfn "$PWD/gtk/.config/gtk-3.0/settings.ini" ~/.config/gtk-3.0/settings.ini
 ln -sfn "$PWD/gtk/.config/gtk-4.0/settings.ini" ~/.config/gtk-4.0/settings.ini

@@ -1,22 +1,31 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-# update official repos
-echo "=== Updating official repos ==="
-sudo pacman -Syu
-
-# show number of AUR updates
-aur_count=$(yay -Qua | wc -l)
-if [ "$aur_count" -gt 0 ]; then
-    echo "=== AUR updates available: $aur_count ==="
-    echo "Listing AUR packages..."
-    yay -Qua
-    echo "Press enter to install them or ctrl+c to skip"
-    read -r
-    current_profile=$(asusctl profile get | sed -n 's/^Active profile: //p')
-    asusctl profile set performance
-    yay -Syu
-    asusctl profile set "$current_profile"
-else
-    echo "No AUR updates"
+if ! command -v arch-update >/dev/null; then
+	echo "arch-update is required. Install it with: yay -S arch-update" >&2
+	exit 127
 fi
+
+previous_profile=""
+profile_changed=0
+
+restore_profile() {
+	if ((profile_changed)) && ! asusctl profile set "$previous_profile"; then
+		echo "Warning: failed to restore ASUS profile '$previous_profile'." >&2
+	fi
+}
+
+trap restore_profile EXIT
+
+if command -v yay >/dev/null &&
+	command -v asusctl >/dev/null &&
+	[[ -n "$(yay -Qua 2>/dev/null)" ]]; then
+	previous_profile=$(asusctl profile get | sed -n 's/^Active profile: //p')
+
+	if [[ -n "$previous_profile" && "${previous_profile,,}" != "performance" ]]; then
+		profile_changed=1
+		asusctl profile set performance
+	fi
+fi
+
+arch-update

@@ -6,6 +6,13 @@ if ! command -v arch-update >/dev/null; then
 	exit 127
 fi
 
+if ! command -v code >/dev/null; then
+	echo "Visual Studio Code is required for pacnew diffs." >&2
+	exit 127
+fi
+
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+pacdiff_cache=""
 previous_profile=""
 profile_changed=0
 
@@ -15,7 +22,16 @@ restore_profile() {
 	fi
 }
 
-trap restore_profile EXIT
+cleanup() {
+	restore_profile
+
+	if [[ -n "$pacdiff_cache" ]]; then
+		find "$pacdiff_cache" -mindepth 1 -maxdepth 1 -type l -delete
+		rmdir -- "$pacdiff_cache"
+	fi
+}
+
+trap cleanup EXIT
 
 if command -v yay >/dev/null &&
 	command -v asusctl >/dev/null &&
@@ -28,4 +44,17 @@ if command -v yay >/dev/null &&
 	fi
 fi
 
-arch-update
+PATH="${script_dir}/skip-pacnew:${PATH}" arch-update
+
+echo
+echo "==> Processing pacnew files with Visual Studio Code..."
+pacdiff_cache=$(mktemp -d --tmpdir blox-pacdiff-cache.XXXXXX)
+
+while IFS= read -r -d '' package; do
+	ln -s -- "$package" "$pacdiff_cache/"
+done < <(
+	find /var/cache/pacman/pkg -maxdepth 1 -type f \
+		-name '*.pkg.tar*' ! -name '*.sig' -print0
+)
+
+DIFFPROG="code --wait --diff" /usr/bin/pacdiff -s --cachedir "$pacdiff_cache"

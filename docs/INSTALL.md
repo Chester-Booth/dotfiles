@@ -53,7 +53,7 @@ ln -sfn "$PWD/bin/floating_sudo" ~/.local/bin/floating_sudo
 `XDG_RUNTIME_DIR`. Check its reject path before approving a command:
 
 ```sh
-floating_sudo $'sudo /usr/bin/true\nCheck the approval window.\nRisk level: low' /usr/bin/true
+floating_sudo $'sudo /usr/bin/true\n/usr/bin/true > Test the approval flow > Confirm the wrapper returns success without changing the system\nRisk level: low > The command has no side effects' /usr/bin/true
 ```
 
 Press Enter to reject it. Run the same command again and enter `y` to test the

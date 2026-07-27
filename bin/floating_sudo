@@ -27,6 +27,47 @@ CYAN = "\033[96m"
 GREEN = "\033[92m"
 YELLOW = "\033[93m"
 RED = "\033[91m"
+HELP = """\
+usage: floating_sudo DESCRIPTION COMMAND [ARG ...]
+
+Show a sudo command in a floating approval window, then run it only after
+approval.
+
+DESCRIPTION is one multiline argument with this format:
+
+  sudo command
+  command > what > why
+  command > what > why
+  Risk level: level > reasoning
+
+The first line must exactly match Python's:
+
+  shlex.join(["sudo", *arguments])
+
+Use one description line per command or package. Each line must contain three
+non-empty fields separated by `>`.
+The risk level must be low, medium or high, followed by a non-empty reason.
+Pass the command and its arguments after DESCRIPTION without a leading sudo.
+
+Examples:
+
+  floating_sudo \\
+    $'sudo pacman -S obs-studio jq\\nobs-studio > Install screen recording software > Record demos\\njq > Install a JSON processor > Inspect structured command output\\nRisk level: low > Both packages come from the configured package sources' \\
+    pacman -S obs-studio jq
+
+  floating_sudo \\
+    $'sudo sed -i \\'s/^#Color/Color/\\' /etc/pacman.conf\\nsed -i > Enable coloured pacman output > Make package output easier to scan\\nRisk level: high > This edits an important system file in place' \\
+    sed -i 's/^#Color/Color/' /etc/pacman.conf
+
+Exit codes:
+
+  0       approved command succeeded
+  other   approved command status, passed through unchanged
+  125     rejected, cancelled or invalid request
+  126     command could not be executed
+  127     required runtime tool is missing
+  130     caller interrupted the request
+"""
 
 
 class RequestError(ValueError):
@@ -41,20 +82,36 @@ def fail(message: str, code: int = REJECTED) -> int:
 def parse_request(description: str, command: list[str]) -> dict[str, Any]:
     lines = description.split("\n")
     if len(lines) < 3:
-        raise RequestError("description must contain a command, reason and risk")
+        raise RequestError("description must contain a command, details and risk")
     if not command:
         raise RequestError("command must not be empty")
     if command[0] == "sudo" or Path(command[0]).name == "sudo":
         raise RequestError("command arguments must omit sudo")
 
     displayed = lines[0]
-    reason_lines = lines[1:-1]
+    detail_lines = lines[1:-1]
     risk_line = lines[-1]
-    if not reason_lines or any(not line.strip() for line in reason_lines):
-        raise RequestError("reason must not be blank")
+    if not detail_lines:
+        raise RequestError("description must not be blank")
+    for line in detail_lines:
+        parts = line.split(">")
+        if len(parts) != 3 or not all(part.strip() for part in parts):
+            raise RequestError(
+                "each description line must use: command > what > why"
+            )
+
     prefix = "Risk level: "
-    if not risk_line.startswith(prefix) or risk_line[len(prefix) :] not in RISKS:
-        raise RequestError("risk must be low, medium or high")
+    if not risk_line.startswith(prefix):
+        raise RequestError("risk must use: Risk level: level > reasoning")
+    risk_parts = risk_line[len(prefix) :].split(">", 1)
+    if (
+        len(risk_parts) != 2
+        or risk_parts[0].strip() not in RISKS
+        or not risk_parts[1].strip()
+    ):
+        raise RequestError(
+            "risk must use low, medium or high followed by: > reasoning"
+        )
 
     canonical = shlex.join(["sudo", *command])
     if displayed != canonical:
@@ -63,8 +120,9 @@ def parse_request(description: str, command: list[str]) -> dict[str, Any]:
     return {
         "command": command,
         "display": canonical,
-        "reason": "\n".join(reason_lines),
-        "risk": risk_line[len(prefix) :],
+        "description": "\n".join(detail_lines),
+        "risk": risk_parts[0].strip(),
+        "risk_reasoning": risk_parts[1].strip(),
     }
 
 
@@ -115,9 +173,15 @@ def child(request_path: Path) -> int:
             or not command
             or not all(isinstance(part, str) for part in command)
             or request["display"] != shlex.join(["sudo", *command])
-            or not isinstance(request["reason"], str)
-            or not request["reason"].strip()
+            or not isinstance(request["description"], str)
+            or any(
+                len(parts := line.split(">")) != 3
+                or not all(part.strip() for part in parts)
+                for line in request["description"].split("\n")
+            )
             or request["risk"] not in RISKS
+            or not isinstance(request["risk_reasoning"], str)
+            or not request["risk_reasoning"].strip()
         ):
             raise ValueError("invalid request")
     except (OSError, ValueError, KeyError, json.JSONDecodeError) as error:
@@ -127,14 +191,14 @@ def child(request_path: Path) -> int:
     print(f"{BOLD}Command{RESET}")
     print(styled(CYAN, request["display"], bold=True))
     print()
-    print(f"{BOLD}Reason{RESET}")
-    print(request["reason"])
+    print(f"{BOLD}Description{RESET}")
+    print(request["description"])
     print()
     print(f"{BOLD}Risk{RESET}")
     print(
         styled(
             risk_colours[request["risk"]],
-            request["risk"].upper(),
+            f"{request['risk'].upper()} > {request['risk_reasoning']}",
             bold=True,
         )
     )
@@ -220,6 +284,9 @@ def parent(description: str, command: list[str]) -> int:
 
 
 def main(argv: list[str]) -> int:
+    if len(argv) == 2 and argv[1] in {"-h", "--help"}:
+        print(HELP, end="")
+        return 0
     if len(argv) == 3 and argv[1] == "--child":
         return child(Path(argv[2]))
     if len(argv) < 3:

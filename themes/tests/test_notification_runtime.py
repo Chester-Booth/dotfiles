@@ -37,6 +37,26 @@ class NotificationRuntimeTests(unittest.TestCase):
         self.assertNotIn("width: visibleWidth + dismissTravel", stack)
         self.assertNotIn("x: root.dismissTravel + root.sidePadding", stack)
 
+    def test_animated_toasts_start_with_their_full_lifetime(self) -> None:
+        stack = (
+            REPOSITORY
+            / "quickshell/.config/quickshell/blox/popouts/NotificationToastStack.qml"
+        ).read_text(encoding="utf-8")
+
+        completed = stack.split("Component.onCompleted:", 1)[1].split(
+            "Timer {", 1
+        )[0]
+        expiry_timer = stack.split("id: expiryTimer", 1)[1].split(
+            "NotificationContent {", 1
+        )[0]
+
+        self.assertIn(
+            "expiryTimer.interval = animateHorizontalMovement ? fullLifetime : remainingLifetime",
+            completed,
+        )
+        self.assertIn("expiryTimer.start()", completed)
+        self.assertNotIn("running:", expiry_timer)
+
     def test_position_preview_uses_a_real_desktop_notification(self) -> None:
         bar = (
             REPOSITORY / "quickshell/.config/quickshell/blox/modules/Bar.qml"

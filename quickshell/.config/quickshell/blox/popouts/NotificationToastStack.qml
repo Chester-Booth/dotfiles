@@ -99,6 +99,10 @@ Item {
                 border.width: 1
                 Component.onCompleted: {
                     animateHorizontalMovement = root.takeEntranceAnimation(modelData.toastId);
+                    const fullLifetime = Math.max(3500, modelData.timeout || 6000);
+                    const remainingLifetime = modelData.expiresAt ? Math.max(1, modelData.expiresAt - Date.now()) : fullLifetime;
+                    expiryTimer.interval = animateHorizontalMovement ? fullLifetime : remainingLifetime;
+                    expiryTimer.start();
                     x = 0;
                     y = 0;
                     if (!animateHorizontalMovement)
@@ -119,9 +123,7 @@ Item {
                 Timer {
                     id: expiryTimer
 
-                    interval: modelData.expiresAt ? Math.max(1, modelData.expiresAt - Date.now()) : Math.max(3500, modelData.timeout || 6000)
                     repeat: false
-                    running: !toast.dismissing
                     onTriggered: toast.finishDismiss(false)
                 }
 

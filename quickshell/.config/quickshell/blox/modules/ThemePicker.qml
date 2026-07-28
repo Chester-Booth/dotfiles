@@ -599,6 +599,16 @@ FloatingWindow {
         runApi("preview-edit", ["preview", JSON.stringify(candidate)]);
     }
 
+    function applyValidatedPreview(source) {
+        if (!dirty && selectedId === Theme.activeThemeId) {
+            Theme.cancelPreview();
+            statusMessage = "Active theme";
+            return ;
+        }
+        Theme.previewSource(source);
+        statusMessage = dirty ? "Temporary Quickshell preview — unsaved" : "Temporary Quickshell preview";
+    }
+
     function markCandidate(value) {
         candidate = value;
         candidateRevision += 1;
@@ -1402,8 +1412,10 @@ FloatingWindow {
         candidateRevision += 1;
         candidateValid = true;
         validationErrors = [];
-        Theme.previewSource(candidate);
-        statusMessage = "Unsaved changes reverted.";
+        applyValidatedPreview(candidate);
+        if (selectedId !== Theme.activeThemeId)
+            statusMessage = "Unsaved changes reverted.";
+
     }
 
     function openNewTheme(wallpaperPage) {
@@ -1578,10 +1590,9 @@ FloatingWindow {
             apiWarnings = response && response.warnings ? response.warnings : [];
             previewData = response && response.data ? response.data : ({
             });
-            if (!failed) {
-                Theme.previewSource(JSON.parse(request.candidateJson));
-                statusMessage = dirty ? "Temporary Quickshell preview — unsaved" : "Temporary Quickshell preview";
-            }
+            if (!failed)
+                applyValidatedPreview(JSON.parse(request.candidateJson));
+
             return ;
         }
         if (failed) {
@@ -3043,7 +3054,7 @@ FloatingWindow {
                                                 Layout.fillWidth: true
 
                                                 Label {
-                                                    text: modelData
+                                                    text: modelData === "panel" ? "panel · proportional fonts recommended" : modelData
                                                     color: Theme.muted
                                                 }
 
@@ -3559,7 +3570,7 @@ FloatingWindow {
                                                 Layout.fillWidth: true
 
                                                 Label {
-                                                    text: modelData
+                                                    text: modelData === "panel" ? "panel · proportional fonts recommended" : modelData
                                                     color: Theme.muted
                                                 }
 

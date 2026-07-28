@@ -275,7 +275,11 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn('"candidateJson": candidate === null ? "" : JSON.stringify(candidate)', picker)
         self.assertIn("request.sessionRevision !== root.sessionRevision", picker)
         self.assertIn("request.candidateRevision !== candidateRevision", picker)
-        self.assertIn("Theme.previewSource(JSON.parse(request.candidateJson))", picker)
+        self.assertIn("function applyValidatedPreview(source)", picker)
+        self.assertIn("if (!dirty && selectedId === Theme.activeThemeId)", picker)
+        self.assertIn("Theme.cancelPreview()", picker)
+        self.assertIn("Theme.previewSource(source)", picker)
+        self.assertIn("applyValidatedPreview(JSON.parse(request.candidateJson))", picker)
         self.assertIn("validationPending = true", picker)
         self.assertIn("root.continueQueuedGeneration()", picker)
         self.assertIn('runApi("show-generate-current", ["show", Theme.activeThemeId])', picker)
@@ -461,6 +465,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         simple = qml.split('visible: root.editorMode === "overview"', 1)[1].split('visible: root.editorMode === "advanced"', 1)[0]
         self.assertIn('text: "Fonts"', simple)
         self.assertIn("BloxFontPicker {", simple)
+        self.assertEqual(2, qml.count('"panel · proportional fonts recommended"'))
 
     def test_theme_list_uses_source_colours_wallpaper_and_fonts(self) -> None:
         qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")

@@ -27,10 +27,6 @@ Item {
         return Theme.blue;
     }
 
-    function imageFor(notification) {
-        return notification && notification.image ? notification.image : "";
-    }
-
     function takeEntranceAnimation(toastId) {
         if (animatedToastIds[toastId] === true)
             return false;
@@ -80,7 +76,6 @@ Item {
                 property bool dragged: false
                 property bool closeNotificationOnDismiss: false
                 property bool animateHorizontalMovement: true
-                readonly property bool hasImage: root.imageFor(notification).length > 0
 
                 function finishDismiss(closeNotification) {
                     if (dismissing)
@@ -130,72 +125,37 @@ Item {
                     onTriggered: toast.finishDismiss(false)
                 }
 
-                Row {
+                NotificationContent {
+                    id: toastBody
+
                     z: 1
                     anchors.fill: parent
                     anchors.margins: 9
-                    spacing: imageSlot.visible ? 9 : 0
+                    notification: toast.notification
+                    meta: toast.notification && toast.notification.appName ? toast.notification.appName + " • now" : "notification • now"
+                    maximumBodyLineCount: 4
+                    headerRightPadding: 32
+                }
 
-                    Item {
-                        id: imageSlot
+                Rectangle {
+                    id: closeButton
 
-                        visible: toast.hasImage
-                        width: visible ? 38 : 0
-                        height: 38
-                        anchors.top: parent.top
+                    anchors.top: parent.top
+                    anchors.right: parent.right
+                    anchors.topMargin: 9
+                    anchors.rightMargin: 9
+                    z: 4
+                    width: 24
+                    height: 24
+                    radius: 6
+                    color: closeMouse.containsMouse ? Theme.surfaceAlt : "transparent"
 
-                        Image {
-                            anchors.fill: parent
-                            source: root.imageFor(toast.notification)
-                            fillMode: Image.PreserveAspectCrop
-                            clip: true
-                        }
-
-                    }
-
-                    Column {
-                        id: toastBody
-
-                        width: parent.width - imageSlot.width - parent.spacing
-                        spacing: 3
-
-                        Row {
-                            width: parent.width
-                            spacing: 8
-
-                            NotificationHeader {
-                                width: parent.width - closeButton.width - 8
-                                summary: toast.notification ? toast.notification.summary : ""
-                                meta: toast.notification ? toast.notification.appName : ""
-                            }
-
-                            Rectangle {
-                                id: closeButton
-
-                                width: 24
-                                height: 24
-                                radius: 6
-                                color: closeMouse.containsMouse ? Theme.surfaceAlt : "transparent"
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: "󰅖"
-                                    color: Theme.muted
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: 12
-                                }
-
-                            }
-
-                        }
-
-                        NotificationBody {
-                            width: parent.width
-                            body: toast.notification ? toast.notification.body : ""
-                            opacity: 0.84
-                            maximumLineCount: 2
-                        }
-
+                    Text {
+                        anchors.centerIn: parent
+                        text: "󰅖"
+                        color: Theme.muted
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 12
                     }
 
                 }
@@ -205,7 +165,7 @@ Item {
 
                     anchors.fill: parent
                     anchors.rightMargin: 42
-                    z: 2
+                    z: 0
                     acceptedButtons: Qt.LeftButton
                     drag.target: toast
                     drag.axis: Drag.XAxis

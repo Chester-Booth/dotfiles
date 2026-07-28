@@ -304,8 +304,6 @@ Rectangle {
         property int clearRevision: 0
         property int seenClearRevision: 0
         property bool removing: false
-        readonly property bool hasActions: notification && notification.actions && notification.actions.length > 0
-        readonly property bool hasImage: notification && notification.image && notification.image.length > 0
 
         function startRemove() {
             if (removing)
@@ -352,118 +350,50 @@ Rectangle {
             onClicked: root.activate(card.notification)
         }
 
-        Row {
+        NotificationContent {
+            id: bodyColumn
+
             z: 1
             anchors.fill: parent
             anchors.margins: 9
+            notification: card.notification
+            meta: root.notificationMeta(card.notification)
+            maximumBodyLineCount: 4
+            headerRightPadding: 32
+        }
 
-            Column {
-                id: bodyColumn
+        Rectangle {
+            id: closeButton
 
-                width: parent.width
-                spacing: 6
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.topMargin: 9
+            anchors.rightMargin: 9
+            z: 4
+            width: 24
+            height: 24
+            radius: 6
+            color: closeMouse.containsMouse ? Theme.surfaceAlt : "transparent"
 
-                Row {
-                    width: parent.width
-                    spacing: 8
+            Text {
+                anchors.centerIn: parent
+                text: "󰅖"
+                color: Theme.muted
+                font.family: Theme.fontFamily
+                font.pixelSize: 12
+            }
 
-                    NotificationHeader {
-                        width: parent.width - closeButton.width - 8
-                        summary: card.notification ? card.notification.summary : ""
-                        meta: root.notificationMeta(card.notification)
-                    }
+            MouseArea {
+                id: closeMouse
 
-                    Rectangle {
-                        id: closeButton
-
-                        width: 24
-                        height: 24
-                        radius: 6
-                        color: closeMouse.containsMouse ? Theme.surfaceAlt : "transparent"
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "󰅖"
-                            color: Theme.muted
-                            font.family: Theme.fontFamily
-                            font.pixelSize: 12
-                        }
-
-                        MouseArea {
-                            id: closeMouse
-
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                if (card.notification)
-                                    card.startRemove();
-
-                            }
-                        }
-
-                    }
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    if (card.notification)
+                        card.startRemove();
 
                 }
-
-                NotificationBody {
-                    width: parent.width
-                    body: card.notification ? card.notification.body : ""
-                    opacity: 0.86
-                    maximumLineCount: 4
-                }
-
-                Image {
-                    width: parent.width
-                    height: visible ? Math.min(150, Math.round(parent.width * 0.52)) : 0
-                    visible: card.hasImage
-                    source: card.notification ? card.notification.image : ""
-                    fillMode: Image.PreserveAspectCrop
-                    clip: true
-                }
-
-                Flow {
-                    width: parent.width
-                    visible: card.hasActions
-                    spacing: 6
-
-                    Repeater {
-                        model: card.notification && card.notification.actions ? card.notification.actions : []
-
-                        Rectangle {
-                            width: Math.max(76, actionLabel.implicitWidth + 20)
-                            height: 28
-                            radius: 7
-                            color: actionMouse.containsMouse ? Theme.surfaceAlt : Theme.background
-                            border.color: Theme.surfaceAlt
-                            border.width: 1
-
-                            Text {
-                                id: actionLabel
-
-                                anchors.centerIn: parent
-                                text: modelData.text || ""
-                                color: Theme.foreground
-                                font.family: Theme.bodyFontFamily
-                                font.pixelSize: 11
-                                font.bold: true
-                            }
-
-                            MouseArea {
-                                id: actionMouse
-
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: modelData.invoke()
-                            }
-
-                        }
-
-                    }
-
-                }
-
             }
 
         }

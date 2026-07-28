@@ -18,6 +18,7 @@ HoverPopupWindow 1.0 HoverPopupWindow.qml
 PillSelector 1.0 PillSelector.qml
 NotificationHeader 1.0 NotificationHeader.qml
 NotificationBody 1.0 NotificationBody.qml
+NotificationContent 1.0 NotificationContent.qml
 BloxButton 1.0 BloxButton.qml
 BloxTextField 1.0 BloxTextField.qml
 BloxComboBox 1.0 BloxComboBox.qml

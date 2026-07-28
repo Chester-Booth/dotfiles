@@ -8,6 +8,23 @@ REPOSITORY = Path(__file__).resolve().parents[2]
 
 
 class NotificationRuntimeTests(unittest.TestCase):
+    def test_shared_notification_images_use_a_left_thumbnail(self) -> None:
+        content = (
+            REPOSITORY
+            / "quickshell/.config/quickshell/blox/shared/NotificationContent.qml"
+        ).read_text(encoding="utf-8")
+
+        row = content.split("id: notificationRow", 1)[1].split("Flow {", 1)[0]
+        self.assertIn("id: notificationThumbnail", row)
+        self.assertIn("width: visible ? 72 : 0", row)
+        self.assertIn("height: visible ? 72 : 0", row)
+        self.assertIn("fillMode: Image.PreserveAspectFit", row)
+        self.assertIn(
+            "width: parent.width - notificationThumbnail.width - parent.spacing", row
+        )
+        self.assertNotIn("Math.min(150", content)
+        self.assertNotIn("Image.PreserveAspectCrop", content)
+
     def test_toast_bounds_match_the_visible_card(self) -> None:
         stack = (
             REPOSITORY

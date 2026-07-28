@@ -26,8 +26,8 @@ Rectangle {
     width: Theme.buttonSize
     height: expanded ? Theme.buttonSize : 0
     radius: Theme.radius
-    color: mouse.containsMouse ? Theme.surfaceAlt : "transparent"
-    opacity: mouse.containsMouse ? 0.68 : 1
+    color: hover.hovered ? Theme.surfaceAlt : "transparent"
+    opacity: hover.hovered ? 0.68 : 1
     visible: expanded
     clip: true
 
@@ -45,6 +45,10 @@ Rectangle {
         verticalAlignment: Text.AlignVCenter
         wrapMode: Text.NoWrap
         elide: Text.ElideNone
+    }
+
+    HoverHandler {
+        id: hover
     }
 
     MouseArea {

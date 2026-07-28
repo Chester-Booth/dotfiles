@@ -93,7 +93,7 @@ Item {
         id: powerComponent
 
         RailButton {
-            icon: "⏻"
+            icon: "󰤆"
             accent: Theme.foreground
             active: root.controller.openPanel === "power"
             onClicked: (centre) => {

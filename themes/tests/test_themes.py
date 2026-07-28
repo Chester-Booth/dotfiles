@@ -18,7 +18,7 @@ THEMES = Path(__file__).resolve().parents[1]
 REPOSITORY = THEMES.parent
 sys.path.insert(0, str(THEMES / "lib"))
 
-from blox_theme.core import DEFAULT_BAR_ITEMS, dependency_checks, derive_ansi, list_themes, load_theme, render_manifest, render_theme, schema_errors, validate_theme
+from blox_theme.core import DEFAULT_BAR_ITEMS, dependency_checks, derive_ansi, list_themes, load_theme, render_manifest, render_theme, resolved_bar_items, schema_errors, validate_theme
 
 
 def run_cli(*arguments: str, environment: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -223,7 +223,7 @@ class RendererTests(unittest.TestCase):
         shell = json.loads(files["quickshell/theme.json"])["shell"]
         expected_shell = self.theme.get("shell", {})
         self.assertEqual(expected_shell.get("bar", {}).get("position", "left"), shell["bar"]["position"])
-        expected_bar_items = self.theme.get("shell", {}).get("bar", {}).get("items", list(DEFAULT_BAR_ITEMS))
+        expected_bar_items = resolved_bar_items(expected_shell.get("bar"))
         self.assertEqual(
             {item["id"]: item for item in expected_bar_items},
             {item["id"]: item for item in shell["bar"]["items"]},
@@ -251,6 +251,10 @@ class RendererTests(unittest.TestCase):
         self.assertEqual({"id": "clock", "enabled": False, "region": "end", "order": 7}, items["clock"])
         self.assertEqual("start", items["wifi"]["region"])
         self.assertTrue(items["power"]["enabled"])
+        self.assertEqual("toggle", items["battery"]["display"])
+        self.assertEqual("hidden", items["touchpad"]["region"])
+        for item_id in ("touchpad", "fan", "gpu"):
+            self.assertEqual("normal", items[item_id]["visibility"])
 
     def test_bar_item_schema_rejects_unknown_items_and_regions(self) -> None:
         base_shell = {
@@ -267,6 +271,38 @@ class RendererTests(unittest.TestCase):
             candidate["shell"]["bar"]["items"] = [item]
             self.assertTrue(schema_errors(candidate))
 
+    def test_battery_display_mode_is_validated_and_rendered(self) -> None:
+        self.theme["shell"] = {
+            "bar": {"position": "left", "items": [
+                {"id": "battery", "enabled": True, "region": "end", "order": 0, "display": "numeric"},
+            ]},
+            "osd": {"position": "top-left", "offset_x": 0, "offset_y": 0},
+            "notifications": {"position": "bottom-right", "offset_x": 0, "offset_y": 0},
+        }
+        self.assertEqual([], schema_errors(self.theme))
+        shell = json.loads(render_theme(self.theme)[0]["quickshell/theme.json"])["shell"]
+        items = {item["id"]: item for item in shell["bar"]["items"]}
+        self.assertEqual("numeric", items["battery"]["display"])
+
+        self.theme["shell"]["bar"]["items"][0]["display"] = "both"
+        self.assertTrue(schema_errors(self.theme))
+
+    def test_runtime_item_visibility_is_validated_and_rendered(self) -> None:
+        self.theme["shell"] = {
+            "bar": {"position": "left", "items": [
+                {"id": "touchpad", "enabled": True, "region": "end", "order": 0, "visibility": "always"},
+            ]},
+            "osd": {"position": "top-left", "offset_x": 0, "offset_y": 0},
+            "notifications": {"position": "bottom-right", "offset_x": 0, "offset_y": 0},
+        }
+        self.assertEqual([], schema_errors(self.theme))
+        shell = json.loads(render_theme(self.theme)[0]["quickshell/theme.json"])["shell"]
+        items = {item["id"]: item for item in shell["bar"]["items"]}
+        self.assertEqual("always", items["touchpad"]["visibility"])
+
+        self.theme["shell"]["bar"]["items"][0]["visibility"] = "sometimes"
+        self.assertTrue(schema_errors(self.theme))
+
     def test_legacy_tray_override_migrates_to_application_tray(self) -> None:
         self.theme["shell"] = {
             "bar": {"position": "left", "items": [
@@ -280,7 +316,39 @@ class RendererTests(unittest.TestCase):
         self.assertTrue(items["tray"]["enabled"])
         self.assertEqual("end", items["tray"]["region"])
         self.assertFalse(items["application-tray"]["enabled"])
-        self.assertEqual(9, items["application-tray"]["order"])
+        self.assertEqual(
+            min(item["order"] for item in items.values() if item["region"] == "hidden"),
+            items["application-tray"]["order"],
+        )
+
+    def test_application_tray_is_pinned_furthest_from_the_tray_arrow(self) -> None:
+        for tray_region, tray_order, expected_boundary in (
+            ("start", 99, "last"),
+            ("end", 0, "first"),
+            ("centre", -1, "first"),
+            ("centre", 99, "last"),
+        ):
+            with self.subTest(tray_region=tray_region, tray_order=tray_order):
+                items = resolved_bar_items({
+                    "position": "top",
+                    "items": [
+                        {"id": "tray", "enabled": True, "region": tray_region, "order": tray_order},
+                        {"id": "application-tray", "enabled": True, "region": "start", "order": 2},
+                    ],
+                })
+                application_tray = next(item for item in items if item["id"] == "application-tray")
+                hidden_ids = [
+                    item["id"]
+                    for item in sorted(
+                        (item for item in items if item["region"] == "hidden"),
+                        key=lambda item: item["order"],
+                    )
+                ]
+                self.assertEqual("hidden", application_tray["region"])
+                self.assertEqual(
+                    "application-tray",
+                    hidden_ids[0] if expected_boundary == "first" else hidden_ids[-1],
+                )
 
     def test_shell_offsets_are_not_artificially_limited(self) -> None:
         self.theme["shell"] = {
@@ -480,7 +548,7 @@ class CliContractTests(unittest.TestCase):
             with self.subTest(expected=expected):
                 self.assertIn(expected, source)
         self.assertIn('model: Theme.barHiddenItems.filter', source)
-        for item_id in ("power", "notes", "workspaces", "clock", "battery", "notifications", "wifi", "sound", "privacy", "awake", "display", "bt", "updates", "fan", "gpu", "tray", "application-tray"):
+        for item_id in ("power", "notes", "workspaces", "clock", "battery", "notifications", "wifi", "sound", "privacy", "awake", "display", "bt", "updates", "fan", "gpu", "touchpad", "tray", "application-tray"):
             with self.subTest(item_id=item_id):
                 self.assertIn(f'"{item_id}"', delegate)
         edge_trigger = source.split("MouseArea {", 1)[1].split("Rectangle {", 1)[0]
@@ -523,6 +591,31 @@ class CliContractTests(unittest.TestCase):
         self.assertIn("readonly property point horizontalTrayPoint", bar)
         self.assertIn("const geometryDependency = width + height", bar)
 
+    def test_configured_battery_supports_display_modes(self) -> None:
+        delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
+        self.assertIn('readonly property string batteryDisplay: itemConfig.display || "toggle"', delegate)
+        self.assertIn('root.batteryDisplay !== "numeric"', delegate)
+        self.assertIn('root.batteryDisplay === "numeric"', delegate)
+        self.assertIn('root.batteryDisplay !== "toggle"', delegate)
+        self.assertIn('collapsible: root.batteryDisplay === "toggle"', delegate)
+
+    def test_configured_touchpad_toggles_and_refreshes_live_status(self) -> None:
+        delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
+        touchpad = delegate.split("id: touchpadComponent", 1)[1].split("id: trayToggleComponent", 1)[0]
+        self.assertIn("root.controller.touchpad.json.icon", touchpad)
+        self.assertIn('"/osd/control.sh touchpad-toggle"', touchpad)
+        self.assertIn("root.controller.touchpad.refresh()", touchpad)
+        self.assertIn("onHovered: root.controller.extrasEntered()", touchpad)
+        self.assertIn("onExited: root.controller.extrasExited()", touchpad)
+
+    def test_runtime_application_tray_order_uses_the_tray_opening_direction(self) -> None:
+        theme = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/Theme.qml").read_text(encoding="utf-8")
+        self.assertIn("resolvedBarItems(data.bar && data.bar.items ? data.bar.items : [], barPosition)", theme)
+        resolver = theme.split("function resolvedBarItems(overrides, position)", 1)[1].split("function barItemsForRegion", 1)[0]
+        self.assertIn("if (trayOpensForward(defaults))", resolver)
+        self.assertIn("hidden.unshift(applicationTray)", resolver)
+        self.assertIn("hidden.push(applicationTray)", resolver)
+
     def test_horizontal_popouts_use_screen_geometry_and_do_not_overlap(self) -> None:
         popouts = (REPOSITORY / "quickshell/.config/quickshell/blox/popouts/BarPopouts.qml").read_text(encoding="utf-8")
         self.assertIn("maxPopoutHeight: Math.min(720, Math.max(240, root.screenHeight - 16))", popouts)
@@ -534,6 +627,29 @@ class CliContractTests(unittest.TestCase):
         self.assertIn("flow: root.horizontal ? Flow.LeftToRight : Flow.TopToBottom", application_tray)
         self.assertIn("trayCount * Theme.buttonSize", application_tray)
         self.assertIn("anchors.fill: parent", application_tray)
+        self.assertIn("HoverHandler {", application_tray)
+        self.assertIn("root.controller.extrasEntered()", application_tray)
+        self.assertIn("root.controller.extrasExited()", application_tray)
+        tray_item = application_tray.split("TrayRailItem {", 1)[1]
+        self.assertNotIn("onExited:", tray_item)
+
+    def test_notes_header_keeps_actions_together_and_swaps_only_on_the_right(self) -> None:
+        notes = (
+            REPOSITORY
+            / "quickshell/.config/quickshell/blox/popouts/NotesPopout.qml"
+        ).read_text(encoding="utf-8")
+        popouts = (
+            REPOSITORY
+            / "quickshell/.config/quickshell/blox/popouts/BarPopouts.qml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("property bool headerActionsOnRight: false", notes)
+        self.assertIn('headerActionsOnRight: Theme.barPosition === "right"', popouts)
+        self.assertIn("root.openPanelX > root.screenWidth / 2", popouts)
+        self.assertIn(
+            "layoutDirection: root.headerActionsOnRight ? Qt.RightToLeft : Qt.LeftToRight",
+            notes,
+        )
+        self.assertIn("horizontalAlignment: root.headerActionsOnRight ? Text.AlignLeft : Text.AlignRight", notes)
 
     def test_media_popout_is_hidden_without_a_player(self) -> None:
         popouts = (REPOSITORY / "quickshell/.config/quickshell/blox/popouts/BarPopouts.qml").read_text(encoding="utf-8")
@@ -545,13 +661,25 @@ class CliContractTests(unittest.TestCase):
             with self.subTest(item_id=item_id):
                 self.assertIn(f'"{item_id}": {item_id}Component', delegate)
         self.assertIn('profile === "Performance" ? "󱑬"', delegate)
-        self.assertIn('profile !== "Quiet"', delegate)
+        self.assertIn('controller.systemInfo.json.profile === "Quiet"', delegate)
         self.assertIn('gpuMode === "gaming" ? "󰪫"', delegate)
-        self.assertIn('gpuMode !== "eco"', delegate)
+        self.assertIn('controller.systemInfo.json.gpuMode === "eco"', delegate)
         self.assertIn("visible: contentVisible", delegate)
         self.assertIn("readonly property bool runtimeSuppressed", delegate)
         self.assertIn("contentLoader.item !== null && !runtimeSuppressed", delegate)
         self.assertNotIn("contentLoader.item !== null && contentLoader.item.visible", delegate)
+
+    def test_runtime_item_visibility_can_bypass_normal_state_suppression(self) -> None:
+        delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
+        self.assertIn('readonly property string itemVisibility: itemConfig.visibility || "normal"', delegate)
+        self.assertIn('itemVisibility === "always" ? false', delegate)
+        self.assertIn('itemId === "touchpad" ? controller.touchpad.json.enabled !== false', delegate)
+        self.assertIn('profile === undefined || controller.systemInfo.json.profile === "Quiet"', delegate)
+        self.assertIn('gpuMode === undefined || controller.systemInfo.json.gpuMode === "eco"', delegate)
+        fan = delegate.split("id: fanComponent", 1)[1].split("id: gpuComponent", 1)[0]
+        gpu = delegate.split("id: gpuComponent", 1)[1].split("id: touchpadComponent", 1)[0]
+        self.assertNotIn("visible:", fan)
+        self.assertNotIn("visible:", gpu)
 
     def test_application_tray_uses_the_repeater_count(self) -> None:
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
@@ -575,10 +703,11 @@ class CliContractTests(unittest.TestCase):
         self.assertIn(preview["bar"]["position"], {"left", "right", "top", "bottom"})
         self.assertTrue(preview["bar"]["items"])
 
-    def test_tray_toggle_points_outwards_when_closed_and_inwards_when_open(self) -> None:
+    def test_tray_toggle_points_towards_its_placement_dependent_drawer(self) -> None:
         toggle = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/ExtrasToggleButton.qml").read_text(encoding="utf-8")
         self.assertIn('icon: horizontal ? "󰅂" : "󰅀"', toggle)
-        self.assertIn("iconRotation: active ? 0 : 180", toggle)
+        self.assertIn("property bool opensForward: false", toggle)
+        self.assertIn("iconRotation: active === opensForward ? 180 : 0", toggle)
 
     def test_all_commands_support_human_and_json_output(self) -> None:
         commands = (("list",), ("show", "blox-panel"), ("validate", "blox-panel"), ("render", "blox-panel"), ("preview", "blox-panel"), ("diff", "blox-panel"), ("doctor",))
@@ -606,7 +735,7 @@ class CliContractTests(unittest.TestCase):
     def test_osd_animation_translates_from_its_configured_screen_edge(self) -> None:
         source = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/Osd.qml").read_text(encoding="utf-8")
         self.assertIn("transform: Translate", source)
-        self.assertIn("osdWindow.onTop ? -osdCard.height - osdCard.y : osdWindow.height - osdCard.y", source)
+        self.assertIn("osdWindow.onTop ? -osdCard.height - osdWindow.restingGap : osdWindow.height", source)
         self.assertNotIn("y: root.showing ? (osdWindow.onTop", source)
 
     def test_missing_theme_and_malformed_json_exit_codes(self) -> None:

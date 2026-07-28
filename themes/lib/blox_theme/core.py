@@ -44,7 +44,7 @@ DEFAULT_BAR_ITEMS = (
     {"id": "notes", "enabled": True, "region": "start", "order": 1},
     {"id": "workspaces", "enabled": True, "region": "start", "order": 2},
     {"id": "clock", "enabled": True, "region": "centre", "order": 0},
-    {"id": "battery", "enabled": True, "region": "end", "order": 0},
+    {"id": "battery", "enabled": True, "region": "end", "order": 0, "display": "toggle"},
     {"id": "tray", "enabled": True, "region": "end", "order": 1},
     {"id": "notifications", "enabled": True, "region": "end", "order": 2},
     {"id": "wifi", "enabled": True, "region": "end", "order": 3},
@@ -54,9 +54,10 @@ DEFAULT_BAR_ITEMS = (
     {"id": "display", "enabled": True, "region": "hidden", "order": 2},
     {"id": "bt", "enabled": True, "region": "hidden", "order": 3},
     {"id": "updates", "enabled": True, "region": "hidden", "order": 4},
-    {"id": "fan", "enabled": True, "region": "hidden", "order": 5},
-    {"id": "gpu", "enabled": True, "region": "hidden", "order": 6},
+    {"id": "fan", "enabled": True, "region": "hidden", "order": 5, "visibility": "normal"},
+    {"id": "gpu", "enabled": True, "region": "hidden", "order": 6, "visibility": "normal"},
     {"id": "application-tray", "enabled": True, "region": "hidden", "order": 7},
+    {"id": "touchpad", "enabled": True, "region": "hidden", "order": 8, "visibility": "normal"},
 )
 
 
@@ -69,7 +70,28 @@ def resolved_bar_items(bar: dict[str, Any] | None) -> list[dict[str, Any]]:
     # migrate that override while giving the new toggle its normal placement.
     if "tray" in overrides and "application-tray" not in overrides:
         overrides["application-tray"] = {**overrides.pop("tray"), "id": "application-tray"}
-    return [{**default, **overrides.get(default["id"], {})} for default in DEFAULT_BAR_ITEMS]
+    items = [{**default, **overrides.get(default["id"], {})} for default in DEFAULT_BAR_ITEMS]
+    application_tray = next(item for item in items if item["id"] == "application-tray")
+    application_tray["region"] = "hidden"
+    hidden = sorted(
+        (item for item in items if item["region"] == "hidden" and item["id"] != "application-tray"),
+        key=lambda item: item["order"],
+    )
+    tray = next(item for item in items if item["id"] == "tray")
+    if tray["region"] == "start":
+        tray_opens_forward = True
+    elif tray["region"] == "centre":
+        centre = sorted(
+            (item for item in items if item["region"] == "centre"),
+            key=lambda item: item["order"],
+        )
+        tray_opens_forward = bool(centre) and centre[-1]["id"] == "tray"
+    else:
+        tray_opens_forward = False
+    hidden.insert(len(hidden) if tray_opens_forward else 0, application_tray)
+    for order, item in enumerate(hidden):
+        item["order"] = order
+    return items
 
 
 @dataclass

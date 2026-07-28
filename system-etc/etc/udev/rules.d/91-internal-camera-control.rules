@@ -1,0 +1,2 @@
+# Let local video users enable and disable this laptop's fixed USB webcam.
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="3277", ATTR{idProduct}=="0010", RUN+="/usr/bin/chgrp video /sys%p/authorized", RUN+="/usr/bin/chmod 0660 /sys%p/authorized"

@@ -59,6 +59,12 @@
         },
         {
           "enabled": true,
+          "id": "notes",
+          "order": 1,
+          "region": "start"
+        },
+        {
+          "enabled": true,
           "id": "clock",
           "order": 0,
           "region": "centre"
@@ -70,45 +76,43 @@
           "region": "end"
         },
         {
-          "enabled": false,
-          "id": "wifi",
+          "enabled": true,
+          "id": "sound",
           "order": 1,
           "region": "end"
         },
         {
           "enabled": true,
-          "id": "sound",
-          "order": 2,
-          "region": "end"
-        },
-        {
-          "enabled": true,
           "id": "fan",
-          "order": 3,
-          "region": "end"
+          "order": 2,
+          "region": "end",
+          "visibility": "normal"
         },
         {
           "enabled": true,
           "id": "gpu",
-          "order": 4,
-          "region": "end"
+          "order": 3,
+          "region": "end",
+          "visibility": "normal"
         },
         {
           "enabled": true,
-          "id": "updates",
+          "id": "touchpad",
+          "order": 4,
+          "region": "end",
+          "visibility": "normal"
+        },
+        {
+          "display": "numeric",
+          "enabled": true,
+          "id": "battery",
           "order": 5,
           "region": "end"
         },
         {
           "enabled": true,
-          "id": "notifications",
+          "id": "power",
           "order": 6,
-          "region": "end"
-        },
-        {
-          "enabled": true,
-          "id": "battery",
-          "order": 7,
           "region": "end"
         },
         {
@@ -118,7 +122,7 @@
           "region": "hidden"
         },
         {
-          "enabled": false,
+          "enabled": true,
           "id": "privacy",
           "order": 1,
           "region": "hidden"
@@ -130,27 +134,33 @@
           "region": "hidden"
         },
         {
-          "enabled": false,
+          "enabled": true,
           "id": "display",
           "order": 3,
           "region": "hidden"
         },
         {
-          "enabled": false,
+          "enabled": true,
           "id": "bt",
           "order": 4,
           "region": "hidden"
         },
         {
           "enabled": true,
-          "id": "notes",
+          "id": "wifi",
           "order": 5,
           "region": "hidden"
         },
         {
-          "enabled": false,
-          "id": "power",
+          "enabled": true,
+          "id": "updates",
           "order": 6,
+          "region": "hidden"
+        },
+        {
+          "enabled": true,
+          "id": "notifications",
+          "order": 7,
           "region": "hidden"
         }
       ],
@@ -159,12 +169,12 @@
     "notifications": {
       "offset_x": 0,
       "offset_y": 0,
-      "position": "bottom-right"
+      "position": "top-right"
     },
     "osd": {
       "offset_x": 0,
       "offset_y": 0,
-      "position": "centre-bottom"
+      "position": "centre-top"
     }
   },
   "targets": {
@@ -200,6 +210,27 @@
   },
   "widgets": {
     "items": [
+      {
+        "anchor": "top-left",
+        "content_command": "pipes.sh",
+        "enabled": false,
+        "height": 0,
+        "id": "widget-7",
+        "interval_ms": 60000,
+        "left_click_command": "",
+        "name": "New widget",
+        "offset_x": 20,
+        "offset_y": 20,
+        "options": {
+          "auto_size": true,
+          "scale": 1
+        },
+        "right_click_command": "",
+        "shape": "auto",
+        "type": "pipes",
+        "visibility": "empty-workspace",
+        "width": 0
+      },
       {
         "anchor": "top-left",
         "content_command": "cava",
@@ -264,20 +295,23 @@
         "width": 0
       },
       {
-        "anchor": "top-left",
-        "content_command": "tty-clock -c -s",
-        "enabled": true,
+        "anchor": "centre",
+        "content_command": "tty-clock -t -s -b -B",
+        "enabled": false,
         "height": 0,
         "id": "widget-3",
         "interval_ms": 60000,
         "left_click_command": "",
         "name": "coclk",
-        "offset_x": 710,
-        "offset_y": 276,
+        "offset_x": 0,
+        "offset_y": -450,
         "options": {
           "auto_size": true,
+          "blink": true,
+          "bold": true,
           "scale": 0.75,
-          "seconds": true
+          "seconds": true,
+          "twelve_hour": true
         },
         "right_click_command": "",
         "shape": "auto",
@@ -324,6 +358,6 @@
         "width": 0
       }
     ],
-    "profile": "minimal"
+    "profile": "comfortable"
   }
 }

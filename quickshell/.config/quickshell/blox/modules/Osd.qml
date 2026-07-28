@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
+import Quickshell.Wayland
 
 Scope {
     id: root
@@ -20,6 +21,7 @@ Scope {
     property int activeSegments: 0
     property bool noticeMode: false
     property color noticeAccent: Theme.blue
+    property double volumePreviewUntil: 0
     readonly property bool volumeOverdriven: label === "Volume" && !muted && value > 100
     readonly property int fillValue: Math.max(0, Math.min(100, value))
 
@@ -164,6 +166,13 @@ Scope {
             valueText = muted ? "Muted" : value + "%";
         }
         showFor(1200);
+    }
+
+    function preview(kind, percent, isMuted) {
+        if (kind === "volume")
+            volumePreviewUntil = Date.now() + 300;
+
+        show(kind, percent, isMuted);
     }
 
     function showNotice(title, message, iconName, level, durationMs) {
@@ -312,7 +321,8 @@ Scope {
                 } catch (error) {
                     return ;
                 }
-                root.show("volume", event.volume, event.muted);
+                if (Date.now() >= root.volumePreviewUntil)
+                    root.show("volume", event.volume, event.muted);
             }
         }
 
@@ -375,6 +385,8 @@ Scope {
             exclusiveZone: 0
             focusable: false
             color: "transparent"
+            WlrLayershell.layer: WlrLayer.Overlay
+            WlrLayershell.namespace: "blox-osd"
 
             anchors {
                 left: onLeft
@@ -388,118 +400,128 @@ Scope {
                 right: onRight ? 28 - Theme.osdOffsetX : 0
             }
 
-            Rectangle {
-                id: osdCard
+            PopupWindow {
+                id: osdPopup
 
-                x: osdWindow.horizontallyCentred ? Math.abs(Theme.osdOffsetX) + Theme.osdOffsetX : 0
-                y: osdWindow.onTop ? osdWindow.restingGap : 0
-                width: 292
-                height: 72
-                radius: 8
-                color: Theme.background
-                border.color: Theme.surfaceAlt
-                border.width: 1
-                opacity: root.showing ? 1 : 0
+                anchor.window: osdWindow
+                anchor.rect.x: osdWindow.horizontallyCentred ? Math.abs(Theme.osdOffsetX) + Theme.osdOffsetX : 0
+                anchor.rect.y: osdWindow.onTop ? osdWindow.restingGap : 0
+                implicitWidth: 292
+                implicitHeight: 72
+                visible: root.rendered
+                color: "transparent"
 
-                RowLayout {
+                Rectangle {
+                    id: osdCard
+
                     anchors.fill: parent
-                    anchors.margins: 12
-                    spacing: 12
+                    radius: 8
+                    color: Theme.background
+                    border.color: Theme.surfaceAlt
+                    border.width: 1
+                    opacity: root.showing ? 1 : 0
 
-                    Text {
-                        Layout.preferredWidth: 34
-                        horizontalAlignment: Text.AlignHCenter
-                        text: root.icon
-                        color: root.volumeOverdriven ? Theme.red : root.muted ? Theme.yellow : root.noticeMode ? root.noticeAccent : Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: 26
-                    }
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 12
+                        spacing: 12
 
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 8
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 8
-                            visible: !root.noticeMode
-
-                            Text {
-                                Layout.fillWidth: true
-                                text: root.label
-                                color: Theme.foreground
-                                font.family: Theme.bodyFontFamily
-                                font.pixelSize: 14
-                                font.bold: true
-                                elide: Text.ElideRight
-                            }
-
-                            Text {
-                                text: root.valueText
-                                color: root.volumeOverdriven ? Theme.red : root.muted ? Theme.yellow : Theme.muted
-                                font.family: Theme.bodyFontFamily
-                                font.pixelSize: 12
-                                elide: Text.ElideRight
-                                Layout.maximumWidth: 150
-                            }
-
+                        Text {
+                            Layout.preferredWidth: 34
+                            horizontalAlignment: Text.AlignHCenter
+                            text: root.icon
+                            color: root.volumeOverdriven ? Theme.red : root.muted ? Theme.yellow : root.noticeMode ? root.noticeAccent : Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: 26
                         }
 
                         ColumnLayout {
                             Layout.fillWidth: true
-                            spacing: 1
-                            visible: root.noticeMode
+                            spacing: 8
 
-                            Text {
+                            RowLayout {
                                 Layout.fillWidth: true
-                                text: root.label
-                                color: Theme.foreground
-                                font.family: Theme.bodyFontFamily
-                                font.pixelSize: 14
-                                font.bold: true
-                                elide: Text.ElideRight
+                                spacing: 8
+                                visible: !root.noticeMode
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: root.label
+                                    color: Theme.foreground
+                                    font.family: Theme.bodyFontFamily
+                                    font.pixelSize: 14
+                                    font.bold: true
+                                    elide: Text.ElideRight
+                                }
+
+                                Text {
+                                    text: root.valueText
+                                    color: root.volumeOverdriven ? Theme.red : root.muted ? Theme.yellow : Theme.muted
+                                    font.family: Theme.bodyFontFamily
+                                    font.pixelSize: 12
+                                    elide: Text.ElideRight
+                                    Layout.maximumWidth: 150
+                                }
+
                             }
 
-                            Text {
+                            ColumnLayout {
                                 Layout.fillWidth: true
-                                text: root.valueText
-                                color: Theme.muted
-                                font.family: Theme.bodyFontFamily
-                                font.pixelSize: 12
-                                elide: Text.ElideRight
+                                spacing: 1
+                                visible: root.noticeMode
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: root.label
+                                    color: Theme.foreground
+                                    font.family: Theme.bodyFontFamily
+                                    font.pixelSize: 14
+                                    font.bold: true
+                                    elide: Text.ElideRight
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: root.valueText
+                                    color: Theme.muted
+                                    font.family: Theme.bodyFontFamily
+                                    font.pixelSize: 12
+                                    elide: Text.ElideRight
+                                }
+
                             }
-
-                        }
-
-                        Rectangle {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 8
-                            radius: 4
-                            color: Theme.surface
-                            visible: !root.segmented
 
                             Rectangle {
-                                width: Math.round(parent.width * root.fillValue / 100)
-                                height: parent.height
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 8
                                 radius: 4
-                                color: root.volumeOverdriven ? Theme.red : root.muted ? Theme.yellow : root.noticeMode ? root.noticeAccent : Theme.blue
-                            }
-
-                        }
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 7
-                            visible: root.segmented
-
-                            Repeater {
-                                model: root.segments
+                                color: Theme.surface
+                                visible: !root.segmented
 
                                 Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 8
+                                    width: Math.round(parent.width * root.fillValue / 100)
+                                    height: parent.height
                                     radius: 4
-                                    color: index < root.activeSegments ? Theme.blue : Theme.surface
+                                    color: root.volumeOverdriven ? Theme.red : root.muted ? Theme.yellow : root.noticeMode ? root.noticeAccent : Theme.blue
+                                }
+
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 7
+                                visible: root.segmented
+
+                                Repeater {
+                                    model: root.segments
+
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 8
+                                        radius: 4
+                                        color: index < root.activeSegments ? Theme.blue : Theme.surface
+                                    }
+
                                 }
 
                             }
@@ -508,14 +530,22 @@ Scope {
 
                     }
 
-                }
+                    transform: Translate {
+                        y: root.showing ? 0 : osdWindow.onTop ? -osdCard.height - osdWindow.restingGap : osdWindow.height
 
-                transform: Translate {
-                    y: root.showing ? 0 : osdWindow.onTop ? -osdCard.height - osdCard.y : osdWindow.height - osdCard.y
+                        Behavior on y {
+                            NumberAnimation {
+                                duration: 190
+                                easing.type: Easing.OutCubic
+                            }
 
-                    Behavior on y {
+                        }
+
+                    }
+
+                    Behavior on opacity {
                         NumberAnimation {
-                            duration: 190
+                            duration: 140
                             easing.type: Easing.OutCubic
                         }
 
@@ -523,20 +553,7 @@ Scope {
 
                 }
 
-                Behavior on opacity {
-                    NumberAnimation {
-                        duration: 140
-                        easing.type: Easing.OutCubic
-                    }
-
-                }
-
-                Behavior on x {
-                    NumberAnimation {
-                        duration: 190
-                        easing.type: Easing.OutCubic
-                    }
-
+                mask: Region {
                 }
 
             }

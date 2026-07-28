@@ -142,9 +142,44 @@ FloatingWindow {
         if (!barDragActive)
             return ;
 
+        if (!barDropAllowed(barDragItemId, region, index)) {
+            barDropRegion = "";
+            barDropIndex = -1;
+            barDropTarget = "";
+            return ;
+        }
         barDropRegion = region;
         barDropIndex = index;
         barDropTarget = target;
+    }
+
+    function barDropAllowed(id, region, index) {
+        if (id === "application-tray") {
+            if (region !== "hidden")
+                return false;
+
+            const count = barItems().filter((item) => {
+                return item.region === "hidden";
+            }).length;
+            return applicationTrayAtStart() ? index === 0 : index === count;
+        }
+
+        if (id !== "tray")
+            return true;
+
+        if (region === "hidden")
+            return false;
+
+        const count = barItems().filter((item) => {
+            return item.region === region;
+        }).length;
+        if (region === "start")
+            return index === count;
+
+        if (region === "end")
+            return index === 0;
+
+        return region === "centre" && (index === 0 || index === count);
     }
 
     function commitBarDrop() {
@@ -250,13 +285,16 @@ FloatingWindow {
         for (let index = 0; index < items.length; ++index) {
             if (items[index].enabled && items[index].region === region)
                 count += 1;
+
         }
         return count;
     }
 
     function longestWord(text) {
         const words = String(text || "").split(" ");
-        return words.reduce((longest, word) => word.length > longest.length ? word : longest, "");
+        return words.reduce((longest, word) => {
+            return word.length > longest.length ? word : longest;
+        }, "");
     }
 
     function themeDigest(id) {
@@ -668,6 +706,10 @@ FloatingWindow {
             next.shell = shellDefaults();
 
         next.shell[section][key] = value;
+        if (section === "bar" && key === "position") {
+            const overrides = next.shell.bar.items || [];
+            next.shell.bar.items = normaliseBarItemOrders(Theme.resolvedBarItems(overrides, value), value);
+        }
         markCandidate(next);
         Theme.loadShell(next.shell);
         if (section === "osd")
@@ -678,11 +720,48 @@ FloatingWindow {
 
     function barItems() {
         const overrides = candidate && candidate.shell && candidate.shell.bar && candidate.shell.bar.items ? candidate.shell.bar.items : [];
-        return Theme.resolvedBarItems(overrides);
+        const position = candidate && candidate.shell && candidate.shell.bar ? candidate.shell.bar.position : Theme.barPosition;
+        return Theme.resolvedBarItems(overrides, position);
     }
 
-    function normaliseBarItemOrders(items) {
+    function trayOpensForward(items) {
+        const source = items || barItems();
+        const tray = source.find((item) => {
+            return item.id === "tray";
+        });
+        if (!tray || tray.region === "end")
+            return false;
+        if (tray.region === "start")
+            return true;
+        if (tray.region !== "centre")
+            return false;
+
+        const centre = source.filter((item) => {
+            return item.region === "centre";
+        }).sort((left, right) => {
+            return left.order - right.order;
+        });
+        return centre.length > 0 && centre[centre.length - 1].id === "tray";
+    }
+
+    function applicationTrayAtStart(items) {
+        return !trayOpensForward(items);
+    }
+
+    function normaliseBarItemOrders(items, position) {
         const regions = ["start", "centre", "end", "hidden"];
+        const tray = items.find((item) => {
+            return item.id === "tray";
+        });
+        if (tray && tray.region === "hidden")
+            tray.region = "end";
+
+        const applicationTray = items.find((item) => {
+            return item.id === "application-tray";
+        });
+        if (applicationTray)
+            applicationTray.region = "hidden";
+
         const ordered = [];
         for (let regionIndex = 0; regionIndex < regions.length; ++regionIndex) {
             const region = regions[regionIndex];
@@ -691,6 +770,30 @@ FloatingWindow {
             }).sort((left, right) => {
                 return left.order - right.order;
             });
+            const trayIndex = members.findIndex((item) => {
+                return item.id === "tray";
+            });
+            if (trayIndex >= 0) {
+                const trayItem = members.splice(trayIndex, 1)[0];
+                if (region === "start")
+                    members.push(trayItem);
+                else if (region === "end")
+                    members.unshift(trayItem);
+                else if (region === "centre" && trayIndex < (members.length + 1) / 2)
+                    members.unshift(trayItem);
+                else
+                    members.push(trayItem);
+            }
+            const applicationTrayIndex = members.findIndex((item) => {
+                return item.id === "application-tray";
+            });
+            if (applicationTrayIndex >= 0) {
+                const applicationTrayItem = members.splice(applicationTrayIndex, 1)[0];
+                if (applicationTrayAtStart(items))
+                    members.unshift(applicationTrayItem);
+                else
+                    members.push(applicationTrayItem);
+            }
             for (let index = 0; index < members.length; ++index) {
                 members[index].order = index;
                 ordered.push(members[index]);
@@ -723,8 +826,33 @@ FloatingWindow {
         setBarItems(items);
     }
 
+    function setBarItemDisplay(id, display) {
+        const items = barItems();
+        for (let index = 0; index < items.length; ++index) {
+            if (items[index].id === id) {
+                items[index].display = display;
+                break;
+            }
+        }
+        setBarItems(items);
+    }
+
+    function setBarItemVisibility(id, visibility) {
+        const items = barItems();
+        for (let index = 0; index < items.length; ++index) {
+            if (items[index].id === id) {
+                items[index].visibility = visibility;
+                break;
+            }
+        }
+        setBarItems(items);
+    }
+
     function setBarItemRegion(id, region) {
         const items = barItems();
+        if (id === "application-tray")
+            region = "hidden";
+
         let nextOrder = items.filter((item) => {
             return item.region === region;
         }).length;
@@ -746,6 +874,20 @@ FloatingWindow {
         if (!selected)
             return ;
 
+        if (id === "application-tray")
+            return ;
+
+        if (id === "tray") {
+            if (selected.region !== "centre")
+                return ;
+
+            const members = items.filter((item) => {
+                return item.region === "centre";
+            });
+            selected.order = selected.order === 0 ? members.length : -1;
+            setBarItems(items);
+            return ;
+        }
         const neighbour = items.find((item) => {
             return item.region === selected.region && item.order === selected.order + direction;
         });
@@ -765,6 +907,13 @@ FloatingWindow {
         });
         if (!selected)
             return ;
+
+        if (id === "application-tray") {
+            region = "hidden";
+            destinationIndex = applicationTrayAtStart(items) ? 0 : items.filter((item) => {
+                return item.region === "hidden";
+            }).length;
+        }
 
         const sourceRegion = selected.region;
         const sourceIndex = items.filter((item) => {
@@ -829,6 +978,7 @@ FloatingWindow {
             "notifications": "bell",
             "wifi": "wifi",
             "sound": "volume-2",
+            "touchpad": "panel-top",
             "privacy": "shield",
             "awake": "coffee",
             "display": "sun",
@@ -2205,8 +2355,8 @@ FloatingWindow {
                                     readonly property string previewFont: modelData.preview && modelData.preview.fonts && modelData.preview.fonts.ui ? modelData.preview.fonts.ui : Theme.bodyFontFamily
                                     readonly property string previewBarPosition: root.themePreviewBarPosition(modelData)
                                     readonly property bool verticalBar: previewBarPosition === "left" || previewBarPosition === "right"
-                                    readonly property real maxPreviewWidth: width * 0.50
-                                    readonly property real minPreviewWidth: width * 0.30
+                                    readonly property real maxPreviewWidth: width * 0.5
+                                    readonly property real minPreviewWidth: width * 0.3
                                     readonly property real normalWrapWidth: Math.max(themeTitleMetrics.advanceWidth * 0.65, longestWordMetrics.advanceWidth)
                                     readonly property real previewWidth: Math.max(minPreviewWidth, Math.min(maxPreviewWidth, width - 59 - normalWrapWidth))
                                     readonly property bool previewAtMinimum: previewWidth <= minPreviewWidth + 0.5
@@ -2219,25 +2369,6 @@ FloatingWindow {
                                     border.width: selected ? 2 : 1
                                     scale: mouse.containsMouse && !selected ? 1.008 : 1
                                     transformOrigin: Item.Center
-
-                                    Behavior on color {
-                                        ColorAnimation {
-                                            duration: 110
-                                        }
-                                    }
-
-                                    Behavior on border.color {
-                                        ColorAnimation {
-                                            duration: 110
-                                        }
-                                    }
-
-                                    Behavior on scale {
-                                        NumberAnimation {
-                                            duration: 110
-                                            easing.type: Easing.OutCubic
-                                        }
-                                    }
 
                                     Rectangle {
                                         id: themeThumbnail
@@ -2290,7 +2421,9 @@ FloatingWindow {
                                                         radius: 1
                                                         color: themeDelegate.previewForeground
                                                     }
+
                                                 }
+
                                             }
 
                                             Row {
@@ -2307,7 +2440,9 @@ FloatingWindow {
                                                         radius: 1
                                                         color: themeDelegate.previewAccent
                                                     }
+
                                                 }
+
                                             }
 
                                             Row {
@@ -2326,7 +2461,9 @@ FloatingWindow {
                                                         radius: 1
                                                         color: themeDelegate.previewForeground
                                                     }
+
                                                 }
+
                                             }
 
                                             Column {
@@ -2345,7 +2482,9 @@ FloatingWindow {
                                                         radius: 1
                                                         color: themeDelegate.previewForeground
                                                     }
+
                                                 }
+
                                             }
 
                                             Column {
@@ -2362,7 +2501,9 @@ FloatingWindow {
                                                         radius: 1
                                                         color: themeDelegate.previewAccent
                                                     }
+
                                                 }
+
                                             }
 
                                             Column {
@@ -2381,7 +2522,9 @@ FloatingWindow {
                                                         radius: 1
                                                         color: themeDelegate.previewForeground
                                                     }
+
                                                 }
+
                                             }
 
                                         }
@@ -2432,7 +2575,9 @@ FloatingWindow {
                                                     radius: 3
                                                     color: modelData
                                                 }
+
                                             }
+
                                         }
 
                                         Text {
@@ -2560,6 +2705,28 @@ FloatingWindow {
                                             radius: 10
                                             color: Theme.surfaceAlt
                                             border.color: Theme.border
+                                        }
+
+                                    }
+
+                                    Behavior on color {
+                                        ColorAnimation {
+                                            duration: 110
+                                        }
+
+                                    }
+
+                                    Behavior on border.color {
+                                        ColorAnimation {
+                                            duration: 110
+                                        }
+
+                                    }
+
+                                    Behavior on scale {
+                                        NumberAnimation {
+                                            duration: 110
+                                            easing.type: Easing.OutCubic
                                         }
 
                                     }
@@ -3139,15 +3306,46 @@ FloatingWindow {
 
                                                             }
 
-                                                            BloxCheckBox {
+                                                            RowLayout {
                                                                 Layout.alignment: Qt.AlignVCenter
-                                                                text: root.barItemLabel(barItemRow.modelData.id)
-                                                                checked: barItemRow.modelData.enabled
-                                                                onToggled: (value) => {
-                                                                    if (value !== barItemRow.modelData.enabled)
-                                                                        root.setBarItemEnabled(barItemRow.modelData.id, value);
+                                                                spacing: 9
 
+                                                                BloxCheckBox {
+                                                                    text: root.barItemLabel(barItemRow.modelData.id)
+                                                                    checked: barItemRow.modelData.enabled
+                                                                    onToggled: (value) => {
+                                                                        if (value !== barItemRow.modelData.enabled)
+                                                                            root.setBarItemEnabled(barItemRow.modelData.id, value);
+
+                                                                    }
                                                                 }
+
+                                                                BloxComboBox {
+                                                                    readonly property var displayValues: ["toggle", "numeric", "icon"]
+
+                                                                    visible: barItemRow.modelData.id === "battery"
+                                                                    Layout.preferredWidth: visible ? 132 : 0
+                                                                    Layout.preferredHeight: 32
+                                                                    model: ["click to toggle", "only numeric", "only icon"]
+                                                                    currentIndex: Math.max(0, displayValues.indexOf(barItemRow.modelData.display || "toggle"))
+                                                                    onActivated: (index) => {
+                                                                        return root.setBarItemDisplay(barItemRow.barItemId, displayValues[index]);
+                                                                    }
+                                                                }
+
+                                                                BloxComboBox {
+                                                                    readonly property var visibilityValues: ["always", "normal"]
+
+                                                                    visible: ["touchpad", "fan", "gpu"].indexOf(barItemRow.modelData.id) >= 0
+                                                                    Layout.preferredWidth: visible ? 172 : 0
+                                                                    Layout.preferredHeight: 32
+                                                                    model: ["always visible", "hidden when normal"]
+                                                                    currentIndex: Math.max(0, visibilityValues.indexOf(barItemRow.modelData.visibility || "normal"))
+                                                                    onActivated: (index) => {
+                                                                        return root.setBarItemVisibility(barItemRow.barItemId, visibilityValues[index]);
+                                                                    }
+                                                                }
+
                                                             }
 
                                                             Item {
@@ -3179,7 +3377,7 @@ FloatingWindow {
                                                                 Layout.preferredHeight: 32
                                                                 compact: true
                                                                 iconName: "chevron-up"
-                                                                enabled: barItemRow.index > 0
+                                                                enabled: barItemRow.modelData.id === "application-tray" ? false : barItemRow.modelData.id === "tray" ? barItemRow.modelData.region === "centre" && barItemRow.index > 0 : barItemRow.index > 0
                                                                 onClicked: root.moveBarItem(barItemRow.barItemId, -1)
                                                             }
 
@@ -3188,14 +3386,14 @@ FloatingWindow {
                                                                 Layout.preferredHeight: 32
                                                                 compact: true
                                                                 iconName: "chevron-down"
-                                                                enabled: barItemRow.index < barItemRepeater.count - 1
+                                                                enabled: barItemRow.modelData.id === "application-tray" ? false : barItemRow.modelData.id === "tray" ? barItemRow.modelData.region === "centre" && barItemRow.index === 0 && barItemRepeater.count > 1 : barItemRow.index < barItemRepeater.count - 1
                                                                 onClicked: root.moveBarItem(barItemRow.barItemId, 1)
                                                             }
 
                                                             BloxComboBox {
-                                                                Layout.preferredWidth: 116
+                                                                Layout.preferredWidth: 92
                                                                 Layout.preferredHeight: 32
-                                                                model: root.barRegions
+                                                                model: barItemRow.modelData.id === "application-tray" ? ["tray"] : barItemRow.modelData.id === "tray" ? ["start", "centre", "end"] : root.barRegions
                                                                 currentIndex: model.indexOf(barItemRow.modelData.region === "hidden" ? "tray" : barItemRow.modelData.region)
                                                                 onActivated: (index, value) => {
                                                                     return root.setBarItemRegion(barItemRow.barItemId, value === "tray" ? "hidden" : value);

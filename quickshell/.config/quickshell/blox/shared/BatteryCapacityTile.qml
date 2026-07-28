@@ -7,6 +7,7 @@ Rectangle {
 
     property var status
     property bool expanded: false
+    property bool collapsible: true
 
     signal collapse()
 
@@ -50,8 +51,9 @@ Rectangle {
         id: mouse
 
         anchors.fill: parent
+        enabled: root.collapsible
         hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
+        cursorShape: root.collapsible ? Qt.PointingHandCursor : Qt.ArrowCursor
         onClicked: root.collapse()
     }
 

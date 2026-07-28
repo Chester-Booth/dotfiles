@@ -232,7 +232,7 @@ Singleton {
         const notifications = data.notifications || {
         };
         barPosition = data.bar && data.bar.position ? data.bar.position : "left";
-        barItems = resolvedBarItems(data.bar && data.bar.items ? data.bar.items : []);
+        barItems = resolvedBarItems(data.bar && data.bar.items ? data.bar.items : [], barPosition);
         osdPosition = osd.position || "top-left";
         osdOffsetX = osd.offset_x || 0;
         osdOffsetY = osd.offset_y || 0;
@@ -243,10 +243,23 @@ Singleton {
     }
 
     function defaultBarItems() : var {
-        return [{"id": "power", "enabled": true, "region": "start", "order": 0}, {"id": "notes", "enabled": true, "region": "start", "order": 1}, {"id": "workspaces", "enabled": true, "region": "start", "order": 2}, {"id": "clock", "enabled": true, "region": "centre", "order": 0}, {"id": "battery", "enabled": true, "region": "end", "order": 0}, {"id": "tray", "enabled": true, "region": "end", "order": 1}, {"id": "notifications", "enabled": true, "region": "end", "order": 2}, {"id": "wifi", "enabled": true, "region": "end", "order": 3}, {"id": "sound", "enabled": true, "region": "end", "order": 4}, {"id": "privacy", "enabled": true, "region": "hidden", "order": 0}, {"id": "awake", "enabled": true, "region": "hidden", "order": 1}, {"id": "display", "enabled": true, "region": "hidden", "order": 2}, {"id": "bt", "enabled": true, "region": "hidden", "order": 3}, {"id": "updates", "enabled": true, "region": "hidden", "order": 4}, {"id": "fan", "enabled": true, "region": "hidden", "order": 5}, {"id": "gpu", "enabled": true, "region": "hidden", "order": 6}, {"id": "application-tray", "enabled": true, "region": "hidden", "order": 7}];
+        return [{"id": "power", "enabled": true, "region": "start", "order": 0}, {"id": "notes", "enabled": true, "region": "start", "order": 1}, {"id": "workspaces", "enabled": true, "region": "start", "order": 2}, {"id": "clock", "enabled": true, "region": "centre", "order": 0}, {"id": "battery", "enabled": true, "region": "end", "order": 0, "display": "toggle"}, {"id": "tray", "enabled": true, "region": "end", "order": 1}, {"id": "notifications", "enabled": true, "region": "end", "order": 2}, {"id": "wifi", "enabled": true, "region": "end", "order": 3}, {"id": "sound", "enabled": true, "region": "end", "order": 4}, {"id": "privacy", "enabled": true, "region": "hidden", "order": 0}, {"id": "awake", "enabled": true, "region": "hidden", "order": 1}, {"id": "display", "enabled": true, "region": "hidden", "order": 2}, {"id": "bt", "enabled": true, "region": "hidden", "order": 3}, {"id": "updates", "enabled": true, "region": "hidden", "order": 4}, {"id": "fan", "enabled": true, "region": "hidden", "order": 5, "visibility": "normal"}, {"id": "gpu", "enabled": true, "region": "hidden", "order": 6, "visibility": "normal"}, {"id": "application-tray", "enabled": true, "region": "hidden", "order": 7}, {"id": "touchpad", "enabled": true, "region": "hidden", "order": 8, "visibility": "normal"}];
     }
 
-    function resolvedBarItems(overrides) : var {
+    function trayOpensForward(items) : bool {
+        const tray = items.find((item) => item.id === "tray");
+        if (!tray || tray.region === "end")
+            return false;
+        if (tray.region === "start")
+            return true;
+        if (tray.region !== "centre")
+            return false;
+
+        const centre = items.filter((item) => item.region === "centre").sort((left, right) => left.order - right.order);
+        return centre.length > 0 && centre[centre.length - 1].id === "tray";
+    }
+
+    function resolvedBarItems(overrides, position) : var {
         const defaults = defaultBarItems();
         const byId = {};
         for (let index = 0; index < overrides.length; index++)
@@ -262,6 +275,16 @@ Singleton {
             if (override)
                 defaults[index] = Object.assign({}, defaults[index], override);
         }
+        const applicationTray = defaults.find((item) => item.id === "application-tray");
+        applicationTray.region = "hidden";
+        const hidden = defaults.filter((item) => item.region === "hidden" && item.id !== "application-tray").sort((left, right) => left.order - right.order);
+        if (trayOpensForward(defaults))
+            hidden.push(applicationTray);
+        else
+            hidden.unshift(applicationTray);
+        for (let index = 0; index < hidden.length; ++index)
+            hidden[index].order = index;
+
         return defaults;
     }
 

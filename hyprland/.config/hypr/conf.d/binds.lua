@@ -233,6 +233,8 @@ hl.bind("XF86KbdLightOnOff", exec("~/.config/quickshell/blox/scripts/osd/control
 hl.bind("Caps_Lock", exec("~/.config/quickshell/blox/scripts/osd/control.sh caps"), { locked = true })
 hl.bind("XF86WebCam", exec("~/.config/quickshell/blox/scripts/osd/control.sh camera-toggle"), { locked = true })
 hl.bind("XF86TouchpadToggle", exec("~/.config/quickshell/blox/scripts/osd/control.sh touchpad-toggle"), { locked = true })
+hl.bind("XF86TouchpadOn", exec("~/.config/quickshell/blox/scripts/osd/control.sh touchpad-on"), { locked = true })
+hl.bind("XF86TouchpadOff", exec("~/.config/quickshell/blox/scripts/osd/control.sh touchpad-off"), { locked = true })
 hl.bind("XF86PowerOff", exec("quickshell ipc -c blox call power toggle"), { locked = true })
 
 -- Requires playerctl.

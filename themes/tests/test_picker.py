@@ -358,9 +358,13 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         advanced = qml.split('visible: root.editorMode === "advanced"', 1)[1]
         for function_name in (
             "barItems",
+            "trayOpensForward",
+            "applicationTrayAtStart",
             "normaliseBarItemOrders",
             "setBarItems",
             "setBarItemEnabled",
+            "setBarItemDisplay",
+            "setBarItemVisibility",
             "setBarItemRegion",
             "moveBarItem",
             "moveBarItemTo",
@@ -369,6 +373,14 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn('model: ["start", "centre", "end", "hidden"]', advanced)
         self.assertIn('"Tray"', advanced)
         self.assertIn("root.setBarItemEnabled(barItemRow.modelData.id, value)", advanced)
+        self.assertIn('model: ["click to toggle", "only numeric", "only icon"]', advanced)
+        self.assertIn("root.setBarItemDisplay(barItemRow.barItemId, displayValues[index])", advanced)
+        self.assertIn('visible: barItemRow.modelData.id === "battery"', advanced)
+        self.assertIn('model: ["always visible", "hidden when normal"]', advanced)
+        self.assertIn('visible: ["touchpad", "fan", "gpu"].indexOf(barItemRow.modelData.id) >= 0', advanced)
+        self.assertIn("Layout.preferredWidth: visible ? 172 : 0", advanced)
+        self.assertIn("root.setBarItemVisibility(barItemRow.barItemId, visibilityValues[index])", advanced)
+        self.assertIn('"touchpad": "panel-top"', qml)
         self.assertIn("Drag.active: root.barDragActive", qml)
         self.assertEqual(2, advanced.count("target: null"))
         self.assertEqual(2, advanced.count("onTranslationChanged: root.moveBarDragProxy"))
@@ -380,9 +392,13 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertNotIn('ToolTip.text: "Move down"', advanced)
         self.assertIn("onClicked: root.moveBarItem(barItemRow.barItemId, -1)", advanced)
         self.assertIn("onClicked: root.moveBarItem(barItemRow.barItemId, 1)", advanced)
-        self.assertIn("model: root.barRegions", advanced)
+        self.assertIn('barItemRow.modelData.id === "application-tray" ? ["tray"]', advanced)
+        self.assertIn('barItemRow.modelData.id === "tray" ? ["start", "centre", "end"] : root.barRegions', advanced)
+        self.assertIn('if (region === "hidden")', qml)
+        self.assertIn('if (region === "start")', qml)
+        self.assertIn('if (region === "end")', qml)
         self.assertIn('value === "tray" ? "hidden" : value', advanced)
-        normalise = qml.split("function normaliseBarItemOrders(items)", 1)[1].split("function setBarItems", 1)[0]
+        normalise = qml.split("function normaliseBarItemOrders(", 1)[1].split("function setBarItems", 1)[0]
         self.assertIn("ordered.push(members[index])", normalise)
         self.assertIn("return ordered", normalise)
         header = advanced.index('text: regionSection.modelData === "hidden" ? "Tray"')
@@ -390,8 +406,12 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertLess(header, first_drop_target)
         self.assertIn("function scrollBarDrag()", qml)
         self.assertIn("running: root.barDragActive", qml)
-        self.assertIn("Theme.resolvedBarItems(overrides)", qml)
+        self.assertIn("Theme.resolvedBarItems(overrides, position)", qml)
+        self.assertIn("Theme.resolvedBarItems(overrides, value)", qml)
         self.assertIn("Theme.loadShell(next.shell)", qml)
+        self.assertIn('if (id === "application-tray")', qml)
+        self.assertIn("return !trayOpensForward(items)", qml)
+        self.assertIn("Layout.preferredWidth: 92", advanced)
 
     def test_custom_controls_are_registered_and_font_rows_preview_their_family(self) -> None:
         shared = REPOSITORY / "quickshell/.config/quickshell/blox/shared"

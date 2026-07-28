@@ -27,11 +27,16 @@ Rectangle {
     property int visualAudioVolume: audioVolume
     property int visualBrightnessPercent: brightnessPercent
     property string visualBlueLightMode: blueLightMode
+    property bool adjustingAudio: false
+    property bool adjustingBrightness: false
+    property bool audioApplyPending: false
+    property bool brightnessApplyPending: false
     readonly property bool audioOverdriven: currentMode() === "audio" && !audioMuted && audioVolume > 100
     readonly property bool visualAudioOverdriven: currentMode() === "audio" && !audioMuted && visualAudioVolume > 100
 
     signal action(string command, bool keepOpen)
     signal sectionSelected(string panel)
+    signal levelPreview(string kind, int value, bool muted)
 
     function currentMode() {
         return mode === "mic" ? "bluetooth" : mode;
@@ -76,10 +81,10 @@ Rectangle {
             return wifiText;
 
         if (currentMode() === "audio")
-            return audioMuted ? "Muted" : audioVolume + "%";
+            return audioMuted ? "Muted" : visualAudioVolume + "%";
 
         if (currentMode() === "brightness")
-            return brightnessPercent + "% • " + (blueLightActive ? "Active" : "Inactive");
+            return visualBrightnessPercent + "% • " + (blueLightActive ? "Active" : "Inactive");
 
         if (currentMode() === "bluetooth")
             return body.split("\n").join(" ");
@@ -87,8 +92,66 @@ Rectangle {
         return body.split("\n")[0];
     }
 
-    onAudioVolumeChanged: visualAudioVolume = audioVolume
-    onBrightnessPercentChanged: visualBrightnessPercent = brightnessPercent
+    function applyAudio() {
+        audioApplyPending = false;
+        action(scriptRoot + "/control.sh audio-set-silent " + visualAudioVolume, true);
+    }
+
+    function queueAudio(value) {
+        visualAudioVolume = value;
+        levelPreview("volume", value, audioMuted);
+        audioApplyPending = true;
+        audioSyncDelay.stop();
+        if (!audioApplyDelay.running) {
+            applyAudio();
+            audioApplyDelay.restart();
+        }
+    }
+
+    function finishAudio() {
+        adjustingAudio = false;
+        audioApplyDelay.stop();
+        if (audioApplyPending)
+            applyAudio();
+
+        audioSyncDelay.restart();
+    }
+
+    function applyBrightness() {
+        brightnessApplyPending = false;
+        action(scriptRoot + "/control.sh brightness-set-silent " + visualBrightnessPercent, true);
+    }
+
+    function queueBrightness(value) {
+        visualBrightnessPercent = value;
+        levelPreview("brightness", value, false);
+        brightnessApplyPending = true;
+        brightnessSyncDelay.stop();
+        if (!brightnessApplyDelay.running) {
+            applyBrightness();
+            brightnessApplyDelay.restart();
+        }
+    }
+
+    function finishBrightness() {
+        adjustingBrightness = false;
+        brightnessApplyDelay.stop();
+        if (brightnessApplyPending)
+            applyBrightness();
+
+        brightnessSyncDelay.restart();
+    }
+
+    onAudioVolumeChanged: {
+        if (!adjustingAudio && !audioSyncDelay.running)
+            visualAudioVolume = audioVolume;
+
+    }
+    onBrightnessPercentChanged: {
+        if (!adjustingBrightness && !brightnessSyncDelay.running)
+            visualBrightnessPercent = brightnessPercent;
+
+    }
     onBlueLightModeChanged: visualBlueLightMode = blueLightMode
     width: 330
     height: Math.min(520, Math.max(178, content.implicitHeight + 24))
@@ -100,17 +163,43 @@ Rectangle {
     Timer {
         id: audioApplyDelay
 
-        interval: 80
+        interval: 50
         repeat: false
-        onTriggered: root.action(root.scriptRoot + "/control.sh audio-set " + root.visualAudioVolume, true)
+        onTriggered: {
+            if (root.audioApplyPending) {
+                root.applyAudio();
+                restart();
+            }
+        }
     }
 
     Timer {
         id: brightnessApplyDelay
 
-        interval: 80
+        interval: 50
         repeat: false
-        onTriggered: root.action(root.scriptRoot + "/control.sh brightness-set " + root.visualBrightnessPercent, true)
+        onTriggered: {
+            if (root.brightnessApplyPending) {
+                root.applyBrightness();
+                restart();
+            }
+        }
+    }
+
+    Timer {
+        id: audioSyncDelay
+
+        interval: 250
+        repeat: false
+        onTriggered: root.visualAudioVolume = root.audioVolume
+    }
+
+    Timer {
+        id: brightnessSyncDelay
+
+        interval: 250
+        repeat: false
+        onTriggered: root.visualBrightnessPercent = root.brightnessPercent
     }
 
     RowLayout {
@@ -244,10 +333,9 @@ Rectangle {
                 maxValue: 150
                 snapValue: 100
                 accent: root.visualAudioOverdriven ? Theme.red : Theme.blue
-                onChanged: (value) => {
-                    root.visualAudioVolume = value;
-                    audioApplyDelay.restart();
-                }
+                onDragStarted: root.adjustingAudio = true
+                onChanged: (value) => root.queueAudio(value)
+                onDragFinished: root.finishAudio()
             }
 
             PillSelector {
@@ -327,10 +415,9 @@ Rectangle {
                 visible: root.currentMode() === "brightness"
                 value: root.visualBrightnessPercent
                 accent: Theme.yellow
-                onChanged: (value) => {
-                    root.visualBrightnessPercent = value;
-                    brightnessApplyDelay.restart();
-                }
+                onDragStarted: root.adjustingBrightness = true
+                onChanged: (value) => root.queueBrightness(value)
+                onDragFinished: root.finishBrightness()
             }
 
             PillSelector {
@@ -420,6 +507,8 @@ Rectangle {
         property color overdriveTrackColor: Qt.rgba(Theme.surface.r * 0.82 + Theme.red.r * 0.18, Theme.surface.g * 0.82 + Theme.red.g * 0.18, Theme.surface.b * 0.82 + Theme.red.b * 0.18, 1)
 
         signal changed(int value)
+        signal dragStarted()
+        signal dragFinished()
 
         spacing: 8
 
@@ -451,14 +540,6 @@ Rectangle {
                 radius: parent.radius
                 color: slider.accent
 
-                Behavior on width {
-                    NumberAnimation {
-                        duration: 120
-                        easing.type: Easing.OutCubic
-                    }
-
-                }
-
             }
 
             Rectangle {
@@ -470,14 +551,6 @@ Rectangle {
                 color: slider.knobColor
                 border.color: slider.accent
                 border.width: 2
-
-                Behavior on x {
-                    NumberAnimation {
-                        duration: 120
-                        easing.type: Easing.OutCubic
-                    }
-
-                }
 
             }
 
@@ -494,13 +567,16 @@ Rectangle {
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onPressed: (mouse) => {
-                    return slider.changed(valueAt(mouse.x));
+                    slider.dragStarted();
+                    slider.changed(valueAt(mouse.x));
                 }
                 onPositionChanged: (mouse) => {
                     if (pressed)
                         slider.changed(valueAt(mouse.x));
 
                 }
+                onReleased: slider.dragFinished()
+                onCanceled: slider.dragFinished()
             }
 
         }

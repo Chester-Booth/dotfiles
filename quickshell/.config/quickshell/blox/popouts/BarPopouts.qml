@@ -85,6 +85,7 @@ Item {
     signal performanceAction(string command)
     signal performanceVisibleChanged(bool visible)
     signal systemAction(string command, bool keepOpen)
+    signal systemLevelPreview(string kind, int value, bool muted)
     signal selectSystemPanel(string panel)
     signal basicAction(string command, bool keepOpen)
     signal clearNotifications()
@@ -142,6 +143,9 @@ Item {
         NotesPopout {
             id: notesPopout
 
+            headerActionsOnRight: Theme.barPosition === "right"
+                || ((Theme.barPosition === "top" || Theme.barPosition === "bottom")
+                    && root.openPanelX > root.screenWidth / 2)
             title: root.todoStatus && root.todoStatus.name ? root.todoStatus.name : "notes.md"
             body: root.todoStatus && root.todoStatus.raw ? root.todoStatus.raw : ""
             file: root.todoStatus && root.todoStatus.file ? root.todoStatus.file : ""
@@ -337,6 +341,9 @@ Item {
             scriptRoot: root.scriptRoot
             onAction: (command, keepOpen) => {
                 return root.systemAction(command, keepOpen);
+            }
+            onLevelPreview: (kind, value, muted) => {
+                return root.systemLevelPreview(kind, value, muted);
             }
             onSectionSelected: (panel) => {
                 return root.selectSystemPanel(panel);

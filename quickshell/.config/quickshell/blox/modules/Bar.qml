@@ -12,6 +12,8 @@ import Quickshell.Wayland
 Scope {
     id: root
 
+    signal osdLevelPreview(string kind, int value, bool muted)
+
     property string openPanel: ""
     property real openPanelX: 8
     property real openPanelY: 8
@@ -533,6 +535,8 @@ Scope {
             focusable: false
             visible: true
             color: "transparent"
+            WlrLayershell.layer: WlrLayer.Overlay
+            WlrLayershell.namespace: "blox-bar"
 
             anchors {
                 left: Theme.barPosition === "left"
@@ -756,6 +760,7 @@ Scope {
                                 itemId: modelData.id
                                 controller: root
                                 horizontal: false
+                                trayOpensForward: true
                                 panelExtent: panel.height
                                 Component.onCompleted: configuredRail.registerTrayToggle(this, false)
                                 Component.onDestruction: configuredRail.unregisterTrayToggle(this, false)
@@ -774,10 +779,12 @@ Scope {
 
                             BarItemDelegate {
                                 required property var modelData
+                                required property int index
 
                                 itemId: modelData.id
                                 controller: root
                                 horizontal: false
+                                trayOpensForward: index === Theme.barCentreItems.length - 1
                                 panelExtent: panel.height
                                 Component.onCompleted: configuredRail.registerTrayToggle(this, false)
                                 Component.onDestruction: configuredRail.unregisterTrayToggle(this, false)
@@ -803,6 +810,7 @@ Scope {
                                 itemId: modelData.id
                                 controller: root
                                 horizontal: false
+                                trayOpensForward: false
                                 panelExtent: panel.height
                                 Component.onCompleted: configuredRail.registerTrayToggle(this, false)
                                 Component.onDestruction: configuredRail.unregisterTrayToggle(this, false)
@@ -826,6 +834,7 @@ Scope {
                                 itemId: modelData.id
                                 controller: root
                                 horizontal: true
+                                trayOpensForward: true
                                 panelExtent: panel.height
                                 Component.onCompleted: configuredRail.registerTrayToggle(this, true)
                                 Component.onDestruction: configuredRail.unregisterTrayToggle(this, true)
@@ -844,10 +853,12 @@ Scope {
 
                             BarItemDelegate {
                                 required property var modelData
+                                required property int index
 
                                 itemId: modelData.id
                                 controller: root
                                 horizontal: true
+                                trayOpensForward: index === Theme.barCentreItems.length - 1
                                 panelExtent: panel.height
                                 Component.onCompleted: configuredRail.registerTrayToggle(this, true)
                                 Component.onDestruction: configuredRail.unregisterTrayToggle(this, true)
@@ -871,6 +882,7 @@ Scope {
                                 itemId: modelData.id
                                 controller: root
                                 horizontal: true
+                                trayOpensForward: false
                                 panelExtent: panel.height
                                 Component.onCompleted: configuredRail.registerTrayToggle(this, true)
                                 Component.onDestruction: configuredRail.unregisterTrayToggle(this, true)
@@ -884,7 +896,7 @@ Scope {
                         visible: !root.horizontalBar && root.extrasOpen && configuredRail.verticalTrayToggleItem
                         z: 100
                         x: configuredRail.verticalTrayPoint.x
-                        y: configuredRail.verticalTrayPoint.y - height - spacing
+                        y: configuredRail.verticalTrayToggleItem && configuredRail.verticalTrayToggleItem.trayOpensForward ? configuredRail.verticalTrayPoint.y + configuredRail.verticalTrayToggleItem.height + spacing : configuredRail.verticalTrayPoint.y - height - spacing
                         spacing: 2
 
                         Repeater {
@@ -908,7 +920,7 @@ Scope {
                     Row {
                         visible: root.horizontalBar && root.extrasOpen && configuredRail.horizontalTrayToggleItem
                         z: 100
-                        x: configuredRail.horizontalTrayPoint.x - width - spacing
+                        x: configuredRail.horizontalTrayToggleItem && configuredRail.horizontalTrayToggleItem.trayOpensForward ? configuredRail.horizontalTrayPoint.x + configuredRail.horizontalTrayToggleItem.width + spacing : configuredRail.horizontalTrayPoint.x - width - spacing
                         y: configuredRail.horizontalTrayPoint.y
                         spacing: 2
 
@@ -1141,6 +1153,9 @@ Scope {
                     if (!keepOpen)
                         root.closePanel();
 
+                }
+                onSystemLevelPreview: (kind, value, muted) => {
+                    return root.osdLevelPreview(kind, value, muted);
                 }
                 onSelectSystemPanel: (panel) => {
                     return root.switchSystemPanel(panel);

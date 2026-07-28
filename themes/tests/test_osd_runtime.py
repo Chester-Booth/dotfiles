@@ -16,9 +16,13 @@ class OsdRuntimeTests(unittest.TestCase):
 
         self.assertIn("implicitWidth: 292 +", window)
         self.assertIn("implicitHeight: 72 + restingGap", window)
-        self.assertIn("y: osdWindow.onTop ? osdWindow.restingGap : 0", window)
-        self.assertIn("-osdCard.height - osdCard.y", window)
-        self.assertIn("osdWindow.height - osdCard.y", window)
+        self.assertIn("PopupWindow {", window)
+        self.assertIn("anchor.window: osdWindow", window)
+        self.assertIn(
+            "anchor.rect.y: osdWindow.onTop ? osdWindow.restingGap : 0", window
+        )
+        self.assertIn("-osdCard.height - osdWindow.restingGap", window)
+        self.assertIn("osdWindow.height", window)
         self.assertNotIn("modelData.width", window)
         self.assertNotIn("modelData.height", window)
         self.assertIn("left: onLeft", window)

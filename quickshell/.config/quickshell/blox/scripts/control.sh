@@ -11,6 +11,9 @@ audio-toggle)
 audio-set)
 	exec "$script_dir/osd/control.sh" volume-set "${2:-0}"
 	;;
+audio-set-silent)
+	exec pactl set-sink-volume @DEFAULT_SINK@ "${2:-0}%"
+	;;
 audio-up)
 	exec "$script_dir/osd/control.sh" volume-up "${2:-5}"
 	;;
@@ -33,6 +36,9 @@ mic)
 	;;
 brightness-set)
 	exec "$script_dir/osd/control.sh" brightness-set "${2:-0}"
+	;;
+brightness-set-silent)
+	exec brightnessctl -q -d "${BRIGHTNESS_DEVICE:-amdgpu_bl1}" set "${2:-0}%"
 	;;
 brightness-up)
 	exec "$script_dir/osd/control.sh" brightness-up "${2:-5}"
@@ -75,7 +81,7 @@ fan-profile)
 	esac
 	;;
 *)
-	echo "usage: $0 audio-toggle|audio-set|audio-up|audio-down|mic-toggle|mic|brightness-set|brightness-up|brightness-down|wifi|bluetooth-toggle|bluetooth|fan-profile" >&2
+	echo "usage: $0 audio-toggle|audio-set|audio-set-silent|audio-up|audio-down|mic-toggle|mic|brightness-set|brightness-set-silent|brightness-up|brightness-down|wifi|bluetooth-toggle|bluetooth|fan-profile" >&2
 	exit 2
 	;;
 esac

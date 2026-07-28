@@ -9,7 +9,14 @@ Item {
     required property var controller
     property bool horizontal: false
     property real panelExtent: 0
-    readonly property bool runtimeSuppressed: itemId === "fan" ? controller.systemInfo.json.profile === undefined || controller.systemInfo.json.profile === "Quiet" : itemId === "gpu" ? controller.systemInfo.json.gpuMode === undefined || controller.systemInfo.json.gpuMode === "eco" : false
+    property bool trayOpensForward: false
+    readonly property var itemConfig: Theme.barItems.find((item) => {
+        return item.id === root.itemId;
+    }) || ({
+    })
+    readonly property string batteryDisplay: itemConfig.display || "toggle"
+    readonly property string itemVisibility: itemConfig.visibility || "normal"
+    readonly property bool runtimeSuppressed: itemVisibility === "always" ? false : itemId === "touchpad" ? controller.touchpad.json.enabled !== false : itemId === "fan" ? controller.systemInfo.json.profile === undefined || controller.systemInfo.json.profile === "Quiet" : itemId === "gpu" ? controller.systemInfo.json.gpuMode === undefined || controller.systemInfo.json.gpuMode === "eco" : false
     readonly property bool contentVisible: contentLoader.item !== null && !runtimeSuppressed
 
     function mappedCentre(item, centre) {
@@ -35,15 +42,6 @@ Item {
     onHeightChanged: publishNotificationPosition()
     onHorizontalChanged: publishNotificationPosition()
     Component.onCompleted: publishNotificationPosition()
-
-    Connections {
-        target: root.controller
-
-        function onHorizontalBarChanged() {
-            root.publishNotificationPosition();
-        }
-    }
-
     // Keep the cross-axis extent stable. Content such as the expandable battery
     // percentage must only grow along the bar, otherwise a click recentres the
     // whole vertical section and makes neighbouring icons jump sideways.
@@ -52,6 +50,14 @@ Item {
     implicitHeight: !contentVisible ? 0 : !root.horizontal && contentLoader.item ? Math.max(Theme.buttonSize, contentLoader.item.implicitHeight || contentLoader.item.height) : Theme.buttonSize
     width: implicitWidth
     height: implicitHeight
+
+    Connections {
+        function onHorizontalBarChanged() {
+            root.publishNotificationPosition();
+        }
+
+        target: root.controller
+    }
 
     Loader {
         id: contentLoader
@@ -75,6 +81,7 @@ Item {
                 "updates": updatesComponent,
                 "fan": fanComponent,
                 "gpu": gpuComponent,
+                "touchpad": touchpadComponent,
                 "tray": trayToggleComponent,
                 "application-tray": applicationTrayComponent
             };
@@ -216,8 +223,11 @@ Item {
         id: batteryComponent
 
         Item {
-            implicitWidth: root.horizontal && root.controller.batteryExpanded ? Theme.buttonSize * 2 : Theme.buttonSize
-            implicitHeight: !root.horizontal && root.controller.batteryExpanded ? Theme.buttonSize * 2 : Theme.buttonSize
+            readonly property bool showIcon: root.batteryDisplay !== "numeric"
+            readonly property bool showCapacity: root.batteryDisplay === "numeric" || root.batteryDisplay === "toggle" && root.controller.batteryExpanded
+
+            implicitWidth: root.horizontal && showIcon && showCapacity ? Theme.buttonSize * 2 : Theme.buttonSize
+            implicitHeight: !root.horizontal && showIcon && showCapacity ? Theme.buttonSize * 2 : Theme.buttonSize
             width: implicitWidth
             height: implicitHeight
 
@@ -226,9 +236,13 @@ Item {
 
                 x: 0
                 y: 0
+                visible: parent.showIcon
                 status: root.controller.battery.json
                 popupY: root.panelExtent - 24
                 onToggleExpanded: {
+                    if (root.batteryDisplay !== "toggle")
+                        return ;
+
                     const expanded = !root.controller.batteryExpanded;
                     root.controller.closeDrawers();
                     root.controller.batteryExpanded = expanded;
@@ -243,10 +257,11 @@ Item {
             }
 
             BatteryCapacityTile {
-                x: root.horizontal ? batteryButton.width : 0
-                y: root.horizontal ? 0 : batteryButton.height
+                x: root.horizontal && parent.showIcon ? batteryButton.width : 0
+                y: !root.horizontal && parent.showIcon ? batteryButton.height : 0
                 status: root.controller.battery.json
-                expanded: root.controller.batteryExpanded
+                expanded: parent.showCapacity
+                collapsible: root.batteryDisplay === "toggle"
                 onCollapse: root.controller.batteryExpanded = false
             }
 
@@ -439,7 +454,6 @@ Item {
             panel: "system"
             source: "fan"
             active: root.controller.openPanel === panel
-            visible: root.controller.systemInfo.json.profile !== undefined && root.controller.systemInfo.json.profile !== "Quiet"
             onPanelClicked: (p, c) => {
                 return root.controller.togglePanel(p, root.mappedCentre(this, c));
             }
@@ -462,7 +476,6 @@ Item {
             panel: "system"
             source: "gpu"
             active: root.controller.openPanel === panel
-            visible: root.controller.systemInfo.json.gpuMode !== undefined && root.controller.systemInfo.json.gpuMode !== "eco"
             onPanelClicked: (p, c) => {
                 return root.controller.togglePanel(p, root.mappedCentre(this, c));
             }
@@ -477,6 +490,31 @@ Item {
     }
 
     Component {
+        id: touchpadComponent
+
+        RailButton {
+            icon: root.controller.touchpad.json.icon || "󰟸"
+            accent: root.controller.touchpad.json.enabled === false ? Theme.yellow : Theme.foreground
+            onHovered: root.controller.extrasEntered()
+            onExited: root.controller.extrasExited()
+            onClicked: {
+                root.controller.run(root.controller.scriptRoot + "/osd/control.sh touchpad-toggle");
+                touchpadRefresh.restart();
+            }
+
+            Timer {
+                id: touchpadRefresh
+
+                interval: 300
+                repeat: false
+                onTriggered: root.controller.touchpad.refresh()
+            }
+
+        }
+
+    }
+
+    Component {
         id: trayToggleComponent
 
         Flow {
@@ -486,6 +524,7 @@ Item {
 
             ExtrasToggleButton {
                 horizontal: root.horizontal
+                opensForward: root.trayOpensForward
                 active: root.controller.extrasOpen
                 onToggle: root.controller.toggleExtras()
                 onOpenRequested: {
@@ -510,6 +549,15 @@ Item {
             width: implicitWidth
             height: implicitHeight
 
+            HoverHandler {
+                onHoveredChanged: {
+                    if (hovered)
+                        root.controller.extrasEntered();
+                    else
+                        root.controller.extrasExited();
+                }
+            }
+
             Flow {
                 id: trayFlow
 
@@ -524,7 +572,6 @@ Item {
                     TrayRailItem {
                         item: modelData
                         onHovered: root.controller.trayItemEntered()
-                        onExited: root.controller.extrasExited()
                         onOpenMenu: (item, centre) => {
                             return root.controller.openTrayMenu(item, root.mappedCentre(this, centre));
                         }

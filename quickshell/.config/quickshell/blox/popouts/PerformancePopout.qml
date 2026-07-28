@@ -58,7 +58,7 @@ Rectangle {
     }
 
     width: 268
-    height: (status.vramTotal ? 526 : 474) + (visibleError.length > 0 ? 26 : 0)
+    height: (status.vramTotal ? 526 : 474) + (visibleError.length > 0 ? Math.max(26, errorText.implicitHeight) : 0)
     radius: 8
     color: Theme.background
     border.color: Theme.surfaceAlt
@@ -249,6 +249,8 @@ Rectangle {
         }
 
         Text {
+            id: errorText
+
             Layout.fillWidth: true
             visible: root.visibleError.length > 0
             text: root.visibleError

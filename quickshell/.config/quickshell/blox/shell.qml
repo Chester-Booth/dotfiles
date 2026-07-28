@@ -18,9 +18,13 @@ Scope {
 
     Bar {
         barOpen: root.barOpen
+        onOsdLevelPreview: (kind, value, muted) => {
+            return osd.preview(kind, value, muted);
+        }
     }
 
     Osd {
+        id: osd
     }
 
     EwwOverlays {

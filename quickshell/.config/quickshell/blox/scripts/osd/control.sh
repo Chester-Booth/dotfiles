@@ -6,6 +6,8 @@ config_name="${QUICKSHELL_CONFIG_NAME:-blox}"
 brightness_device="${BRIGHTNESS_DEVICE:-amdgpu_bl1}"
 keyboard_device="${KEYBOARD_BRIGHTNESS_DEVICE:-asus::kbd_backlight}"
 camera_device="${CAMERA_DEVICE:-asus::camera}"
+camera_usb_id="${CAMERA_USB_ID:-3277:0010}"
+camera_authorized_override="${CAMERA_AUTHORIZED_FILE:-}"
 mic_led_device="${MIC_LED_DEVICE:-platform::micmute}"
 touchpad_device="${TOUCHPAD_DEVICE:-asue120b:00-04f3:31c0-touchpad}"
 touchpad_state_file="${XDG_RUNTIME_DIR:-$HOME/.cache}/quickshell-touchpad-enabled"
@@ -160,10 +162,64 @@ show_keyboard() {
 	ipc keyboard "$(keyboard_percent)"
 }
 
+camera_authorized_file() {
+	local authorized device usb_id
+
+	if [[ -n "$camera_authorized_override" ]]; then
+		[[ -e "$camera_authorized_override" ]] || return 1
+		printf '%s\n' "$camera_authorized_override"
+		return
+	fi
+
+	for authorized in /sys/bus/usb/devices/*/authorized; do
+		[[ -r "$authorized" ]] || continue
+		device="${authorized%/authorized}"
+		[[ -r "$device/idVendor" && -r "$device/idProduct" ]] || continue
+		usb_id="$(<"$device/idVendor")":"$(<"$device/idProduct")"
+		[[ "$usb_id" == "$camera_usb_id" ]] || continue
+		printf '%s\n' "$authorized"
+		return
+	done
+
+	return 1
+}
+
 camera_enabled() {
-	local current
-	current="$(brightnessctl -d "$camera_device" g 2>/dev/null || printf '0')"
-	[[ "$current" != "0" ]] && printf 'true\n' || printf 'false\n'
+	local authorized state
+
+	authorized="$(camera_authorized_file)" || {
+		printf 'false\n'
+		return 1
+	}
+	read -r state <"$authorized" || {
+		printf 'false\n'
+		return 1
+	}
+	[[ "$state" == "1" ]] && printf 'true\n' || printf 'false\n'
+}
+
+set_camera() {
+	local enabled="$1"
+	local authorized value led_value
+
+	[[ "$enabled" == "true" || "$enabled" == "false" ]] || return 1
+	authorized="$(camera_authorized_file)" || {
+		printf 'camera USB device %s was not found\n' "$camera_usb_id" >&2
+		return 1
+	}
+	[[ -w "$authorized" ]] || {
+		printf 'camera control %s is not writable; install the camera udev rule\n' "$authorized" >&2
+		return 1
+	}
+
+	value=0
+	led_value=1
+	if [[ "$enabled" == "true" ]]; then
+		value=1
+		led_value=0
+	fi
+	printf '%s\n' "$value" >"$authorized" || return 1
+	brightnessctl -q -d "$camera_device" set "$led_value" >/dev/null 2>&1 || true
 }
 
 show_camera() {
@@ -254,12 +310,21 @@ keyboard-toggle)
 	show_keyboard
 	;;
 camera-toggle)
-	if [[ "$(camera_enabled)" == "true" ]]; then
-		brightnessctl -d "$camera_device" set 0 || exit 1
+	camera_state="$(camera_enabled)" || exit 1
+	if [[ "$camera_state" == "true" ]]; then
+		set_camera false || exit 1
 	else
-		brightnessctl -d "$camera_device" set 1 || exit 1
+		set_camera true || exit 1
 	fi
 	show_camera
+	;;
+touchpad-on)
+	set_touchpad true || exit 1
+	show_touchpad
+	;;
+touchpad-off)
+	set_touchpad false || exit 1
+	show_touchpad
 	;;
 touchpad-toggle)
 	if [[ "$(touchpad_enabled)" == "true" ]]; then
@@ -274,7 +339,7 @@ caps)
 	show_caps
 	;;
 *)
-	printf 'usage: %s {volume-up|volume-down|volume-mute|mic-mute|brightness-up|brightness-down|brightness-set|keyboard-up|keyboard-down|keyboard-toggle|camera-toggle|touchpad-toggle|caps} [amount]\n' "$0" >&2
+	printf 'usage: %s {volume-up|volume-down|volume-mute|mic-mute|brightness-up|brightness-down|brightness-set|keyboard-up|keyboard-down|keyboard-toggle|camera-toggle|touchpad-toggle|touchpad-on|touchpad-off|caps} [amount]\n' "$0" >&2
 	exit 2
 	;;
 esac

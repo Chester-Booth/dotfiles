@@ -235,7 +235,7 @@ Rectangle {
             Column {
                 id: listContent
 
-                width: notificationList.width - notificationList.scrollbarGutter
+                width: notificationList.width - (notificationList.needsScrollbar ? notificationList.scrollbarGutter : 0)
                 spacing: 8
 
                 Text {

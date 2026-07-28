@@ -20,6 +20,8 @@ Rectangle {
     readonly property int terminalFrameMilliseconds: widget.type === "music" ? 16 : widget.type === "aquarium" || widget.type === "clock" ? 500 : 250
     readonly property bool autoSize: widget.options && widget.options.auto_size === true
     readonly property real widgetScale: Math.max(0.25, Math.min(4, Number(widget.options && widget.options.scale || 1)))
+    readonly property real configuredBackgroundOpacity: widget.options && widget.options.background_opacity !== undefined ? Number(widget.options.background_opacity) : Theme.widgetOpacity
+    readonly property real backgroundOpacity: isNaN(configuredBackgroundOpacity) ? Theme.widgetOpacity : Math.max(0, Math.min(1, configuredBackgroundOpacity))
     readonly property real scaledPadding: Theme.widgetPadding * widgetScale
     readonly property int configuredWidth: autoSize ? 0 : Number(widget.width || 0)
     readonly property int configuredHeight: autoSize ? 0 : Number(widget.height || 0)
@@ -77,7 +79,7 @@ Rectangle {
     // The terminal renderer maps ANSI black to Gruvbox's terminal black.  Use
     // that same colour behind asciiquarium so its unpainted cells and the
     // surrounding widget do not form two visibly different backgrounds.
-    color: widget.type === "clock" ? "transparent" : widget.type === "aquarium" ? "#1d2021" : Theme.withAlpha(Theme.background, Theme.widgetOpacity)
+    color: widget.type === "clock" ? "transparent" : Theme.withAlpha(widget.type === "aquarium" ? "#1d2021" : Theme.background, backgroundOpacity)
     radius: widget.shape === "circle" ? Math.min(width, height) / 2 : widget.shape === "rounded" ? Math.max(10, Theme.widgetRadius) : widget.shape === "rectangle" ? 0 : Theme.widgetRadius
 
     ScriptPoller {
@@ -183,7 +185,7 @@ Rectangle {
         onPaint: {
             const context = getContext("2d");
             context.clearRect(0, 0, width, height);
-            context.fillStyle = Theme.withAlpha(Theme.background, Theme.widgetOpacity);
+            context.fillStyle = Theme.withAlpha(Theme.background, root.backgroundOpacity);
             context.fillRect(0, 0, width, height);
             context.fillStyle = Theme.foreground;
             context.font = clockMetrics.font.pixelSize + "px " + clockMetrics.font.family;
@@ -208,6 +210,10 @@ Rectangle {
             }
 
             function onWidgetScaleChanged() {
+                clockCanvas.requestPaint();
+            }
+
+            function onBackgroundOpacityChanged() {
                 clockCanvas.requestPaint();
             }
 

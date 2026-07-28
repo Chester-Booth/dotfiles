@@ -16,10 +16,14 @@ class WidgetRuntimeSourceTests(unittest.TestCase):
         self.assertIn("root.run(root.commandFor", source)
         self.assertIn("onTriggered: widgetRenderer.refresh()", source)
 
-    def test_renderer_honours_auto_size_and_terminal_monospace(self) -> None:
+    def test_renderer_honours_auto_size_background_opacity_and_terminal_monospace(self) -> None:
         source = (ROOT / "quickshell/.config/quickshell/blox/shared/DesktopWidget.qml").read_text(encoding="utf-8")
         self.assertIn("readonly property bool autoSize", source)
         self.assertIn("readonly property real widgetScale", source)
+        self.assertIn("readonly property real backgroundOpacity", source)
+        self.assertIn("widget.options.background_opacity !== undefined", source)
+        self.assertIn("Theme.withAlpha(widget.type ===", source)
+        self.assertIn("root.backgroundOpacity", source)
         self.assertIn("Theme.widgetFontSize * root.widgetScale", source)
         self.assertIn("autoSize ? 0 : Number(widget.width", source)
         self.assertIn("root.terminalPreset ? Theme.monoFontFamily", source)
@@ -49,11 +53,15 @@ class WidgetRuntimeSourceTests(unittest.TestCase):
         self.assertIn('if (character === "█")', source)
         self.assertIn("clockCanvas.requestPaint()", source)
 
-    def test_widget_edit_mode_persists_auto_size_and_scale(self) -> None:
+    def test_widget_edit_mode_persists_auto_size_scale_and_background_opacity(self) -> None:
         source = (ROOT / "quickshell/.config/quickshell/blox/modules/WidgetEditMode.qml").read_text(encoding="utf-8")
         self.assertIn("function selectedAutoSize()", source)
         self.assertIn("selectedItem.options.auto_size", source)
         self.assertIn('options.scale = Math.max(0.25, Math.min(4', source)
+        self.assertIn('text: "Transparency"', source)
+        self.assertIn('suffix: "%"', source)
+        self.assertIn("const transparency = Math.max(0, Math.min(100", source)
+        self.assertIn("options.background_opacity = 1 - transparency / 100", source)
         self.assertIn("width: root.selectedItem ? 300", source)
 
     def test_widget_edit_mode_returns_to_its_origin_workspace(self) -> None:

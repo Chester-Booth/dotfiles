@@ -363,6 +363,32 @@ PanelWindow {
                 }
             }
 
+            Label {
+                text: "Transparency"
+                color: Theme.muted
+            }
+
+            BloxTextField {
+                Layout.fillWidth: true
+                suffix: "%"
+                text: root.selectedItem && root.selectedItem.options && root.selectedItem.options.background_opacity !== undefined
+                    ? String(Math.round((1 - Number(root.selectedItem.options.background_opacity)) * 100))
+                    : String(Math.round((1 - Theme.widgetOpacity) * 100))
+                onEditingFinished: {
+                    if (!root.selectedItem)
+                        return ;
+
+                    const options = root.clone(root.selectedItem.options || {
+                    });
+                    const parsed = Number(text);
+                    const transparency = Math.max(0, Math.min(100, isNaN(parsed) ? (1 - Theme.widgetOpacity) * 100 : parsed));
+                    options.background_opacity = 1 - transparency / 100;
+                    root.updateSelected({
+                        "options": options
+                    });
+                }
+            }
+
             Repeater {
                 model: [{
                     "label": "X offset",

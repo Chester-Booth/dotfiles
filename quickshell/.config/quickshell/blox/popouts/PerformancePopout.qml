@@ -38,12 +38,8 @@ Rectangle {
         return String(status.profile || "balanced").toLowerCase();
     }
 
-    function fanText() {
-        const value = String(status.fanRpm || "N/A");
-        if (value === "N/A" || value.toLowerCase().indexOf("rpm") >= 0)
-            return value;
-
-        return value + " RPM";
+    function fanText(value) {
+        return value ? value + " RPM" : "N/A";
     }
 
     function gpuMemoryLabel() {
@@ -58,7 +54,7 @@ Rectangle {
     }
 
     width: 268
-    height: (status.vramTotal ? 526 : 474) + (visibleError.length > 0 ? Math.max(26, errorText.implicitHeight) : 0)
+    height: (status.vramTotal ? 517 : 465) + (visibleError.length > 0 ? Math.max(26, errorText.implicitHeight) : 0)
     radius: 8
     color: Theme.background
     border.color: Theme.surfaceAlt
@@ -114,8 +110,15 @@ Rectangle {
 
             DetailPill {
                 icon: "󰈐"
-                label: "Fans"
-                value: root.fanText()
+                label: "Fan 1"
+                value: root.fanText(root.status.fan1Rpm)
+                accent: Theme.blue
+            }
+
+            DetailPill {
+                icon: "󰈐"
+                label: "Fan 2"
+                value: root.fanText(root.status.fan2Rpm)
                 accent: Theme.blue
             }
 
@@ -124,6 +127,13 @@ Rectangle {
                 label: "Power"
                 value: (root.status.powerW || "N/A") + " W"
                 accent: Theme.yellow
+            }
+
+            DetailPill {
+                icon: root.batteryStatus && root.batteryStatus.icon ? root.batteryStatus.icon : "󰁹"
+                label: "Battery time"
+                value: root.batteryStatus.timeLabel || "N/A"
+                accent: root.batteryStatus && root.batteryStatus.class === "critical" ? Theme.red : root.batteryStatus && root.batteryStatus.class === "charging" ? Theme.green : Theme.teal
             }
 
             DetailPill {
@@ -160,14 +170,6 @@ Rectangle {
                 detail: (root.status.cpuTemp || "N/A") + "°C"
                 percent: root.clamp(root.numberValue(root.status.cpuTemp, 0), 0, 100)
                 accent: root.numberValue(root.status.cpuTemp, 0) >= 80 ? Theme.red : Theme.yellow
-            }
-
-            MetricBar {
-                icon: root.batteryStatus && root.batteryStatus.icon ? root.batteryStatus.icon : "󰁹"
-                label: "Battery"
-                detail: root.batteryStatus && root.batteryStatus.capacity !== "" && root.batteryStatus.capacity !== undefined ? (root.batteryStatus.capacity + "% " + (root.batteryStatus.status || "")) : (root.batteryStatus && root.batteryStatus.tooltip ? root.batteryStatus.tooltip : "N/A")
-                percent: root.clamp(root.numberValue(root.batteryStatus.capacity, 0), 0, 100)
-                accent: root.batteryStatus && root.batteryStatus.class === "critical" ? Theme.red : root.batteryStatus && root.batteryStatus.class === "charging" ? Theme.green : Theme.teal
             }
 
             MetricBar {

@@ -17,6 +17,10 @@ Scope {
     property bool performanceBusy: false
     property string performanceError: ""
     property string performanceProcessError: ""
+    property bool performanceProcessExited: false
+    property bool performanceStderrFinished: false
+    property int performanceExitCode: 0
+    property int performanceExitStatus: 0
     property string notesProcessError: ""
     property string generatedProcessError: ""
     property string calendarProcessError: ""
@@ -55,10 +59,24 @@ Scope {
             return ;
 
         performanceProcessError = "";
+        performanceProcessExited = false;
+        performanceStderrFinished = false;
         performanceError = "";
         performanceBusy = true;
         performanceProcess.command = ["timeout", "45s", "sh", "-c", command];
         performanceProcess.running = true;
+    }
+
+    function finishPerformance() {
+        if (!performanceProcessExited || !performanceStderrFinished)
+            return ;
+
+        performanceBusy = false;
+        if (performanceExitCode !== 0 || performanceExitStatus !== 0)
+            performanceError = errorMessage("Performance action failed", performanceExitCode, performanceProcessError);
+
+        controlRefreshRequested();
+        performanceRefreshRequested();
     }
 
     function saveNotes(file, body) {
@@ -116,16 +134,18 @@ Scope {
         id: performanceProcess
 
         onExited: (exitCode, exitStatus) => {
-            root.performanceBusy = false;
-            if (exitCode !== 0 || exitStatus !== 0)
-                root.performanceError = root.errorMessage("Performance action failed", exitCode, root.performanceProcessError);
-
-            root.controlRefreshRequested();
-            root.performanceRefreshRequested();
+            root.performanceExitCode = exitCode;
+            root.performanceExitStatus = exitStatus;
+            root.performanceProcessExited = true;
+            root.finishPerformance();
         }
 
         stderr: StdioCollector {
-            onStreamFinished: root.performanceProcessError = this.text
+            onStreamFinished: {
+                root.performanceProcessError = this.text;
+                root.performanceStderrFinished = true;
+                root.finishPerformance();
+            }
         }
 
     }

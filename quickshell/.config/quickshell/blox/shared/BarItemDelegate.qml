@@ -257,12 +257,18 @@ Item {
             }
 
             BatteryCapacityTile {
+                id: batteryCapacity
+
                 x: root.horizontal && parent.showIcon ? batteryButton.width : 0
                 y: !root.horizontal && parent.showIcon ? batteryButton.height : 0
                 status: root.controller.battery.json
                 expanded: parent.showCapacity
                 collapsible: root.batteryDisplay === "toggle"
                 onCollapse: root.controller.batteryExpanded = false
+                onPanelHovered: (centre) => {
+                    return root.controller.hoverButtonEntered("system", root.mappedCentre(this, centre), "battery");
+                }
+                onPanelExited: root.controller.hoverButtonExited("battery")
             }
 
         }

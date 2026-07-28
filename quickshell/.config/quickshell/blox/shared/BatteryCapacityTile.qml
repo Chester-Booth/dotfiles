@@ -10,6 +10,8 @@ Rectangle {
     property bool collapsible: true
 
     signal collapse()
+    signal panelHovered(real centre)
+    signal panelExited()
 
     function displayCapacity() {
         if (!root.status || root.status.capacity === undefined)
@@ -49,6 +51,13 @@ Rectangle {
 
     HoverHandler {
         id: hover
+
+        onHoveredChanged: {
+            if (hovered)
+                root.panelHovered(root.height / 2);
+            else
+                root.panelExited();
+        }
     }
 
     MouseArea {

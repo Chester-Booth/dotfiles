@@ -12,6 +12,7 @@ done
 
 capacity=""
 status=""
+time_label="N/A"
 if [[ -n "$battery_dir" ]]; then
 	read -r capacity <"$battery_dir/capacity" || capacity=""
 	read -r status <"$battery_dir/status" || status="Unknown"
@@ -20,16 +21,38 @@ fi
 if [[ ! "$capacity" =~ ^[0-9]+$ ]]; then
 	if [[ -s "$CACHE_FILE" ]] && jq -e '.icon | type == "string"' "$CACHE_FILE" >/dev/null 2>&1 &&
 		jq -e '.class | type == "string"' "$CACHE_FILE" >/dev/null 2>&1 &&
-		jq -e '.status | type == "string"' "$CACHE_FILE" >/dev/null 2>&1; then
+		jq -e '.status | type == "string"' "$CACHE_FILE" >/dev/null 2>&1 &&
+		jq -e '.timeLabel | type == "string"' "$CACHE_FILE" >/dev/null 2>&1; then
 		cat "$CACHE_FILE"
 		exit 0
 	fi
 
-	jq -nc '{"icon":"󰚥","class":"plugged","capacity":"","status":"Unknown","tooltip":"No battery detected"}'
+	jq -nc '{"icon":"󰚥","class":"plugged","capacity":"","status":"Unknown","timeLabel":"N/A","tooltip":"No battery detected"}'
 	exit 0
 fi
 
 ((capacity > 100)) && capacity=100
+
+energy_now="$(cat "$battery_dir/energy_now" 2>/dev/null || true)"
+energy_full="$(cat "$battery_dir/energy_full" 2>/dev/null || true)"
+power_now="$(cat "$battery_dir/power_now" 2>/dev/null || true)"
+if [[ "$energy_now" =~ ^[0-9]+$ && "$energy_full" =~ ^[0-9]+$ && "$power_now" =~ ^[0-9]+$ ]] &&
+	((power_now > 0)); then
+	if [[ "$status" == "Charging" ]]; then
+		remaining_energy=$((energy_full - energy_now))
+		((remaining_energy < 0)) && remaining_energy=0
+		suffix=" to full"
+	else
+		remaining_energy=$energy_now
+		suffix=" left"
+	fi
+	remaining_minutes=$((remaining_energy * 60 / power_now))
+	time_label="$((remaining_minutes / 60))h $((remaining_minutes % 60))m$suffix"
+elif [[ "$status" == "Full" ]]; then
+	time_label="Full"
+elif [[ "$status" == "Not charging" ]]; then
+	time_label="Plugged in"
+fi
 
 icon="󰁹"
 class="normal"
@@ -54,8 +77,8 @@ else
 fi
 
 mkdir -p "$(dirname "$CACHE_FILE")"
-json="$(jq -nc --arg icon "$icon" --arg class "$class" --arg status "$status" --argjson capacity "$capacity" \
-	'{icon:$icon,class:$class,capacity:$capacity,status:$status,tooltip:("Charge: \($capacity)%\n\($status)")}')"
+json="$(jq -nc --arg icon "$icon" --arg class "$class" --arg status "$status" --arg timeLabel "$time_label" --argjson capacity "$capacity" \
+	'{icon:$icon,class:$class,capacity:$capacity,status:$status,timeLabel:$timeLabel,tooltip:("Charge: \($capacity)%\n\($status)\n\($timeLabel)")}')"
 cache_tmp="${CACHE_FILE}.$$"
 printf '%s\n' "$json" >"$cache_tmp"
 mv -f "$cache_tmp" "$CACHE_FILE"

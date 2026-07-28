@@ -6,6 +6,8 @@ profile="$(asusctl profile get 2>/dev/null | awk -F': ' '{print $2}')"
 
 fan1="$(cat /sys/class/hwmon/hwmon*/fan1_input 2>/dev/null | head -1)"
 fan2="$(cat /sys/class/hwmon/hwmon*/fan2_input 2>/dev/null | head -1)"
+fan1="${fan1:-}"
+fan2="${fan2:-}"
 if [ -n "${fan1:-}" ] && [ -n "${fan2:-}" ] && [ "$fan2" != "0" ]; then
 	fan_rpm="$fan1 / $fan2"
 elif [ -n "${fan1:-}" ]; then
@@ -118,6 +120,8 @@ fi
 jq -nc \
 	--arg profile "$profile" \
 	--arg fanRpm "$fan_rpm" \
+	--arg fan1Rpm "$fan1" \
+	--arg fan2Rpm "$fan2" \
 	--arg cpuTemp "$cpu_temp" \
 	--arg cpuClock "$cpu_clock" \
 	--arg powerW "$power_w" \
@@ -138,8 +142,10 @@ jq -nc \
 	--argjson swapPercent "$swap_percent" \
 	--argjson gpuOn "$gpu_on" \
 	'{
-      profile:$profile,
-      fanRpm:$fanRpm,
+	      profile:$profile,
+	      fanRpm:$fanRpm,
+	      fan1Rpm:$fan1Rpm,
+	      fan2Rpm:$fan2Rpm,
       cpuTemp:$cpuTemp,
       cpuClock:$cpuClock,
       cpuUtil:$cpuUtil,

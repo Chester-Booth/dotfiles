@@ -17,6 +17,7 @@
       "class": "string",
       "capacity": ["number", "string"],
       "status": "string",
+      "timeLabel": "string",
       "tooltip": "string"
     }
   },
@@ -92,6 +93,8 @@
     "required": {
       "profile": "string",
       "fanRpm": "string",
+      "fan1Rpm": "string",
+      "fan2Rpm": "string",
       "cpuTemp": "string",
       "cpuClock": "string",
       "cpuUtil": "number",

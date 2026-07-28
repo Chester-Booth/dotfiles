@@ -669,6 +669,13 @@ class CliContractTests(unittest.TestCase):
         self.assertIn("contentLoader.item !== null && !runtimeSuppressed", delegate)
         self.assertNotIn("contentLoader.item !== null && contentLoader.item.visible", delegate)
 
+    def test_numeric_battery_hover_opens_the_system_popout(self) -> None:
+        delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
+        battery = delegate.split("id: batteryComponent", 1)[1].split("id: notificationsComponent", 1)[0]
+        self.assertIn("BatteryCapacityTile {", battery)
+        self.assertIn('hoverButtonEntered("system"', battery)
+        self.assertIn('hoverButtonExited("battery")', battery)
+
     def test_runtime_item_visibility_can_bypass_normal_state_suppression(self) -> None:
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
         self.assertIn('readonly property string itemVisibility: itemConfig.visibility || "normal"', delegate)

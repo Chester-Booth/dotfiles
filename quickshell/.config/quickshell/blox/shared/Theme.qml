@@ -28,6 +28,7 @@ Singleton {
     readonly property int iconSize: 18
     readonly property int buttonSize: 30
     readonly property int radius: 4
+    readonly property string iconFontFamily: "Symbols Nerd Font Mono"
     property string fontFamily: "MartianMono Nerd Font Propo"
     property string monoFontFamily: "MartianMono Nerd Font Mono"
     property string bodyFontFamily: "Google Sans"

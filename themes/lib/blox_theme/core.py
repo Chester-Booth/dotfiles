@@ -983,8 +983,8 @@ def render_widgets(theme: dict[str, Any]) -> str:
         "comfortable": {"opacity": 0.42, "margin": 24, "padding": 24, "radius": 10, "font_size": 15},
     }
     defaults = [
-        {"id": "todo", "name": "Todo", "type": "custom", "enabled": True, "content_command": "$SCRIPT_ROOT/overlays/todo-content.sh", "left_click_command": "$SCRIPT_ROOT/overlays/cycle-todo.sh", "right_click_command": "$SCRIPT_ROOT/overlays/open-todo-editor.sh", "interval_ms": 60000, "visibility": "empty-workspace", "anchor": "top-left", "offset_x": 20, "offset_y": 20, "width": 0, "height": 0, "shape": "auto", "options": {}},
-        {"id": "calendar", "name": "Calendar", "type": "custom", "enabled": True, "content_command": "$SCRIPT_ROOT/overlays/gcal-content.sh", "left_click_command": "$SCRIPT_ROOT/overlays/cycle-gcal.sh", "right_click_command": "$SCRIPT_ROOT/overlays/open-gcal.sh", "interval_ms": 60000, "visibility": "empty-workspace", "anchor": "bottom-right", "offset_x": 20, "offset_y": 20, "width": 0, "height": 0, "shape": "auto", "options": {}},
+        {"id": "todo", "name": "Todo", "type": "custom", "enabled": True, "content_command": "$SCRIPT_ROOT/widgets/todo-content.sh", "left_click_command": "$SCRIPT_ROOT/widgets/cycle-todo.sh", "right_click_command": "$SCRIPT_ROOT/widgets/open-todo-editor.sh", "interval_ms": 60000, "visibility": "empty-workspace", "anchor": "top-left", "offset_x": 20, "offset_y": 20, "width": 0, "height": 0, "shape": "auto", "options": {}},
+        {"id": "calendar", "name": "Calendar", "type": "custom", "enabled": True, "content_command": "$SCRIPT_ROOT/widgets/gcal-content.sh", "left_click_command": "$SCRIPT_ROOT/widgets/cycle-gcal.sh", "right_click_command": "$SCRIPT_ROOT/widgets/open-gcal.sh", "interval_ms": 60000, "visibility": "empty-workspace", "anchor": "bottom-right", "offset_x": 20, "offset_y": 20, "width": 0, "height": 0, "shape": "auto", "options": {}},
     ]
     return canonical_json({"schema_version": 1, "profile": profile, **profiles[profile], "items": widgets.get("items", defaults)})
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -u
 
-STATE_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell/overlays/todo-current"
+STATE_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell/widgets/todo-current"
 DEFAULT_FILE="$HOME/Documents/todo/1-todo.md"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_X=60

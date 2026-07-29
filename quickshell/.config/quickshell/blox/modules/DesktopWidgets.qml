@@ -92,10 +92,12 @@ Scope {
         return workspaceState.json.empty === true;
     }
 
+    // Keep empty-workspace visibility in sync with Hyprland events and a
+    // periodic fallback refresh.
     ScriptPoller {
         id: workspaceState
 
-        command: [root.scriptRoot + "/overlays/workspace-empty.sh"]
+        command: [root.scriptRoot + "/widgets/workspace-empty.sh"]
         interval: 300000
     }
 

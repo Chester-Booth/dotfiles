@@ -1012,7 +1012,7 @@ FloatingWindow {
 
         const columns = Math.max(10, Math.floor((widget.width || 320) / 8));
         const rows = Math.max(4, Math.floor((widget.height || 160) / 18));
-        return [scriptRoot + "/overlays/terminal-frame.py", widget.type, "--command", command, "--columns", String(columns), "--rows", String(rows)];
+        return [scriptRoot + "/widgets/terminal-frame.py", widget.type, "--command", command, "--columns", String(columns), "--rows", String(rows)];
     }
 
     function setWidgetItems(items) {

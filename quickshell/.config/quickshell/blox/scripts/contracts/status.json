@@ -164,7 +164,7 @@
     }
   },
   "workspaceEmpty": {
-    "command": ["overlays/workspace-empty.sh"],
+    "command": ["widgets/workspace-empty.sh"],
     "required": {
       "workspace": ["number", "null"],
       "empty": "boolean",

@@ -28,7 +28,7 @@ run_low_power_mode() {
         failed_actions+=(brightness)
     fi
 
-    if ! "$script_root/gpu/modes/igpu60.sh" --quiet; then
+    if ! "$script_root/gpu/set-mode.sh" eco --quiet; then
         failed_actions+=(gpu)
     fi
 

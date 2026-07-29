@@ -1,20 +1,22 @@
 #!/usr/bin/env bash
 set -u
 
-STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell/overlays"
-STATE_FILE="$STATE_DIR/todo-current"
-LOCK_FILE="${XDG_RUNTIME_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}}/quickshell/overlay-todo.lock"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell/widgets"
+STATE_FILE="$STATE_DIR/gcal-current"
+LOCK_FILE="${XDG_RUNTIME_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}}/quickshell/widget-gcal.lock"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 TODO_DIR="$HOME/Documents/todo"
 
-mkdir -p "$TODO_DIR" "$STATE_DIR" "$(dirname "$LOCK_FILE")"
+files=(
+	"$TODO_DIR/2-gcal.md"
+	"$TODO_DIR/80-today.md"
+	"$TODO_DIR/81-week.md"
+	"$TODO_DIR/99-gcal_week.md"
+)
+
+mkdir -p "$STATE_DIR" "$(dirname "$LOCK_FILE")"
 exec 9>"$LOCK_FILE"
 flock -w 2 9 || exit 75
-mapfile -t files < <(find "$TODO_DIR" -maxdepth 1 -type f -name "*.md" | grep -Ev '/(2-gcal|80-today|81-week|99-gcal_week)\.md$' | sort)
-
-if [ "${#files[@]}" -eq 0 ]; then
-	printf '%s\n' "$TODO_DIR/1-todo.md"
-	exit 0
-fi
 
 current="${files[0]}"
 if [ -f "$STATE_FILE" ]; then
@@ -33,3 +35,6 @@ next_index=$(((current_index + 1) % ${#files[@]}))
 state_tmp="${STATE_FILE}.$$"
 printf '%s\n' "${files[$next_index]}" >"$state_tmp"
 mv -f "$state_tmp" "$STATE_FILE"
+flock -u 9
+
+"$SCRIPT_DIR/../todo/generated-refresh.sh" >/dev/null 2>&1 || true

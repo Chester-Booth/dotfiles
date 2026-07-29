@@ -37,7 +37,7 @@ Layout:
 - `popouts/` - click-open panel surfaces.
 - `scripts/status/` - JSON status producers for the bar and popouts.
 - `scripts/{calendar,display,gpu,network,power,theme,todo,update,workspaces}/` - action and domain backends.
-- `scripts/overlays/` - todo and calendar desktop-widget helpers. The directory name remains part of saved widget command paths.
+- `scripts/widgets/` - desktop-widget rendering, state and action helpers.
 - `scripts/contracts/status.json` - expected JSON contracts for status-producing scripts.
 
 Validate script output contracts with:

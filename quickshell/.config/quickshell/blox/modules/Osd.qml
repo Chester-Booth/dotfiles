@@ -81,15 +81,15 @@ Scope {
         noticeMode = false;
         segmented = true;
         segments = 4;
-        if (id === "gaming" || id === "gpu144") {
+        if (id === "gaming") {
             activeSegments = 4;
             icon = "󰪫";
             valueText = "GPU 144";
-        } else if (id === "performance" || id === "gpu60") {
+        } else if (id === "performance") {
             activeSegments = 3;
             icon = "󰢮";
             valueText = "GPU 60";
-        } else if (id === "high-refresh" || id === "igpu144") {
+        } else if (id === "high-refresh") {
             activeSegments = 2;
             icon = "";
             valueText = "iGPU 144";

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -u
 
-STATE_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell/overlays/gcal-current"
+STATE_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell/widgets/gcal-current"
 TODO_DIR="$HOME/Documents/todo"
 
 current="$TODO_DIR/2-gcal.md"

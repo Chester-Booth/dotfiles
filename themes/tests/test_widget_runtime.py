@@ -65,12 +65,12 @@ class WidgetRuntimeSourceTests(unittest.TestCase):
         self.assertIn("width: root.selectedItem ? 300", source)
 
     def test_widget_edit_mode_returns_to_its_origin_workspace(self) -> None:
-        overlays = (ROOT / "quickshell/.config/quickshell/blox/modules/DesktopWidgets.qml").read_text(encoding="utf-8")
+        widgets = (ROOT / "quickshell/.config/quickshell/blox/modules/DesktopWidgets.qml").read_text(encoding="utf-8")
         theme = (ROOT / "quickshell/.config/quickshell/blox/shared/Theme.qml").read_text(encoding="utf-8")
-        self.assertIn('property string editReturnWorkspace: ""', overlays)
-        self.assertIn("Hyprland.focusedWorkspace ? String(Hyprland.focusedWorkspace.id)", overlays)
-        self.assertIn('returnWorkspace || "previous"', overlays)
-        self.assertEqual(2, overlays.count("Theme.widgetEditModeFinished("))
+        self.assertIn('property string editReturnWorkspace: ""', widgets)
+        self.assertIn("Hyprland.focusedWorkspace ? String(Hyprland.focusedWorkspace.id)", widgets)
+        self.assertIn('returnWorkspace || "previous"', widgets)
+        self.assertEqual(2, widgets.count("Theme.widgetEditModeFinished("))
         self.assertIn("signal widgetEditModeFinished(string widgetsJson, string returnWorkspace)", theme)
 
     def test_custom_actions_launch_detached_and_refresh_afterwards(self) -> None:

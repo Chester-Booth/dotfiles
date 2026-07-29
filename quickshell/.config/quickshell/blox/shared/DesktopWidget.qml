@@ -52,7 +52,7 @@ Rectangle {
         const logicalHeight = root.overrideHeight > 0 ? root.overrideHeight / root.widgetScale : root.configuredHeight;
         const columns = logicalWidth > 0 ? Math.max(10, Math.floor(logicalWidth / Math.max(6, Theme.widgetFontSize * 0.6))) : 60;
         const rows = logicalHeight > 0 ? Math.max(4, Math.floor(logicalHeight / Math.max(10, Theme.widgetFontSize * 1.25))) : 20;
-        const command = [root.scriptRoot + "/overlays/terminal-frame.py", root.widget.type, "--command", root.expandedCommand(root.widget.content_command), "--columns", String(columns), "--rows", String(rows)];
+        const command = [root.scriptRoot + "/widgets/terminal-frame.py", root.widget.type, "--command", root.expandedCommand(root.widget.content_command), "--columns", String(columns), "--rows", String(rows)];
         if (root.streamedTerminalPreset)
             command.splice(2, 0, "--stream", "--frame-ms", String(root.terminalFrameMilliseconds));
         else

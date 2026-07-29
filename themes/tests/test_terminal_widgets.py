@@ -9,7 +9,7 @@ from unittest import mock
 
 
 REPOSITORY = Path(__file__).resolve().parents[2]
-HELPER = REPOSITORY / "quickshell/.config/quickshell/blox/scripts/overlays/terminal-frame.py"
+HELPER = REPOSITORY / "quickshell/.config/quickshell/blox/scripts/widgets/terminal-frame.py"
 SPEC = importlib.util.spec_from_file_location("terminal_frame", HELPER)
 assert SPEC and SPEC.loader
 terminal_frame = importlib.util.module_from_spec(SPEC)

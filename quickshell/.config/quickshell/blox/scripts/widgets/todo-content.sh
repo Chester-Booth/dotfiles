@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -u
 
-STATE_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell/overlays/todo-current"
+STATE_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell/widgets/todo-current"
 TODO_DIR="$HOME/Documents/todo"
 
 current="$TODO_DIR/1-todo.md"

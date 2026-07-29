@@ -1,4 +1,5 @@
 import "."
+import "../services"
 import QtQuick
 import Quickshell.Services.SystemTray
 
@@ -6,7 +7,10 @@ Item {
     id: root
 
     required property string itemId
-    required property var controller
+    required property var surfaceController
+    required property BarContentController contentController
+    required property WorkspaceController workspaceController
+    required property NotificationController notificationController
     property bool horizontal: false
     property real panelExtent: 0
     property bool trayOpensForward: false
@@ -16,7 +20,7 @@ Item {
     })
     readonly property string batteryDisplay: itemConfig.display || "toggle"
     readonly property string itemVisibility: itemConfig.visibility || "normal"
-    readonly property bool runtimeSuppressed: itemVisibility === "always" ? false : itemId === "touchpad" ? controller.touchpad.json.enabled !== false : itemId === "fan" ? controller.systemInfo.json.profile === undefined || controller.systemInfo.json.profile === "Quiet" : itemId === "gpu" ? controller.systemInfo.json.gpuMode === undefined || controller.systemInfo.json.gpuMode === "eco" : false
+    readonly property bool runtimeSuppressed: itemVisibility === "always" ? false : itemId === "touchpad" ? contentController.touchpad.json.enabled !== false : itemId === "fan" ? contentController.systemInfo.json.profile === undefined || contentController.systemInfo.json.profile === "Quiet" : itemId === "gpu" ? contentController.systemInfo.json.gpuMode === undefined || contentController.systemInfo.json.gpuMode === "eco" : false
     readonly property bool contentVisible: contentLoader.item !== null && !runtimeSuppressed
 
     function mappedCentre(item, centre) {
@@ -30,10 +34,10 @@ Item {
     }
 
     function publishNotificationPosition() {
-        if (itemId !== "notifications" || horizontal !== controller.horizontalBar || !contentLoader.item)
+        if (itemId !== "notifications" || horizontal !== surfaceController.horizontalBar || !contentLoader.item)
             return ;
 
-        controller.notificationPanelY = mappedCentre(contentLoader.item, contentLoader.item.height / 2);
+        notificationController.panelY = mappedCentre(contentLoader.item, contentLoader.item.height / 2);
     }
 
     onXChanged: publishNotificationPosition()
@@ -56,7 +60,7 @@ Item {
             root.publishNotificationPosition();
         }
 
-        target: root.controller
+        target: root.surfaceController
     }
 
     Loader {
@@ -95,9 +99,9 @@ Item {
         RailButton {
             icon: "󰤆"
             accent: Theme.foreground
-            active: root.controller.openPanel === "power"
+            active: root.surfaceController.openPanel === "power"
             onClicked: (centre) => {
-                return root.controller.openHoverPanel("power", root.mappedCentre(this, centre));
+                return root.surfaceController.openHoverPanel("power", root.mappedCentre(this, centre));
             }
         }
 
@@ -110,17 +114,17 @@ Item {
             icon: "󰺦"
             accent: Theme.foreground
             panel: "todo"
-            active: root.controller.openPanel === "todo"
+            active: root.surfaceController.openPanel === "todo"
             onPanelClicked: (panel, centre) => {
-                return root.controller.openHoverPanel(panel, root.mappedCentre(this, centre));
+                return root.surfaceController.openHoverPanel(panel, root.mappedCentre(this, centre));
             }
             onPanelHovered: (panel, centre, source) => {
-                return root.controller.hoverButtonEntered(panel, root.mappedCentre(this, centre), source);
+                return root.surfaceController.hoverButtonEntered(panel, root.mappedCentre(this, centre), source);
             }
             onPanelExited: (source) => {
-                return root.controller.hoverButtonExited(source);
+                return root.surfaceController.hoverButtonExited(source);
             }
-            onRightClicked: root.controller.run(root.controller.scriptRoot + "/todo/open.sh")
+            onRightClicked: root.contentController.run(root.contentController.scriptRoot + "/todo/open.sh")
         }
 
     }
@@ -140,26 +144,26 @@ Item {
                 height: root.horizontal ? Theme.buttonSize : implicitHeight
 
                 Repeater {
-                    model: root.controller.workspaceItems()
+                    model: root.workspaceController.items
 
                     WorkspaceRailButton {
                         item: modelData
-                        blinking: (modelData.urgent || root.controller.workspaceAlert(modelData.id)) && root.controller.blinkOn
+                        blinking: (modelData.urgent || root.workspaceController.hasAlert(modelData.id)) && root.workspaceController.blinkOn
                         onActivate: {
-                            root.controller.closeBarOverlays();
-                            root.controller.focusWorkspace(modelData.id);
-                            root.controller.workspaces.refresh();
+                            root.surfaceController.closeBarOverlays();
+                            root.workspaceController.focusWorkspace(modelData.id);
+                            root.workspaceController.refresh();
                         }
                     }
 
                 }
 
                 SpecialWorkspaceRailButton {
-                    workspace: root.controller.workspaces.json.special
+                    workspace: root.workspaceController.special
                     onActivate: {
-                        root.controller.closeBarOverlays();
-                        root.controller.toggleSpecialWorkspace("magic");
-                        root.controller.workspaces.refresh();
+                        root.surfaceController.closeBarOverlays();
+                        root.workspaceController.toggleSpecialWorkspace("magic");
+                        root.workspaceController.refresh();
                     }
                 }
 
@@ -180,13 +184,13 @@ Item {
                 id: verticalClock
 
                 visible: !root.horizontal
-                text: root.controller.railClockText(root.horizontal)
-                dateMode: root.controller.clockDateMode
+                text: root.contentController.railClockText(root.horizontal)
+                dateMode: root.contentController.clockDateMode
                 onHovered: (centre) => {
-                    return root.controller.hoverButtonEntered("calendar", root.mappedCentre(this, centre), "calendar");
+                    return root.surfaceController.hoverButtonEntered("calendar", root.mappedCentre(this, centre), "calendar");
                 }
-                onExited: root.controller.hoverButtonExited("calendar")
-                onClicked: root.controller.clockDateMode = !root.controller.clockDateMode
+                onExited: root.surfaceController.hoverButtonExited("calendar")
+                onClicked: root.contentController.clockDateMode = !root.contentController.clockDateMode
             }
 
             Text {
@@ -194,8 +198,8 @@ Item {
 
                 anchors.centerIn: parent
                 visible: root.horizontal
-                text: String(root.controller.railClockText(root.horizontal))
-                color: root.controller.clockDateMode ? Theme.foreground : Theme.blue
+                text: String(root.contentController.railClockText(root.horizontal))
+                color: root.contentController.clockDateMode ? Theme.foreground : Theme.blue
                 font.family: Theme.fontFamily
                 font.pixelSize: 14
                 horizontalAlignment: Text.AlignHCenter
@@ -209,10 +213,10 @@ Item {
                 cursorShape: Qt.PointingHandCursor
                 onEntered: {
                     const point = mapToItem(null, width / 2, height / 2);
-                    root.controller.hoverButtonEntered("calendar", root.horizontal ? point.x : point.y, "calendar");
+                    root.surfaceController.hoverButtonEntered("calendar", root.horizontal ? point.x : point.y, "calendar");
                 }
-                onExited: root.controller.hoverButtonExited("calendar")
-                onClicked: root.controller.clockDateMode = !root.controller.clockDateMode
+                onExited: root.surfaceController.hoverButtonExited("calendar")
+                onClicked: root.contentController.clockDateMode = !root.contentController.clockDateMode
             }
 
         }
@@ -224,7 +228,7 @@ Item {
 
         Item {
             readonly property bool showIcon: root.batteryDisplay !== "numeric"
-            readonly property bool showCapacity: root.batteryDisplay === "numeric" || root.batteryDisplay === "toggle" && root.controller.batteryExpanded
+            readonly property bool showCapacity: root.batteryDisplay === "numeric" || root.batteryDisplay === "toggle" && root.contentController.batteryExpanded
 
             implicitWidth: root.horizontal && showIcon && showCapacity ? Theme.buttonSize * 2 : Theme.buttonSize
             implicitHeight: !root.horizontal && showIcon && showCapacity ? Theme.buttonSize * 2 : Theme.buttonSize
@@ -237,36 +241,36 @@ Item {
                 x: 0
                 y: 0
                 visible: parent.showIcon
-                status: root.controller.battery.json
+                status: root.contentController.battery.json
                 popupY: root.panelExtent - 24
                 onToggleExpanded: {
                     if (root.batteryDisplay !== "toggle")
                         return ;
 
-                    const expanded = !root.controller.batteryExpanded;
-                    root.controller.closeBarOverlays();
-                    root.controller.batteryExpanded = expanded;
+                    const expanded = !root.contentController.batteryExpanded;
+                    root.surfaceController.closeBarOverlays();
+                    root.contentController.batteryExpanded = expanded;
                 }
                 onSystemPanelRequested: (centre) => {
-                    return root.controller.openHoverPanel("system", root.mappedCentre(this, centre));
+                    return root.surfaceController.openHoverPanel("system", root.mappedCentre(this, centre));
                 }
                 onSystemPanelHovered: (centre) => {
-                    return root.controller.hoverButtonEntered("system", root.mappedCentre(this, centre), "battery");
+                    return root.surfaceController.hoverButtonEntered("system", root.mappedCentre(this, centre), "battery");
                 }
-                onSystemPanelExited: root.controller.hoverButtonExited("battery")
+                onSystemPanelExited: root.surfaceController.hoverButtonExited("battery")
             }
 
             BatteryCapacityTile {
                 x: root.horizontal && parent.showIcon ? batteryButton.width : 0
                 y: !root.horizontal && parent.showIcon ? batteryButton.height : 0
-                status: root.controller.battery.json
+                status: root.contentController.battery.json
                 expanded: parent.showCapacity
                 collapsible: root.batteryDisplay === "toggle"
-                onCollapse: root.controller.batteryExpanded = false
+                onCollapse: root.contentController.batteryExpanded = false
                 onPanelHovered: (centre) => {
-                    return root.controller.hoverButtonEntered("system", root.mappedCentre(this, centre), "battery");
+                    return root.surfaceController.hoverButtonEntered("system", root.mappedCentre(this, centre), "battery");
                 }
-                onPanelExited: root.controller.hoverButtonExited("battery")
+                onPanelExited: root.surfaceController.hoverButtonExited("battery")
             }
 
         }
@@ -277,23 +281,23 @@ Item {
         id: notificationsComponent
 
         PanelRailButton {
-            icon: root.controller.notificationStatus().icon || "󰂜"
-            accent: root.controller.notificationDnd ? Theme.yellow : root.controller.notificationStatus().count > 0 ? Theme.blue : Theme.foreground
+            icon: root.notificationController.status().icon || "󰂜"
+            accent: root.notificationController.dnd ? Theme.yellow : root.notificationController.status().count > 0 ? Theme.blue : Theme.foreground
             panel: "notifications"
-            active: root.controller.openPanel === panel
+            active: root.surfaceController.openPanel === panel
             onPanelClicked: (panel, centre) => {
                 root.publishNotificationPosition();
-                root.controller.closeBarOverlays();
-                root.controller.openHoverPanel(panel, root.mappedCentre(this, centre));
+                root.surfaceController.closeBarOverlays();
+                root.surfaceController.openHoverPanel(panel, root.mappedCentre(this, centre));
             }
             onPanelHovered: (panel, centre, source) => {
                 root.publishNotificationPosition();
-                return root.controller.hoverButtonEntered(panel, root.mappedCentre(this, centre), source);
+                return root.surfaceController.hoverButtonEntered(panel, root.mappedCentre(this, centre), source);
             }
             onPanelExited: (source) => {
-                return root.controller.hoverButtonExited(source);
+                return root.surfaceController.hoverButtonExited(source);
             }
-            onRightClicked: root.controller.clearNotifications()
+            onRightClicked: root.notificationController.clear()
         }
 
     }
@@ -302,18 +306,18 @@ Item {
         id: wifiComponent
 
         PanelRailButton {
-            icon: root.controller.network.json.icon || "󰤩"
-            accent: root.controller.network.json.class === "wifi" ? Theme.green : Theme.yellow
+            icon: root.contentController.network.json.icon || "󰤩"
+            accent: root.contentController.network.json.class === "wifi" ? Theme.green : Theme.yellow
             panel: "network"
-            active: root.controller.openPanel === panel
+            active: root.surfaceController.openPanel === panel
             onPanelClicked: (p, c) => {
-                return root.controller.openHoverPanel(p, root.mappedCentre(this, c));
+                return root.surfaceController.openHoverPanel(p, root.mappedCentre(this, c));
             }
             onPanelHovered: (p, c, s) => {
-                return root.controller.hoverButtonEntered(p, root.mappedCentre(this, c), s);
+                return root.surfaceController.hoverButtonEntered(p, root.mappedCentre(this, c), s);
             }
             onPanelExited: (s) => {
-                return root.controller.hoverButtonExited(s);
+                return root.surfaceController.hoverButtonExited(s);
             }
         }
 
@@ -323,20 +327,20 @@ Item {
         id: soundComponent
 
         PanelRailButton {
-            icon: root.controller.audio.json.icon || "󰝾"
-            accent: root.controller.audio.json.muted ? Theme.yellow : Theme.foreground
+            icon: root.contentController.audio.json.icon || "󰝾"
+            accent: root.contentController.audio.json.muted ? Theme.yellow : Theme.foreground
             panel: "audio"
-            active: root.controller.openPanel === panel
+            active: root.surfaceController.openPanel === panel
             onPanelClicked: (p, c) => {
-                return root.controller.openHoverPanel(p, root.mappedCentre(this, c));
+                return root.surfaceController.openHoverPanel(p, root.mappedCentre(this, c));
             }
             onPanelHovered: (p, c, s) => {
-                return root.controller.hoverButtonEntered(p, root.mappedCentre(this, c), s);
+                return root.surfaceController.hoverButtonEntered(p, root.mappedCentre(this, c), s);
             }
             onPanelExited: (s) => {
-                return root.controller.hoverButtonExited(s);
+                return root.surfaceController.hoverButtonExited(s);
             }
-            onRightClicked: root.controller.run("pavucontrol -t 3")
+            onRightClicked: root.contentController.run("pavucontrol -t 3")
         }
 
     }
@@ -345,18 +349,18 @@ Item {
         id: privacyComponent
 
         PanelRailButton {
-            icon: root.controller.privacy.json.icon || "󰝹"
-            accent: root.controller.privacy.json.class === "active" ? Theme.yellow : Theme.foreground
+            icon: root.contentController.privacy.json.icon || "󰝹"
+            accent: root.contentController.privacy.json.class === "active" ? Theme.yellow : Theme.foreground
             panel: "privacy"
-            active: root.controller.openPanel === panel
+            active: root.surfaceController.openPanel === panel
             onPanelClicked: (p, c) => {
-                return root.controller.openHoverPanel(p, root.mappedCentre(this, c));
+                return root.surfaceController.openHoverPanel(p, root.mappedCentre(this, c));
             }
             onPanelHovered: (p, c, s) => {
-                return root.controller.hoverButtonEntered(p, root.mappedCentre(this, c), s);
+                return root.surfaceController.hoverButtonEntered(p, root.mappedCentre(this, c), s);
             }
             onPanelExited: (s) => {
-                return root.controller.hoverButtonExited(s);
+                return root.surfaceController.hoverButtonExited(s);
             }
         }
 
@@ -366,20 +370,20 @@ Item {
         id: awakeComponent
 
         PanelRailButton {
-            icon: root.controller.caffeine.json.icon || "󰅶"
-            accent: root.controller.caffeine.json.active ? Theme.yellow : Theme.foreground
+            icon: root.contentController.caffeine.json.icon || "󰅶"
+            accent: root.contentController.caffeine.json.active ? Theme.yellow : Theme.foreground
             panel: "caffeine"
-            active: root.controller.openPanel === panel
+            active: root.surfaceController.openPanel === panel
             onPanelClicked: (p, c) => {
-                return root.controller.openHoverPanel(p, root.mappedCentre(this, c));
+                return root.surfaceController.openHoverPanel(p, root.mappedCentre(this, c));
             }
             onPanelHovered: (p, c, s) => {
-                return root.controller.hoverButtonEntered(p, root.mappedCentre(this, c), s);
+                return root.surfaceController.hoverButtonEntered(p, root.mappedCentre(this, c), s);
             }
             onPanelExited: (s) => {
-                return root.controller.hoverButtonExited(s);
+                return root.surfaceController.hoverButtonExited(s);
             }
-            onRightClicked: root.controller.run(root.controller.scriptRoot + "/status/caffeine.sh off")
+            onRightClicked: root.contentController.run(root.contentController.scriptRoot + "/status/caffeine.sh off")
         }
 
     }
@@ -388,20 +392,20 @@ Item {
         id: displayComponent
 
         PanelRailButton {
-            icon: root.controller.brightness.json.icon || "󰃠"
+            icon: root.contentController.brightness.json.icon || "󰃠"
             accent: Theme.yellow
             panel: "brightness"
-            active: root.controller.openPanel === panel
+            active: root.surfaceController.openPanel === panel
             onPanelClicked: (p, c) => {
-                return root.controller.openHoverPanel(p, root.mappedCentre(this, c));
+                return root.surfaceController.openHoverPanel(p, root.mappedCentre(this, c));
             }
             onPanelHovered: (p, c, s) => {
-                return root.controller.hoverButtonEntered(p, root.mappedCentre(this, c), s);
+                return root.surfaceController.hoverButtonEntered(p, root.mappedCentre(this, c), s);
             }
             onPanelExited: (s) => {
-                return root.controller.hoverButtonExited(s);
+                return root.surfaceController.hoverButtonExited(s);
             }
-            onRightClicked: root.controller.run(root.controller.scriptRoot + "/display/hyprsunset-toggle.sh")
+            onRightClicked: root.contentController.run(root.contentController.scriptRoot + "/display/hyprsunset-toggle.sh")
         }
 
     }
@@ -410,20 +414,20 @@ Item {
         id: bluetoothComponent
 
         PanelRailButton {
-            icon: root.controller.bluetooth.json.icon || "󰂯"
-            accent: root.controller.bluetooth.json.class === "connected" ? Theme.blue : Theme.foreground
+            icon: root.contentController.bluetooth.json.icon || "󰂯"
+            accent: root.contentController.bluetooth.json.class === "connected" ? Theme.blue : Theme.foreground
             panel: "bluetooth"
-            active: root.controller.openPanel === panel
+            active: root.surfaceController.openPanel === panel
             onPanelClicked: (p, c) => {
-                return root.controller.openHoverPanel(p, root.mappedCentre(this, c));
+                return root.surfaceController.openHoverPanel(p, root.mappedCentre(this, c));
             }
             onPanelHovered: (p, c, s) => {
-                return root.controller.hoverButtonEntered(p, root.mappedCentre(this, c), s);
+                return root.surfaceController.hoverButtonEntered(p, root.mappedCentre(this, c), s);
             }
             onPanelExited: (s) => {
-                return root.controller.hoverButtonExited(s);
+                return root.surfaceController.hoverButtonExited(s);
             }
-            onRightClicked: root.controller.run("blueman-manager")
+            onRightClicked: root.contentController.run("blueman-manager")
         }
 
     }
@@ -432,18 +436,18 @@ Item {
         id: updatesComponent
 
         PanelRailButton {
-            icon: root.controller.updateIcon()
-            accent: root.controller.updates.json.class === "zero" ? Theme.green : Theme.yellow
+            icon: root.contentController.updateIcon()
+            accent: root.contentController.updates.json.class === "zero" ? Theme.green : Theme.yellow
             panel: "updates"
-            active: root.controller.openPanel === panel
+            active: root.surfaceController.openPanel === panel
             onPanelClicked: (p, c) => {
-                return root.controller.openHoverPanel(p, root.mappedCentre(this, c));
+                return root.surfaceController.openHoverPanel(p, root.mappedCentre(this, c));
             }
             onPanelHovered: (p, c, s) => {
-                return root.controller.hoverButtonEntered(p, root.mappedCentre(this, c), s);
+                return root.surfaceController.hoverButtonEntered(p, root.mappedCentre(this, c), s);
             }
             onPanelExited: (s) => {
-                return root.controller.hoverButtonExited(s);
+                return root.surfaceController.hoverButtonExited(s);
             }
         }
 
@@ -453,19 +457,19 @@ Item {
         id: fanComponent
 
         PanelRailButton {
-            icon: root.controller.systemInfo.json.profile === "Performance" ? "󱑬" : root.controller.systemInfo.json.profile === "Quiet" ? "󰠝" : "󱜝"
-            accent: root.controller.systemInfo.json.profile === "Performance" ? Theme.red : Theme.foreground
+            icon: root.contentController.systemInfo.json.profile === "Performance" ? "󱑬" : root.contentController.systemInfo.json.profile === "Quiet" ? "󰠝" : "󱜝"
+            accent: root.contentController.systemInfo.json.profile === "Performance" ? Theme.red : Theme.foreground
             panel: "system"
             source: "fan"
-            active: root.controller.openPanel === panel
+            active: root.surfaceController.openPanel === panel
             onPanelClicked: (p, c) => {
-                return root.controller.openHoverPanel(p, root.mappedCentre(this, c));
+                return root.surfaceController.openHoverPanel(p, root.mappedCentre(this, c));
             }
             onPanelHovered: (p, c, s) => {
-                return root.controller.hoverButtonEntered(p, root.mappedCentre(this, c), s);
+                return root.surfaceController.hoverButtonEntered(p, root.mappedCentre(this, c), s);
             }
             onPanelExited: (s) => {
-                return root.controller.hoverButtonExited(s);
+                return root.surfaceController.hoverButtonExited(s);
             }
         }
 
@@ -475,19 +479,19 @@ Item {
         id: gpuComponent
 
         PanelRailButton {
-            icon: root.controller.systemInfo.json.gpuMode === "eco" ? "󰌪" : root.controller.systemInfo.json.gpuMode === "gaming" ? "󰪫" : root.controller.systemInfo.json.gpuMode === "high-refresh" ? "" : "󰢮"
-            accent: root.controller.systemInfo.json.gpuMode === "eco" ? Theme.green : Theme.yellow
+            icon: root.contentController.systemInfo.json.gpuMode === "eco" ? "󰌪" : root.contentController.systemInfo.json.gpuMode === "gaming" ? "󰪫" : root.contentController.systemInfo.json.gpuMode === "high-refresh" ? "" : "󰢮"
+            accent: root.contentController.systemInfo.json.gpuMode === "eco" ? Theme.green : Theme.yellow
             panel: "system"
             source: "gpu"
-            active: root.controller.openPanel === panel
+            active: root.surfaceController.openPanel === panel
             onPanelClicked: (p, c) => {
-                return root.controller.openHoverPanel(p, root.mappedCentre(this, c));
+                return root.surfaceController.openHoverPanel(p, root.mappedCentre(this, c));
             }
             onPanelHovered: (p, c, s) => {
-                return root.controller.hoverButtonEntered(p, root.mappedCentre(this, c), s);
+                return root.surfaceController.hoverButtonEntered(p, root.mappedCentre(this, c), s);
             }
             onPanelExited: (s) => {
-                return root.controller.hoverButtonExited(s);
+                return root.surfaceController.hoverButtonExited(s);
             }
         }
 
@@ -497,14 +501,13 @@ Item {
         id: touchpadComponent
 
         RailButton {
-            icon: root.controller.touchpad.json.icon || "󰟸"
-            accent: root.controller.touchpad.json.enabled === false ? Theme.yellow : Theme.foreground
-            onHovered: root.controller.trayEntered()
-            onExited: root.controller.trayExited()
+            icon: root.contentController.touchpad.json.icon || "󰟸"
+            accent: root.contentController.touchpad.json.enabled === false ? Theme.yellow : Theme.foreground
+            onHovered: root.surfaceController.trayEntered()
+            onExited: root.surfaceController.trayExited()
             onClicked: {
-                root.controller.run(root.controller.scriptRoot + "/osd/control.sh touchpad-toggle");
+                root.contentController.run(root.contentController.scriptRoot + "/osd/control.sh touchpad-toggle");
             }
-
         }
 
     }
@@ -520,13 +523,13 @@ Item {
             TrayToggleButton {
                 horizontal: root.horizontal
                 opensForward: root.trayOpensForward
-                active: root.controller.trayOpen
-                onToggle: root.controller.toggleTray()
+                active: root.surfaceController.trayOpen
+                onToggle: root.surfaceController.toggleTray()
                 onOpenRequested: {
-                    root.controller.openTray();
-                    root.controller.trayEntered();
+                    root.surfaceController.openTray();
+                    root.surfaceController.trayEntered();
                 }
-                onExited: root.controller.trayExited()
+                onExited: root.surfaceController.trayExited()
             }
 
         }
@@ -547,9 +550,9 @@ Item {
             HoverHandler {
                 onHoveredChanged: {
                     if (hovered)
-                        root.controller.trayEntered();
+                        root.surfaceController.trayEntered();
                     else
-                        root.controller.trayExited();
+                        root.surfaceController.trayExited();
                 }
             }
 
@@ -564,9 +567,9 @@ Item {
 
                     TrayRailItem {
                         item: modelData
-                        onHovered: root.controller.trayItemEntered()
+                        onHovered: root.surfaceController.trayItemEntered()
                         onOpenMenu: (item, centre) => {
-                            return root.controller.openTrayMenu(item, root.mappedCentre(this, centre));
+                            return root.surfaceController.openTrayMenu(item, root.mappedCentre(this, centre));
                         }
                     }
 

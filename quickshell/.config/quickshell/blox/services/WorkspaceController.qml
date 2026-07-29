@@ -8,6 +8,8 @@ Scope {
 
     property string scriptRoot: ""
     property var items: []
+    property var special: ({
+    })
     property string alertWorkspaceIds: ","
     property string alertWindowAddress: ""
     property string pendingLookupAddress: ""
@@ -75,6 +77,10 @@ Scope {
         if (name === "magic")
             dispatch("hl.dsp.workspace.toggle_special(\"magic\")");
 
+    }
+
+    function refresh() {
+        statusRefreshRequested();
     }
 
     function lookupWindowWorkspace(address) {

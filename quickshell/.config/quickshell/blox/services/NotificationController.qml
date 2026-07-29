@@ -1,3 +1,4 @@
+import "../shared"
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -16,10 +17,12 @@ Scope {
     property bool initialSyncComplete: false
     property double toggleAllowedAt: 0
     property int nextToastId: 0
+    property var actionRunner: null
+    property var persistentState: null
+    property string focusScript: ""
 
     signal openRequested(real centreY)
     signal closeRequested()
-    signal dndToggleRequested()
 
     function log(event, detail) {
         console.log("[blox.notifications] " + new Date().toISOString() + " " + event + " " + (detail || ""));
@@ -41,6 +44,35 @@ Scope {
         const current = items ? items.slice() : [];
         for (let i = 0; i < current.length; i++) current[i].dismiss()
         toasts = [];
+    }
+
+    function toggleDnd() {
+        if (persistentState)
+            persistentState.notificationDnd = !persistentState.notificationDnd;
+        else
+            dnd = !dnd;
+    }
+
+    function activate(notification) {
+        if (!notification)
+            return ;
+
+        const actions = notification.actions || [];
+        for (let i = 0; i < actions.length; i++) {
+            if (actions[i].identifier === "default") {
+                actions[i].invoke();
+                return ;
+            }
+        }
+        focusSource(notification);
+    }
+
+    function focusSource(notification) {
+        if (!notification || !actionRunner || focusScript.length === 0)
+            return ;
+
+        log("activate", "app=" + (notification.appName || "") + " desktop=" + (notification.desktopEntry || "") + " summary=" + (notification.summary || ""));
+        actionRunner.runArgs(["env", "BLOX_NOTIFICATION_APP_NAME=" + (notification.appName || ""), "BLOX_NOTIFICATION_DESKTOP_ENTRY=" + (notification.desktopEntry || ""), "BLOX_NOTIFICATION_SUMMARY=" + (notification.summary || ""), focusScript]);
     }
 
     function open(centreY) {
@@ -112,6 +144,14 @@ Scope {
 
     }
 
+    Connections {
+        function onNotificationPositionPreviewRequested() {
+            Quickshell.execDetached(["notify-send", "--app-name", "Theme picker", "--expire-time", "2500", "Notification position", "Previewing " + Theme.notificationPosition]);
+        }
+
+        target: Theme
+    }
+
     Timer {
         interval: 1200
         repeat: false
@@ -164,7 +204,7 @@ Scope {
         }
 
         function dnd() : string {
-            root.dndToggleRequested();
+            root.toggleDnd();
             return root.dnd ? "enabled" : "disabled";
         }
 

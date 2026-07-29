@@ -591,18 +591,52 @@ class CliContractTests(unittest.TestCase):
         self.assertIn("root.trayHost.registerTrayToggle(this, root.horizontal)", region)
         self.assertIn("root.trayHost.unregisterTrayToggle(this, root.horizontal)", region)
         self.assertIn("function publishNotificationPosition()", delegate)
-        self.assertIn("horizontal !== controller.horizontalBar", delegate)
-        self.assertIn("controller.notificationPanelY = mappedCentre", delegate)
+        self.assertIn("horizontal !== surfaceController.horizontalBar", delegate)
+        self.assertIn("notificationController.panelY = mappedCentre", delegate)
         self.assertIn("onHorizontalChanged: publishNotificationPosition()", delegate)
         self.assertIn("function onHorizontalBarChanged()", delegate)
-        self.assertIn('icon: root.controller.network.json.icon || "󰤩"', delegate)
-        self.assertNotIn('icon: root.controller.network.json.icon || "󰔩"', delegate)
-        self.assertIn("text: root.controller.railClockText(root.horizontal)", delegate)
-        self.assertNotIn("text: root.controller.railClockText()", delegate)
+        self.assertIn('icon: root.contentController.network.json.icon || "󰤩"', delegate)
+        self.assertNotIn('icon: root.contentController.network.json.icon || "󰔩"', delegate)
+        self.assertIn("text: root.contentController.railClockText(root.horizontal)", delegate)
+        self.assertNotIn("text: root.contentController.railClockText()", delegate)
+
+    def test_bar_uses_explicit_domain_controllers(self) -> None:
+        bar = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/Bar.qml").read_text(encoding="utf-8")
+        delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
+        content = (REPOSITORY / "quickshell/.config/quickshell/blox/services/BarContentController.qml").read_text(encoding="utf-8")
+
+        for controller in (
+            "BarContentController {",
+            "WorkspaceController {",
+            "NotificationController {",
+        ):
+            with self.subTest(controller=controller):
+                self.assertIn(controller, bar)
+
+        for controller_property in (
+            "required property BarContentController contentController",
+            "required property WorkspaceController workspaceController",
+            "required property NotificationController notificationController",
+        ):
+            with self.subTest(controller_property=controller_property):
+                self.assertIn(controller_property, delegate)
+
+        self.assertIn("BarStatus {", content)
+        self.assertIn("BarActions {", content)
+        self.assertIn("BarContent {", content)
+        for stale_forwarder in (
+            "property alias battery:",
+            "function workspaceItems()",
+            "function notificationStatus()",
+            "function run(command)",
+            "function railClockText(horizontal)",
+        ):
+            with self.subTest(stale_forwarder=stale_forwarder):
+                self.assertNotIn(stale_forwarder, bar)
 
     def test_configured_battery_uses_live_status_without_cross_axis_jump(self) -> None:
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
-        self.assertEqual(2, delegate.count("status: root.controller.battery.json"))
+        self.assertEqual(2, delegate.count("status: root.contentController.battery.json"))
         self.assertIn("implicitWidth: !contentVisible ? 0 : root.horizontal", delegate)
         self.assertIn("implicitHeight: !contentVisible ? 0 : !root.horizontal", delegate)
         battery_start = delegate.index("id: batteryComponent")
@@ -633,10 +667,10 @@ class CliContractTests(unittest.TestCase):
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
         status = (REPOSITORY / "quickshell/.config/quickshell/blox/services/BarStatus.qml").read_text(encoding="utf-8")
         touchpad = delegate.split("id: touchpadComponent", 1)[1].split("id: trayToggleComponent", 1)[0]
-        self.assertIn("root.controller.touchpad.json.icon", touchpad)
+        self.assertIn("root.contentController.touchpad.json.icon", touchpad)
         self.assertIn('"/osd/control.sh touchpad-toggle"', touchpad)
-        self.assertIn("onHovered: root.controller.trayEntered()", touchpad)
-        self.assertIn("onExited: root.controller.trayExited()", touchpad)
+        self.assertIn("onHovered: root.surfaceController.trayEntered()", touchpad)
+        self.assertIn("onExited: root.surfaceController.trayExited()", touchpad)
         self.assertIn('"/quickshell-touchpad-enabled"', status)
         self.assertIn("watchChanges: true", status)
         self.assertIn("onFileChanged: touchpad.refresh()", status)
@@ -661,8 +695,8 @@ class CliContractTests(unittest.TestCase):
         self.assertIn("trayCount * Theme.buttonSize", application_tray)
         self.assertIn("anchors.fill: parent", application_tray)
         self.assertIn("HoverHandler {", application_tray)
-        self.assertIn("root.controller.trayEntered()", application_tray)
-        self.assertIn("root.controller.trayExited()", application_tray)
+        self.assertIn("root.surfaceController.trayEntered()", application_tray)
+        self.assertIn("root.surfaceController.trayExited()", application_tray)
         tray_item = application_tray.split("TrayRailItem {", 1)[1]
         self.assertNotIn("onExited:", tray_item)
 
@@ -694,9 +728,9 @@ class CliContractTests(unittest.TestCase):
             with self.subTest(item_id=item_id):
                 self.assertIn(f'"{item_id}": {item_id}Component', delegate)
         self.assertIn('profile === "Performance" ? "󱑬"', delegate)
-        self.assertIn('controller.systemInfo.json.profile === "Quiet"', delegate)
+        self.assertIn('contentController.systemInfo.json.profile === "Quiet"', delegate)
         self.assertIn('gpuMode === "gaming" ? "󰪫"', delegate)
-        self.assertIn('controller.systemInfo.json.gpuMode === "eco"', delegate)
+        self.assertIn('contentController.systemInfo.json.gpuMode === "eco"', delegate)
         self.assertIn("visible: contentVisible", delegate)
         self.assertIn("readonly property bool runtimeSuppressed", delegate)
         self.assertIn("contentLoader.item !== null && !runtimeSuppressed", delegate)
@@ -713,9 +747,9 @@ class CliContractTests(unittest.TestCase):
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
         self.assertIn('readonly property string itemVisibility: itemConfig.visibility || "normal"', delegate)
         self.assertIn('itemVisibility === "always" ? false', delegate)
-        self.assertIn('itemId === "touchpad" ? controller.touchpad.json.enabled !== false', delegate)
-        self.assertIn('profile === undefined || controller.systemInfo.json.profile === "Quiet"', delegate)
-        self.assertIn('gpuMode === undefined || controller.systemInfo.json.gpuMode === "eco"', delegate)
+        self.assertIn('itemId === "touchpad" ? contentController.touchpad.json.enabled !== false', delegate)
+        self.assertIn('profile === undefined || contentController.systemInfo.json.profile === "Quiet"', delegate)
+        self.assertIn('gpuMode === undefined || contentController.systemInfo.json.gpuMode === "eco"', delegate)
         fan = delegate.split("id: fanComponent", 1)[1].split("id: gpuComponent", 1)[0]
         gpu = delegate.split("id: gpuComponent", 1)[1].split("id: touchpadComponent", 1)[0]
         self.assertNotIn("visible:", fan)

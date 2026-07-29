@@ -1,11 +1,15 @@
 import "."
+import "../services"
 import QtQuick
 
 Item {
     id: root
 
     required property var regionItems
-    required property var controller
+    required property var surfaceController
+    required property BarContentController contentController
+    required property WorkspaceController workspaceController
+    required property NotificationController notificationController
     required property var trayHost
     required property bool horizontal
     required property real panelExtent
@@ -48,7 +52,10 @@ Item {
             required property int index
 
             itemId: modelData.id
-            controller: root.controller
+            surfaceController: root.surfaceController
+            contentController: root.contentController
+            workspaceController: root.workspaceController
+            notificationController: root.notificationController
             horizontal: root.horizontal
             trayOpensForward: root.region === "start" || root.region === "centre" && index === root.regionItems.length - 1
             panelExtent: root.panelExtent

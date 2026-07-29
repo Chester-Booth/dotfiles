@@ -23,16 +23,33 @@ class NotificationRuntimeTests(unittest.TestCase):
         bar = (
             REPOSITORY / "quickshell/.config/quickshell/blox/modules/Bar.qml"
         ).read_text(encoding="utf-8")
+        controller = (
+            REPOSITORY
+            / "quickshell/.config/quickshell/blox/services/NotificationController.qml"
+        ).read_text(encoding="utf-8")
 
-        activate = bar.split("function activateNotification(notification)", 1)[
-            1
-        ].split("function focusNotificationSource", 1)[0]
+        activate = controller.split("function activate(notification)", 1)[1].split(
+            "function focusSource", 1
+        )[0]
         self.assertIn('actions[i].identifier === "default"', activate)
         self.assertIn("actions[i].invoke()", activate)
-        self.assertIn("focusNotificationSource(notification)", activate)
-        self.assertEqual(
-            2, bar.count("return root.activateNotification(notification);")
+        self.assertIn("focusSource(notification)", activate)
+        self.assertEqual(2, bar.count("barNotificationController.activate(notification)"))
+
+    def test_dnd_toggle_updates_persistent_ui_state(self) -> None:
+        controller = (
+            REPOSITORY
+            / "quickshell/.config/quickshell/blox/services/NotificationController.qml"
+        ).read_text(encoding="utf-8")
+        toggle = controller.split("function toggleDnd()", 1)[1].split(
+            "function activate", 1
+        )[0]
+
+        self.assertIn(
+            "persistentState.notificationDnd = !persistentState.notificationDnd",
+            toggle,
         )
+        self.assertIn("root.toggleDnd()", controller)
 
     def test_shared_notification_images_use_a_left_thumbnail(self) -> None:
         content = (
@@ -84,23 +101,24 @@ class NotificationRuntimeTests(unittest.TestCase):
         self.assertNotIn("running:", expiry_timer)
 
     def test_position_preview_uses_a_real_desktop_notification(self) -> None:
-        bar = (
-            REPOSITORY / "quickshell/.config/quickshell/blox/modules/Bar.qml"
+        controller = (
+            REPOSITORY
+            / "quickshell/.config/quickshell/blox/services/NotificationController.qml"
         ).read_text(encoding="utf-8")
-        preview = bar.split(
+        preview = controller.split(
             "function onNotificationPositionPreviewRequested()", 1
         )[1].split("target: Theme", 1)[0]
 
         self.assertIn('Quickshell.execDetached(["notify-send"', preview)
         self.assertIn('"Previewing " + Theme.notificationPosition', preview)
-        self.assertNotIn("notificationPositionPreviewWindow", bar)
+        self.assertNotIn("notificationPositionPreviewWindow", controller)
 
     def test_full_screen_toast_surface_only_accepts_input_on_the_stack(self) -> None:
         bar = (
             REPOSITORY / "quickshell/.config/quickshell/blox/modules/Bar.qml"
         ).read_text(encoding="utf-8")
         toast_window = bar.split("id: notificationToastWindow", 1)[1].split(
-            "SystemClock {", 1
+            "Behavior on barSlide", 1
         )[0]
 
         self.assertIn("implicitWidth: modelData ? modelData.width : 1", toast_window)

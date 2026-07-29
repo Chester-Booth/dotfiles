@@ -10,8 +10,6 @@ import Quickshell.Wayland
 Scope {
     id: root
 
-    signal osdLevelPreview(string kind, int value, bool muted)
-
     property string openPanel: ""
     property real openPanelX: 8
     property real openPanelY: 8
@@ -29,33 +27,18 @@ Scope {
     readonly property bool barVisible: barPinnedOpen || hoverRevealHeld
     property real barSlide: barVisible ? 1 : 0
     property bool trayOpen: false
-    property bool batteryExpanded: false
-    property bool clockDateMode: false
     property string hoveredSource: ""
     property bool popoutHovered: false
     property bool trayHovered: false
     property bool inputPopupLocked: false
-    property alias blinkOn: workspaceController.blinkOn
-    property string selectedCalendarDate: ""
     property var trayMenuHandle: null
     property string trayMenuTitle: ""
     property real trayMenuY: 8
     property bool trayMenuOpen: false
-    property alias notificationDnd: uiState.notificationDnd
-    property real notificationPanelY: 0
     property var activeScreen: Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
-    property alias workspaces: barStatus.workspaces
-    property alias systemInfo: barStatus.system
-    property alias updates: barStatus.updates
-    property alias battery: barStatus.battery
-    property alias audio: barStatus.audio
-    property alias brightness: barStatus.brightness
-    property alias network: barStatus.network
-    property alias bluetooth: barStatus.bluetooth
-    property alias touchpad: barStatus.touchpad
-    property alias privacy: barStatus.privacy
-    property alias caffeine: barStatus.caffeine
     readonly property bool horizontalBar: Theme.barPosition === "top" || Theme.barPosition === "bottom"
+
+    signal osdLevelPreview(string kind, int value, bool muted)
 
     function enterEdgeTrigger() {
         edgeTriggerRelease.stop();
@@ -175,37 +158,6 @@ Scope {
         trayMenuTitle = "";
     }
 
-    function notificationStatus() {
-        return notifications.status();
-    }
-
-    function clearNotifications() {
-        notifications.clear();
-    }
-
-    function activateNotification(notification) {
-        if (!notification)
-            return ;
-
-        const actions = notification.actions || [];
-        for (let i = 0; i < actions.length; i++) {
-            if (actions[i].identifier === "default") {
-                actions[i].invoke();
-                return ;
-            }
-        }
-
-        focusNotificationSource(notification);
-    }
-
-    function focusNotificationSource(notification) {
-        if (!notification)
-            return ;
-
-        diagLog("notifications.activate", "app=" + (notification.appName || "") + " desktop=" + (notification.desktopEntry || "") + " summary=" + (notification.summary || ""));
-        runArgs(["env", "BLOX_NOTIFICATION_APP_NAME=" + (notification.appName || ""), "BLOX_NOTIFICATION_DESKTOP_ENTRY=" + (notification.desktopEntry || ""), "BLOX_NOTIFICATION_SUMMARY=" + (notification.summary || ""), "/home/blox/.config/hypr/scripts/focus-notification-source-workspace.sh"]);
-    }
-
     function toggleTray() {
         closePanel();
         closeTrayMenu();
@@ -242,71 +194,6 @@ Scope {
 
     }
 
-    function setPerformancePolling(visible) {
-        barStatus.performanceVisible = visible;
-    }
-
-    function workspaceAlert(id) {
-        return workspaceController.hasAlert(id);
-    }
-
-    function focusWorkspace(id) {
-        workspaceController.focusWorkspace(id);
-    }
-
-    function toggleSpecialWorkspace(name) {
-        workspaceController.toggleSpecialWorkspace(name);
-    }
-
-    function run(command) {
-        barActions.run(command);
-    }
-
-    function runArgs(args) {
-        barActions.runArgs(args);
-    }
-
-    function runPerformance(command) {
-        barActions.runPerformance(command);
-    }
-
-    function currentIsoDate() {
-        return Qt.formatDate(clock.date, "yyyy-MM-dd");
-    }
-
-    function resetCalendarMonth() {
-        selectedCalendarDate = currentIsoDate();
-        barStatus.calendar.refresh();
-    }
-
-    function workspaceItems() {
-        return workspaces.json.main || [];
-    }
-
-    function updateIcon() {
-        return content.updateIcon();
-    }
-
-    function railClockText(horizontal) {
-        return content.railClockText(horizontal);
-    }
-
-    function statusError(panel) {
-        const pollers = {
-            "audio": audio,
-            "network": network,
-            "bluetooth": bluetooth,
-            "brightness": brightness,
-            "privacy": privacy,
-            "caffeine": caffeine,
-            "updates": updates,
-            "todo": barStatus.todo,
-            "system": systemInfo
-        };
-        const poller = pollers[panel];
-        return poller && !poller.ok ? poller.lastError : "";
-    }
-
     onBarOpenChanged: {
         if (!barOpen)
             closeBarOverlays();
@@ -323,78 +210,43 @@ Scope {
         syncActiveScreenToFocus();
     }
 
-    Connections {
-        function onNotificationPositionPreviewRequested() {
-            root.diagLog("notification.preview", Theme.notificationPosition);
-            Quickshell.execDetached(["notify-send", "--app-name", "Theme picker", "--expire-time", "2500", "Notification position", "Previewing " + Theme.notificationPosition]);
-        }
-
-        target: Theme
-    }
-
     UiState {
         id: uiState
     }
 
     NotificationController {
-        id: notifications
+        id: barNotificationController
 
         openPanel: root.openPanel
         openPanelY: root.openPanelY
-        panelY: root.notificationPanelY
-        dnd: root.notificationDnd
+        dnd: uiState.notificationDnd
+        actionRunner: barContentController
+        persistentState: uiState
+        focusScript: "/home/blox/.config/hypr/scripts/focus-notification-source-workspace.sh"
         onOpenRequested: (centreY) => {
             return root.openHoverPanel("notifications", centreY);
         }
         onCloseRequested: root.closePanel()
-        onDndToggleRequested: root.notificationDnd = !root.notificationDnd
     }
 
     WorkspaceController {
-        id: workspaceController
+        id: barWorkspaceController
 
         scriptRoot: root.scriptRoot
-        items: root.workspaceItems()
-        onStatusRefreshRequested: workspaces.refresh()
-        onPrivacyRefreshRequested: privacy.refresh()
+        items: barContentController.workspaces.json.main || []
+        special: barContentController.workspaces.json.special || ({
+        })
+        onStatusRefreshRequested: barContentController.workspaces.refresh()
+        onPrivacyRefreshRequested: barContentController.privacy.refresh()
         onFocusedMonitorChanged: root.syncActiveScreenToFocus()
     }
 
-    BarStatus {
-        id: barStatus
+    BarContentController {
+        id: barContentController
 
         scriptRoot: root.scriptRoot
         barVisible: root.barVisible
         openPanel: root.openPanel
-        selectedCalendarDate: root.selectedCalendarDate
-        todayIso: root.currentIsoDate()
-    }
-
-    BarActions {
-        id: barActions
-
-        scriptRoot: root.scriptRoot
-        onControlRefreshRequested: barStatus.refreshControl()
-        onPerformanceRefreshRequested: barStatus.refreshPerformance()
-        onTodoRefreshRequested: todoRefreshDelay.restart()
-        onCalendarRefreshRequested: barStatus.calendar.refresh()
-    }
-
-    BarContent {
-        id: content
-
-        openPanel: root.openPanel
-        scriptRoot: root.scriptRoot
-        now: clock.date
-        clockDateMode: root.clockDateMode
-        updates: root.updates.json
-        updatesLastUpdatedMs: root.updates.lastUpdatedMs
-        bluetooth: root.bluetooth.json
-        audio: root.audio.json
-        brightness: root.brightness.json
-        network: root.network.json
-        privacy: root.privacy.json
-        caffeine: root.caffeine.json
     }
 
     IpcHandler {
@@ -418,14 +270,6 @@ Scope {
         }
 
         target: "power"
-    }
-
-    Timer {
-        id: todoRefreshDelay
-
-        interval: 120
-        repeat: false
-        onTriggered: barStatus.todo.refresh()
     }
 
     Timer {
@@ -480,9 +324,9 @@ Scope {
             }
 
             MouseArea {
-                z: -1
                 readonly property int triggerLength: Math.ceil((root.horizontalBar ? parent.width : parent.height) / 5)
 
+                z: -1
                 x: root.horizontalBar ? parent.width - width : Theme.barPosition === "right" ? parent.width - width : 0
                 y: root.horizontalBar ? Theme.barPosition === "bottom" ? parent.height - height : 0 : parent.height - height
                 width: root.horizontalBar ? triggerLength : 1
@@ -567,7 +411,10 @@ Scope {
                         anchors.top: parent.top
                         anchors.horizontalCenter: parent.horizontalCenter
                         regionItems: Theme.barStartItems
-                        controller: root
+                        surfaceController: root
+                        contentController: barContentController
+                        workspaceController: barWorkspaceController
+                        notificationController: barNotificationController
                         trayHost: configuredRail
                         horizontal: false
                         panelExtent: panel.height
@@ -578,7 +425,10 @@ Scope {
                         visible: !root.horizontalBar
                         anchors.centerIn: parent
                         regionItems: Theme.barCentreItems
-                        controller: root
+                        surfaceController: root
+                        contentController: barContentController
+                        workspaceController: barWorkspaceController
+                        notificationController: barNotificationController
                         trayHost: configuredRail
                         horizontal: false
                         panelExtent: panel.height
@@ -590,7 +440,10 @@ Scope {
                         anchors.bottom: parent.bottom
                         anchors.horizontalCenter: parent.horizontalCenter
                         regionItems: Theme.barEndItems
-                        controller: root
+                        surfaceController: root
+                        contentController: barContentController
+                        workspaceController: barWorkspaceController
+                        notificationController: barNotificationController
                         trayHost: configuredRail
                         horizontal: false
                         panelExtent: panel.height
@@ -602,7 +455,10 @@ Scope {
                         anchors.left: parent.left
                         anchors.verticalCenter: parent.verticalCenter
                         regionItems: Theme.barStartItems
-                        controller: root
+                        surfaceController: root
+                        contentController: barContentController
+                        workspaceController: barWorkspaceController
+                        notificationController: barNotificationController
                         trayHost: configuredRail
                         horizontal: true
                         panelExtent: panel.height
@@ -613,7 +469,10 @@ Scope {
                         visible: root.horizontalBar
                         anchors.centerIn: parent
                         regionItems: Theme.barCentreItems
-                        controller: root
+                        surfaceController: root
+                        contentController: barContentController
+                        workspaceController: barWorkspaceController
+                        notificationController: barNotificationController
                         trayHost: configuredRail
                         horizontal: true
                         panelExtent: panel.height
@@ -625,7 +484,10 @@ Scope {
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
                         regionItems: Theme.barEndItems
-                        controller: root
+                        surfaceController: root
+                        contentController: barContentController
+                        workspaceController: barWorkspaceController
+                        notificationController: barNotificationController
                         trayHost: configuredRail
                         horizontal: true
                         panelExtent: panel.height
@@ -648,7 +510,10 @@ Scope {
                                 required property var modelData
 
                                 itemId: modelData.id
-                                controller: root
+                                surfaceController: root
+                                contentController: barContentController
+                                workspaceController: barWorkspaceController
+                                notificationController: barNotificationController
                                 horizontal: false
                                 panelExtent: panel.height
                             }
@@ -673,7 +538,10 @@ Scope {
                                 required property var modelData
 
                                 itemId: modelData.id
-                                controller: root
+                                surfaceController: root
+                                contentController: barContentController
+                                workspaceController: barWorkspaceController
+                                notificationController: barNotificationController
                                 horizontal: true
                                 panelExtent: panel.height
                             }
@@ -689,9 +557,9 @@ Scope {
             PowerOverlayWindow {
                 targetScreen: modelData
                 open: root.activeScreen === modelData && root.openPanel === "power"
-                updateSummary: content.updateSummary()
+                updateSummary: barContentController.content.updateSummary()
                 onAction: (kind) => {
-                    return root.run(content.powerCommand(kind));
+                    return barContentController.run(barContentController.content.powerCommand(kind));
                 }
                 onClose: root.closePanel()
             }
@@ -707,55 +575,55 @@ Scope {
                 trayMenuOpen: root.activeScreen === modelData && root.trayMenuOpen
                 trayMenuHandle: root.trayMenuHandle
                 trayMenuTitle: root.trayMenuTitle
-                todoStatus: barStatus.todo.json
-                notesSaveRevision: barActions.notesSaveRevision
-                notesSaveBusy: barActions.notesSaveBusy
-                notesSaveError: barActions.notesSaveError
-                notesStatusError: root.statusError("todo")
-                generatedRefreshBusy: barActions.generatedRefreshBusy
-                generatedRefreshError: barActions.generatedRefreshError
-                calendarAddRevision: barActions.calendarAddRevision
-                calendarAddBusy: barActions.calendarAddBusy
-                calendarAddError: barActions.calendarAddError
-                batteryStatus: battery.json
-                clockDate: clock.date
-                selectedCalendarDate: root.selectedCalendarDate
-                calendarStatus: barStatus.calendar.json || ({
+                todoStatus: barContentController.todo.json
+                notesSaveRevision: barContentController.actions.notesSaveRevision
+                notesSaveBusy: barContentController.actions.notesSaveBusy
+                notesSaveError: barContentController.actions.notesSaveError
+                notesStatusError: barContentController.statusError("todo")
+                generatedRefreshBusy: barContentController.actions.generatedRefreshBusy
+                generatedRefreshError: barContentController.actions.generatedRefreshError
+                calendarAddRevision: barContentController.actions.calendarAddRevision
+                calendarAddBusy: barContentController.actions.calendarAddBusy
+                calendarAddError: barContentController.actions.calendarAddError
+                batteryStatus: barContentController.battery.json
+                clockDate: barContentController.now
+                selectedCalendarDate: barContentController.selectedCalendarDate
+                calendarStatus: barContentController.calendar.json || ({
                 })
-                systemStatus: systemInfo.json || ({
+                systemStatus: barContentController.systemInfo.json || ({
                 })
-                performanceActionBusy: barActions.performanceBusy
-                performanceActionError: barActions.performanceError
-                performanceStatusError: root.statusError("system")
+                performanceActionBusy: barContentController.actions.performanceBusy
+                performanceActionError: barContentController.actions.performanceError
+                performanceStatusError: barContentController.statusError("system")
                 scriptRoot: root.scriptRoot
-                systemTitle: content.systemPanelTitle()
-                systemBody: content.systemPanelBody()
-                systemStatusError: root.statusError(root.openPanel)
-                systemActions: content.systemPanelActions()
-                audioVolume: audio.json.volume || 0
-                audioIcon: audio.json.icon || "󰕾"
-                audioMuted: !!audio.json.muted
-                micMuted: !!audio.json.micMuted
-                networkEnabled: network.json.class !== "disabled"
-                bluetoothEnabled: bluetooth.json.class !== "disabled"
-                wifiIcon: network.json.icon || "󰤩"
-                wifiText: network.json.ssid || network.json.class || "Wi-Fi"
-                bluetoothIcon: bluetooth.json.icon || "󰂯"
-                brightnessIcon: brightness.json.icon || "󰃠"
-                brightnessPercent: brightness.json.percent || 0
-                blueLightMode: brightness.json.blueLightMode || "auto"
-                blueLightActive: !!brightness.json.blueLightActive
-                basicTitle: content.panelTitle()
-                basicSubtitle: content.panelSubtitle()
-                basicBody: content.panelBody()
-                basicStatusError: root.statusError(root.openPanel)
-                basicActions: content.panelActions()
-                basicCurrentId: root.openPanel === "caffeine" ? (caffeine.json.mode || "off") : ""
-                basicHeaderActionIcon: content.panelHeaderActionIcon()
-                basicHeaderActionCommand: content.panelHeaderActionCommand()
-                basicHeaderStatus: content.panelHeaderStatus()
-                notificationsModel: notifications.items || []
-                notificationDnd: root.notificationDnd
+                systemTitle: barContentController.content.systemPanelTitle()
+                systemBody: barContentController.content.systemPanelBody()
+                systemStatusError: barContentController.statusError(root.openPanel)
+                systemActions: barContentController.content.systemPanelActions()
+                audioVolume: barContentController.audio.json.volume || 0
+                audioIcon: barContentController.audio.json.icon || "󰕾"
+                audioMuted: !!barContentController.audio.json.muted
+                micMuted: !!barContentController.audio.json.micMuted
+                networkEnabled: barContentController.network.json.class !== "disabled"
+                bluetoothEnabled: barContentController.bluetooth.json.class !== "disabled"
+                wifiIcon: barContentController.network.json.icon || "󰤩"
+                wifiText: barContentController.network.json.ssid || barContentController.network.json.class || "Wi-Fi"
+                bluetoothIcon: barContentController.bluetooth.json.icon || "󰂯"
+                brightnessIcon: barContentController.brightness.json.icon || "󰃠"
+                brightnessPercent: barContentController.brightness.json.percent || 0
+                blueLightMode: barContentController.brightness.json.blueLightMode || "auto"
+                blueLightActive: !!barContentController.brightness.json.blueLightActive
+                basicTitle: barContentController.content.panelTitle()
+                basicSubtitle: barContentController.content.panelSubtitle()
+                basicBody: barContentController.content.panelBody()
+                basicStatusError: barContentController.statusError(root.openPanel)
+                basicActions: barContentController.content.panelActions()
+                basicCurrentId: root.openPanel === "caffeine" ? (barContentController.caffeine.json.mode || "off") : ""
+                basicHeaderActionIcon: barContentController.content.panelHeaderActionIcon()
+                basicHeaderActionCommand: barContentController.content.panelHeaderActionCommand()
+                basicHeaderStatus: barContentController.content.panelHeaderStatus()
+                notificationsModel: barNotificationController.items || []
+                notificationDnd: barNotificationController.dnd
                 activeMprisPlayer: uiState.activeMprisPlayer
                 onHoverEntered: root.popoutEntered()
                 onHoverExited: root.popoutExited()
@@ -764,56 +632,41 @@ Scope {
                 }
                 onClosePanel: root.closePanel()
                 onCloseTrayMenu: root.closeTrayMenu()
-                onToggleNotificationDnd: {
-                    root.notificationDnd = !root.notificationDnd;
-                    if (root.notificationDnd)
-                        notifications.toasts = [];
-
-                }
+                onToggleNotificationDnd: barNotificationController.toggleDnd()
                 onActivateNotification: (notification) => {
-                    return root.activateNotification(notification);
+                    return barNotificationController.activate(notification);
                 }
                 onSelectMprisPlayer: (playerName) => {
                     uiState.activeMprisPlayer = playerName;
                 }
-                onPreviousTodo: {
-                    root.run(root.scriptRoot + "/todo/cycle.sh -1");
-                    todoRefreshDelay.restart();
-                }
-                onNextTodo: {
-                    root.run(root.scriptRoot + "/todo/cycle.sh 1");
-                    todoRefreshDelay.restart();
-                }
+                onPreviousTodo: barContentController.previousTodo()
+                onNextTodo: barContentController.nextTodo()
                 onRefreshTodo: {
-                    barActions.refreshGeneratedNotes();
+                    barContentController.actions.refreshGeneratedNotes();
                 }
                 onSaveTodo: (file, body) => {
-                    barActions.saveNotes(file, body);
+                    barContentController.actions.saveNotes(file, body);
                 }
-                onResetCalendarMonth: root.resetCalendarMonth()
+                onResetCalendarMonth: barContentController.resetCalendarMonth()
                 onSelectCalendarDate: (day) => {
-                    root.selectedCalendarDate = day;
-                    barStatus.calendar.refresh();
+                    return barContentController.selectCalendarDate(day);
                 }
                 onAddCalendarEvent: (day, title) => {
-                    barActions.addCalendarEvent(day, title);
+                    barContentController.actions.addCalendarEvent(day, title);
                 }
-                onOpenCalendarEvent: {
-                    const date = root.selectedCalendarDate ? new Date(root.selectedCalendarDate + "T00:00:00") : clock.date;
-                    root.run("xdg-open 'https://calendar.google.com/calendar/u/0/r/week/" + date.getFullYear() + "/" + (date.getMonth() + 1) + "/" + date.getDate() + "'");
-                }
+                onOpenCalendarEvent: barContentController.openCalendar()
                 onPerformanceAction: (command) => {
-                    root.runPerformance(command);
+                    barContentController.runPerformance(command);
                 }
                 onPerformanceVisibleChanged: (visible) => {
-                    return root.setPerformancePolling(visible);
+                    return barContentController.setPerformancePolling(visible);
                 }
                 onSystemAction: (command, keepOpen) => {
-                    root.run(command);
-                    audio.refresh();
-                    brightness.refresh();
-                    bluetooth.refresh();
-                    network.refresh();
+                    barContentController.run(command);
+                    barContentController.audio.refresh();
+                    barContentController.brightness.refresh();
+                    barContentController.bluetooth.refresh();
+                    barContentController.network.refresh();
                     if (!keepOpen)
                         root.closePanel();
 
@@ -826,17 +679,17 @@ Scope {
                 }
                 onBasicAction: (command, keepOpen) => {
                     if (command === "__refresh_updates") {
-                        updates.refresh();
+                        barContentController.updates.refresh();
                         return ;
                     }
                     if (command === "__clear_notifications") {
-                        root.clearNotifications();
+                        barNotificationController.clear();
                         if (!keepOpen)
                             root.closePanel();
 
                         return ;
                     }
-                    root.run(command);
+                    barContentController.run(command);
                     if (!keepOpen)
                         root.closePanel();
 
@@ -856,7 +709,7 @@ Scope {
                 implicitHeight: modelData ? modelData.height : 1
                 exclusiveZone: 0
                 focusable: false
-                visible: root.activeScreen === modelData && notifications.toastsEnabled && notifications.toasts.length > 0 && !root.notificationDnd
+                visible: root.activeScreen === modelData && barNotificationController.toastsEnabled && barNotificationController.toasts.length > 0 && !barNotificationController.dnd
                 color: "transparent"
                 WlrLayershell.layer: WlrLayer.Overlay
                 WlrLayershell.namespace: "blox-notifications"
@@ -877,16 +730,16 @@ Scope {
                     x: notificationToastWindow.onLeft ? 12 + Theme.notificationOffsetX : notificationToastWindow.onRight ? parent.width - width - 12 + Theme.notificationOffsetX : Math.round((parent.width - width) / 2 + Theme.notificationOffsetX)
                     y: notificationToastWindow.onTop ? 12 + Theme.notificationOffsetY : parent.height - height - 12 + Theme.notificationOffsetY
                     position: Theme.notificationPosition
-                    visible: notifications.toastsEnabled && notifications.toasts.length > 0 && !root.notificationDnd
-                    toasts: notifications.toasts
+                    visible: barNotificationController.toastsEnabled && barNotificationController.toasts.length > 0 && !barNotificationController.dnd
+                    toasts: barNotificationController.toasts
                     onDismiss: (notification, closeNotification) => {
-                        notifications.removeToast(notification);
+                        barNotificationController.removeToast(notification);
                         if (notification && closeNotification)
                             notification.dismiss();
 
                     }
                     onActivate: (notification) => {
-                        return root.activateNotification(notification);
+                        return barNotificationController.activate(notification);
                     }
                 }
 
@@ -906,12 +759,6 @@ Scope {
 
         }
 
-    }
-
-    SystemClock {
-        id: clock
-
-        precision: SystemClock.Seconds
     }
 
     Behavior on barSlide {

@@ -529,6 +529,7 @@ class CliContractTests(unittest.TestCase):
 
     def test_theme_picker_exposes_widget_tab_editor_and_detached_io(self) -> None:
         source = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
+        source += (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePickerWidgets.qml").read_text(encoding="utf-8").replace("controller.", "root.")
         for expected in (
             'text: "Widgets"',
             'text: "New Widget"',

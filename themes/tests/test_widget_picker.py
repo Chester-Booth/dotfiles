@@ -4,13 +4,14 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 PICKER = ROOT / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml"
+WIDGETS = ROOT / "quickshell/.config/quickshell/blox/modules/ThemePickerWidgets.qml"
 EDIT_MODE = ROOT / "quickshell/.config/quickshell/blox/modules/WidgetEditMode.qml"
 
 
 class WidgetPickerSourceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.source = PICKER.read_text(encoding="utf-8")
+        cls.source = PICKER.read_text(encoding="utf-8") + WIDGETS.read_text(encoding="utf-8").replace("controller.", "root.")
 
     def test_widget_editor_uses_grouped_content_specific_presets(self) -> None:
         self.assertIn('model: ["file", "music", "calendar", "clock", "decorative", "custom"]', self.source)

@@ -15,10 +15,19 @@ from unittest import mock
 
 THEMES = Path(__file__).resolve().parents[1]
 REPOSITORY = THEMES.parent
+PICKER_MODULES = REPOSITORY / "quickshell/.config/quickshell/blox/modules"
 sys.path.insert(0, str(THEMES / "lib"))
 
 from blox_theme import cli
 from blox_theme.core import load_theme
+
+
+def picker_source() -> str:
+    sources = [(PICKER_MODULES / "ThemePicker.qml").read_text(encoding="utf-8")]
+    for name in ("ThemePickerOverview.qml", "ThemePickerAdvanced.qml", "ThemePickerWidgets.qml"):
+        source = (PICKER_MODULES / name).read_text(encoding="utf-8")
+        sources.append(source.replace("controller.", "root."))
+    return "\n".join(sources)
 
 
 class ThemeLibraryMutationTests(unittest.TestCase):
@@ -173,10 +182,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertEqual(available, registered)
 
     def test_widget_style_selector_preserves_widget_items(self) -> None:
-        qml = (
-            REPOSITORY
-            / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml"
-        ).read_text(encoding="utf-8")
+        qml = picker_source()
         setter = qml.split("function setWidgetProfile(value)", 1)[1].split(
             "function setTarget", 1
         )[0]
@@ -190,7 +196,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertNotIn('next.widgets = {\n            "profile": value', setter)
 
     def test_bar_item_drag_uses_a_moving_proxy(self) -> None:
-        qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
+        qml = picker_source()
         self.assertIn("id: barDragProxy", qml)
         self.assertGreaterEqual(qml.count("target: null"), 2)
         self.assertIn("Drag.source: barDragProxy", qml)
@@ -204,7 +210,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertEqual(1, qml.count("id: barDragProxy"))
 
     def test_picker_uses_json_api_and_has_confirmation_paths(self) -> None:
-        qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
+        qml = picker_source()
         rules = (REPOSITORY / "hyprland/.config/hypr/conf.d/rules.lua").read_text(encoding="utf-8")
         for action in ("list", "show", "preview", "generate", "save", "apply", "duplicate", "rename", "delete"):
             self.assertIn(f'"{action}"', qml)
@@ -294,7 +300,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn("root.loadActiveIdentity(text())", theme)
 
     def test_unavailable_targets_are_visible_but_not_editable(self) -> None:
-        qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
+        qml = picker_source()
         self.assertIn('readonly property var unavailableTargetKeys: ["sddm", "grub"]', qml)
         self.assertIn("function targetAvailable(key)", qml)
         advanced = qml.split('visible: root.editorMode === "advanced"', 1)[1].split('visible: root.editorMode === "widgets"', 1)[0]
@@ -308,7 +314,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn('text: "Applications"', qml)
 
     def test_creation_and_application_flows_expose_progress_and_apply_modes(self) -> None:
-        qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
+        qml = picker_source()
         for label in ("Name", "File Path", "Browse", "Base Colour Palette", "Matugen", "Pywal"):
             self.assertIn(f'"{label}"', qml)
         self.assertIn('runApi("palette", ["palette", path])', qml)
@@ -343,7 +349,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn('Theme.notificationPositionPreviewRequested()', qml)
 
     def test_widget_position_canvas_supports_drag_resize_snap_and_numeric_geometry(self) -> None:
-        qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
+        qml = picker_source()
         for expected in (
             'id: widgetCanvas',
             'text: "Position"',
@@ -358,7 +364,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
                 self.assertIn(expected, qml)
 
     def test_advanced_picker_can_toggle_place_and_reorder_every_bar_item(self) -> None:
-        qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
+        qml = picker_source()
         advanced = qml.split('visible: root.editorMode === "advanced"', 1)[1]
         for function_name in (
             "barItems",
@@ -388,7 +394,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn("Drag.active: root.barDragActive", qml)
         self.assertEqual(2, advanced.count("target: null"))
         self.assertEqual(2, advanced.count("onTranslationChanged: root.moveBarDragProxy"))
-        self.assertIn("Drag.source: barDragProxy", advanced)
+        self.assertIn("Drag.source: barDragProxy", qml)
         self.assertIn("root.finishBarDrag()", advanced)
         self.assertIn('iconName: "chevron-up"', advanced)
         self.assertIn('iconName: "chevron-down"', advanced)
@@ -468,7 +474,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertTrue((REPOSITORY / "wallpapers/wallpapers/blank-light.png").is_file())
 
     def test_advanced_mode_can_edit_terminal_colours(self) -> None:
-        qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
+        qml = picker_source()
         advanced = qml.split('visible: root.editorMode === "advanced"', 1)[1]
         terminal = advanced.split('text: "Terminal colours"', 1)[1].split('text: "Bar / OSD / Notifications"', 1)[0]
         self.assertIn("model: root.ansiKeys", terminal)
@@ -478,7 +484,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn('next.terminal.ansi_source = "override"', qml)
 
     def test_simple_mode_contains_font_pickers(self) -> None:
-        qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
+        qml = picker_source()
         simple = qml.split('visible: root.editorMode === "overview"', 1)[1].split('visible: root.editorMode === "advanced"', 1)[0]
         self.assertIn('text: "Fonts"', simple)
         self.assertIn("BloxFontPicker {", simple)
@@ -497,7 +503,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertNotIn('text: modelData.unsaved ? "UNSAVED  ·  " + modelData.variant : modelData.variant', theme_list)
 
     def test_picker_modal_keyboard_and_scroll_affordances_are_explicit(self) -> None:
-        qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
+        qml = picker_source()
         escape = qml.split("Keys.onEscapePressed", 1)[1].split("Shortcut {", 1)[0]
         self.assertLess(escape.index("root.dismissColourPicker()"), escape.index("root.dismissModal()"))
         self.assertLess(escape.index("root.dismissModal()"), escape.index("root.requestClose()"))

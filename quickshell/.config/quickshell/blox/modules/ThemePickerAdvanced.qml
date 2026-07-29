@@ -1,3 +1,4 @@
+import "."
 import "../shared"
 import QtQuick
 import QtQuick.Controls
@@ -6,7 +7,7 @@ import QtQuick.Layouts
 ColumnLayout {
     id: section
 
-    required property var controller
+    required property ThemePickerController controller
 
     visible: controller.editorMode === "advanced"
     Layout.fillWidth: true

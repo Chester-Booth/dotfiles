@@ -1,3 +1,4 @@
+import "."
 import "../services"
 import "../shared"
 import QtQuick
@@ -7,7 +8,7 @@ import QtQuick.Layouts
 ColumnLayout {
     id: section
 
-    required property var controller
+    required property ThemePickerController controller
 
     visible: controller.editorMode === "widgets"
     Layout.fillWidth: true
@@ -59,13 +60,13 @@ ColumnLayout {
         BloxButton {
             iconName: "download"
             text: "Import"
-            onClicked: widgetImportDialog.open()
+            onClicked: controller.openWidgetImportDialog()
         }
 
         BloxButton {
             iconName: "upload"
             text: "Export"
-            onClicked: widgetExportDialog.open()
+            onClicked: controller.openWidgetExportDialog()
         }
 
     }

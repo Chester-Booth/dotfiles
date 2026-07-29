@@ -528,19 +528,21 @@ class CliContractTests(unittest.TestCase):
             self.assertFalse(json.loads(rejected_widget.stdout)["ok"])
 
     def test_theme_picker_exposes_widget_tab_editor_and_detached_io(self) -> None:
-        source = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
-        source += (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePickerWidgets.qml").read_text(encoding="utf-8").replace("controller.", "root.")
-        for expected in (
-            'text: "Widgets"',
-            'text: "New Widget"',
-            'Import"',
-            'Export"',
-            'text: "Save widget"',
-            'id: widgetImportDialog',
-            'id: widgetExportDialog',
-            'root.runApi("widgets-import"',
-            'root.runApi("widgets-export"',
-            'root.openWidgetEditor(-1)',
+        modules = REPOSITORY / "quickshell/.config/quickshell/blox/modules"
+        widgets = (modules / "ThemePickerWidgets.qml").read_text(encoding="utf-8")
+        modal = (modules / "ThemePickerModal.qml").read_text(encoding="utf-8")
+        dialogs = (modules / "ThemePickerFileDialogs.qml").read_text(encoding="utf-8")
+        for source, expected in (
+            (widgets, 'text: "Widgets"'),
+            (widgets, 'text: "New Widget"'),
+            (widgets, 'Import"'),
+            (widgets, 'Export"'),
+            (modal, 'text: "Save widget"'),
+            (dialogs, 'id: widgetImportDialog'),
+            (dialogs, 'id: widgetExportDialog'),
+            (dialogs, 'controller.runApi("widgets-import"'),
+            (dialogs, 'controller.runApi("widgets-export"'),
+            (widgets, 'controller.openWidgetEditor(-1)'),
         ):
             with self.subTest(expected=expected):
                 self.assertIn(expected, source)

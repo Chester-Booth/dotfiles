@@ -22,12 +22,8 @@ from blox_theme import cli
 from blox_theme.core import load_theme
 
 
-def picker_source() -> str:
-    sources = [(PICKER_MODULES / "ThemePicker.qml").read_text(encoding="utf-8")]
-    for name in ("ThemePickerOverview.qml", "ThemePickerAdvanced.qml", "ThemePickerWidgets.qml"):
-        source = (PICKER_MODULES / name).read_text(encoding="utf-8")
-        sources.append(source.replace("controller.", "root."))
-    return "\n".join(sources)
+def qml_source(name: str) -> str:
+    return (PICKER_MODULES / f"ThemePicker{name}.qml").read_text(encoding="utf-8")
 
 
 class ThemeLibraryMutationTests(unittest.TestCase):
@@ -182,12 +178,10 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertEqual(available, registered)
 
     def test_widget_style_selector_preserves_widget_items(self) -> None:
-        qml = picker_source()
-        setter = qml.split("function setWidgetProfile(value)", 1)[1].split(
+        controller = qml_source("Controller")
+        widgets = qml_source("Widgets")
+        setter = controller.split("function setWidgetProfile(value)", 1)[1].split(
             "function setTarget", 1
-        )[0]
-        widgets = qml.split('visible: root.editorMode === "widgets"', 1)[1].split(
-            'text: "List"', 1
         )[0]
 
         self.assertIn('text: "Style"', widgets)
@@ -196,28 +190,31 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertNotIn('next.widgets = {\n            "profile": value', setter)
 
     def test_bar_item_drag_uses_a_moving_proxy(self) -> None:
-        qml = picker_source()
-        self.assertIn("id: barDragProxy", qml)
-        self.assertGreaterEqual(qml.count("target: null"), 2)
-        self.assertIn("Drag.source: barDragProxy", qml)
-        self.assertNotIn("Drag.source: barItemRow", qml)
-        drag_section = qml.split('model: ["start", "centre", "end", "hidden"]', 1)[1].split('text: "Bar"', 1)[0]
+        main = qml_source("")
+        advanced = qml_source("Advanced")
+        controller = qml_source("Controller")
+        self.assertIn("id: barDragProxy", main)
+        self.assertGreaterEqual(advanced.count("target: null"), 2)
+        self.assertIn("Drag.source: barDragProxy", main)
+        self.assertNotIn("Drag.source: barItemRow", advanced)
+        drag_section = advanced.split('model: ["start", "centre", "end", "hidden"]', 1)[1].split('text: "Bar"', 1)[0]
         self.assertIn("onPositionChanged:", drag_section)
-        self.assertIn("root.finishBarDrag()", drag_section)
-        self.assertIn("root.setBarDropTarget", drag_section)
+        self.assertIn("controller.finishBarDrag()", drag_section)
+        self.assertIn("controller.setBarDropTarget", drag_section)
         self.assertIn('color: Theme.blue', drag_section)
-        self.assertIn("z: 1000", qml)
-        self.assertEqual(1, qml.count("id: barDragProxy"))
+        self.assertIn("z: 1000", main)
+        self.assertEqual(1, main.count("id: barDragProxy"))
+        self.assertIn("function beginBarDrag(row, itemId)", controller)
 
     def test_picker_uses_json_api_and_has_confirmation_paths(self) -> None:
-        qml = picker_source()
+        qml = "\n".join(path.read_text(encoding="utf-8") for path in sorted(PICKER_MODULES.glob("ThemePicker*.qml")))
         rules = (REPOSITORY / "hyprland/.config/hypr/conf.d/rules.lua").read_text(encoding="utf-8")
         for action in ("list", "show", "preview", "generate", "save", "apply", "duplicate", "rename", "delete"):
             self.assertIn(f'"{action}"', qml)
         self.assertIn("FloatingWindow {", qml)
         self.assertNotIn("PanelWindow {", qml)
         self.assertIn("parentWindow: root._backingWindow", qml)
-        self.assertIn("visible: open && !widgetEditModePending", qml)
+        self.assertIn("visible: pickerController.open && !pickerController.widgetEditModePending", qml)
         self.assertIn("hideTimer.stop()", qml)
         self.assertIn("Theme.widgetEditModeCancelRequested()", qml)
         self.assertIn("hl.dsp.focus({ workspace = \\\"previous\\\" })", qml)
@@ -227,7 +224,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertNotIn("hyprctl dispatch movetoworkspacesilent", qml)
         self.assertIn('recoverPickerWorkspace("");', qml)
         self.assertIn("recoverPickerWorkspace(returnWorkspace);", qml)
-        self.assertIn("root._backingWindow.requestActivate()", qml)
+        self.assertIn("host._backingWindow.requestActivate()", qml)
         self.assertIn("root.contentItem.QsWindow.window.startSystemMove()", qml)
         self.assertIn('title = "^Blox Theme Picker$"', rules)
         self.assertIn("Choose a wallpaper", rules)
@@ -254,11 +251,11 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn("id: modalCardInputBlocker", qml)
         self.assertIn("id: colourCardInputBlocker", qml)
         self.assertIn("id: pickerContent", qml)
-        self.assertIn('root.action === "preview-edit"', qml)
+        self.assertIn('pickerController.action === "preview-edit"', qml)
         self.assertIn("function duplicateIdForName(name)", qml)
         self.assertNotIn('placeholderText: "New stable ID"', qml)
         self.assertIn("id: duplicateIdFooter", qml)
-        self.assertIn('root.modalKind === "new" ? root.newThemeId : root.duplicateId', qml)
+        self.assertIn('controller.modalKind === "new" ? controller.newThemeId : controller.duplicateId', qml)
         self.assertIn('color: "transparent"', qml)
         self.assertIn("anchors.margins: 1", qml)
         self.assertIn("radius: 8", qml)
@@ -274,7 +271,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertNotIn("bash -c", qml)
 
     def test_picker_rejects_stale_requests_and_keeps_applied_identity_separate(self) -> None:
-        picker = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
+        picker = qml_source("Controller")
         theme = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/Theme.qml").read_text(encoding="utf-8")
         self.assertIn("property var activeRequest: null", picker)
         self.assertIn('"candidateRevision": candidateRevision', picker)
@@ -300,21 +297,27 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn("root.loadActiveIdentity(text())", theme)
 
     def test_unavailable_targets_are_visible_but_not_editable(self) -> None:
-        qml = picker_source()
-        self.assertIn('readonly property var unavailableTargetKeys: ["sddm", "grub"]', qml)
-        self.assertIn("function targetAvailable(key)", qml)
-        advanced = qml.split('visible: root.editorMode === "advanced"', 1)[1].split('visible: root.editorMode === "widgets"', 1)[0]
+        controller = qml_source("Controller")
+        advanced = qml_source("Advanced")
+        self.assertIn('readonly property var unavailableTargetKeys: ["sddm", "grub"]', controller)
+        self.assertIn("function targetAvailable(key)", controller)
         self.assertNotIn('text: "Widget profile"', advanced)
-        self.assertIn('return key + " · unavailable"', qml)
-        self.assertIn("if (!targetAvailable(key))", qml)
-        self.assertIn("enabled: root.targetAvailable(modelData)", qml)
-        self.assertIn('readonly property var coreTargetKeys:', qml)
-        self.assertIn('readonly property var applicationTargetKeys:', qml)
-        self.assertIn('text: "Core"', qml)
-        self.assertIn('text: "Applications"', qml)
+        self.assertIn('return key + " · unavailable"', controller)
+        self.assertIn("if (!targetAvailable(key))", controller)
+        self.assertIn("enabled: controller.targetAvailable(modelData)", advanced)
+        self.assertIn('readonly property var coreTargetKeys:', controller)
+        self.assertIn('readonly property var applicationTargetKeys:', controller)
+        self.assertIn('text: "Core"', advanced)
+        self.assertIn('text: "Applications"', advanced)
 
     def test_creation_and_application_flows_expose_progress_and_apply_modes(self) -> None:
-        qml = picker_source()
+        controller = qml_source("Controller")
+        creation = qml_source("CreationFlow")
+        progress = qml_source("ProgressFlow")
+        overview = qml_source("Overview")
+        advanced = qml_source("Advanced")
+        main = qml_source("")
+        qml = "\n".join((controller, creation, progress, overview, advanced, main))
         for label in ("Name", "File Path", "Browse", "Base Colour Palette", "Matugen", "Pywal"):
             self.assertIn(f'"{label}"', qml)
         self.assertIn('runApi("palette", ["palette", path])', qml)
@@ -334,38 +337,39 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn('const order = ["stylus"]', qml)
         self.assertIn("function generatedFileGroups()", qml)
         self.assertIn('text: "Download all (.zip)"', qml)
-        self.assertIn("root.downloadGeneratedArchive(modelData.target)", qml)
-        self.assertIn("root.downloadGeneratedFile(modelData.target, modelData.file)", qml)
+        self.assertIn("controller.downloadGeneratedArchive(modelData.target)", advanced)
+        self.assertIn("controller.downloadGeneratedFile(modelData.target, modelData.file)", advanced)
         self.assertIn("Install and select the Minimal theme", qml)
         self.assertIn("generated style-settings.json", qml)
         self.assertIn('text: "Simple"', qml)
-        simple = qml.split('visible: root.editorMode === "overview"', 1)[1].split('visible: root.editorMode === "advanced"', 1)[0]
-        self.assertNotIn('text: "Target impact"', simple)
-        self.assertNotIn('text: "Dependency and compatibility notes"', simple)
+        self.assertNotIn('text: "Target impact"', overview)
+        self.assertNotIn('text: "Dependency and compatibility notes"', overview)
         self.assertIn("editorScroll.contentY - delta * 4", qml)
         self.assertIn('text: "Bar / OSD / Notifications"', qml)
-        self.assertIn('visible: root.editorMode === "overview"', qml)
+        self.assertIn('visible: controller.editorMode === "overview"', overview)
         self.assertIn('Theme.osdPositionPreviewRequested()', qml)
         self.assertIn('Theme.notificationPositionPreviewRequested()', qml)
 
     def test_widget_position_canvas_supports_drag_resize_snap_and_numeric_geometry(self) -> None:
-        qml = picker_source()
+        widgets = qml_source("Widgets")
+        controller = qml_source("Controller")
         for expected in (
             'id: widgetCanvas',
             'text: "Position"',
             'drag.target: widgetPreview',
             'cursorShape: Qt.SizeFDiagCursor',
-            'root.commitWidgetPreview(',
-            'anchor = (bottom ? "bottom-" : "top-") + (right ? "right" : "left")',
+            'controller.commitWidgetPreview(',
             'model: ["offset_x", "offset_y", "width", "height"]',
-            'root.updateWidgetGeometry(',
+            'controller.updateWidgetGeometry(',
         ):
             with self.subTest(expected=expected):
-                self.assertIn(expected, qml)
+                self.assertIn(expected, widgets)
+        self.assertIn('anchor = (bottom ? "bottom-" : "top-") + (right ? "right" : "left")', controller)
 
     def test_advanced_picker_can_toggle_place_and_reorder_every_bar_item(self) -> None:
-        qml = picker_source()
-        advanced = qml.split('visible: root.editorMode === "advanced"', 1)[1]
+        controller = qml_source("Controller")
+        advanced = qml_source("Advanced")
+        main = qml_source("")
         for function_name in (
             "barItems",
             "trayOpensForward",
@@ -379,48 +383,48 @@ class PickerIntegrationSourceTests(unittest.TestCase):
             "moveBarItem",
             "moveBarItemTo",
         ):
-            self.assertIn(f"function {function_name}(", qml)
+            self.assertIn(f"function {function_name}(", controller)
         self.assertIn('model: ["start", "centre", "end", "hidden"]', advanced)
         self.assertIn('"Tray"', advanced)
-        self.assertIn("root.setBarItemEnabled(barItemRow.modelData.id, value)", advanced)
+        self.assertIn("controller.setBarItemEnabled(barItemRow.modelData.id, value)", advanced)
         self.assertIn('model: ["click to toggle", "only numeric", "only icon"]', advanced)
-        self.assertIn("root.setBarItemDisplay(barItemRow.barItemId, displayValues[index])", advanced)
+        self.assertIn("controller.setBarItemDisplay(barItemRow.barItemId, displayValues[index])", advanced)
         self.assertIn('visible: barItemRow.modelData.id === "battery"', advanced)
         self.assertIn('model: ["always visible", "hidden when normal"]', advanced)
         self.assertIn('visible: ["touchpad", "fan", "gpu"].indexOf(barItemRow.modelData.id) >= 0', advanced)
         self.assertIn("Layout.preferredWidth: visible ? 172 : 0", advanced)
-        self.assertIn("root.setBarItemVisibility(barItemRow.barItemId, visibilityValues[index])", advanced)
-        self.assertIn('"touchpad": "panel-top"', qml)
-        self.assertIn("Drag.active: root.barDragActive", qml)
+        self.assertIn("controller.setBarItemVisibility(barItemRow.barItemId, visibilityValues[index])", advanced)
+        self.assertIn('"touchpad": "panel-top"', controller)
+        self.assertIn("Drag.active: pickerController.barDragActive", main)
         self.assertEqual(2, advanced.count("target: null"))
-        self.assertEqual(2, advanced.count("onTranslationChanged: root.moveBarDragProxy"))
-        self.assertIn("Drag.source: barDragProxy", qml)
-        self.assertIn("root.finishBarDrag()", advanced)
+        self.assertEqual(2, advanced.count("onTranslationChanged: controller.moveBarDragProxy"))
+        self.assertIn("Drag.source: barDragProxy", main)
+        self.assertIn("controller.finishBarDrag()", advanced)
         self.assertIn('iconName: "chevron-up"', advanced)
         self.assertIn('iconName: "chevron-down"', advanced)
         self.assertNotIn('ToolTip.text: "Move up"', advanced)
         self.assertNotIn('ToolTip.text: "Move down"', advanced)
-        self.assertIn("onClicked: root.moveBarItem(barItemRow.barItemId, -1)", advanced)
-        self.assertIn("onClicked: root.moveBarItem(barItemRow.barItemId, 1)", advanced)
+        self.assertIn("onClicked: controller.moveBarItem(barItemRow.barItemId, -1)", advanced)
+        self.assertIn("onClicked: controller.moveBarItem(barItemRow.barItemId, 1)", advanced)
         self.assertIn('barItemRow.modelData.id === "application-tray" ? ["tray"]', advanced)
-        self.assertIn('barItemRow.modelData.id === "tray" ? ["start", "centre", "end"] : root.barRegions', advanced)
-        self.assertIn('if (region === "hidden")', qml)
-        self.assertIn('if (region === "start")', qml)
-        self.assertIn('if (region === "end")', qml)
+        self.assertIn('barItemRow.modelData.id === "tray" ? ["start", "centre", "end"] : controller.barRegions', advanced)
+        self.assertIn('if (region === "hidden")', controller)
+        self.assertIn('if (region === "start")', controller)
+        self.assertIn('if (region === "end")', controller)
         self.assertIn('value === "tray" ? "hidden" : value', advanced)
-        normalise = qml.split("function normaliseBarItemOrders(", 1)[1].split("function setBarItems", 1)[0]
+        normalise = controller.split("function normaliseBarItemOrders(", 1)[1].split("function setBarItems", 1)[0]
         self.assertIn("ordered.push(members[index])", normalise)
         self.assertIn("return ordered", normalise)
         header = advanced.index('text: regionSection.modelData === "hidden" ? "Tray"')
         first_drop_target = advanced.index('"start:" + regionSection.modelData')
         self.assertLess(header, first_drop_target)
-        self.assertIn("function scrollBarDrag()", qml)
-        self.assertIn("running: root.barDragActive", qml)
-        self.assertIn("Theme.resolvedBarItems(overrides, position)", qml)
-        self.assertIn("Theme.resolvedBarItems(overrides, value)", qml)
-        self.assertIn("Theme.loadShell(next.shell)", qml)
-        self.assertIn('if (id === "application-tray")', qml)
-        self.assertIn("return !trayOpensForward(items)", qml)
+        self.assertIn("function scrollBarDrag()", controller)
+        self.assertIn("running: pickerController.barDragActive", main)
+        self.assertIn("Theme.resolvedBarItems(overrides, position)", controller)
+        self.assertIn("Theme.resolvedBarItems(overrides, value)", controller)
+        self.assertIn("Theme.loadShell(next.shell)", controller)
+        self.assertIn('if (id === "application-tray")', controller)
+        self.assertIn("return !trayOpensForward(items)", controller)
         self.assertIn("Layout.preferredWidth: 92", advanced)
 
     def test_custom_controls_are_registered_and_font_rows_preview_their_family(self) -> None:
@@ -460,7 +464,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn("root.editingFinished();", text_field)
 
     def test_blank_theme_starts_as_a_valid_generic_light_theme(self) -> None:
-        qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
+        qml = qml_source("Controller")
         blank = qml.split("function blankTheme(", 1)[1].split("function startNewTheme(", 1)[0]
         self.assertIn('blank.variant = "light"', blank)
         self.assertIn('"background": "#ffffff"', blank)
@@ -474,39 +478,46 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertTrue((REPOSITORY / "wallpapers/wallpapers/blank-light.png").is_file())
 
     def test_advanced_mode_can_edit_terminal_colours(self) -> None:
-        qml = picker_source()
-        advanced = qml.split('visible: root.editorMode === "advanced"', 1)[1]
+        controller = qml_source("Controller")
+        advanced = qml_source("Advanced")
         terminal = advanced.split('text: "Terminal colours"', 1)[1].split('text: "Bar / OSD / Notifications"', 1)[0]
-        self.assertIn("model: root.ansiKeys", terminal)
-        self.assertIn('root.openColourPicker(modelData, "ansi")', terminal)
+        self.assertIn("model: controller.ansiKeys", terminal)
+        self.assertIn('controller.openColourPicker(modelData, "ansi")', terminal)
         self.assertIn("previewData.ansi[modelData]", terminal)
-        self.assertIn('if (target === "ansi")', qml)
-        self.assertIn('next.terminal.ansi_source = "override"', qml)
+        self.assertIn('if (target === "ansi")', controller)
+        self.assertIn('next.terminal.ansi_source = "override"', controller)
 
     def test_simple_mode_contains_font_pickers(self) -> None:
-        qml = picker_source()
-        simple = qml.split('visible: root.editorMode === "overview"', 1)[1].split('visible: root.editorMode === "advanced"', 1)[0]
-        self.assertIn('text: "Fonts"', simple)
-        self.assertIn("BloxFontPicker {", simple)
-        self.assertEqual(2, qml.count('"panel · proportional fonts recommended"'))
+        overview = qml_source("Overview")
+        self.assertIn('text: "Fonts"', overview)
+        self.assertIn("BloxFontPicker {", overview)
+        self.assertEqual(1, overview.count('"panel · proportional fonts recommended"'))
 
     def test_theme_list_uses_source_colours_wallpaper_and_fonts(self) -> None:
-        qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
-        theme_list = qml.split("id: themeList", 1)[1].split("id: editorScroll", 1)[0]
+        theme_list = qml_source("Library")
         self.assertIn("id: themeThumbnail", theme_list)
         self.assertIn("modelData.preview.wallpaper", theme_list)
         self.assertIn("modelData.preview.fonts.ui", theme_list)
-        self.assertIn("root.themePreviewColour", theme_list)
+        self.assertIn("controller.themePreviewColour", theme_list)
         self.assertIn("id: themeBarPreview", theme_list)
-        self.assertIn("root.themePreviewBarCount", theme_list)
+        self.assertIn("controller.themePreviewBarCount", theme_list)
         self.assertIn("fontSizeMode: themeDelegate.previewAtMinimum ? Text.Fit : Text.FixedSize", theme_list)
         self.assertNotIn('text: modelData.unsaved ? "UNSAVED  ·  " + modelData.variant : modelData.variant', theme_list)
 
     def test_picker_modal_keyboard_and_scroll_affordances_are_explicit(self) -> None:
-        qml = picker_source()
-        escape = qml.split("Keys.onEscapePressed", 1)[1].split("Shortcut {", 1)[0]
-        self.assertLess(escape.index("root.dismissColourPicker()"), escape.index("root.dismissModal()"))
-        self.assertLess(escape.index("root.dismissModal()"), escape.index("root.requestClose()"))
+        main = qml_source("")
+        controller = qml_source("Controller")
+        modal = qml_source("Modal")
+        creation = qml_source("CreationFlow")
+        action = qml_source("ActionDialog")
+        colour = qml_source("ColourPicker")
+        advanced = qml_source("Advanced")
+        overview = qml_source("Overview")
+        library = qml_source("Library")
+        qml = "\n".join((main, controller, modal, creation, action, colour, advanced, overview, library))
+        escape = main.split("Keys.onEscapePressed", 1)[1].split("Keys.onPressed", 1)[0]
+        self.assertLess(escape.index("pickerController.dismissColourPicker()"), escape.index("pickerController.dismissModal()"))
+        self.assertLess(escape.index("pickerController.dismissModal()"), escape.index("pickerController.requestClose()"))
         for identifier in ("modalFocusScope", "colourFocusScope", "newNameField", "duplicateNameField", "renameNameField", "modalCancelButton", "colourDoneButton", "colourHexField"):
             self.assertIn(f"id: {identifier}", qml)
         self.assertIn("function rememberOverlayFocus()", qml)
@@ -515,21 +526,23 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertGreaterEqual(qml.count("ScrollBar.vertical: ScrollBar"), 2)
         self.assertIn("policy: ScrollBar.AlwaysOn", qml)
         self.assertIn("contentWidth: width", qml)
-        semantic = qml.split("id: semanticSwatch", 1)[1].split("text: \"Terminal palette\"", 1)[0]
+        semantic = overview.split("id: semanticSwatch", 1)[1].split("text: \"Terminal palette\"", 1)[0]
         self.assertIn("wrapMode: Text.WordWrap", semantic)
         self.assertIn("maximumLineCount: 2", semantic)
         self.assertNotIn("elide: Text.ElideRight", semantic)
 
     def test_picker_exposes_safe_import_and_export_workflows(self) -> None:
-        qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
-        self.assertIn('root.runApi("import", ["import", path]);', qml)
-        self.assertIn('const args = ["export", root.candidate.id, "--output", path];', qml)
-        self.assertIn('args.push("--include-wallpaper");', qml)
-        self.assertIn('runApi("list-after-import", ["list"]);', qml)
-        self.assertIn("Apply remains a separate action", qml)
-        self.assertIn("fileMode: FileDialog.SaveFile", qml)
-        self.assertIn("enabled: !root.dirty && !root.busy", qml)
-        self.assertNotIn("preview.svg", qml)
+        controller = qml_source("Controller")
+        dialogs = qml_source("FileDialogs")
+        library = qml_source("Library")
+        self.assertIn('controller.runApi("import", ["import", path]);', dialogs)
+        self.assertIn('const args = ["export", controller.candidate.id, "--output", path];', dialogs)
+        self.assertIn('args.push("--include-wallpaper");', dialogs)
+        self.assertIn('runApi("list-after-import", ["list"]);', controller)
+        self.assertIn("Apply remains a separate action", controller)
+        self.assertIn("fileMode: FileDialog.SaveFile", dialogs)
+        self.assertIn("enabled: !controller.dirty && !controller.busy", library)
+        self.assertNotIn("preview.svg", dialogs)
 
     def test_cli_normalises_typographic_option_dashes(self) -> None:
         self.assertEqual(["setup", "cursor", "--yes"], cli.normalise_option_dashes(["setup", "cursor", "—-yes"]))

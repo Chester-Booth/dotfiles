@@ -2,8 +2,17 @@ Bar 1.0 Bar.qml
 DesktopWidgets 1.0 DesktopWidgets.qml
 Osd 1.0 Osd.qml
 ThemePicker 1.0 ThemePicker.qml
+ThemePickerActionDialog 1.0 ThemePickerActionDialog.qml
 ThemePickerAdvanced 1.0 ThemePickerAdvanced.qml
+ThemePickerColourPicker 1.0 ThemePickerColourPicker.qml
+ThemePickerController 1.0 ThemePickerController.qml
+ThemePickerCreationFlow 1.0 ThemePickerCreationFlow.qml
+ThemePickerFileDialogs 1.0 ThemePickerFileDialogs.qml
+ThemePickerLibrary 1.0 ThemePickerLibrary.qml
+ThemePickerModal 1.0 ThemePickerModal.qml
 ThemePickerOverview 1.0 ThemePickerOverview.qml
+ThemePickerProgressFlow 1.0 ThemePickerProgressFlow.qml
+ThemePickerWidgetDialog 1.0 ThemePickerWidgetDialog.qml
 ThemePickerWidgets 1.0 ThemePickerWidgets.qml
 WidgetEditMode 1.0 WidgetEditMode.qml
 ShortcutGuide 1.0 ShortcutGuide.qml

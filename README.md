@@ -10,9 +10,9 @@ under `system-etc/etc`.
 
 - `hyprland/.config/hypr/hyprland.lua` is the Hyprland entrypoint and requires
   `hyprland/.config/hypr/conf.d/*.lua`.
-- `hyprland/.config/hypr/workspaces.lua`, `hdmi-override.lua`, `hdmi-mode.lua`,
-  and `generated/hyprsunset.conf` are tracked machine defaults consumed by the
-  live Hyprland config.
+- `hyprland/.config/hypr/workspaces.lua` and
+  `generated/hyprsunset.conf` are tracked machine defaults consumed by the live
+  Hyprland config.
 - `quickshell/.config/quickshell/blox` is the live bar/overlay setup.
 - Top-level `waybar/`, `eww/`, and `wofi/` are intentionally stale and ignored
   so they can be revived later without affecting the live desktop.

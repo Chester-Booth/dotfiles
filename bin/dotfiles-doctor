@@ -142,8 +142,6 @@ check_hyprland() {
 	expect_resolves_to "Hyprland entrypoint" "$HOME/.config/hypr/hyprland.lua" "$ROOT/hyprland/.config/hypr/hyprland.lua"
 	expect_resolves_to "Hyprland conf.d" "$HOME/.config/hypr/conf.d" "$ROOT/hyprland/.config/hypr/conf.d"
 	expect_resolves_to "Hyprland workspaces" "$HOME/.config/hypr/workspaces.lua" "$ROOT/hyprland/.config/hypr/workspaces.lua"
-	expect_resolves_to "Hyprland HDMI override" "$HOME/.config/hypr/hdmi-override.lua" "$ROOT/hyprland/.config/hypr/hdmi-override.lua"
-	expect_resolves_to "Hyprland HDMI mode" "$HOME/.config/hypr/hdmi-mode.lua" "$ROOT/hyprland/.config/hypr/hdmi-mode.lua"
 
 	if have hyprctl; then
 		errors="$(hyprctl configerrors 2>/dev/null || true)"

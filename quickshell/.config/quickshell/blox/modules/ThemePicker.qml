@@ -413,7 +413,8 @@ FloatingWindow {
         colourPickerKey = key;
         colourPickerTarget = target || "";
         const overrideValues = target && candidate.overrides ? candidate.overrides[target] : null;
-        const value = overrideValues && overrideValues[key] ? overrideValues[key] : candidate.colours[key];
+        const previewValues = target === "ansi" && previewData ? previewData.ansi : null;
+        const value = overrideValues && overrideValues[key] ? overrideValues[key] : previewValues && previewValues[key] ? previewValues[key] : candidate.colours[key];
         loadPickerColour(value);
         rememberOverlayFocus();
         colourPickerOpen = true;
@@ -671,6 +672,9 @@ FloatingWindow {
 
         if (Object.keys(next.overrides).length === 0)
             delete next.overrides;
+
+        if (target === "ansi")
+            next.terminal.ansi_source = "override";
 
         markCandidate(next);
     }
@@ -3229,6 +3233,73 @@ FloatingWindow {
 
                                                     TapHandler {
                                                         onTapped: root.openColourPicker(modelData, "")
+                                                    }
+
+                                                }
+
+                                            }
+
+                                        }
+
+                                    }
+
+                                    Label {
+                                        text: "Terminal colours"
+                                        color: Theme.foreground
+                                        font.family: Theme.bodyFontFamily
+                                        font.pixelSize: 17
+                                        font.bold: true
+                                    }
+
+                                    GridLayout {
+                                        Layout.fillWidth: true
+                                        columns: 4
+                                        columnSpacing: 10
+                                        rowSpacing: 8
+
+                                        Repeater {
+                                            model: root.ansiKeys
+
+                                            ColumnLayout {
+                                                required property string modelData
+
+                                                Layout.fillWidth: true
+
+                                                Label {
+                                                    text: modelData
+                                                    color: Theme.muted
+                                                    font.family: Theme.fontFamily
+                                                    font.pixelSize: 10
+                                                }
+
+                                                Rectangle {
+                                                    Layout.fillWidth: true
+                                                    height: 38
+                                                    radius: 9
+                                                    color: root.previewData && root.previewData.ansi ? root.previewData.ansi[modelData] : "transparent"
+                                                    border.color: ansiColourHover.hovered ? Theme.foreground : Theme.border
+                                                    border.width: ansiColourHover.hovered ? 2 : 1
+
+                                                    Text {
+                                                        anchors.left: parent.left
+                                                        anchors.right: parent.right
+                                                        anchors.bottom: parent.bottom
+                                                        anchors.margins: 7
+                                                        text: root.previewData && root.previewData.ansi ? root.previewData.ansi[modelData] : ""
+                                                        color: root.swatchText(parent.color)
+                                                        font.family: Theme.fontFamily
+                                                        font.pixelSize: 9
+                                                        elide: Text.ElideRight
+                                                    }
+
+                                                    HoverHandler {
+                                                        id: ansiColourHover
+
+                                                        cursorShape: Qt.PointingHandCursor
+                                                    }
+
+                                                    TapHandler {
+                                                        onTapped: root.openColourPicker(modelData, "ansi")
                                                     }
 
                                                 }

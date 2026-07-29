@@ -467,6 +467,16 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertNotIn('blank.fonts[role] = ""', blank)
         self.assertTrue((REPOSITORY / "wallpapers/wallpapers/blank-light.png").is_file())
 
+    def test_advanced_mode_can_edit_terminal_colours(self) -> None:
+        qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
+        advanced = qml.split('visible: root.editorMode === "advanced"', 1)[1]
+        terminal = advanced.split('text: "Terminal colours"', 1)[1].split('text: "Bar / OSD / Notifications"', 1)[0]
+        self.assertIn("model: root.ansiKeys", terminal)
+        self.assertIn('root.openColourPicker(modelData, "ansi")', terminal)
+        self.assertIn("previewData.ansi[modelData]", terminal)
+        self.assertIn('if (target === "ansi")', qml)
+        self.assertIn('next.terminal.ansi_source = "override"', qml)
+
     def test_simple_mode_contains_font_pickers(self) -> None:
         qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
         simple = qml.split('visible: root.editorMode === "overview"', 1)[1].split('visible: root.editorMode === "advanced"', 1)[0]

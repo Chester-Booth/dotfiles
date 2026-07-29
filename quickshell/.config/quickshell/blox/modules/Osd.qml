@@ -323,6 +323,7 @@ Scope {
                 }
                 if (Date.now() >= root.volumePreviewUntil)
                     root.show("volume", event.volume, event.muted);
+
             }
         }
 
@@ -387,6 +388,7 @@ Scope {
             color: "transparent"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.namespace: "blox-osd"
+            WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
             anchors {
                 left: onLeft
@@ -400,16 +402,14 @@ Scope {
                 right: onRight ? 28 - Theme.osdOffsetX : 0
             }
 
-            PopupWindow {
+            Item {
                 id: osdPopup
 
-                anchor.window: osdWindow
-                anchor.rect.x: osdWindow.horizontallyCentred ? Math.abs(Theme.osdOffsetX) + Theme.osdOffsetX : 0
-                anchor.rect.y: osdWindow.onTop ? osdWindow.restingGap : 0
-                implicitWidth: 292
-                implicitHeight: 72
+                x: osdWindow.horizontallyCentred ? Math.abs(Theme.osdOffsetX) + Theme.osdOffsetX : 0
+                y: osdWindow.onTop ? osdWindow.restingGap : 0
+                width: 292
+                height: 72
                 visible: root.rendered
-                color: "transparent"
 
                 Rectangle {
                     id: osdCard
@@ -551,9 +551,6 @@ Scope {
 
                     }
 
-                }
-
-                mask: Region {
                 }
 
             }

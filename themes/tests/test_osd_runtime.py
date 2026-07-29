@@ -16,17 +16,20 @@ class OsdRuntimeTests(unittest.TestCase):
 
         self.assertIn("implicitWidth: 292 +", window)
         self.assertIn("implicitHeight: 72 + restingGap", window)
-        self.assertIn("PopupWindow {", window)
-        self.assertIn("anchor.window: osdWindow", window)
+        self.assertIn("Item {\n                id: osdPopup", window)
         self.assertIn(
-            "anchor.rect.y: osdWindow.onTop ? osdWindow.restingGap : 0", window
+            "y: osdWindow.onTop ? osdWindow.restingGap : 0", window
         )
         self.assertIn("-osdCard.height - osdWindow.restingGap", window)
         self.assertIn("osdWindow.height", window)
+        self.assertNotIn("PopupWindow {", window)
         self.assertNotIn("modelData.width", window)
         self.assertNotIn("modelData.height", window)
         self.assertIn("left: onLeft", window)
         self.assertIn("right: onRight", window)
+        self.assertIn(
+            "WlrLayershell.keyboardFocus: WlrKeyboardFocus.None", window
+        )
         self.assertIn("mask: Region {\n            }", window)
 
     def test_position_preview_uses_a_numeric_duration(self) -> None:

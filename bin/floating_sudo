@@ -256,6 +256,8 @@ def parent(description: str, command: list[str]) -> int:
                 str(KITTY),
                 "--class",
                 "floating-sudo",
+                "--override",
+                "background_opacity=0.3",
                 "--title",
                 "Approve privileged command",
                 str(Path(__file__).resolve()),

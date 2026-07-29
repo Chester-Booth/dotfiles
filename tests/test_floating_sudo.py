@@ -175,9 +175,11 @@ class ParentTests(unittest.TestCase):
                 ),
                 mock.patch.object(
                     floating_sudo.subprocess, "Popen", return_value=process
-                ),
+                ) as process_mock,
             ):
                 self.assertEqual(floating_sudo.parent(description, ["true"]), 125)
+                kitty_command = process_mock.call_args.args[0]
+                self.assertIn("background_opacity=0.3", kitty_command)
             self.assertEqual(list(Path(runtime).iterdir()), [])
 
 

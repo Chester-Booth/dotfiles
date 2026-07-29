@@ -26,7 +26,7 @@ TARGET_FILES = {
     "wallpaper": ("hypr/wallpaper.json",),
     "gtk": ("gtk/gtk-3.0/settings.ini", "gtk/gtk-3.0/gtk.css", "gtk/gtk-4.0/settings.ini", "gtk/gtk-4.0/gtk.css", "gtk/metadata.json"),
     "cursor": ("cursor/metadata.json",),
-    "hyprland": ("hyprland/theme.lua",),
+    "hyprland": ("hyprland/theme.lua", "hyprland/hyprtoolkit.conf"),
     "hyprlock": ("hyprlock/theme.conf",),
     "btop": ("btop/theme.theme",),
     "micro": ("micro/blox-theme.micro",),
@@ -512,6 +512,28 @@ def phase7_loader_specs(root: Path) -> dict[str, tuple[Path, Path]]:
     }
 
 
+def hyprtoolkit_theme_link() -> Path:
+    config = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    return config / "hypr/hyprtoolkit.conf"
+
+
+def _sync_hyprtoolkit_loader(root: Path, active: bool) -> None:
+    link = hyprtoolkit_theme_link()
+    expected = root / "current/hyprland/hyprtoolkit.conf"
+    active = active and expected.is_file()
+    if active:
+        if link.is_symlink() and os.readlink(link) == str(expected):
+            return
+        if link.exists() or link.is_symlink():
+            raise RuntimeFailure(f"refusing to replace conflicting Hyprtoolkit theme config: {link}")
+        link.parent.mkdir(parents=True, exist_ok=True)
+        temporary = link.parent / f".{link.name}.{uuid.uuid4().hex}.tmp"
+        temporary.symlink_to(expected)
+        os.replace(temporary, link)
+    elif link.is_symlink() and os.readlink(link) == str(expected):
+        link.unlink()
+
+
 def _phase7_fallback(root: Path, target: str) -> Path:
     fallback = root / "integration/phase7-fallbacks" / TARGET_FILES[target][0]
     if fallback.is_file():
@@ -713,6 +735,7 @@ def sync_dynamic_loaders(root: Path, enabled_targets: Iterable[str]) -> None:
     ensure_cursor_loader(root, "cursor" in enabled)
     for target in phase7_loader_specs(root):
         ensure_phase7_loader(root, target, target in enabled)
+    _sync_hyprtoolkit_loader(root, "hyprland" in enabled)
 
 
 def cleanup_managed_loaders(root: Path) -> None:
@@ -737,6 +760,7 @@ def cleanup_managed_loaders(root: Path) -> None:
             remove_phase7_loader(root, target)
         except RuntimeFailure:
             pass
+    _sync_hyprtoolkit_loader(root, False)
 
 
 def verify_tracked_loaders(targets: Iterable[str]) -> None:
@@ -1032,6 +1056,11 @@ def run_reload_actions(root: Path, targets: Iterable[str], mode: str = "reload",
             command = ["hyprctl", "reload"]
             if run_command(command).returncode != 0:
                 warnings.append(f"Hyprland reload failed; run: {_command_text(command)}")
+            warnings.append(
+                "Hyprtoolkit apps must be restarted to discard the generated theme"
+                if mode == "reset"
+                else "Hyprtoolkit apps must be restarted to read the generated theme"
+            )
         elif target == "hyprlock":
             warnings.append("Hyprlock will read the canonical fallback the next time the lock screen starts" if mode == "reset" else "Hyprlock theme changes apply the next time the lock screen starts")
         elif target == "btop":

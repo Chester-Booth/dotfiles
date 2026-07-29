@@ -1,4 +1,4 @@
 """Repository-owned theme rendering tools."""
 
 API_VERSION = 1
-RENDERER_VERSION = 3
+RENDERER_VERSION = 4

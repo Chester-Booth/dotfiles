@@ -17,7 +17,7 @@ REPOSITORY = THEMES.parent
 sys.path.insert(0, str(THEMES / "lib"))
 
 from blox_theme.core import load_theme, render_theme
-from blox_theme.runtime import ApplicationLock, LockContended, RuntimeFailure, TARGET_FILES, TARGET_NAMES, apply_theme, current_generation, cursor_icon_link, kitty_theme_link, phase7_loader_specs, reconcile, reset_target, rollback, setup_gtk, validate_generation, vicinae_theme_link
+from blox_theme.runtime import ApplicationLock, LockContended, RuntimeFailure, TARGET_FILES, TARGET_NAMES, apply_theme, current_generation, cursor_icon_link, hyprtoolkit_theme_link, kitty_theme_link, phase7_loader_specs, reconcile, reset_target, rollback, setup_gtk, validate_generation, vicinae_theme_link
 
 PHASE2_TARGETS = ("quickshell", "vicinae", "kitty", "wallpaper")
 
@@ -89,6 +89,11 @@ class RuntimeTests(unittest.TestCase):
         for target, (link, expected) in phase7_loader_specs(self.state).items():
             self.assertTrue(link.is_symlink(), target)
             self.assertEqual(str(expected), os.readlink(link))
+        self.assertTrue(hyprtoolkit_theme_link().is_symlink())
+        self.assertEqual(
+            str(self.state / "current/hyprland/hyprtoolkit.conf"),
+            os.readlink(hyprtoolkit_theme_link()),
+        )
         self.assertEqual(self.state / f"cursors/{json.loads((generation / 'cursor/metadata.json').read_text())['cache_key']}/theme", Path(os.readlink(cursor_icon_link())))
         for version in ("3", "4"):
             config = self.root / f"config/gtk-{version}.0"
@@ -111,6 +116,20 @@ class RuntimeTests(unittest.TestCase):
         self.assertIn('export GLOW_STYLE="$XDG_CONFIG_HOME/glow/blox-theme.json"', shell)
         self.assertIn('style: "auto"', glow_config)
         self.assertNotIn("/home/blox", glow_config)
+
+    def test_hyprtoolkit_loader_does_not_replace_an_existing_config(self) -> None:
+        config = hyprtoolkit_theme_link()
+        config.parent.mkdir(parents=True, exist_ok=True)
+        config.write_text("accent = 0xFFFFFFFF\n", encoding="utf-8")
+        with self.assertRaisesRegex(RuntimeFailure, "conflicting Hyprtoolkit"):
+            apply_theme(
+                self.canonical_path,
+                self.canonical,
+                ("hyprland",),
+                run_command=FakeCommands(),
+            )
+        self.assertEqual("accent = 0xFFFFFFFF\n", config.read_text(encoding="utf-8"))
+        self.assertFalse((self.state / "current").exists())
 
     def test_installed_cursor_bypasses_builder_and_removes_generated_link(self) -> None:
         self.apply_canonical()
@@ -414,7 +433,7 @@ class RuntimeTests(unittest.TestCase):
                 self.apply_canonical()
                 runner = FakeCommands()
                 manifest, warnings = reset_target(target, run_command=runner)
-                manual = {"hyprlock", "btop", "micro", "glow", "code", "cursor_editor", "stylus", "obsidian", "powerlevel10k"}
+                manual = {"hyprland", "hyprlock", "btop", "micro", "glow", "code", "cursor_editor", "stylus", "obsidian", "powerlevel10k"}
                 if target != "kitty":
                     self.assertEqual(target in manual, bool(warnings))
                 active = (self.state / "current").resolve()
@@ -431,6 +450,8 @@ class RuntimeTests(unittest.TestCase):
                     self.assertTrue(link.is_symlink())
                     self.assertIn("integration/phase7-fallbacks", os.readlink(link))
                     self.assertTrue(link.resolve().is_file())
+                if target == "hyprland":
+                    self.assertFalse(hyprtoolkit_theme_link().exists())
 
     def test_history_retains_current_plus_five_previous_generations(self) -> None:
         for index in range(8):

@@ -201,7 +201,7 @@ class RendererTests(unittest.TestCase):
         self.assertIn("inactive_tab_background #000000", files["kitty/theme.conf"])
         self.assertIn("tab_bar_background none", files["kitty/theme.conf"])
         phase7 = {
-            "hyprland/theme.lua", "hyprlock/theme.conf", "btop/theme.theme",
+            "hyprland/theme.lua", "hyprland/hyprtoolkit.conf", "hyprlock/theme.conf", "btop/theme.theme",
             "micro/blox-theme.micro", "glow/style.json", "code/settings.json",
             "cursor-editor/settings.json", "stylus/blox-system.user.css",
             "powerlevel10k/theme.zsh",
@@ -234,6 +234,11 @@ class RendererTests(unittest.TestCase):
         self.assertIn("@-moz-document", files["stylus/blox-system.user.css"])
         self.assertIn('color-link default "#cdd6f4"', files["micro/blox-theme.micro"])
         self.assertNotIn('color-link default "#cdd6f4,#242424"', files["micro/blox-theme.micro"])
+        hyprtoolkit = files["hyprland/hyprtoolkit.conf"]
+        self.assertIn("background = 0xFF242424", hyprtoolkit)
+        self.assertIn("accent = 0xFF89B4FA", hyprtoolkit)
+        self.assertIn("icon_theme = Adwaita", hyprtoolkit)
+        self.assertIn("font_family = Google Sans", hyprtoolkit)
 
     def test_bar_item_overrides_are_rendered_with_complete_registry(self) -> None:
         self.theme["shell"] = {
@@ -372,7 +377,8 @@ class RendererTests(unittest.TestCase):
 
     def test_phase7_targets_are_isolated(self) -> None:
         target_files = {
-            "hyprland": "hyprland/theme.lua", "hyprlock": "hyprlock/theme.conf",
+            "hyprland": ["hyprland/hyprtoolkit.conf", "hyprland/theme.lua"],
+            "hyprlock": "hyprlock/theme.conf",
             "btop": "btop/theme.theme", "micro": "micro/blox-theme.micro",
             "glow": "glow/style.json", "code": ["code/package.json", "code/settings.json", "code/themes/blox-dark-2026.json"],
             "cursor_editor": "cursor-editor/settings.json", "stylus": "stylus/blox-system.user.css",

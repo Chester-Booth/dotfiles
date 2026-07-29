@@ -5,7 +5,7 @@ never edits generated state in place and never requests elevation.
 
 | Target | Generated file | Integration and reload policy |
 | --- | --- | --- |
-| Hyprland | `hyprland/theme.lua` | `appearance.lua` conditionally loads the managed link; `hyprctl reload` is automatic. |
+| Hyprland | `hyprland/theme.lua`, `hyprland/hyprtoolkit.conf` | `appearance.lua` conditionally loads the Hyprland link; the Hyprtoolkit config is linked directly. `hyprctl reload` is automatic, while Hyprtoolkit apps read changes when next started. |
 | Hyprlock | `hyprlock/theme.conf` | `hyprlock.conf` sources the managed link; the next lock process reads it. |
 | btop | `btop/theme.theme` | `btop.conf` names the managed theme; restart btop. |
 | Micro | `micro/blox-theme.micro` | A managed colourscheme link is installed; restart Micro. |

@@ -1,6 +1,7 @@
 import "."
 import "../shared"
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 
 GridLayout {

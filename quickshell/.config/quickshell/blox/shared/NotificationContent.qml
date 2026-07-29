@@ -20,6 +20,7 @@ Column {
             for (let i = 0; i < actions.length; i++) {
                 if (String(actions[i].text || "").trim().length > 0)
                     next.push(actions[i]);
+
             }
         }
         actionItems = next;

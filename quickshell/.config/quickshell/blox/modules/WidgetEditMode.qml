@@ -371,9 +371,7 @@ PanelWindow {
             BloxTextField {
                 Layout.fillWidth: true
                 suffix: "%"
-                text: root.selectedItem && root.selectedItem.options && root.selectedItem.options.background_opacity !== undefined
-                    ? String(Math.round((1 - Number(root.selectedItem.options.background_opacity)) * 100))
-                    : String(Math.round((1 - Theme.widgetOpacity) * 100))
+                text: root.selectedItem && root.selectedItem.options && root.selectedItem.options.background_opacity !== undefined ? String(Math.round((1 - Number(root.selectedItem.options.background_opacity)) * 100)) : String(Math.round((1 - Theme.widgetOpacity) * 100))
                 onEditingFinished: {
                     if (!root.selectedItem)
                         return ;

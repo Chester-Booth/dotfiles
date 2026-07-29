@@ -334,7 +334,9 @@ Rectangle {
                 snapValue: 100
                 accent: root.visualAudioOverdriven ? Theme.red : Theme.blue
                 onDragStarted: root.adjustingAudio = true
-                onChanged: (value) => root.queueAudio(value)
+                onChanged: (value) => {
+                    return root.queueAudio(value);
+                }
                 onDragFinished: root.finishAudio()
             }
 
@@ -416,7 +418,9 @@ Rectangle {
                 value: root.visualBrightnessPercent
                 accent: Theme.yellow
                 onDragStarted: root.adjustingBrightness = true
-                onChanged: (value) => root.queueBrightness(value)
+                onChanged: (value) => {
+                    return root.queueBrightness(value);
+                }
                 onDragFinished: root.finishBrightness()
             }
 
@@ -539,7 +543,6 @@ Rectangle {
                 height: parent.height
                 radius: parent.radius
                 color: slider.accent
-
             }
 
             Rectangle {
@@ -551,7 +554,6 @@ Rectangle {
                 color: slider.knobColor
                 border.color: slider.accent
                 border.width: 2
-
             }
 
             MouseArea {

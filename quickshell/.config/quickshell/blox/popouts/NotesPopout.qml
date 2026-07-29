@@ -28,9 +28,7 @@ Rectangle {
     readonly property real longestLineWidth: {
         const lines = contentText.split("\n");
         let longest = 0;
-        for (let i = 0; i < lines.length; i++)
-            longest = Math.max(longest, editorMetrics.advanceWidth(lines[i]));
-
+        for (let i = 0; i < lines.length; i++) longest = Math.max(longest, editorMetrics.advanceWidth(lines[i]))
         return longest;
     }
 

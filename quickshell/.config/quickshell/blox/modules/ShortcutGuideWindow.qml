@@ -127,7 +127,8 @@ PanelWindow {
                                 id: liveToplevel
 
                                 required property var modelData
-                                readonly property var ipc: modelData.lastIpcObject || ({})
+                                readonly property var ipc: modelData.lastIpcObject || ({
+                                })
                                 readonly property var position: ipc.at || [0, 0]
                                 readonly property var dimensions: ipc.size || [0, 0]
                                 readonly property real monitorWidth: root.captureMonitor ? root.captureMonitor.width : 1
@@ -180,11 +181,11 @@ PanelWindow {
                                 }
 
                                 ShaderEffect {
+                                    property ShaderEffectSource source: capturedToplevelTexture
+
                                     anchors.fill: parent
                                     // Discard the compositor-baked backdrop from translucent window captures.
                                     fragmentShader: "../assets/shaders/window-content.frag.qsb"
-
-                                    property ShaderEffectSource source: capturedToplevelTexture
                                 }
 
                             }
@@ -593,6 +594,12 @@ PanelWindow {
 
     }
 
+    SystemClock {
+        id: previewClock
+
+        precision: SystemClock.Seconds
+    }
+
     mask: Region {
     }
 
@@ -816,12 +823,6 @@ PanelWindow {
             colorizationColor: Theme.selectionForeground
         }
 
-    }
-
-    SystemClock {
-        id: previewClock
-
-        precision: SystemClock.Seconds
     }
 
 }

@@ -94,9 +94,9 @@ class WidgetRuntimeSourceTests(unittest.TestCase):
         self.assertNotIn("\n                reload();", widget_file)
 
     def test_theme_preview_uses_candidate_widget_items(self) -> None:
-        source = (ROOT / "quickshell/.config/quickshell/blox/shared/Theme.qml").read_text(encoding="utf-8")
-        preview = source.split("function previewSource", 1)[1].split("function cancelPreview", 1)[0]
-        self.assertIn("widgetItems = data.widgets.items;", preview)
+        source = (ROOT / "quickshell/.config/quickshell/blox/shared/ThemeDocumentController.qml").read_text(encoding="utf-8")
+        preview = source.split("function previewSource", 1)[1]
+        self.assertIn("theme.widgetItems = data.widgets.items;", preview)
 
     def test_new_widgets_default_to_empty_workspace_visibility(self) -> None:
         source = (ROOT / "quickshell/.config/quickshell/blox/modules/ThemePickerController.qml").read_text(encoding="utf-8")

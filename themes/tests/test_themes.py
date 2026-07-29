@@ -706,10 +706,11 @@ class CliContractTests(unittest.TestCase):
         self.assertIn("onFileChanged: touchpad.refresh()", status)
 
     def test_runtime_application_tray_order_uses_the_tray_opening_direction(self) -> None:
-        theme = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/Theme.qml").read_text(encoding="utf-8")
-        self.assertIn("resolvedBarItems(data.bar && data.bar.items ? data.bar.items : [], barPosition)", theme)
-        resolver = theme.split("function resolvedBarItems(overrides, position)", 1)[1].split("function barItemsForRegion", 1)[0]
-        self.assertIn("if (trayOpensForward(defaults))", resolver)
+        document = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/ThemeDocumentController.qml").read_text(encoding="utf-8")
+        defaults = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/ThemeDefaults.qml").read_text(encoding="utf-8")
+        self.assertIn("defaults.resolvedBarItems(data.bar && data.bar.items ? data.bar.items : [])", document)
+        resolver = defaults.split("function resolvedBarItems(overrides)", 1)[1].split("function barItemsForRegion", 1)[0]
+        self.assertIn("if (trayOpensForward(items))", resolver)
         self.assertIn("hidden.unshift(applicationTray)", resolver)
         self.assertIn("hidden.push(applicationTray)", resolver)
 

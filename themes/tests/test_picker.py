@@ -291,9 +291,10 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn("return root.requestClose()", picker)
         self.assertNotIn("candidate.wallpaper.path);\n            }\n            return \"open-generating\"", picker)
         self.assertIn('property string activeThemeId: "blox-panel"', theme)
-        self.assertIn("activeThemeId = data.id", theme)
-        preview = theme.split("function previewSource", 1)[1].split("function cancelPreview", 1)[0]
-        self.assertNotIn("activeThemeId =", preview)
+        document = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/ThemeDocumentController.qml").read_text(encoding="utf-8")
+        self.assertIn("theme.activeThemeId = data.id", document)
+        preview = document.split("function previewSource", 1)[1]
+        self.assertNotIn("theme.activeThemeId =", preview)
         self.assertIn("root.loadActiveIdentity(text())", theme)
 
     def test_unavailable_targets_are_visible_but_not_editable(self) -> None:

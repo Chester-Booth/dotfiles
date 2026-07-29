@@ -547,10 +547,11 @@ class CliContractTests(unittest.TestCase):
     def test_bar_consumes_configured_regions_and_positions(self) -> None:
         source = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/Bar.qml").read_text(encoding="utf-8")
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
+        region = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarRegion.qml").read_text(encoding="utf-8")
         for expected in (
-            'model: Theme.barStartItems',
-            'model: Theme.barCentreItems',
-            'model: Theme.barEndItems',
+            'regionItems: Theme.barStartItems',
+            'regionItems: Theme.barCentreItems',
+            'regionItems: Theme.barEndItems',
             'Theme.barPosition === "left"',
             'Theme.barPosition === "right"',
             'Theme.barPosition === "top"',
@@ -572,6 +573,20 @@ class CliContractTests(unittest.TestCase):
         self.assertIn("root.leaveEdgeTrigger()", edge_trigger)
         self.assertIn('Theme.barPosition === "bottom"', edge_trigger)
         self.assertIn('Theme.barPosition === "right"', edge_trigger)
+        self.assertIn("Hyprland.activeToplevel.lastIpcObject", source)
+        self.assertIn("Hyprland.refreshToplevels()", source)
+        self.assertIn("ToplevelManager.activeToplevel", source)
+        self.assertIn("activeWaylandToplevel.fullscreen", source)
+        self.assertIn("readonly property bool fullscreenActive", source)
+        self.assertIn("readonly property bool barPinnedOpen: barOpen && !fullscreenActive", source)
+        self.assertIn("exclusiveZone: root.barPinnedOpen", source)
+        self.assertEqual(6, source.count("BarRegion {"))
+        self.assertIn("BarItemDelegate {", region)
+        self.assertIn("Row {", region)
+        self.assertIn("Column {", region)
+        self.assertIn("root.regionItems.length - 1", region)
+        self.assertIn("root.trayHost.registerTrayToggle(this, root.horizontal)", region)
+        self.assertIn("root.trayHost.unregisterTrayToggle(this, root.horizontal)", region)
         self.assertIn("function publishNotificationPosition()", delegate)
         self.assertIn("horizontal !== controller.horizontalBar", delegate)
         self.assertIn("controller.notificationPanelY = mappedCentre", delegate)
@@ -579,8 +594,8 @@ class CliContractTests(unittest.TestCase):
         self.assertIn("function onHorizontalBarChanged()", delegate)
         self.assertIn('icon: root.controller.network.json.icon || "󰤩"', delegate)
         self.assertNotIn('icon: root.controller.network.json.icon || "󰔩"', delegate)
-        self.assertIn("text: root.railClockText(root.horizontalBar)", source)
-        self.assertNotIn("text: root.railClockText()", source)
+        self.assertIn("text: root.controller.railClockText(root.horizontal)", delegate)
+        self.assertNotIn("text: root.controller.railClockText()", delegate)
 
     def test_configured_battery_uses_live_status_without_cross_axis_jump(self) -> None:
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
@@ -600,7 +615,8 @@ class CliContractTests(unittest.TestCase):
         self.assertIn("property var verticalTrayToggleItem", bar)
         self.assertIn("property var horizontalTrayToggleItem", bar)
         self.assertIn("readonly property point horizontalTrayPoint", bar)
-        self.assertIn("const geometryDependency = width + height", bar)
+        self.assertIn("while (ancestor && ancestor !== configuredRail)", bar)
+        self.assertIn("ancestor = ancestor.parent", bar)
 
     def test_configured_battery_supports_display_modes(self) -> None:
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
@@ -612,12 +628,15 @@ class CliContractTests(unittest.TestCase):
 
     def test_configured_touchpad_toggles_and_refreshes_live_status(self) -> None:
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
+        status = (REPOSITORY / "quickshell/.config/quickshell/blox/services/BarStatus.qml").read_text(encoding="utf-8")
         touchpad = delegate.split("id: touchpadComponent", 1)[1].split("id: trayToggleComponent", 1)[0]
         self.assertIn("root.controller.touchpad.json.icon", touchpad)
         self.assertIn('"/osd/control.sh touchpad-toggle"', touchpad)
-        self.assertIn("root.controller.touchpad.refresh()", touchpad)
-        self.assertIn("onHovered: root.controller.extrasEntered()", touchpad)
-        self.assertIn("onExited: root.controller.extrasExited()", touchpad)
+        self.assertIn("onHovered: root.controller.trayEntered()", touchpad)
+        self.assertIn("onExited: root.controller.trayExited()", touchpad)
+        self.assertIn('"/quickshell-touchpad-enabled"', status)
+        self.assertIn("watchChanges: true", status)
+        self.assertIn("onFileChanged: touchpad.refresh()", status)
 
     def test_runtime_application_tray_order_uses_the_tray_opening_direction(self) -> None:
         theme = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/Theme.qml").read_text(encoding="utf-8")
@@ -639,8 +658,8 @@ class CliContractTests(unittest.TestCase):
         self.assertIn("trayCount * Theme.buttonSize", application_tray)
         self.assertIn("anchors.fill: parent", application_tray)
         self.assertIn("HoverHandler {", application_tray)
-        self.assertIn("root.controller.extrasEntered()", application_tray)
-        self.assertIn("root.controller.extrasExited()", application_tray)
+        self.assertIn("root.controller.trayEntered()", application_tray)
+        self.assertIn("root.controller.trayExited()", application_tray)
         tray_item = application_tray.split("TrayRailItem {", 1)[1]
         self.assertNotIn("onExited:", tray_item)
 
@@ -722,7 +741,7 @@ class CliContractTests(unittest.TestCase):
         self.assertTrue(preview["bar"]["items"])
 
     def test_tray_toggle_points_towards_its_placement_dependent_drawer(self) -> None:
-        toggle = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/ExtrasToggleButton.qml").read_text(encoding="utf-8")
+        toggle = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/TrayToggleButton.qml").read_text(encoding="utf-8")
         self.assertIn('icon: horizontal ? "󰅂" : "󰅀"', toggle)
         self.assertIn("property bool opensForward: false", toggle)
         self.assertIn("iconRotation: active === opensForward ? 180 : 0", toggle)

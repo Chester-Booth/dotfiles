@@ -1,7 +1,6 @@
 import "../shared"
 import QtQuick
 import QtQuick.Effects
-import QtQuick.Layouts
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Wayland
@@ -14,7 +13,6 @@ PanelWindow {
     property var captureSource: null
     property var captureMonitor: null
     property var captureWorkspace: null
-    property string captureTitle: ""
     property string wallpaperSource: ""
     property string wallpaperFit: "cover"
     readonly property real contentScale: Math.min(1.08, Math.min(width / 1840, height / 1000))
@@ -89,8 +87,6 @@ PanelWindow {
             y: (parent.height - height) / 2 + (root.guideOpen ? 0 : 70)
 
             Column {
-                id: leftColumn
-
                 width: 600
                 height: parent.height
                 spacing: 24
@@ -614,8 +610,6 @@ PanelWindow {
         color: Theme.accent
 
         Text {
-            id: capLabel
-
             visible: keyCap.iconName === ""
             anchors.centerIn: parent
             text: keyCap.label
@@ -807,8 +801,6 @@ PanelWindow {
     }
 
     component PhosphorIcon: Image {
-        id: phosphorIcon
-
         required property string iconName
         property bool mirroredIcon: false
 

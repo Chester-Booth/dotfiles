@@ -36,7 +36,6 @@ Rectangle {
 
     signal previous()
     signal next()
-    signal edit()
     signal refresh(string file)
     signal save(string file, string body)
     signal focusRequested()

@@ -1,6 +1,6 @@
 # Blox Quickshell
 
-Quickshell configuration for the left rail and Eww-style overlays.
+Quickshell configuration for the configurable bar, popouts and desktop widgets.
 
 This config is independent from the old Waybar setup. Runtime helper scripts now
 live under neutral backend directories in `scripts/`, while the old top-level
@@ -30,14 +30,14 @@ uses it to refresh expenses-generated todo markdown files.
 Layout:
 
 - `shell.qml` - Quickshell entrypoint.
-- `modules/` - top-level shell surfaces, including the rail, overlays and IPC-opened theme picker.
+- `modules/` - top-level shell surfaces, including the bar, desktop widgets and IPC-opened theme picker.
 - `shared/` - theme and reusable UI pieces.
 - `services/` - status polling, persisted UI state, action execution, notification,
   workspace, and derived-content controllers.
 - `popouts/` - click-open panel surfaces.
-- `scripts/status/` - JSON status producers for the rail and popouts.
+- `scripts/status/` - JSON status producers for the bar and popouts.
 - `scripts/{calendar,display,gpu,network,power,theme,todo,update,workspaces}/` - action and domain backends.
-- `scripts/overlays/` - background todo/calendar overlay helpers.
+- `scripts/overlays/` - todo and calendar desktop-widget helpers. The directory name remains part of saved widget command paths.
 - `scripts/contracts/status.json` - expected JSON contracts for status-producing scripts.
 
 Validate script output contracts with:

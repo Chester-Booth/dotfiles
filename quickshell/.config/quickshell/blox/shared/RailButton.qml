@@ -15,7 +15,6 @@ Rectangle {
 
     signal clicked(real centerY)
     signal rightClicked()
-    signal wheeled(int delta)
     signal hovered(real centerY)
     signal exited()
 
@@ -76,7 +75,7 @@ Rectangle {
                 root.clicked(root.y + root.height / 2);
         }
         onWheel: (event) => {
-            return root.wheeled(event.angleDelta.y);
+            event.accepted = true;
         }
     }
 

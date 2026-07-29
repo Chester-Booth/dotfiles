@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class WidgetRuntimeSourceTests(unittest.TestCase):
     def test_normal_overlay_uses_shared_renderer(self) -> None:
-        source = (ROOT / "quickshell/.config/quickshell/blox/modules/EwwOverlays.qml").read_text(encoding="utf-8")
+        source = (ROOT / "quickshell/.config/quickshell/blox/modules/DesktopWidgets.qml").read_text(encoding="utf-8")
         self.assertIn("Shared.DesktopWidget {", source)
         self.assertIn("renderUpdates: widgetWindow.visible", source)
         self.assertNotIn("component OverlayBox", source)
@@ -65,7 +65,7 @@ class WidgetRuntimeSourceTests(unittest.TestCase):
         self.assertIn("width: root.selectedItem ? 300", source)
 
     def test_widget_edit_mode_returns_to_its_origin_workspace(self) -> None:
-        overlays = (ROOT / "quickshell/.config/quickshell/blox/modules/EwwOverlays.qml").read_text(encoding="utf-8")
+        overlays = (ROOT / "quickshell/.config/quickshell/blox/modules/DesktopWidgets.qml").read_text(encoding="utf-8")
         theme = (ROOT / "quickshell/.config/quickshell/blox/shared/Theme.qml").read_text(encoding="utf-8")
         self.assertIn('property string editReturnWorkspace: ""', overlays)
         self.assertIn("Hyprland.focusedWorkspace ? String(Hyprland.focusedWorkspace.id)", overlays)
@@ -74,14 +74,14 @@ class WidgetRuntimeSourceTests(unittest.TestCase):
         self.assertIn("signal widgetEditModeFinished(string widgetsJson, string returnWorkspace)", theme)
 
     def test_custom_actions_launch_detached_and_refresh_afterwards(self) -> None:
-        source = (ROOT / "quickshell/.config/quickshell/blox/modules/EwwOverlays.qml").read_text(encoding="utf-8")
+        source = (ROOT / "quickshell/.config/quickshell/blox/modules/DesktopWidgets.qml").read_text(encoding="utf-8")
         self.assertIn("root.run(root.commandFor(widgetWindow.modelData.left_click_command))", source)
         self.assertIn("root.run(root.commandFor(widgetWindow.modelData.right_click_command))", source)
         self.assertIn("actionRefresh.restart()", source)
         self.assertNotIn("widgetAction.run", source)
 
     def test_widget_input_is_limited_to_the_visible_renderer(self) -> None:
-        source = (ROOT / "quickshell/.config/quickshell/blox/modules/EwwOverlays.qml").read_text(encoding="utf-8")
+        source = (ROOT / "quickshell/.config/quickshell/blox/modules/DesktopWidgets.qml").read_text(encoding="utf-8")
         widget_window = source.split("id: widgetWindow", 1)[1].split("WidgetEditMode {", 1)[0]
         self.assertIn("mask: Region {", widget_window)
         self.assertIn("item: widgetRenderer", widget_window)

@@ -2,11 +2,9 @@ import "../popouts"
 import "../services"
 import "../shared"
 import QtQuick
-import QtQuick.Layouts
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
-import Quickshell.Services.SystemTray
 import Quickshell.Wayland
 
 Scope {
@@ -21,44 +19,33 @@ Scope {
     property bool barOpen: true
     property bool edgeTriggerHovered: false
     property bool railSurfaceHovered: false
-    readonly property bool hoverRevealHeld: !barOpen && (edgeTriggerHovered || railSurfaceHovered || openPanel.length > 0 || extrasOpen || trayMenuOpen || popoutHovered || extrasHovered || inputPopupLocked)
-    readonly property bool barVisible: barOpen || hoverRevealHeld
+    readonly property var activeToplevelState: Hyprland.activeToplevel ? Hyprland.activeToplevel.lastIpcObject || ({
+    }) : ({
+    })
+    readonly property var activeWaylandToplevel: ToplevelManager.activeToplevel
+    readonly property bool fullscreenActive: activeWaylandToplevel ? activeWaylandToplevel.fullscreen : Number(activeToplevelState.fullscreen || 0) > 0
+    readonly property bool barPinnedOpen: barOpen && !fullscreenActive
+    readonly property bool hoverRevealHeld: !barPinnedOpen && (edgeTriggerHovered || railSurfaceHovered || openPanel.length > 0 || trayOpen || trayMenuOpen || popoutHovered || trayHovered || inputPopupLocked)
+    readonly property bool barVisible: barPinnedOpen || hoverRevealHeld
     property real barSlide: barVisible ? 1 : 0
-    property bool extrasOpen: false
+    property bool trayOpen: false
     property bool batteryExpanded: false
     property bool clockDateMode: false
-    property bool railHovered: false
     property string hoveredSource: ""
     property bool popoutHovered: false
-    property bool extrasHovered: false
+    property bool trayHovered: false
     property bool inputPopupLocked: false
     property alias blinkOn: workspaceController.blinkOn
     property string selectedCalendarDate: ""
-    property alias calendarAddRevision: barActions.calendarAddRevision
-    property alias calendarAddBusy: barActions.calendarAddBusy
-    property alias calendarAddError: barActions.calendarAddError
-    property alias notesSaveRevision: barActions.notesSaveRevision
-    property alias notesSaveBusy: barActions.notesSaveBusy
-    property alias notesSaveError: barActions.notesSaveError
-    property alias generatedRefreshBusy: barActions.generatedRefreshBusy
-    property alias generatedRefreshError: barActions.generatedRefreshError
     property var trayMenuHandle: null
     property string trayMenuTitle: ""
     property real trayMenuY: 8
     property bool trayMenuOpen: false
-    property alias notificationItems: notifications.items
-    property alias toastItems: notifications.toasts
-    property alias notificationToastsEnabled: notifications.toastsEnabled
     property alias notificationDnd: uiState.notificationDnd
-    property alias activeMprisPlayer: uiState.activeMprisPlayer
     property real notificationPanelY: 0
     property var activeScreen: Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
-    property alias performanceActionBusy: barActions.performanceBusy
-    property alias performanceActionError: barActions.performanceError
     property alias workspaces: barStatus.workspaces
     property alias systemInfo: barStatus.system
-    property alias todo: barStatus.todo
-    property alias calendarEvents: barStatus.calendar
     property alias updates: barStatus.updates
     property alias battery: barStatus.battery
     property alias audio: barStatus.audio
@@ -69,10 +56,6 @@ Scope {
     property alias privacy: barStatus.privacy
     property alias caffeine: barStatus.caffeine
     readonly property bool horizontalBar: Theme.barPosition === "top" || Theme.barPosition === "bottom"
-
-    function togglePanel(panel, centerY) {
-        openHoverPanel(panel, centerY);
-    }
 
     function enterEdgeTrigger() {
         edgeTriggerRelease.stop();
@@ -102,10 +85,9 @@ Scope {
 
     function closePanel() {
         openPanel = "";
-        railHovered = false;
         hoveredSource = "";
         popoutHovered = false;
-        extrasHovered = false;
+        trayHovered = false;
         inputPopupLocked = false;
         hoverCloseDelay.stop();
     }
@@ -139,13 +121,11 @@ Scope {
 
         openPanel = panel;
         hoveredSource = "";
-        railHovered = false;
         hoverCloseDelay.stop();
     }
 
     function hoverButtonEntered(panel, centerY, source) {
         hoveredSource = source === undefined ? panel : source;
-        railHovered = true;
         openHoverPanel(panel, centerY);
     }
 
@@ -154,7 +134,6 @@ Scope {
             return ;
 
         hoveredSource = "";
-        railHovered = false;
         scheduleHoverClose();
     }
 
@@ -162,22 +141,21 @@ Scope {
         hoverCloseDelay.restart();
     }
 
-    function extrasEntered() {
-        extrasHovered = true;
+    function trayEntered() {
+        trayHovered = true;
         hoverCloseDelay.stop();
     }
 
     function trayItemEntered() {
         openPanel = "";
-        railHovered = false;
         hoveredSource = "";
         popoutHovered = false;
         inputPopupLocked = false;
-        extrasEntered();
+        trayEntered();
     }
 
-    function extrasExited() {
-        extrasHovered = false;
+    function trayExited() {
+        trayHovered = false;
         scheduleHoverClose();
     }
 
@@ -228,33 +206,33 @@ Scope {
         runArgs(["env", "BLOX_NOTIFICATION_APP_NAME=" + (notification.appName || ""), "BLOX_NOTIFICATION_DESKTOP_ENTRY=" + (notification.desktopEntry || ""), "BLOX_NOTIFICATION_SUMMARY=" + (notification.summary || ""), "/home/blox/.config/hypr/scripts/focus-notification-source-workspace.sh"]);
     }
 
-    function toggleExtras() {
+    function toggleTray() {
         closePanel();
         closeTrayMenu();
-        extrasOpen = !extrasOpen;
-        extrasHovered = extrasOpen;
+        trayOpen = !trayOpen;
+        trayHovered = trayOpen;
     }
 
-    function openExtras() {
-        if (extrasOpen)
+    function openTray() {
+        if (trayOpen)
             return ;
 
         closePanel();
         closeTrayMenu();
-        extrasOpen = true;
+        trayOpen = true;
     }
 
-    function closeDrawers() {
+    function closeBarOverlays() {
         closePanel();
         closeTrayMenu();
-        extrasHovered = false;
-        extrasOpen = false;
+        trayHovered = false;
+        trayOpen = false;
     }
 
     function openTrayMenu(item, centerY) {
         closePanel();
-        extrasOpen = true;
-        extrasHovered = true;
+        trayOpen = true;
+        trayHovered = true;
         trayMenuHandle = item.menu;
         trayMenuTitle = item.tooltipTitle || item.title || item.id || "Tray";
         trayMenuY = centerY;
@@ -292,33 +270,13 @@ Scope {
         barActions.runPerformance(command);
     }
 
-    function powerCommand(kind) {
-        return content.powerCommand(kind);
-    }
-
-    function updateSummary() {
-        return content.updateSummary();
-    }
-
     function currentIsoDate() {
         return Qt.formatDate(clock.date, "yyyy-MM-dd");
     }
 
     function resetCalendarMonth() {
         selectedCalendarDate = currentIsoDate();
-        calendarEvents.refresh();
-    }
-
-    function systemPanelTitle() {
-        return content.systemPanelTitle();
-    }
-
-    function systemPanelBody() {
-        return content.systemPanelBody();
-    }
-
-    function systemPanelActions() {
-        return content.systemPanelActions();
+        barStatus.calendar.refresh();
     }
 
     function workspaceItems() {
@@ -333,34 +291,6 @@ Scope {
         return content.railClockText(horizontal);
     }
 
-    function panelTitle() {
-        return content.panelTitle();
-    }
-
-    function panelSubtitle() {
-        return content.panelSubtitle();
-    }
-
-    function panelHeaderActionIcon() {
-        return content.panelHeaderActionIcon();
-    }
-
-    function panelHeaderActionCommand() {
-        return content.panelHeaderActionCommand();
-    }
-
-    function panelHeaderStatus() {
-        return content.panelHeaderStatus();
-    }
-
-    function panelBody() {
-        return content.panelBody();
-    }
-
-    function panelActions(panel) {
-        return content.panelActions(panel);
-    }
-
     function statusError(panel) {
         const pollers = {
             "audio": audio,
@@ -370,11 +300,8 @@ Scope {
             "privacy": privacy,
             "caffeine": caffeine,
             "updates": updates,
-            "todo": todo,
-            "calendar": calendarEvents,
-            "system": systemInfo,
-            "battery": battery,
-            "touchpad": touchpad
+            "todo": barStatus.todo,
+            "system": systemInfo
         };
         const poller = pollers[panel];
         return poller && !poller.ok ? poller.lastError : "";
@@ -382,11 +309,17 @@ Scope {
 
     onBarOpenChanged: {
         if (!barOpen)
-            closeDrawers();
+            closeBarOverlays();
+
+    }
+    onFullscreenActiveChanged: {
+        if (fullscreenActive)
+            closeBarOverlays();
 
     }
     Component.onCompleted: {
         diagLog("component.completed", "bar loaded");
+        Hyprland.refreshToplevels();
         syncActiveScreenToFocus();
     }
 
@@ -444,7 +377,7 @@ Scope {
         onControlRefreshRequested: barStatus.refreshControl()
         onPerformanceRefreshRequested: barStatus.refreshPerformance()
         onTodoRefreshRequested: todoRefreshDelay.restart()
-        onCalendarRefreshRequested: calendarEvents.refresh()
+        onCalendarRefreshRequested: barStatus.calendar.refresh()
     }
 
     BarContent {
@@ -456,18 +389,12 @@ Scope {
         clockDateMode: root.clockDateMode
         updates: root.updates.json
         updatesLastUpdatedMs: root.updates.lastUpdatedMs
-        todo: root.todo.json
-        calendar: root.calendarEvents.json
         bluetooth: root.bluetooth.json
         audio: root.audio.json
         brightness: root.brightness.json
         network: root.network.json
         privacy: root.privacy.json
-        touchpad: root.touchpad.json
-        system: root.systemInfo.json
-        battery: root.battery.json
         caffeine: root.caffeine.json
-        notificationTooltip: root.notificationStatus().tooltip
     }
 
     IpcHandler {
@@ -498,7 +425,7 @@ Scope {
 
         interval: 120
         repeat: false
-        onTriggered: todo.refresh()
+        onTriggered: barStatus.todo.refresh()
     }
 
     Timer {
@@ -507,10 +434,10 @@ Scope {
         interval: 180
         repeat: false
         onTriggered: {
-            if (root.hoveredSource.length === 0 && !root.popoutHovered && !root.extrasHovered && !root.inputPopupLocked) {
+            if (root.hoveredSource.length === 0 && !root.popoutHovered && !root.trayHovered && !root.inputPopupLocked) {
                 root.closePanel();
                 root.closeTrayMenu();
-                root.extrasOpen = false;
+                root.trayOpen = false;
             }
         }
     }
@@ -535,18 +462,10 @@ Scope {
                 root.activeScreen = modelData;
             }
 
-            function extrasLeft() {
-                Qt.callLater(function() {
-                    if (!extrasViewport.hovered)
-                        root.extrasExited();
-
-                });
-            }
-
             screen: modelData
             implicitWidth: root.horizontalBar ? modelData.width : (root.barVisible || root.barSlide > 0.01 ? Theme.railWidth : 1)
             implicitHeight: root.horizontalBar ? (root.barVisible || root.barSlide > 0.01 ? Theme.railWidth : 1) : modelData.height
-            exclusiveZone: root.barOpen ? Math.round(Theme.railWidth * root.barSlide) : 0
+            exclusiveZone: root.barPinnedOpen ? Math.round(Theme.railWidth * root.barSlide) : 0
             focusable: false
             visible: true
             color: "transparent"
@@ -595,129 +514,7 @@ Scope {
 
                 MouseArea {
                     anchors.fill: parent
-                    onClicked: root.closeDrawers()
-                }
-
-                ColumnLayout {
-                    id: railLayout
-
-                    visible: false
-                    anchors.fill: parent
-                    anchors.topMargin: 4
-                    anchors.bottomMargin: 4
-                    spacing: 0
-
-                    RailTopActions {
-                        openPanel: root.openPanel
-                        scriptRoot: root.scriptRoot
-                        onPanelClicked: (panel, centerY) => {
-                            return root.togglePanel(panel, centerY);
-                        }
-                        onPanelHovered: (panel, centerY, source) => {
-                            return root.hoverButtonEntered(panel, centerY, source);
-                        }
-                        onPanelExited: (source) => {
-                            return root.hoverButtonExited(source);
-                        }
-                        onRunCommand: (command) => {
-                            return root.run(command);
-                        }
-                    }
-
-                    Repeater {
-                        model: root.workspaceItems()
-
-                        WorkspaceRailButton {
-                            item: modelData
-                            blinking: (modelData.urgent || root.workspaceAlert(modelData.id)) && root.blinkOn
-                            onActivate: {
-                                root.closeDrawers();
-                                root.focusWorkspace(modelData.id);
-                                workspaces.refresh();
-                            }
-                        }
-
-                    }
-
-                    SpecialWorkspaceRailButton {
-                        workspace: workspaces.json.special
-                        onActivate: {
-                            root.closeDrawers();
-                            root.toggleSpecialWorkspace("magic");
-                            workspaces.refresh();
-                        }
-                    }
-
-                    Item {
-                        Layout.fillHeight: true
-                    }
-
-                    Item {
-                        id: extrasPushSpacer
-
-                        Layout.preferredHeight: root.extrasOpen ? extrasViewport.push : 0
-                        Layout.minimumHeight: Layout.preferredHeight
-                        Layout.maximumHeight: Layout.preferredHeight
-
-                        Behavior on Layout.preferredHeight {
-                            NumberAnimation {
-                                duration: 140
-                                easing.type: Easing.OutCubic
-                            }
-
-                        }
-
-                    }
-
-                    ExtrasToggleButton {
-                        id: extrasToggle
-
-                        active: root.extrasOpen
-                        onToggle: root.toggleExtras()
-                        onOpenRequested: {
-                            root.openExtras();
-                            root.extrasEntered();
-                        }
-                        onExited: panel.extrasLeft()
-                    }
-
-                    SystemRailSection {
-                        audioStatus: audio.json
-                        networkStatus: network.json
-                        notificationsStatus: root.notificationStatus()
-                        touchpadStatus: touchpad.json
-                        systemStatus: systemInfo.json
-                        batteryStatus: battery.json
-                        openPanel: root.openPanel
-                        panelHeight: panel.height
-                        batteryExpanded: root.batteryExpanded
-                        onPanelClicked: (panel, centerY) => {
-                            if (panel === "notifications")
-                                root.notificationPanelY = centerY;
-
-                            return root.togglePanel(panel, centerY);
-                        }
-                        onPanelHovered: (panel, centerY, source) => {
-                            if (panel === "notifications")
-                                root.notificationPanelY = centerY;
-
-                            return root.hoverButtonEntered(panel, centerY, source);
-                        }
-                        onNotificationsPositionChanged: (centerY) => {
-                            root.notificationPanelY = centerY;
-                        }
-                        onPanelExited: (source) => {
-                            return root.hoverButtonExited(source);
-                        }
-                        onRunCommand: (command) => {
-                            return root.run(command);
-                        }
-                        onClearNotifications: root.clearNotifications()
-                        onCloseDrawers: root.closeDrawers()
-                        onToggleBatteryExpanded: root.batteryExpanded = !root.batteryExpanded
-                        onCollapseBattery: root.batteryExpanded = false
-                    }
-
+                    onClicked: root.closeBarOverlays()
                 }
 
                 Item {
@@ -733,10 +530,16 @@ Scope {
                             return Qt.point(0, 0);
 
                         // mapToItem() does not create bindings to ancestor
-                        // geometry. Read it directly so previews which rotate
-                        // the bar recalculate the drawer position.
-                        const geometryDependency = width + height + item.x + item.y + item.width + item.height + item.parent.x + item.parent.y;
-                        return item.mapToItem(configuredRail, 0, 0);
+                        // geometry. Read the full chain so region resizing and
+                        // preview rotation both recalculate the drawer point.
+                        let geometryDependency = width + height;
+                        let ancestor = item;
+                        while (ancestor && ancestor !== configuredRail) {
+                            geometryDependency += ancestor.x + ancestor.y + ancestor.width + ancestor.height;
+                            ancestor = ancestor.parent;
+                        }
+                        const point = item.mapToItem(configuredRail, 0, 0);
+                        return Qt.point(point.x + geometryDependency * 0, point.y);
                     }
 
                     function registerTrayToggle(item, horizontal) {
@@ -759,156 +562,78 @@ Scope {
                     anchors.fill: parent
                     anchors.margins: 4
 
-                    Column {
-                        id: verticalStart
-
+                    BarRegion {
                         visible: !root.horizontalBar
                         anchors.top: parent.top
                         anchors.horizontalCenter: parent.horizontalCenter
-
-                        Repeater {
-                            model: Theme.barStartItems
-
-                            BarItemDelegate {
-                                required property var modelData
-
-                                itemId: modelData.id
-                                controller: root
-                                horizontal: false
-                                trayOpensForward: true
-                                panelExtent: panel.height
-                                Component.onCompleted: configuredRail.registerTrayToggle(this, false)
-                                Component.onDestruction: configuredRail.unregisterTrayToggle(this, false)
-                            }
-
-                        }
-
+                        regionItems: Theme.barStartItems
+                        controller: root
+                        trayHost: configuredRail
+                        horizontal: false
+                        panelExtent: panel.height
+                        region: "start"
                     }
 
-                    Column {
+                    BarRegion {
                         visible: !root.horizontalBar
                         anchors.centerIn: parent
-
-                        Repeater {
-                            model: Theme.barCentreItems
-
-                            BarItemDelegate {
-                                required property var modelData
-                                required property int index
-
-                                itemId: modelData.id
-                                controller: root
-                                horizontal: false
-                                trayOpensForward: index === Theme.barCentreItems.length - 1
-                                panelExtent: panel.height
-                                Component.onCompleted: configuredRail.registerTrayToggle(this, false)
-                                Component.onDestruction: configuredRail.unregisterTrayToggle(this, false)
-                            }
-
-                        }
-
+                        regionItems: Theme.barCentreItems
+                        controller: root
+                        trayHost: configuredRail
+                        horizontal: false
+                        panelExtent: panel.height
+                        region: "centre"
                     }
 
-                    Column {
-                        id: verticalEnd
-
+                    BarRegion {
                         visible: !root.horizontalBar
                         anchors.bottom: parent.bottom
                         anchors.horizontalCenter: parent.horizontalCenter
-
-                        Repeater {
-                            model: Theme.barEndItems
-
-                            BarItemDelegate {
-                                required property var modelData
-
-                                itemId: modelData.id
-                                controller: root
-                                horizontal: false
-                                trayOpensForward: false
-                                panelExtent: panel.height
-                                Component.onCompleted: configuredRail.registerTrayToggle(this, false)
-                                Component.onDestruction: configuredRail.unregisterTrayToggle(this, false)
-                            }
-
-                        }
-
+                        regionItems: Theme.barEndItems
+                        controller: root
+                        trayHost: configuredRail
+                        horizontal: false
+                        panelExtent: panel.height
+                        region: "end"
                     }
 
-                    Row {
+                    BarRegion {
                         visible: root.horizontalBar
                         anchors.left: parent.left
                         anchors.verticalCenter: parent.verticalCenter
-
-                        Repeater {
-                            model: Theme.barStartItems
-
-                            BarItemDelegate {
-                                required property var modelData
-
-                                itemId: modelData.id
-                                controller: root
-                                horizontal: true
-                                trayOpensForward: true
-                                panelExtent: panel.height
-                                Component.onCompleted: configuredRail.registerTrayToggle(this, true)
-                                Component.onDestruction: configuredRail.unregisterTrayToggle(this, true)
-                            }
-
-                        }
-
+                        regionItems: Theme.barStartItems
+                        controller: root
+                        trayHost: configuredRail
+                        horizontal: true
+                        panelExtent: panel.height
+                        region: "start"
                     }
 
-                    Row {
+                    BarRegion {
                         visible: root.horizontalBar
                         anchors.centerIn: parent
-
-                        Repeater {
-                            model: Theme.barCentreItems
-
-                            BarItemDelegate {
-                                required property var modelData
-                                required property int index
-
-                                itemId: modelData.id
-                                controller: root
-                                horizontal: true
-                                trayOpensForward: index === Theme.barCentreItems.length - 1
-                                panelExtent: panel.height
-                                Component.onCompleted: configuredRail.registerTrayToggle(this, true)
-                                Component.onDestruction: configuredRail.unregisterTrayToggle(this, true)
-                            }
-
-                        }
-
+                        regionItems: Theme.barCentreItems
+                        controller: root
+                        trayHost: configuredRail
+                        horizontal: true
+                        panelExtent: panel.height
+                        region: "centre"
                     }
 
-                    Row {
+                    BarRegion {
                         visible: root.horizontalBar
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
-
-                        Repeater {
-                            model: Theme.barEndItems
-
-                            BarItemDelegate {
-                                required property var modelData
-
-                                itemId: modelData.id
-                                controller: root
-                                horizontal: true
-                                trayOpensForward: false
-                                panelExtent: panel.height
-                                Component.onCompleted: configuredRail.registerTrayToggle(this, true)
-                                Component.onDestruction: configuredRail.unregisterTrayToggle(this, true)
-                            }
-
-                        }
-
+                        regionItems: Theme.barEndItems
+                        controller: root
+                        trayHost: configuredRail
+                        horizontal: true
+                        panelExtent: panel.height
+                        region: "end"
                     }
 
                     Column {
-                        visible: !root.horizontalBar && root.extrasOpen && configuredRail.verticalTrayToggleItem
+                        visible: !root.horizontalBar && root.trayOpen && configuredRail.verticalTrayToggleItem
                         z: 100
                         x: configuredRail.verticalTrayPoint.x
                         y: configuredRail.verticalTrayToggleItem && configuredRail.verticalTrayToggleItem.trayOpensForward ? configuredRail.verticalTrayPoint.y + configuredRail.verticalTrayToggleItem.height + spacing : configuredRail.verticalTrayPoint.y - height - spacing
@@ -933,7 +658,7 @@ Scope {
                     }
 
                     Row {
-                        visible: root.horizontalBar && root.extrasOpen && configuredRail.horizontalTrayToggleItem
+                        visible: root.horizontalBar && root.trayOpen && configuredRail.horizontalTrayToggleItem
                         z: 100
                         x: configuredRail.horizontalTrayToggleItem && configuredRail.horizontalTrayToggleItem.trayOpensForward ? configuredRail.horizontalTrayPoint.x + configuredRail.horizontalTrayToggleItem.width + spacing : configuredRail.horizontalTrayPoint.x - width - spacing
                         y: configuredRail.horizontalTrayPoint.y
@@ -959,95 +684,20 @@ Scope {
 
                 }
 
-                RailClock {
-                    id: clockText
-
-                    visible: false
-                    y: Math.round((parent.height - height) / 2)
-                    z: 20
-                    text: root.railClockText(root.horizontalBar)
-                    dateMode: root.clockDateMode
-                    onHovered: (centerY) => {
-                        return root.hoverButtonEntered("calendar", centerY, "calendar");
-                    }
-                    onExited: root.hoverButtonExited("calendar")
-                    onClicked: root.clockDateMode = !root.clockDateMode
-                }
-
-                ExtrasDrawer {
-                    id: extrasViewport
-
-                    visible: false
-                    open: root.extrasOpen
-                    topLimit: clockText.y + clockText.height + 4
-                    bottomLimit: railLayout.y + extrasToggle.y
-                    hoverMargin: Theme.buttonSize + 4
-                    onHoverEntered: root.extrasEntered()
-                    onHoverExited: panel.extrasLeft()
-
-                    Column {
-                        id: systemTrayItems
-
-                        width: Theme.buttonSize
-
-                        Repeater {
-                            model: SystemTray.items
-
-                            TrayRailItem {
-                                item: modelData
-                                onHovered: root.trayItemEntered()
-                                onExited: panel.extrasLeft()
-                                onOpenMenu: (item, centerY) => {
-                                    return root.openTrayMenu(item, Math.round(extrasViewport.popupCenterY(systemTrayItems.y + centerY)));
-                                }
-                            }
-
-                        }
-
-                    }
-
-                    ExtrasActionSection {
-                        openPanel: root.openPanel
-                        centerOffset: extrasViewport.popupCenterY(0)
-                        updateIcon: root.updateIcon()
-                        updatesStatus: updates.json
-                        bluetoothStatus: bluetooth.json
-                        audioStatus: audio.json
-                        brightnessStatus: brightness.json
-                        caffeineStatus: caffeine.json
-                        privacyStatus: privacy.json
-                        scriptRoot: root.scriptRoot
-                        onPanelClicked: (panel, centerY) => {
-                            return root.togglePanel(panel, centerY);
-                        }
-                        onPanelHovered: (panel, centerY, source) => {
-                            return root.hoverButtonEntered(panel, centerY, source);
-                        }
-                        onPanelExited: (source) => {
-                            return root.hoverButtonExited(source);
-                        }
-                        onRunCommand: (command) => {
-                            return root.run(command);
-                        }
-                    }
-
-                }
-
             }
 
             PowerOverlayWindow {
                 targetScreen: modelData
                 open: root.activeScreen === modelData && root.openPanel === "power"
-                updateSummary: root.updateSummary()
+                updateSummary: content.updateSummary()
                 onAction: (kind) => {
-                    return root.run(root.powerCommand(kind));
+                    return root.run(content.powerCommand(kind));
                 }
                 onClose: root.closePanel()
             }
 
             BarPopouts {
                 panelWindow: panel
-                panelHeight: panel.height
                 screenWidth: panel.screen ? panel.screen.width : 0
                 screenHeight: panel.screen ? panel.screen.height : 0
                 openPanel: root.activeScreen === modelData ? root.openPanel : ""
@@ -1057,31 +707,31 @@ Scope {
                 trayMenuOpen: root.activeScreen === modelData && root.trayMenuOpen
                 trayMenuHandle: root.trayMenuHandle
                 trayMenuTitle: root.trayMenuTitle
-                todoStatus: todo.json
-                notesSaveRevision: root.notesSaveRevision
-                notesSaveBusy: root.notesSaveBusy
-                notesSaveError: root.notesSaveError
+                todoStatus: barStatus.todo.json
+                notesSaveRevision: barActions.notesSaveRevision
+                notesSaveBusy: barActions.notesSaveBusy
+                notesSaveError: barActions.notesSaveError
                 notesStatusError: root.statusError("todo")
-                generatedRefreshBusy: root.generatedRefreshBusy
-                generatedRefreshError: root.generatedRefreshError
-                calendarAddRevision: root.calendarAddRevision
-                calendarAddBusy: root.calendarAddBusy
-                calendarAddError: root.calendarAddError
+                generatedRefreshBusy: barActions.generatedRefreshBusy
+                generatedRefreshError: barActions.generatedRefreshError
+                calendarAddRevision: barActions.calendarAddRevision
+                calendarAddBusy: barActions.calendarAddBusy
+                calendarAddError: barActions.calendarAddError
                 batteryStatus: battery.json
                 clockDate: clock.date
                 selectedCalendarDate: root.selectedCalendarDate
-                calendarStatus: calendarEvents.json || ({
+                calendarStatus: barStatus.calendar.json || ({
                 })
                 systemStatus: systemInfo.json || ({
                 })
-                performanceActionBusy: root.performanceActionBusy
-                performanceActionError: root.performanceActionError
+                performanceActionBusy: barActions.performanceBusy
+                performanceActionError: barActions.performanceError
                 performanceStatusError: root.statusError("system")
                 scriptRoot: root.scriptRoot
-                systemTitle: root.systemPanelTitle()
-                systemBody: root.systemPanelBody()
+                systemTitle: content.systemPanelTitle()
+                systemBody: content.systemPanelBody()
                 systemStatusError: root.statusError(root.openPanel)
-                systemActions: root.systemPanelActions()
+                systemActions: content.systemPanelActions()
                 audioVolume: audio.json.volume || 0
                 audioIcon: audio.json.icon || "󰕾"
                 audioMuted: !!audio.json.muted
@@ -1095,18 +745,18 @@ Scope {
                 brightnessPercent: brightness.json.percent || 0
                 blueLightMode: brightness.json.blueLightMode || "auto"
                 blueLightActive: !!brightness.json.blueLightActive
-                basicTitle: root.panelTitle()
-                basicSubtitle: root.panelSubtitle()
-                basicBody: root.panelBody()
+                basicTitle: content.panelTitle()
+                basicSubtitle: content.panelSubtitle()
+                basicBody: content.panelBody()
                 basicStatusError: root.statusError(root.openPanel)
-                basicActions: root.panelActions()
+                basicActions: content.panelActions()
                 basicCurrentId: root.openPanel === "caffeine" ? (caffeine.json.mode || "off") : ""
-                basicHeaderActionIcon: root.panelHeaderActionIcon()
-                basicHeaderActionCommand: root.panelHeaderActionCommand()
-                basicHeaderStatus: root.panelHeaderStatus()
-                notificationsModel: root.notificationItems || []
+                basicHeaderActionIcon: content.panelHeaderActionIcon()
+                basicHeaderActionCommand: content.panelHeaderActionCommand()
+                basicHeaderStatus: content.panelHeaderStatus()
+                notificationsModel: notifications.items || []
                 notificationDnd: root.notificationDnd
-                activeMprisPlayer: root.activeMprisPlayer
+                activeMprisPlayer: uiState.activeMprisPlayer
                 onHoverEntered: root.popoutEntered()
                 onHoverExited: root.popoutExited()
                 onInputLockChanged: (locked) => {
@@ -1114,18 +764,17 @@ Scope {
                 }
                 onClosePanel: root.closePanel()
                 onCloseTrayMenu: root.closeTrayMenu()
-                onClearNotifications: root.clearNotifications()
                 onToggleNotificationDnd: {
                     root.notificationDnd = !root.notificationDnd;
                     if (root.notificationDnd)
-                        root.toastItems = [];
+                        notifications.toasts = [];
 
                 }
                 onActivateNotification: (notification) => {
                     return root.activateNotification(notification);
                 }
                 onSelectMprisPlayer: (playerName) => {
-                    root.activeMprisPlayer = playerName;
+                    uiState.activeMprisPlayer = playerName;
                 }
                 onPreviousTodo: {
                     root.run(root.scriptRoot + "/todo/cycle.sh -1");
@@ -1144,7 +793,7 @@ Scope {
                 onResetCalendarMonth: root.resetCalendarMonth()
                 onSelectCalendarDate: (day) => {
                     root.selectedCalendarDate = day;
-                    calendarEvents.refresh();
+                    barStatus.calendar.refresh();
                 }
                 onAddCalendarEvent: (day, title) => {
                     barActions.addCalendarEvent(day, title);
@@ -1207,7 +856,7 @@ Scope {
                 implicitHeight: modelData ? modelData.height : 1
                 exclusiveZone: 0
                 focusable: false
-                visible: root.activeScreen === modelData && root.notificationToastsEnabled && root.toastItems.length > 0 && !root.notificationDnd
+                visible: root.activeScreen === modelData && notifications.toastsEnabled && notifications.toasts.length > 0 && !root.notificationDnd
                 color: "transparent"
                 WlrLayershell.layer: WlrLayer.Overlay
                 WlrLayershell.namespace: "blox-notifications"
@@ -1228,8 +877,8 @@ Scope {
                     x: notificationToastWindow.onLeft ? 12 + Theme.notificationOffsetX : notificationToastWindow.onRight ? parent.width - width - 12 + Theme.notificationOffsetX : Math.round((parent.width - width) / 2 + Theme.notificationOffsetX)
                     y: notificationToastWindow.onTop ? 12 + Theme.notificationOffsetY : parent.height - height - 12 + Theme.notificationOffsetY
                     position: Theme.notificationPosition
-                    visible: root.notificationToastsEnabled && root.toastItems.length > 0 && !root.notificationDnd
-                    toasts: root.toastItems
+                    visible: notifications.toastsEnabled && notifications.toasts.length > 0 && !root.notificationDnd
+                    toasts: notifications.toasts
                     onDismiss: (notification, closeNotification) => {
                         notifications.removeToast(notification);
                         if (notification && closeNotification)

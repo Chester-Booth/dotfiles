@@ -14,7 +14,6 @@ Scope {
     property var targetMonitor: null
     property var targetWorkspace: null
     property var captureSource: null
-    property string captureTitle: ""
     property string wallpaperSource: ""
     property string wallpaperFit: "cover"
 
@@ -33,7 +32,6 @@ Scope {
         targetMonitor = targetScreen ? Hyprland.monitorFor(targetScreen) : null;
         targetWorkspace = targetMonitor ? targetMonitor.activeWorkspace : null;
         captureSource = targetScreen;
-        captureTitle = targetScreen ? targetScreen.name : "Desktop";
     }
 
     function loadWallpaper(raw) {
@@ -133,8 +131,6 @@ Scope {
     }
 
     FileView {
-        id: wallpaperFile
-
         path: Theme.stateRoot + "/blox-theme/current/hypr/wallpaper.json"
         preload: true
         blockLoading: true
@@ -189,7 +185,6 @@ Scope {
             guideOpen: root.guideOpen && root.targetScreen === modelData
             rendered: root.rendered && root.targetScreen === modelData
             captureSource: root.captureSource
-            captureTitle: root.captureTitle
             captureMonitor: root.targetMonitor
             captureWorkspace: root.targetWorkspace
             wallpaperSource: root.wallpaperSource

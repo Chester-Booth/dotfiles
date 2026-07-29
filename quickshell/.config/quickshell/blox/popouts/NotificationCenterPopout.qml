@@ -13,7 +13,6 @@ Rectangle {
     property double nowMs: Date.now()
     readonly property int notificationListChromeHeight: 240
 
-    signal clearAll()
     signal toggleDnd()
     signal activate(var notification)
 
@@ -47,29 +46,6 @@ Rectangle {
     function notificationMeta(notification) {
         const app = notification && notification.appName ? notification.appName : "notification";
         return app + " • " + root.ageText(notification);
-    }
-
-    function notificationIcon(notification) {
-        if (!notification)
-            return "󰂜";
-
-        if (notification.urgency === NotificationUrgency.Critical)
-            return "";
-
-        return "󰂚";
-    }
-
-    function notificationAccent(notification) {
-        if (!notification)
-            return Theme.blue;
-
-        if (notification.urgency === NotificationUrgency.Critical)
-            return Theme.red;
-
-        if (notification.urgency === NotificationUrgency.Low)
-            return Theme.muted;
-
-        return Theme.blue;
     }
 
     width: 360

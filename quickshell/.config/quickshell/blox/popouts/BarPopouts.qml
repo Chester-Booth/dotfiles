@@ -1,12 +1,10 @@
 import "../shared"
 import QtQuick
-import Quickshell
 
 Item {
     id: root
 
     property var panelWindow
-    property real panelHeight: 0
     property real screenWidth: 0
     property real screenHeight: 0
     property string openPanel: ""
@@ -64,7 +62,6 @@ Item {
     property string basicHeaderActionCommand: ""
     property string basicHeaderStatus: ""
     property var notificationsModel: []
-    property real maxNotificationHeight: 720
     property bool notificationDnd: false
     property string activeMprisPlayer: ""
 
@@ -73,7 +70,6 @@ Item {
     signal inputLockChanged(bool locked)
     signal closePanel()
     signal closeTrayMenu()
-    signal runCommand(string command)
     signal previousTodo()
     signal nextTodo()
     signal refreshTodo(string file)
@@ -88,7 +84,6 @@ Item {
     signal systemLevelPreview(string kind, int value, bool muted)
     signal selectSystemPanel(string panel)
     signal basicAction(string command, bool keepOpen)
-    signal clearNotifications()
     signal toggleNotificationDnd()
     signal activateNotification(var notification)
     signal selectMprisPlayer(string playerName)
@@ -130,7 +125,6 @@ Item {
         contentWidth: notesPopout.width
         contentHeight: notesPopout.height
         persistentKeyboardFocus: notesPopout.editing
-        focusOnPress: true
         open: root.openPanel === "todo"
         onHoverEntered: root.hoverEntered()
         onHoverExited: root.hoverExited()
@@ -177,8 +171,6 @@ Item {
     }
 
     HoverPopupWindow {
-        id: trayWindow
-
         anchorWindow: root.panelWindow
         anchorX: root.popupX(trayMenuPopout.width, root.openPanelX)
         anchorY: root.popupY(trayMenuPopout.height, root.trayMenuY)
@@ -206,7 +198,6 @@ Item {
         anchorY: root.popupY(calendarPopout.height, root.openPanelY)
         contentWidth: calendarPopout.width
         contentHeight: calendarPopout.height
-        focusOnPress: true
         open: root.openPanel === "calendar"
         onHoverEntered: root.hoverEntered()
         onHoverExited: root.hoverExited()
@@ -246,8 +237,6 @@ Item {
     }
 
     HoverPopupWindow {
-        id: mediaWindow
-
         anchorWindow: root.panelWindow
         anchorX: Theme.barPosition === "top" || Theme.barPosition === "bottom" ? root.adjacentPopupX(mediaPlayer.implicitWidth, systemWindow.anchorX, systemPopout.width) : root.popupX(mediaPlayer.implicitWidth, root.openPanelX)
         anchorY: Theme.barPosition === "left" || Theme.barPosition === "right" ? Math.max(8, systemWindow.anchorY - mediaPlayer.implicitHeight - 8) : root.popupY(mediaPlayer.implicitHeight, root.openPanelY)
@@ -270,8 +259,6 @@ Item {
     }
 
     HoverPopupWindow {
-        id: performanceWindow
-
         anchorWindow: root.panelWindow
         anchorX: root.popupX(performancePopout.width, root.openPanelX)
         anchorY: root.popupY(performancePopout.height, root.openPanelY)
@@ -367,11 +354,10 @@ Item {
 
             notifications: root.notificationsModel
             dnd: root.notificationDnd
-            // A horizontal panel is only one rail-width tall. Size against the
+            // A horizontal panel is only one bar-thickness tall. Size against the
             // screen instead, otherwise the notification header consumes the
             // whole 240px minimum and the list is clipped.
             maxPopoutHeight: Math.min(720, Math.max(240, root.screenHeight - 16))
-            onClearAll: root.clearNotifications()
             onToggleDnd: root.toggleNotificationDnd()
             onActivate: (notification) => {
                 return root.activateNotification(notification);

@@ -20,13 +20,6 @@ Item {
     signal dismiss(var notification, bool closeNotification)
     signal activate(var notification)
 
-    function accentFor(notification) {
-        if (notification && notification.urgency === NotificationUrgency.Critical)
-            return Theme.red;
-
-        return Theme.blue;
-    }
-
     function takeEntranceAnimation(toastId) {
         if (animatedToastIds[toastId] === true)
             return false;

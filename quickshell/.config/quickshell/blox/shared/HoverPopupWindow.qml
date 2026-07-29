@@ -19,8 +19,6 @@ PopupWindow {
     property bool rendered: false
     property bool keyboardFocus: false
     property bool persistentKeyboardFocus: false
-    property bool focusOnPress: false
-    readonly property bool animating: showAnimation.running || hideAnimation.running
 
     signal hoverEntered()
     signal hoverExited()

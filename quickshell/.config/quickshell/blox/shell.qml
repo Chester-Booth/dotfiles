@@ -27,7 +27,7 @@ Scope {
         id: osd
     }
 
-    EwwOverlays {
+    DesktopWidgets {
     }
 
     ThemePicker {

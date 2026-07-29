@@ -7,8 +7,7 @@ Rectangle {
 
     property bool overlayOpen: false
     property string updateSummary: "Check updates"
-    property int debugOpenAnimationDuration: 900
-    property int debugButtonAnimationDuration: debugOpenAnimationDuration / 3
+    property int openAnimationDuration: 900
 
     signal action(string command)
     signal close()
@@ -53,7 +52,7 @@ Rectangle {
 
             Behavior on opacity {
                 NumberAnimation {
-                    duration: root.debugOpenAnimationDuration
+                    duration: root.openAnimationDuration
                     easing.type: Easing.InCubic
                 }
 

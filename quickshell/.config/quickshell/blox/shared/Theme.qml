@@ -22,7 +22,6 @@ Singleton {
     property color blue: "#89b4fa"
     property color mauve: "#f5c2e7"
     property color teal: "#94e2d5"
-    property color selectionBackground: "#89b4fa"
     property color selectionForeground: "#1e1e1e"
     property color border: "#3b3c4a"
     readonly property int railWidth: 34
@@ -35,7 +34,6 @@ Singleton {
     property bool previewActive: false
     property string widgetProfile: "minimal"
     property real widgetOpacity: 0.3
-    property int widgetMargin: 20
     property int widgetPadding: 20
     property int widgetRadius: 0
     property int widgetFontSize: 14
@@ -87,7 +85,6 @@ Singleton {
         blue = "#89b4fa";
         mauve = "#f5c2e7";
         teal = "#94e2d5";
-        selectionBackground = "#89b4fa";
         selectionForeground = "#1e1e1e";
         border = "#3b3c4a";
         fontFamily = "MartianMono Nerd Font Propo";
@@ -107,7 +104,6 @@ Singleton {
     function resetWidgets() : string {
         widgetProfile = "minimal";
         widgetOpacity = 0.3;
-        widgetMargin = 20;
         widgetPadding = 20;
         widgetRadius = 0;
         widgetFontSize = 14;
@@ -123,7 +119,6 @@ Singleton {
 
             widgetProfile = data.profile;
             widgetOpacity = data.opacity;
-            widgetMargin = data.margin;
             widgetPadding = data.padding;
             widgetRadius = data.radius;
             widgetFontSize = data.font_size;
@@ -168,7 +163,6 @@ Singleton {
             blue = data.compatibility.blue;
             mauve = data.compatibility.mauve;
             teal = data.compatibility.teal;
-            selectionBackground = data.colours.selection_background;
             selectionForeground = data.colours.selection_foreground;
             border = data.colours.border;
             fontFamily = data.fonts.panel;
@@ -327,7 +321,6 @@ Singleton {
             blue = data.colours.info;
             mauve = data.colours.mauve;
             teal = data.colours.teal;
-            selectionBackground = data.colours.selection_background;
             selectionForeground = data.colours.selection_foreground;
             border = data.colours.border;
             fontFamily = data.fonts.panel;

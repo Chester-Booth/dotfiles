@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Io
 
 Scope {
     id: root
@@ -167,6 +168,16 @@ Scope {
 
         command: [root.scriptRoot + "/status/touchpad.sh"]
         interval: 15000
+    }
+
+    FileView {
+        path: {
+            const runtimeDirectory = Quickshell.env("XDG_RUNTIME_DIR");
+            return (runtimeDirectory || Quickshell.env("HOME") + "/.cache") + "/quickshell-touchpad-enabled";
+        }
+        watchChanges: true
+        printErrors: false
+        onFileChanged: touchpad.refresh()
     }
 
     ScriptPoller {

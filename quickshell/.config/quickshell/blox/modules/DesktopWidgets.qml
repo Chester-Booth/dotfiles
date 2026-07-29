@@ -7,6 +7,7 @@ import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Wayland
 
+// Renders configured desktop widgets and owns their edit session.
 Scope {
     id: root
 
@@ -15,8 +16,6 @@ Scope {
     property bool editWorkspaceEntered: false
     property string editReturnWorkspace: ""
     property var editItems: []
-
-    signal editSaved(string widgetsJson)
 
     function cloneItems(items) {
         return JSON.parse(JSON.stringify(items || []));
@@ -68,7 +67,6 @@ Scope {
         editMode = false;
         editItems = [];
         const returnWorkspace = leaveEditWorkspace();
-        editSaved(payload);
         Theme.widgetEditModeFinished(payload, returnWorkspace);
         return payload;
     }

@@ -16,7 +16,6 @@ Rectangle {
     property int addRevision: 0
     property bool addBusy: false
     property string addError: ""
-    readonly property int eventCount: Math.max(1, events.length)
     readonly property int visibleEventCount: Math.max(1, events.length)
     readonly property int eventRowHeight: 42
     readonly property int eventRowSpacing: 6

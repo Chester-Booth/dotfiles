@@ -254,20 +254,6 @@ FloatingWindow {
         return validColour(colours[key], fallback);
     }
 
-    function pathBasename(path) {
-        const parts = String(path || "").split("/");
-        return parts.length > 0 ? parts[parts.length - 1] : "";
-    }
-
-    function themePreviewSubtitle(entry) {
-        if (entry.unsaved)
-            return "Unsaved draft";
-
-        const wallpaper = entry.preview ? pathBasename(entry.preview.wallpaper) : "";
-        const uiFont = entry.preview && entry.preview.fonts ? entry.preview.fonts.ui : "";
-        return wallpaper || uiFont || "No preview data";
-    }
-
     function themePreviewBarPosition(entry) {
         const bar = entry && entry.preview ? entry.preview.bar || {
         } : {
@@ -1939,8 +1925,6 @@ FloatingWindow {
     }
 
     Process {
-        id: fontProcess
-
         command: ["fc-list", "--format=%{family}\\n"]
         running: true
         onExited: {
@@ -2237,14 +2221,12 @@ FloatingWindow {
 
                     BloxButton {
                         text: "Simple"
-                        checkable: true
                         checked: root.editorMode === "overview"
                         onClicked: root.editorMode = "overview"
                     }
 
                     BloxButton {
                         text: "Advanced"
-                        checkable: true
                         checked: root.editorMode === "advanced"
                         onClicked: root.editorMode = "advanced"
                     }
@@ -2257,7 +2239,6 @@ FloatingWindow {
 
                     BloxButton {
                         text: "Widgets"
-                        checkable: true
                         checked: root.editorMode === "widgets"
                         onClicked: root.editorMode = "widgets"
                     }
@@ -2300,8 +2281,6 @@ FloatingWindow {
                             spacing: 8
 
                             BloxTextField {
-                                id: themeSearchField
-
                                 Layout.fillWidth: true
                                 placeholderText: "Search themes"
                                 text: root.searchText
@@ -2666,8 +2645,6 @@ FloatingWindow {
                                     }
 
                                     Rectangle {
-                                        id: kebab
-
                                         z: 2
                                         anchors.right: parent.right
                                         anchors.rightMargin: 7
@@ -2955,8 +2932,6 @@ FloatingWindow {
                                         Layout.fillWidth: true
 
                                         BloxTextField {
-                                            id: wallpaperField
-
                                             Layout.fillWidth: true
                                             placeholderText: "/path/to/wallpaper"
                                             text: {
@@ -5552,8 +5527,6 @@ FloatingWindow {
                                 spacing: 10
 
                                 Rectangle {
-                                    id: colourCanvas
-
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
                                     Layout.minimumHeight: 230
@@ -5633,8 +5606,6 @@ FloatingWindow {
                                 }
 
                                 Rectangle {
-                                    id: hueCanvas
-
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 22
                                     Layout.minimumHeight: 22

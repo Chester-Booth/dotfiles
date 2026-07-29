@@ -2,18 +2,15 @@ singleton Theme 1.0 Theme.qml
 singleton Lucide 1.0 Lucide.qml
 RailButton 1.0 RailButton.qml
 BarItemDelegate 1.0 BarItemDelegate.qml
+BarRegion 1.0 BarRegion.qml
 PanelRailButton 1.0 PanelRailButton.qml
-RailTopActions 1.0 RailTopActions.qml
 RailClock 1.0 RailClock.qml
 TrayRailItem 1.0 TrayRailItem.qml
-ExtrasToggleButton 1.0 ExtrasToggleButton.qml
+TrayToggleButton 1.0 TrayToggleButton.qml
 BatteryCapacityTile 1.0 BatteryCapacityTile.qml
 BatteryRailButton 1.0 BatteryRailButton.qml
-ExtrasDrawer 1.0 ExtrasDrawer.qml
-ExtrasActionSection 1.0 ExtrasActionSection.qml
 WorkspaceRailButton 1.0 WorkspaceRailButton.qml
 SpecialWorkspaceRailButton 1.0 SpecialWorkspaceRailButton.qml
-SystemRailSection 1.0 SystemRailSection.qml
 HoverPopupWindow 1.0 HoverPopupWindow.qml
 PillSelector 1.0 PillSelector.qml
 NotificationHeader 1.0 NotificationHeader.qml

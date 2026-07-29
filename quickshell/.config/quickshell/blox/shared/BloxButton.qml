@@ -8,7 +8,6 @@ Rectangle {
     property int iconSize: 16
     property color accent: Theme.blue
     property bool destructive: false
-    property bool checkable: false
     property bool checked: false
     property bool compact: false
     readonly property bool hovered: hover.hovered

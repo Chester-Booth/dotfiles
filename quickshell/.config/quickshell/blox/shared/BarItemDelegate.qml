@@ -97,7 +97,7 @@ Item {
             accent: Theme.foreground
             active: root.controller.openPanel === "power"
             onClicked: (centre) => {
-                return root.controller.togglePanel("power", root.mappedCentre(this, centre));
+                return root.controller.openHoverPanel("power", root.mappedCentre(this, centre));
             }
         }
 
@@ -112,7 +112,7 @@ Item {
             panel: "todo"
             active: root.controller.openPanel === "todo"
             onPanelClicked: (panel, centre) => {
-                return root.controller.togglePanel(panel, root.mappedCentre(this, centre));
+                return root.controller.openHoverPanel(panel, root.mappedCentre(this, centre));
             }
             onPanelHovered: (panel, centre, source) => {
                 return root.controller.hoverButtonEntered(panel, root.mappedCentre(this, centre), source);
@@ -146,7 +146,7 @@ Item {
                         item: modelData
                         blinking: (modelData.urgent || root.controller.workspaceAlert(modelData.id)) && root.controller.blinkOn
                         onActivate: {
-                            root.controller.closeDrawers();
+                            root.controller.closeBarOverlays();
                             root.controller.focusWorkspace(modelData.id);
                             root.controller.workspaces.refresh();
                         }
@@ -157,7 +157,7 @@ Item {
                 SpecialWorkspaceRailButton {
                     workspace: root.controller.workspaces.json.special
                     onActivate: {
-                        root.controller.closeDrawers();
+                        root.controller.closeBarOverlays();
                         root.controller.toggleSpecialWorkspace("magic");
                         root.controller.workspaces.refresh();
                     }
@@ -244,11 +244,11 @@ Item {
                         return ;
 
                     const expanded = !root.controller.batteryExpanded;
-                    root.controller.closeDrawers();
+                    root.controller.closeBarOverlays();
                     root.controller.batteryExpanded = expanded;
                 }
                 onSystemPanelRequested: (centre) => {
-                    return root.controller.togglePanel("system", root.mappedCentre(this, centre));
+                    return root.controller.openHoverPanel("system", root.mappedCentre(this, centre));
                 }
                 onSystemPanelHovered: (centre) => {
                     return root.controller.hoverButtonEntered("system", root.mappedCentre(this, centre), "battery");
@@ -257,8 +257,6 @@ Item {
             }
 
             BatteryCapacityTile {
-                id: batteryCapacity
-
                 x: root.horizontal && parent.showIcon ? batteryButton.width : 0
                 y: !root.horizontal && parent.showIcon ? batteryButton.height : 0
                 status: root.controller.battery.json
@@ -285,8 +283,8 @@ Item {
             active: root.controller.openPanel === panel
             onPanelClicked: (panel, centre) => {
                 root.publishNotificationPosition();
-                root.controller.closeDrawers();
-                root.controller.togglePanel(panel, root.mappedCentre(this, centre));
+                root.controller.closeBarOverlays();
+                root.controller.openHoverPanel(panel, root.mappedCentre(this, centre));
             }
             onPanelHovered: (panel, centre, source) => {
                 root.publishNotificationPosition();
@@ -309,7 +307,7 @@ Item {
             panel: "network"
             active: root.controller.openPanel === panel
             onPanelClicked: (p, c) => {
-                return root.controller.togglePanel(p, root.mappedCentre(this, c));
+                return root.controller.openHoverPanel(p, root.mappedCentre(this, c));
             }
             onPanelHovered: (p, c, s) => {
                 return root.controller.hoverButtonEntered(p, root.mappedCentre(this, c), s);
@@ -330,7 +328,7 @@ Item {
             panel: "audio"
             active: root.controller.openPanel === panel
             onPanelClicked: (p, c) => {
-                return root.controller.togglePanel(p, root.mappedCentre(this, c));
+                return root.controller.openHoverPanel(p, root.mappedCentre(this, c));
             }
             onPanelHovered: (p, c, s) => {
                 return root.controller.hoverButtonEntered(p, root.mappedCentre(this, c), s);
@@ -352,7 +350,7 @@ Item {
             panel: "privacy"
             active: root.controller.openPanel === panel
             onPanelClicked: (p, c) => {
-                return root.controller.togglePanel(p, root.mappedCentre(this, c));
+                return root.controller.openHoverPanel(p, root.mappedCentre(this, c));
             }
             onPanelHovered: (p, c, s) => {
                 return root.controller.hoverButtonEntered(p, root.mappedCentre(this, c), s);
@@ -373,7 +371,7 @@ Item {
             panel: "caffeine"
             active: root.controller.openPanel === panel
             onPanelClicked: (p, c) => {
-                return root.controller.togglePanel(p, root.mappedCentre(this, c));
+                return root.controller.openHoverPanel(p, root.mappedCentre(this, c));
             }
             onPanelHovered: (p, c, s) => {
                 return root.controller.hoverButtonEntered(p, root.mappedCentre(this, c), s);
@@ -395,7 +393,7 @@ Item {
             panel: "brightness"
             active: root.controller.openPanel === panel
             onPanelClicked: (p, c) => {
-                return root.controller.togglePanel(p, root.mappedCentre(this, c));
+                return root.controller.openHoverPanel(p, root.mappedCentre(this, c));
             }
             onPanelHovered: (p, c, s) => {
                 return root.controller.hoverButtonEntered(p, root.mappedCentre(this, c), s);
@@ -417,7 +415,7 @@ Item {
             panel: "bluetooth"
             active: root.controller.openPanel === panel
             onPanelClicked: (p, c) => {
-                return root.controller.togglePanel(p, root.mappedCentre(this, c));
+                return root.controller.openHoverPanel(p, root.mappedCentre(this, c));
             }
             onPanelHovered: (p, c, s) => {
                 return root.controller.hoverButtonEntered(p, root.mappedCentre(this, c), s);
@@ -439,7 +437,7 @@ Item {
             panel: "updates"
             active: root.controller.openPanel === panel
             onPanelClicked: (p, c) => {
-                return root.controller.togglePanel(p, root.mappedCentre(this, c));
+                return root.controller.openHoverPanel(p, root.mappedCentre(this, c));
             }
             onPanelHovered: (p, c, s) => {
                 return root.controller.hoverButtonEntered(p, root.mappedCentre(this, c), s);
@@ -461,7 +459,7 @@ Item {
             source: "fan"
             active: root.controller.openPanel === panel
             onPanelClicked: (p, c) => {
-                return root.controller.togglePanel(p, root.mappedCentre(this, c));
+                return root.controller.openHoverPanel(p, root.mappedCentre(this, c));
             }
             onPanelHovered: (p, c, s) => {
                 return root.controller.hoverButtonEntered(p, root.mappedCentre(this, c), s);
@@ -483,7 +481,7 @@ Item {
             source: "gpu"
             active: root.controller.openPanel === panel
             onPanelClicked: (p, c) => {
-                return root.controller.togglePanel(p, root.mappedCentre(this, c));
+                return root.controller.openHoverPanel(p, root.mappedCentre(this, c));
             }
             onPanelHovered: (p, c, s) => {
                 return root.controller.hoverButtonEntered(p, root.mappedCentre(this, c), s);
@@ -501,19 +499,10 @@ Item {
         RailButton {
             icon: root.controller.touchpad.json.icon || "󰟸"
             accent: root.controller.touchpad.json.enabled === false ? Theme.yellow : Theme.foreground
-            onHovered: root.controller.extrasEntered()
-            onExited: root.controller.extrasExited()
+            onHovered: root.controller.trayEntered()
+            onExited: root.controller.trayExited()
             onClicked: {
                 root.controller.run(root.controller.scriptRoot + "/osd/control.sh touchpad-toggle");
-                touchpadRefresh.restart();
-            }
-
-            Timer {
-                id: touchpadRefresh
-
-                interval: 300
-                repeat: false
-                onTriggered: root.controller.touchpad.refresh()
             }
 
         }
@@ -528,16 +517,16 @@ Item {
             width: root.horizontal ? implicitWidth : Theme.buttonSize
             height: root.horizontal ? Theme.buttonSize : implicitHeight
 
-            ExtrasToggleButton {
+            TrayToggleButton {
                 horizontal: root.horizontal
                 opensForward: root.trayOpensForward
-                active: root.controller.extrasOpen
-                onToggle: root.controller.toggleExtras()
+                active: root.controller.trayOpen
+                onToggle: root.controller.toggleTray()
                 onOpenRequested: {
-                    root.controller.openExtras();
-                    root.controller.extrasEntered();
+                    root.controller.openTray();
+                    root.controller.trayEntered();
                 }
-                onExited: root.controller.extrasExited()
+                onExited: root.controller.trayExited()
             }
 
         }
@@ -558,15 +547,13 @@ Item {
             HoverHandler {
                 onHoveredChanged: {
                     if (hovered)
-                        root.controller.extrasEntered();
+                        root.controller.trayEntered();
                     else
-                        root.controller.extrasExited();
+                        root.controller.trayExited();
                 }
             }
 
             Flow {
-                id: trayFlow
-
                 anchors.fill: parent
                 flow: root.horizontal ? Flow.LeftToRight : Flow.TopToBottom
 

@@ -179,7 +179,7 @@
   },
   "targets": {
     "btop": true,
-    "code": true,
+    "code": false,
     "cursor": true,
     "cursor_editor": true,
     "glow": true,

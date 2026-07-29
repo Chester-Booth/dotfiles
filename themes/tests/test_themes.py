@@ -202,14 +202,19 @@ class RendererTests(unittest.TestCase):
         self.assertIn("tab_bar_background none", files["kitty/theme.conf"])
         phase7 = {
             "hyprland/theme.lua", "hyprland/hyprtoolkit.conf", "hyprlock/theme.conf", "btop/theme.theme",
-            "micro/blox-theme.micro", "glow/style.json", "code/settings.json",
+            "micro/blox-theme.micro", "glow/style.json",
             "cursor-editor/settings.json", "stylus/blox-system.user.css",
             "powerlevel10k/theme.zsh",
             "widgets/profile.json",
         }
         self.assertTrue(phase7.issubset(files))
-        self.assertEqual(self.theme["fonts"]["mono"], json.loads(files["code/settings.json"])["editor.fontFamily"])
+        self.assertNotIn("code/settings.json", files)
+
+    def test_code_target_renders_complete_extension(self) -> None:
+        self.theme["targets"]["code"] = True
+        files, _ = render_theme(self.theme)
         code_settings = json.loads(files["code/settings.json"])
+        self.assertEqual(self.theme["fonts"]["mono"], code_settings["editor.fontFamily"])
         self.assertEqual("Blox Dark 2026", code_settings["workbench.colorTheme"])
         self.assertNotIn("workbench.colorCustomizations", code_settings)
         package = json.loads(files["code/package.json"])

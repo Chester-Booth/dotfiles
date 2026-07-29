@@ -58,6 +58,8 @@ class RuntimeTests(unittest.TestCase):
         kitty_config.parent.mkdir(parents=True)
         kitty_config.write_text("globinclude blox-theme.conf\n", encoding="utf-8")
         self.canonical_path, self.canonical = load_theme("blox-panel")
+        for target in TARGET_NAMES:
+            self.canonical["targets"][target] = True
         self.alternate_path = THEMES / "tests/fixtures/phase2-alternate.json"
         self.alternate = json.loads(self.alternate_path.read_text(encoding="utf-8"))
 

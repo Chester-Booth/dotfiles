@@ -1,4 +1,3 @@
-import "../shared"
 import QtQuick
 
 Item {
@@ -28,8 +27,6 @@ Item {
     property date clockDate
     property string selectedCalendarDate: ""
     property var calendarStatus
-    readonly property string effectiveCalendarDate: selectedCalendarDate || Qt.formatDate(clockDate, "yyyy-MM-dd")
-    readonly property bool calendarLoading: !calendarStatus || calendarStatus.date !== effectiveCalendarDate
     property var systemStatus
     property bool performanceActionBusy: false
     property string performanceActionError: ""
@@ -88,312 +85,158 @@ Item {
     signal activateNotification(var notification)
     signal selectMprisPlayer(string playerName)
 
-    function popupY(height, requestedY) {
-        if (Theme.barPosition === "top")
-            return Theme.railWidth + 8;
+    BarPopoutGeometry {
+        id: geometry
 
-        if (Theme.barPosition === "bottom")
-            return -height - 8;
-
-        return Math.max(8, Math.min(screenHeight - height - 8, requestedY - height / 2));
+        panelWindow: root.panelWindow
+        screenWidth: root.screenWidth
+        screenHeight: root.screenHeight
+        openPanelX: root.openPanelX
+        openPanelY: root.openPanelY
     }
 
-    function popupX(width, requestedX) {
-        if (Theme.barPosition === "left")
-            return Theme.railWidth + 8;
-
-        if (Theme.barPosition === "right")
-            return -width - 8;
-
-        return Math.max(8, Math.min(screenWidth - width - 8, requestedX - width / 2));
-    }
-
-    function adjacentPopupX(width, siblingX, siblingWidth) {
-        const right = siblingX + siblingWidth + 8;
-        if (right + width <= screenWidth - 8)
-            return right;
-
-        return Math.max(8, siblingX - width - 8);
-    }
-
-    HoverPopupWindow {
-        id: notesWindow
-
-        anchorWindow: root.panelWindow
-        anchorX: root.popupX(notesPopout.width, root.openPanelX)
-        anchorY: root.popupY(notesPopout.height, root.openPanelY)
-        contentWidth: notesPopout.width
-        contentHeight: notesPopout.height
-        persistentKeyboardFocus: notesPopout.editing
-        open: root.openPanel === "todo"
+    BarNotesSurface {
+        geometry: geometry
+        openPanel: root.openPanel
+        todoStatus: root.todoStatus
+        saveRevision: root.notesSaveRevision
+        saveBusy: root.notesSaveBusy
+        saveError: root.notesSaveError
+        statusError: root.notesStatusError
+        refreshBusy: root.generatedRefreshBusy
+        refreshError: root.generatedRefreshError
         onHoverEntered: root.hoverEntered()
         onHoverExited: root.hoverExited()
-        onVisibleChanged: {
-            if (!visible)
-                root.inputLockChanged(false);
-
+        onInputLockChanged: (locked) => {
+            return root.inputLockChanged(locked);
         }
-
-        NotesPopout {
-            id: notesPopout
-
-            headerActionsOnRight: Theme.barPosition === "right"
-                || ((Theme.barPosition === "top" || Theme.barPosition === "bottom")
-                    && root.openPanelX > root.screenWidth / 2)
-            title: root.todoStatus && root.todoStatus.name ? root.todoStatus.name : "notes.md"
-            body: root.todoStatus && root.todoStatus.raw ? root.todoStatus.raw : ""
-            file: root.todoStatus && root.todoStatus.file ? root.todoStatus.file : ""
-            index: root.todoStatus && root.todoStatus.index !== undefined ? root.todoStatus.index : 0
-            count: root.todoStatus && root.todoStatus.count !== undefined ? root.todoStatus.count : 1
-            saveRevision: root.notesSaveRevision
-            saveBusy: root.notesSaveBusy
-            saveError: root.notesSaveError
-            statusError: root.notesStatusError
-            refreshBusy: root.generatedRefreshBusy
-            refreshError: root.generatedRefreshError
-            maxPopoutWidth: root.screenWidth > 0 ? root.screenWidth * 0.75 : 680
-            maxPopoutHeight: root.screenHeight > 0 ? root.screenHeight * 0.75 : 760
-            onPrevious: root.previousTodo()
-            onNext: root.nextTodo()
-            onRefresh: (file) => {
-                return root.refreshTodo(file);
-            }
-            onSave: (file, body) => {
-                return root.saveTodo(file, body);
-            }
-            onEditingChanged: root.inputLockChanged(editing)
-            onFocusRequested: {
-                root.inputLockChanged(true);
-                notesWindow.requestKeyboardFocus();
-            }
+        onPrevious: root.previousTodo()
+        onNext: root.nextTodo()
+        onRefresh: (file) => {
+            return root.refreshTodo(file);
         }
-
+        onSave: (file, body) => {
+            return root.saveTodo(file, body);
+        }
     }
 
-    HoverPopupWindow {
-        anchorWindow: root.panelWindow
-        anchorX: root.popupX(trayMenuPopout.width, root.openPanelX)
-        anchorY: root.popupY(trayMenuPopout.height, root.trayMenuY)
-        contentWidth: trayMenuPopout.width
-        contentHeight: trayMenuPopout.height
-        open: root.trayMenuOpen
+    BarTrayMenuSurface {
+        geometry: geometry
+        menuY: root.trayMenuY
+        menuOpen: root.trayMenuOpen
+        menuHandle: root.trayMenuHandle
+        menuTitle: root.trayMenuTitle
         onHoverEntered: root.hoverEntered()
         onHoverExited: root.hoverExited()
-
-        TrayMenuPopout {
-            id: trayMenuPopout
-
-            menuHandle: root.trayMenuHandle
-            title: root.trayMenuTitle
-            onTriggered: root.closeTrayMenu()
-        }
-
+        onCloseRequested: root.closeTrayMenu()
     }
 
-    HoverPopupWindow {
-        id: calendarWindow
-
-        anchorWindow: root.panelWindow
-        anchorX: root.popupX(calendarPopout.width, root.openPanelX)
-        anchorY: root.popupY(calendarPopout.height, root.openPanelY)
-        contentWidth: calendarPopout.width
-        contentHeight: calendarPopout.height
-        open: root.openPanel === "calendar"
+    BarCalendarSurface {
+        geometry: geometry
+        openPanel: root.openPanel
+        clockDate: root.clockDate
+        selectedDate: root.selectedCalendarDate
+        status: root.calendarStatus
+        addRevision: root.calendarAddRevision
+        addBusy: root.calendarAddBusy
+        addError: root.calendarAddError
         onHoverEntered: root.hoverEntered()
         onHoverExited: root.hoverExited()
-        onVisibleChanged: {
-            if (!visible)
-                root.inputLockChanged(false);
-
+        onInputLockChanged: (locked) => {
+            return root.inputLockChanged(locked);
         }
-
-        CalendarPopout {
-            id: calendarPopout
-
-            baseDate: root.clockDate
-            selectedDate: root.selectedCalendarDate ? new Date(root.selectedCalendarDate + "T00:00:00") : root.clockDate
-            addRevision: root.calendarAddRevision
-            addBusy: root.calendarAddBusy
-            addError: root.calendarAddError
-            eventsLoading: root.calendarLoading
-            events: !root.calendarLoading && root.calendarStatus.events ? root.calendarStatus.events : []
-            eventsText: root.calendarLoading ? "Loading…" : root.calendarStatus.raw || "No events"
-            eventsError: !root.calendarLoading && root.calendarStatus.ok === false ? (root.calendarStatus.error || "Calendar request failed") : ""
-            onResetMonth: root.resetCalendarMonth()
-            onSelected: (day) => {
-                return root.selectCalendarDate(day);
-            }
-            onAddEvent: (day, title) => {
-                return root.addCalendarEvent(day, title);
-            }
-            onOpenEvent: (title) => {
-                return root.openCalendarEvent(title);
-            }
-            onFocusRequested: {
-                calendarWindow.requestKeyboardFocus();
-            }
+        onResetMonth: root.resetCalendarMonth()
+        onSelected: (day) => {
+            return root.selectCalendarDate(day);
         }
-
+        onAddEvent: (day, title) => {
+            return root.addCalendarEvent(day, title);
+        }
+        onOpenEvent: (title) => {
+            return root.openCalendarEvent(title);
+        }
     }
 
-    HoverPopupWindow {
-        anchorWindow: root.panelWindow
-        anchorX: Theme.barPosition === "top" || Theme.barPosition === "bottom" ? root.adjacentPopupX(mediaPlayer.implicitWidth, systemWindow.anchorX, systemPopout.width) : root.popupX(mediaPlayer.implicitWidth, root.openPanelX)
-        anchorY: Theme.barPosition === "left" || Theme.barPosition === "right" ? Math.max(8, systemWindow.anchorY - mediaPlayer.implicitHeight - 8) : root.popupY(mediaPlayer.implicitHeight, root.openPanelY)
-        contentWidth: 330
-        contentHeight: mediaPlayer.implicitHeight
-        open: root.openPanel === "audio" && mediaPlayer.hasPlayers
+    BarSystemSurfaces {
+        geometry: geometry
+        openPanel: root.openPanel
+        systemStatus: root.systemStatus
+        batteryStatus: root.batteryStatus
+        scriptRoot: root.scriptRoot
+        performanceActionBusy: root.performanceActionBusy
+        performanceActionError: root.performanceActionError
+        performanceStatusError: root.performanceStatusError
+        systemTitle: root.systemTitle
+        systemBody: root.systemBody
+        systemStatusError: root.systemStatusError
+        systemActions: root.systemActions
+        audioVolume: root.audioVolume
+        audioIcon: root.audioIcon
+        audioMuted: root.audioMuted
+        micMuted: root.micMuted
+        networkEnabled: root.networkEnabled
+        bluetoothEnabled: root.bluetoothEnabled
+        wifiIcon: root.wifiIcon
+        wifiText: root.wifiText
+        bluetoothIcon: root.bluetoothIcon
+        brightnessIcon: root.brightnessIcon
+        brightnessPercent: root.brightnessPercent
+        blueLightMode: root.blueLightMode
+        blueLightActive: root.blueLightActive
+        activeMprisPlayer: root.activeMprisPlayer
         onHoverEntered: root.hoverEntered()
         onHoverExited: root.hoverExited()
-
-        MediaPlayer {
-            id: mediaPlayer
-
-            width: 330
-            activePlayerName: root.activeMprisPlayer
-            onSelectPlayer: (playerName) => {
-                return root.selectMprisPlayer(playerName);
-            }
+        onClosePanel: root.closePanel()
+        onPerformanceAction: (command) => {
+            return root.performanceAction(command);
         }
-
+        onPerformanceVisibleChanged: (visible) => {
+            return root.performanceVisibleChanged(visible);
+        }
+        onSystemAction: (command, keepOpen) => {
+            return root.systemAction(command, keepOpen);
+        }
+        onLevelPreview: (kind, value, muted) => {
+            return root.systemLevelPreview(kind, value, muted);
+        }
+        onSelectSystemPanel: (panel) => {
+            return root.selectSystemPanel(panel);
+        }
+        onSelectMprisPlayer: (playerName) => {
+            return root.selectMprisPlayer(playerName);
+        }
     }
 
-    HoverPopupWindow {
-        anchorWindow: root.panelWindow
-        anchorX: root.popupX(performancePopout.width, root.openPanelX)
-        anchorY: root.popupY(performancePopout.height, root.openPanelY)
-        contentWidth: performancePopout.width
-        contentHeight: performancePopout.height
-        open: root.openPanel === "system"
+    BarNotificationSurface {
+        geometry: geometry
+        openPanel: root.openPanel
+        notifications: root.notificationsModel
+        dnd: root.notificationDnd
         onHoverEntered: root.hoverEntered()
         onHoverExited: root.hoverExited()
-        onVisibleChanged: root.performanceVisibleChanged(visible)
-
-        PerformancePopout {
-            id: performancePopout
-
-            status: root.systemStatus || ({
-            })
-            batteryStatus: root.batteryStatus || ({
-            })
-            scriptRoot: root.scriptRoot
-            actionBusy: root.performanceActionBusy
-            actionError: root.performanceActionError
-            statusError: root.performanceStatusError
-            onAction: (command) => {
-                return root.performanceAction(command);
-            }
+        onToggleDnd: root.toggleNotificationDnd()
+        onActivate: (notification) => {
+            return root.activateNotification(notification);
         }
-
     }
 
-    HoverPopupWindow {
-        id: systemWindow
-
-        anchorWindow: root.panelWindow
-        anchorX: root.popupX(systemPopout.width, root.openPanelX)
-        anchorY: root.popupY(systemPopout.height, root.openPanelY)
-        contentWidth: systemPopout.width
-        contentHeight: systemPopout.height
-        open: ["audio", "network", "bluetooth", "brightness"].indexOf(root.openPanel) >= 0
+    BarBasicSurface {
+        geometry: geometry
+        openPanel: root.openPanel
+        title: root.basicTitle
+        subtitle: root.basicSubtitle
+        body: root.basicBody
+        statusError: root.basicStatusError
+        actions: root.basicActions
+        currentId: root.basicCurrentId
+        headerActionIcon: root.basicHeaderActionIcon
+        headerActionCommand: root.basicHeaderActionCommand
+        headerStatus: root.basicHeaderStatus
         onHoverEntered: root.hoverEntered()
         onHoverExited: root.hoverExited()
-        onVisibleChanged: {
-            if (!visible && ["audio", "network", "bluetooth", "brightness"].indexOf(root.openPanel) >= 0)
-                root.closePanel();
-
+        onAction: (command, keepOpen) => {
+            return root.basicAction(command, keepOpen);
         }
-
-        SystemPopout {
-            id: systemPopout
-
-            title: root.systemTitle
-            body: root.systemBody
-            statusError: root.systemStatusError
-            actions: root.systemActions
-            mode: root.openPanel
-            audioVolume: root.audioVolume
-            audioIcon: root.audioIcon
-            audioMuted: root.audioMuted
-            micMuted: root.micMuted
-            networkEnabled: root.networkEnabled
-            bluetoothEnabled: root.bluetoothEnabled
-            wifiIcon: root.wifiIcon
-            wifiText: root.wifiText
-            bluetoothIcon: root.bluetoothIcon
-            brightnessIcon: root.brightnessIcon
-            brightnessPercent: root.brightnessPercent
-            blueLightMode: root.blueLightMode
-            blueLightActive: root.blueLightActive
-            scriptRoot: root.scriptRoot
-            onAction: (command, keepOpen) => {
-                return root.systemAction(command, keepOpen);
-            }
-            onLevelPreview: (kind, value, muted) => {
-                return root.systemLevelPreview(kind, value, muted);
-            }
-            onSectionSelected: (panel) => {
-                return root.selectSystemPanel(panel);
-            }
-        }
-
-    }
-
-    HoverPopupWindow {
-        anchorWindow: root.panelWindow
-        anchorX: root.popupX(notificationCenter.width, root.openPanelX)
-        anchorY: root.popupY(notificationCenter.height, root.openPanelY)
-        contentWidth: notificationCenter.width
-        contentHeight: notificationCenter.height
-        open: root.openPanel === "notifications"
-        onHoverEntered: root.hoverEntered()
-        onHoverExited: root.hoverExited()
-
-        NotificationCenterPopout {
-            id: notificationCenter
-
-            notifications: root.notificationsModel
-            dnd: root.notificationDnd
-            // A horizontal panel is only one bar-thickness tall. Size against the
-            // screen instead, otherwise the notification header consumes the
-            // whole 240px minimum and the list is clipped.
-            maxPopoutHeight: Math.min(720, Math.max(240, root.screenHeight - 16))
-            onToggleDnd: root.toggleNotificationDnd()
-            onActivate: (notification) => {
-                return root.activateNotification(notification);
-            }
-        }
-
-    }
-
-    HoverPopupWindow {
-        anchorWindow: root.panelWindow
-        anchorX: root.popupX(basicPopout.width, root.openPanelX)
-        anchorY: root.popupY(basicPopout.height, root.openPanelY)
-        contentWidth: 320
-        contentHeight: basicPopout.height
-        open: ["updates", "privacy", "caffeine"].indexOf(root.openPanel) >= 0
-        onHoverEntered: root.hoverEntered()
-        onHoverExited: root.hoverExited()
-
-        BasicPopout {
-            id: basicPopout
-
-            width: 320
-            title: root.basicTitle
-            subtitle: root.basicSubtitle
-            body: root.basicBody
-            statusError: root.basicStatusError
-            actions: root.basicActions
-            currentId: root.basicCurrentId
-            headerActionIcon: root.basicHeaderActionIcon
-            headerActionCommand: root.basicHeaderActionCommand
-            headerStatus: root.basicHeaderStatus
-            onAction: (command, keepOpen) => {
-                return root.basicAction(command, keepOpen);
-            }
-        }
-
     }
 
 }

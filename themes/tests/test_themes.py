@@ -550,6 +550,8 @@ class CliContractTests(unittest.TestCase):
     def test_bar_consumes_configured_regions_and_positions(self) -> None:
         source = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/Bar.qml").read_text(encoding="utf-8")
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
+        status_item = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarStatusItem.qml").read_text(encoding="utf-8")
+        clock_item = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarClockItem.qml").read_text(encoding="utf-8")
         region = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarRegion.qml").read_text(encoding="utf-8")
         for expected in (
             'regionItems: Theme.barStartItems',
@@ -595,10 +597,10 @@ class CliContractTests(unittest.TestCase):
         self.assertIn("notificationController.panelY = mappedCentre", delegate)
         self.assertIn("onHorizontalChanged: publishNotificationPosition()", delegate)
         self.assertIn("function onHorizontalBarChanged()", delegate)
-        self.assertIn('icon: root.contentController.network.json.icon || "󰤩"', delegate)
-        self.assertNotIn('icon: root.contentController.network.json.icon || "󰔩"', delegate)
-        self.assertIn("text: root.contentController.railClockText(root.horizontal)", delegate)
-        self.assertNotIn("text: root.contentController.railClockText()", delegate)
+        self.assertIn('return content.network.json.icon || "󰤩"', status_item)
+        self.assertNotIn('return content.network.json.icon || "󰔩"', status_item)
+        self.assertIn("text: root.context.contentController.railClockText(root.context.horizontal)", clock_item)
+        self.assertNotIn("text: root.context.contentController.railClockText()", clock_item)
 
     def test_bar_uses_explicit_domain_controllers(self) -> None:
         bar = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/Bar.qml").read_text(encoding="utf-8")
@@ -634,17 +636,44 @@ class CliContractTests(unittest.TestCase):
             with self.subTest(stale_forwarder=stale_forwarder):
                 self.assertNotIn(stale_forwarder, bar)
 
+    def test_bar_items_and_popouts_use_domain_components(self) -> None:
+        delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
+        popouts = (REPOSITORY / "quickshell/.config/quickshell/blox/popouts/BarPopouts.qml").read_text(encoding="utf-8")
+
+        for component in (
+            "BarLauncherItem {",
+            "BarWorkspaceItem {",
+            "BarClockItem {",
+            "BarBatteryItem {",
+            "BarNotificationItem {",
+            "BarStatusItem {",
+            "BarTrayItem {",
+        ):
+            with self.subTest(item_component=component):
+                self.assertIn(component, delegate)
+
+        for component in (
+            "BarNotesSurface {",
+            "BarTrayMenuSurface {",
+            "BarCalendarSurface {",
+            "BarSystemSurfaces {",
+            "BarNotificationSurface {",
+            "BarBasicSurface {",
+        ):
+            with self.subTest(popout_component=component):
+                self.assertIn(component, popouts)
+
+        self.assertNotIn("PanelRailButton {", delegate)
+        self.assertNotIn("HoverPopupWindow {", popouts)
+
     def test_configured_battery_uses_live_status_without_cross_axis_jump(self) -> None:
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
-        self.assertEqual(2, delegate.count("status: root.contentController.battery.json"))
+        battery = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarBatteryItem.qml").read_text(encoding="utf-8")
+        clock = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarClockItem.qml").read_text(encoding="utf-8")
+        self.assertEqual(2, battery.count("status: root.context.contentController.battery.json"))
         self.assertIn("implicitWidth: !contentVisible ? 0 : root.horizontal", delegate)
         self.assertIn("implicitHeight: !contentVisible ? 0 : !root.horizontal", delegate)
-        battery_start = delegate.index("id: batteryComponent")
-        tray_start = delegate.index("id: trayToggleComponent")
-        application_tray_start = delegate.index("id: applicationTrayComponent")
-        self.assertNotIn("trayToggleItem = root", delegate[battery_start:tray_start])
-        self.assertNotIn("trayToggleItem = root", delegate[tray_start:application_tray_start])
-        clock = delegate.split("id: clockComponent", 1)[1].split("id: batteryComponent", 1)[0]
+        self.assertNotIn("trayToggleItem = root", battery)
         self.assertIn("Math.ceil(horizontalClock.implicitWidth) + 16", clock)
         self.assertIn("id: horizontalClock", clock)
         self.assertIn("anchors.centerIn: parent", clock)
@@ -657,20 +686,21 @@ class CliContractTests(unittest.TestCase):
 
     def test_configured_battery_supports_display_modes(self) -> None:
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
+        battery = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarBatteryItem.qml").read_text(encoding="utf-8")
         self.assertIn('readonly property string batteryDisplay: itemConfig.display || "toggle"', delegate)
-        self.assertIn('root.batteryDisplay !== "numeric"', delegate)
-        self.assertIn('root.batteryDisplay === "numeric"', delegate)
-        self.assertIn('root.batteryDisplay !== "toggle"', delegate)
-        self.assertIn('collapsible: root.batteryDisplay === "toggle"', delegate)
+        self.assertIn('context.batteryDisplay !== "numeric"', battery)
+        self.assertIn('context.batteryDisplay === "numeric"', battery)
+        self.assertIn('root.context.batteryDisplay !== "toggle"', battery)
+        self.assertIn('collapsible: root.context.batteryDisplay === "toggle"', battery)
 
     def test_configured_touchpad_toggles_and_refreshes_live_status(self) -> None:
-        delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
+        status_item = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarStatusItem.qml").read_text(encoding="utf-8")
         status = (REPOSITORY / "quickshell/.config/quickshell/blox/services/BarStatus.qml").read_text(encoding="utf-8")
-        touchpad = delegate.split("id: touchpadComponent", 1)[1].split("id: trayToggleComponent", 1)[0]
-        self.assertIn("root.contentController.touchpad.json.icon", touchpad)
+        touchpad = status_item.split("id: touchpadComponent", 1)[1]
+        self.assertIn("root.context.contentController.touchpad.json.icon", touchpad)
         self.assertIn('"/osd/control.sh touchpad-toggle"', touchpad)
-        self.assertIn("onHovered: root.surfaceController.trayEntered()", touchpad)
-        self.assertIn("onExited: root.surfaceController.trayExited()", touchpad)
+        self.assertIn("onHovered: root.context.surfaceController.trayEntered()", touchpad)
+        self.assertIn("onExited: root.context.surfaceController.trayExited()", touchpad)
         self.assertIn('"/quickshell-touchpad-enabled"', status)
         self.assertIn("watchChanges: true", status)
         self.assertIn("onFileChanged: touchpad.refresh()", status)
@@ -684,19 +714,21 @@ class CliContractTests(unittest.TestCase):
         self.assertIn("hidden.push(applicationTray)", resolver)
 
     def test_horizontal_popouts_use_screen_geometry_and_do_not_overlap(self) -> None:
-        popouts = (REPOSITORY / "quickshell/.config/quickshell/blox/popouts/BarPopouts.qml").read_text(encoding="utf-8")
-        self.assertIn("maxPopoutHeight: Math.min(720, Math.max(240, root.screenHeight - 16))", popouts)
-        self.assertIn("function adjacentPopupX", popouts)
-        self.assertIn("root.adjacentPopupX(mediaPlayer.implicitWidth, systemWindow.anchorX, systemPopout.width)", popouts)
+        notifications = (REPOSITORY / "quickshell/.config/quickshell/blox/popouts/BarNotificationSurface.qml").read_text(encoding="utf-8")
+        geometry = (REPOSITORY / "quickshell/.config/quickshell/blox/popouts/BarPopoutGeometry.qml").read_text(encoding="utf-8")
+        system = (REPOSITORY / "quickshell/.config/quickshell/blox/popouts/BarSystemSurfaces.qml").read_text(encoding="utf-8")
+        self.assertIn("maxPopoutHeight: Math.min(720, Math.max(240, root.geometry.screenHeight - 16))", notifications)
+        self.assertIn("function adjacentPopupX", geometry)
+        self.assertIn("root.geometry.adjacentPopupX(mediaPlayer.implicitWidth, systemWindow.anchorX, systemPopout.width)", system)
 
-        delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
-        application_tray = delegate.split("id: applicationTrayComponent", 1)[1]
-        self.assertIn("flow: root.horizontal ? Flow.LeftToRight : Flow.TopToBottom", application_tray)
+        tray = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarTrayItem.qml").read_text(encoding="utf-8")
+        application_tray = tray.split("id: applicationTrayComponent", 1)[1]
+        self.assertIn("flow: root.context.horizontal ? Flow.LeftToRight : Flow.TopToBottom", application_tray)
         self.assertIn("trayCount * Theme.buttonSize", application_tray)
         self.assertIn("anchors.fill: parent", application_tray)
         self.assertIn("HoverHandler {", application_tray)
-        self.assertIn("root.surfaceController.trayEntered()", application_tray)
-        self.assertIn("root.surfaceController.trayExited()", application_tray)
+        self.assertIn("root.context.surfaceController.trayEntered()", application_tray)
+        self.assertIn("root.context.surfaceController.trayExited()", application_tray)
         tray_item = application_tray.split("TrayRailItem {", 1)[1]
         self.assertNotIn("onExited:", tray_item)
 
@@ -705,13 +737,13 @@ class CliContractTests(unittest.TestCase):
             REPOSITORY
             / "quickshell/.config/quickshell/blox/popouts/NotesPopout.qml"
         ).read_text(encoding="utf-8")
-        popouts = (
+        notes_surface = (
             REPOSITORY
-            / "quickshell/.config/quickshell/blox/popouts/BarPopouts.qml"
+            / "quickshell/.config/quickshell/blox/popouts/BarNotesSurface.qml"
         ).read_text(encoding="utf-8")
         self.assertIn("property bool headerActionsOnRight: false", notes)
-        self.assertIn('headerActionsOnRight: Theme.barPosition === "right"', popouts)
-        self.assertIn("root.openPanelX > root.screenWidth / 2", popouts)
+        self.assertIn('headerActionsOnRight: Theme.barPosition === "right"', notes_surface)
+        self.assertIn("root.geometry.openPanelX > root.geometry.screenWidth / 2", notes_surface)
         self.assertIn(
             "layoutDirection: root.headerActionsOnRight ? Qt.RightToLeft : Qt.LeftToRight",
             notes,
@@ -719,26 +751,26 @@ class CliContractTests(unittest.TestCase):
         self.assertIn("horizontalAlignment: root.headerActionsOnRight ? Text.AlignLeft : Text.AlignRight", notes)
 
     def test_media_popout_is_hidden_without_a_player(self) -> None:
-        popouts = (REPOSITORY / "quickshell/.config/quickshell/blox/popouts/BarPopouts.qml").read_text(encoding="utf-8")
-        self.assertIn('open: root.openPanel === "audio" && mediaPlayer.hasPlayers', popouts)
+        system = (REPOSITORY / "quickshell/.config/quickshell/blox/popouts/BarSystemSurfaces.qml").read_text(encoding="utf-8")
+        self.assertIn('open: root.openPanel === "audio" && mediaPlayer.hasPlayers', system)
 
     def test_fan_and_gpu_are_configurable_runtime_items(self) -> None:
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
+        status_item = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarStatusItem.qml").read_text(encoding="utf-8")
         for item_id in ("fan", "gpu"):
             with self.subTest(item_id=item_id):
-                self.assertIn(f'"{item_id}": {item_id}Component', delegate)
-        self.assertIn('profile === "Performance" ? "󱑬"', delegate)
-        self.assertIn('contentController.systemInfo.json.profile === "Quiet"', delegate)
-        self.assertIn('gpuMode === "gaming" ? "󰪫"', delegate)
-        self.assertIn('contentController.systemInfo.json.gpuMode === "eco"', delegate)
+                self.assertIn(f'"{item_id}"', delegate)
+        self.assertIn('profile === "Performance" ? "󱑬"', status_item)
+        self.assertIn('content.systemInfo.json.profile === "Quiet"', status_item)
+        self.assertIn('gpuMode === "gaming" ? "󰪫"', status_item)
+        self.assertIn('content.systemInfo.json.gpuMode === "eco"', status_item)
         self.assertIn("visible: contentVisible", delegate)
         self.assertIn("readonly property bool runtimeSuppressed", delegate)
         self.assertIn("contentLoader.item !== null && !runtimeSuppressed", delegate)
         self.assertNotIn("contentLoader.item !== null && contentLoader.item.visible", delegate)
 
     def test_numeric_battery_hover_opens_the_system_popout(self) -> None:
-        delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
-        battery = delegate.split("id: batteryComponent", 1)[1].split("id: notificationsComponent", 1)[0]
+        battery = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarBatteryItem.qml").read_text(encoding="utf-8")
         self.assertIn("BatteryCapacityTile {", battery)
         self.assertIn('hoverButtonEntered("system"', battery)
         self.assertIn('hoverButtonExited("battery")', battery)
@@ -750,14 +782,12 @@ class CliContractTests(unittest.TestCase):
         self.assertIn('itemId === "touchpad" ? contentController.touchpad.json.enabled !== false', delegate)
         self.assertIn('profile === undefined || contentController.systemInfo.json.profile === "Quiet"', delegate)
         self.assertIn('gpuMode === undefined || contentController.systemInfo.json.gpuMode === "eco"', delegate)
-        fan = delegate.split("id: fanComponent", 1)[1].split("id: gpuComponent", 1)[0]
-        gpu = delegate.split("id: gpuComponent", 1)[1].split("id: touchpadComponent", 1)[0]
-        self.assertNotIn("visible:", fan)
-        self.assertNotIn("visible:", gpu)
+        status_item = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarStatusItem.qml").read_text(encoding="utf-8")
+        self.assertNotIn("visible:", status_item)
 
     def test_application_tray_uses_the_repeater_count(self) -> None:
-        delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
-        application_tray = delegate.split("id: applicationTrayComponent", 1)[1]
+        tray = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarTrayItem.qml").read_text(encoding="utf-8")
+        application_tray = tray.split("id: applicationTrayComponent", 1)[1]
         self.assertIn("id: trayRepeater", application_tray)
         self.assertIn("readonly property int trayCount: trayRepeater.count", application_tray)
         self.assertIn("width: implicitWidth", application_tray)

@@ -453,12 +453,19 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn("function focusEditor(selectAllText)", text_field)
         self.assertIn("root.editingFinished();", text_field)
 
-    def test_blank_theme_starts_without_selected_visual_inputs(self) -> None:
+    def test_blank_theme_starts_as_a_valid_generic_light_theme(self) -> None:
         qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")
         blank = qml.split("function blankTheme(", 1)[1].split("function startNewTheme(", 1)[0]
-        self.assertIn('blank.colours[key] = ""', blank)
-        self.assertIn('blank.fonts[role] = ""', blank)
-        self.assertIn('blank.wallpaper.path = ""', blank)
+        self.assertIn('blank.variant = "light"', blank)
+        self.assertIn('"background": "#ffffff"', blank)
+        self.assertIn('"foreground": "#000000"', blank)
+        self.assertIn('"ansi_source": "override"', blank)
+        self.assertIn('"color0": "#000000"', blank)
+        self.assertIn('"color15": "#ffffff"', blank)
+        self.assertIn('"path": "~/Pictures/wallpapers/blank-light.png"', blank)
+        self.assertIn("blank.targets.wallpaper = true", blank)
+        self.assertNotIn('blank.fonts[role] = ""', blank)
+        self.assertTrue((REPOSITORY / "wallpapers/wallpapers/blank-light.png").is_file())
 
     def test_simple_mode_contains_font_pickers(self) -> None:
         qml = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePicker.qml").read_text(encoding="utf-8")

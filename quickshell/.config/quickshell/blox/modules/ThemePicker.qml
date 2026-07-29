@@ -1437,10 +1437,57 @@ FloatingWindow {
         const blank = JSON.parse(JSON.stringify(template));
         blank.id = inputs.id;
         blank.name = inputs.name;
+        blank.variant = "light";
         delete blank.generator;
-        for (const key of semanticKeys) blank.colours[key] = ""
-        for (const role of ["ui", "mono", "panel"]) blank.fonts[role] = ""
-        blank.wallpaper.path = "";
+        blank.colours = {
+            "background": "#ffffff",
+            "surface": "#ffffff",
+            "surface_alt": "#f2f2f2",
+            "foreground": "#000000",
+            "muted": "#595959",
+            "accent": "#005fcc",
+            "danger": "#b00020",
+            "success": "#137333",
+            "warning": "#8a4b00",
+            "info": "#005fcc",
+            "mauve": "#6f42c1",
+            "teal": "#00796b",
+            "selection_background": "#000000",
+            "selection_foreground": "#ffffff",
+            "border": "#b3b3b3"
+        };
+        blank.terminal = {
+            "ansi_source": "override",
+            "canvas": "#ffffff",
+            "chrome_background": "#f2f2f2"
+        };
+        if (!blank.overrides)
+            blank.overrides = {
+        };
+
+        blank.overrides.ansi = {
+            "color0": "#000000",
+            "color1": "#800000",
+            "color2": "#008000",
+            "color3": "#808000",
+            "color4": "#000080",
+            "color5": "#800080",
+            "color6": "#008080",
+            "color7": "#c0c0c0",
+            "color8": "#808080",
+            "color9": "#ff0000",
+            "color10": "#00ff00",
+            "color11": "#ffff00",
+            "color12": "#0000ff",
+            "color13": "#ff00ff",
+            "color14": "#00ffff",
+            "color15": "#ffffff"
+        };
+        blank.wallpaper = {
+            "fit": "cover",
+            "path": "~/Pictures/wallpapers/blank-light.png"
+        };
+        blank.targets.wallpaper = true;
         return blank;
     }
 

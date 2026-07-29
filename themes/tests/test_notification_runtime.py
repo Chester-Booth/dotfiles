@@ -8,6 +8,32 @@ REPOSITORY = Path(__file__).resolve().parents[2]
 
 
 class NotificationRuntimeTests(unittest.TestCase):
+    def test_shared_notification_actions_hide_blank_labels(self) -> None:
+        content = (
+            REPOSITORY
+            / "quickshell/.config/quickshell/blox/shared/NotificationContent.qml"
+        ).read_text(encoding="utf-8")
+
+        refresh = content.split("function refreshActions()", 1)[1].split(
+            "function actionIcon", 1
+        )[0]
+        self.assertIn('String(actions[i].text || "").trim().length > 0', refresh)
+
+    def test_notification_card_invokes_the_default_action(self) -> None:
+        bar = (
+            REPOSITORY / "quickshell/.config/quickshell/blox/modules/Bar.qml"
+        ).read_text(encoding="utf-8")
+
+        activate = bar.split("function activateNotification(notification)", 1)[
+            1
+        ].split("function focusNotificationSource", 1)[0]
+        self.assertIn('actions[i].identifier === "default"', activate)
+        self.assertIn("actions[i].invoke()", activate)
+        self.assertIn("focusNotificationSource(notification)", activate)
+        self.assertEqual(
+            2, bar.count("return root.activateNotification(notification);")
+        )
+
     def test_shared_notification_images_use_a_left_thumbnail(self) -> None:
         content = (
             REPOSITORY

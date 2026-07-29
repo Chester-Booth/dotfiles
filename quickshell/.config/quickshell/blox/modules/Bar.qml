@@ -205,6 +205,21 @@ Scope {
         notifications.clear();
     }
 
+    function activateNotification(notification) {
+        if (!notification)
+            return ;
+
+        const actions = notification.actions || [];
+        for (let i = 0; i < actions.length; i++) {
+            if (actions[i].identifier === "default") {
+                actions[i].invoke();
+                return ;
+            }
+        }
+
+        focusNotificationSource(notification);
+    }
+
     function focusNotificationSource(notification) {
         if (!notification)
             return ;
@@ -1107,7 +1122,7 @@ Scope {
 
                 }
                 onActivateNotification: (notification) => {
-                    return root.focusNotificationSource(notification);
+                    return root.activateNotification(notification);
                 }
                 onSelectMprisPlayer: (playerName) => {
                     root.activeMprisPlayer = playerName;
@@ -1222,7 +1237,7 @@ Scope {
 
                     }
                     onActivate: (notification) => {
-                        return root.focusNotificationSource(notification);
+                        return root.activateNotification(notification);
                     }
                 }
 

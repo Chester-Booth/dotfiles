@@ -62,10 +62,6 @@ Scope {
         }
     }
 
-    function diagLog(event, detail) {
-        console.log("[blox.bar] " + new Date().toISOString() + " " + event + " " + (detail || ""));
-    }
-
     function closePanel() {
         openPanel = "";
         hoveredSource = "";
@@ -205,7 +201,6 @@ Scope {
 
     }
     Component.onCompleted: {
-        diagLog("component.completed", "bar loaded");
         Hyprland.refreshToplevels();
         syncActiveScreenToFocus();
     }
@@ -573,65 +568,10 @@ Scope {
                 persistentState: uiState
             }
 
-            PanelWindow {
-                id: notificationToastWindow
-
-                readonly property bool onLeft: Theme.notificationPosition === "top-left" || Theme.notificationPosition === "bottom-left"
-                readonly property bool onRight: Theme.notificationPosition === "top-right" || Theme.notificationPosition === "bottom-right"
-                readonly property bool onTop: Theme.notificationPosition.indexOf("top") >= 0
-                readonly property bool onBottom: Theme.notificationPosition.indexOf("bottom") >= 0
-
-                screen: modelData
-                implicitWidth: modelData ? modelData.width : 1
-                implicitHeight: modelData ? modelData.height : 1
-                exclusiveZone: 0
-                focusable: false
-                visible: root.activeScreen === modelData && barNotificationController.toastsEnabled && barNotificationController.toasts.length > 0 && !barNotificationController.dnd
-                color: "transparent"
-                WlrLayershell.layer: WlrLayer.Overlay
-                WlrLayershell.namespace: "blox-notifications"
-
-                anchors {
-                    left: true
-                    right: true
-                    top: onTop
-                    bottom: onBottom
-                }
-
-                NotificationToastStack {
-                    id: notificationToasts
-
-                    // Numeric placement clears cleanly when a live preview moves
-                    // between opposite edges. Conditional anchors can retain both
-                    // sides for a frame and stretch the stack to the old edge.
-                    x: notificationToastWindow.onLeft ? 12 + Theme.notificationOffsetX : notificationToastWindow.onRight ? parent.width - width - 12 + Theme.notificationOffsetX : Math.round((parent.width - width) / 2 + Theme.notificationOffsetX)
-                    y: notificationToastWindow.onTop ? 12 + Theme.notificationOffsetY : parent.height - height - 12 + Theme.notificationOffsetY
-                    position: Theme.notificationPosition
-                    visible: barNotificationController.toastsEnabled && barNotificationController.toasts.length > 0 && !barNotificationController.dnd
-                    toasts: barNotificationController.toasts
-                    onDismiss: (notification, closeNotification) => {
-                        barNotificationController.removeToast(notification);
-                        if (notification && closeNotification)
-                            notification.dismiss();
-
-                    }
-                    onActivate: (notification) => {
-                        return barNotificationController.activate(notification);
-                    }
-                }
-
-                // The full-output surface gives every notification position the same
-                // coordinate space. Only the visible cards accept pointer input.
-                mask: Region {
-                    // Bind window-local geometry explicitly so the input region is
-                    // rebuilt when the hidden toast window appears and the stack's
-                    // implicit height changes.
-                    x: notificationToasts.x
-                    y: notificationToasts.y
-                    width: notificationToasts.width
-                    height: notificationToasts.height
-                }
-
+            BarNotificationToastSurface {
+                targetScreen: modelData
+                surfaceActive: root.activeScreen === modelData
+                notificationController: barNotificationController
             }
 
         }

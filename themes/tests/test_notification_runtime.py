@@ -20,12 +20,13 @@ class NotificationRuntimeTests(unittest.TestCase):
         self.assertIn('String(actions[i].text || "").trim().length > 0', refresh)
 
     def test_notification_card_invokes_the_default_action(self) -> None:
-        bar = (
-            REPOSITORY / "quickshell/.config/quickshell/blox/modules/Bar.qml"
-        ).read_text(encoding="utf-8")
         notification_surface = (
             REPOSITORY
             / "quickshell/.config/quickshell/blox/popouts/BarNotificationSurface.qml"
+        ).read_text(encoding="utf-8")
+        toast_surface = (
+            REPOSITORY
+            / "quickshell/.config/quickshell/blox/popouts/BarNotificationToastSurface.qml"
         ).read_text(encoding="utf-8")
         controller = (
             REPOSITORY
@@ -38,7 +39,9 @@ class NotificationRuntimeTests(unittest.TestCase):
         self.assertIn('actions[i].identifier === "default"', activate)
         self.assertIn("actions[i].invoke()", activate)
         self.assertIn("focusSource(notification)", activate)
-        self.assertEqual(1, bar.count("barNotificationController.activate(notification)"))
+        self.assertIn(
+            "root.notificationController.activate(notification)", toast_surface
+        )
         self.assertIn(
             "root.notificationController.activate(notification)", notification_surface
         )
@@ -121,26 +124,24 @@ class NotificationRuntimeTests(unittest.TestCase):
         self.assertNotIn("notificationPositionPreviewWindow", controller)
 
     def test_full_screen_toast_surface_only_accepts_input_on_the_stack(self) -> None:
-        bar = (
-            REPOSITORY / "quickshell/.config/quickshell/blox/modules/Bar.qml"
+        surface = (
+            REPOSITORY
+            / "quickshell/.config/quickshell/blox/popouts/BarNotificationToastSurface.qml"
         ).read_text(encoding="utf-8")
-        toast_window = bar.split("id: notificationToastWindow", 1)[1].split(
-            "Behavior on barSlide", 1
-        )[0]
 
-        self.assertIn("implicitWidth: modelData ? modelData.width : 1", toast_window)
-        self.assertIn("implicitHeight: modelData ? modelData.height : 1", toast_window)
-        self.assertIn("left: true", toast_window)
-        self.assertIn("right: true", toast_window)
-        self.assertIn("mask: Region {", toast_window)
-        self.assertIn("x: notificationToasts.x", toast_window)
-        self.assertIn("y: notificationToasts.y", toast_window)
-        self.assertIn("width: notificationToasts.width", toast_window)
-        self.assertIn("height: notificationToasts.height", toast_window)
-        self.assertNotIn("item: notificationToasts", toast_window)
-        self.assertIn("x: notificationToastWindow.onLeft ? 12 + Theme.notificationOffsetX", toast_window)
-        self.assertIn("y: notificationToastWindow.onTop ? 12 + Theme.notificationOffsetY", toast_window)
-        self.assertNotIn("anchors.left: notificationToastWindow.onLeft", toast_window)
+        self.assertIn("implicitWidth: targetScreen ? targetScreen.width : 1", surface)
+        self.assertIn("implicitHeight: targetScreen ? targetScreen.height : 1", surface)
+        self.assertIn("left: true", surface)
+        self.assertIn("right: true", surface)
+        self.assertIn("mask: Region {", surface)
+        self.assertIn("x: notificationToasts.x", surface)
+        self.assertIn("y: notificationToasts.y", surface)
+        self.assertIn("width: notificationToasts.width", surface)
+        self.assertIn("height: notificationToasts.height", surface)
+        self.assertNotIn("item: notificationToasts", surface)
+        self.assertIn("x: root.onLeft ? 12 + Theme.notificationOffsetX", surface)
+        self.assertIn("y: root.onTop ? 12 + Theme.notificationOffsetY", surface)
+        self.assertNotIn("anchors.left: root.onLeft", surface)
 
 
 if __name__ == "__main__":

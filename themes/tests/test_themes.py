@@ -638,6 +638,7 @@ class CliContractTests(unittest.TestCase):
                 self.assertNotIn(stale_forwarder, bar)
 
     def test_bar_items_and_popouts_use_domain_components(self) -> None:
+        bar = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/Bar.qml").read_text(encoding="utf-8")
         shared = REPOSITORY / "quickshell/.config/quickshell/blox/shared"
         delegate = (shared / "BarItemDelegate.qml").read_text(encoding="utf-8")
         popouts = (REPOSITORY / "quickshell/.config/quickshell/blox/popouts/BarPopouts.qml").read_text(encoding="utf-8")
@@ -698,6 +699,8 @@ class CliContractTests(unittest.TestCase):
 
         self.assertNotIn("PanelRailButton {", delegate)
         self.assertNotIn("HoverPopupWindow {", popouts)
+        self.assertIn("BarNotificationToastSurface {", bar)
+        self.assertNotIn("NotificationToastStack {", bar)
 
     def test_configured_battery_uses_live_status_without_cross_axis_jump(self) -> None:
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")

@@ -675,6 +675,27 @@ class CliContractTests(unittest.TestCase):
             with self.subTest(popout_component=component):
                 self.assertIn(component, popouts)
 
+        for controller_property in (
+            "required property var surfaceController",
+            "required property BarContentController contentController",
+            "required property NotificationController notificationController",
+            "required property UiState persistentState",
+        ):
+            with self.subTest(controller_property=controller_property):
+                self.assertIn(controller_property, popouts)
+
+        for stale_forwarder in (
+            "property string openPanel:",
+            "property var todoStatus",
+            "property string systemTitle:",
+            "property var notificationsModel:",
+            "signal previousTodo()",
+            "signal systemAction(",
+            "signal basicAction(",
+        ):
+            with self.subTest(stale_forwarder=stale_forwarder):
+                self.assertNotIn(stale_forwarder, popouts)
+
         self.assertNotIn("PanelRailButton {", delegate)
         self.assertNotIn("HoverPopupWindow {", popouts)
 
@@ -765,7 +786,7 @@ class CliContractTests(unittest.TestCase):
 
     def test_media_popout_is_hidden_without_a_player(self) -> None:
         system = (REPOSITORY / "quickshell/.config/quickshell/blox/popouts/BarSystemSurfaces.qml").read_text(encoding="utf-8")
-        self.assertIn('open: root.openPanel === "audio" && mediaPlayer.hasPlayers', system)
+        self.assertIn('root.surfaceController.openPanel === "audio" && mediaPlayer.hasPlayers', system)
 
     def test_fan_and_gpu_are_configurable_runtime_items(self) -> None:
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")

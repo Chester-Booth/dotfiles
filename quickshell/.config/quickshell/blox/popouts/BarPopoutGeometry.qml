@@ -3,6 +3,7 @@ import QtQuick
 
 QtObject {
     property var panelWindow
+    property bool active: false
     property real screenWidth: 0
     property real screenHeight: 0
     property real openPanelX: 8

@@ -1,3 +1,4 @@
+import "../services"
 import "../shared"
 import QtQuick
 
@@ -5,41 +6,20 @@ Item {
     id: root
 
     required property BarPopoutGeometry geometry
-    property string openPanel: ""
-    property var systemStatus
-    property var batteryStatus
-    property string scriptRoot: ""
-    property bool performanceActionBusy: false
-    property string performanceActionError: ""
-    property string performanceStatusError: ""
-    property string systemTitle: ""
-    property string systemBody: ""
-    property string systemStatusError: ""
-    property var systemActions: []
-    property int audioVolume: 0
-    property string audioIcon: "󰕾"
-    property bool audioMuted: false
-    property bool micMuted: false
-    property bool networkEnabled: true
-    property bool bluetoothEnabled: true
-    property string wifiIcon: "󰤩"
-    property string wifiText: "Wi-Fi"
-    property string bluetoothIcon: "󰂯"
-    property string brightnessIcon: "󰃠"
-    property int brightnessPercent: 0
-    property string blueLightMode: "auto"
-    property bool blueLightActive: false
-    property string activeMprisPlayer: ""
+    required property var surfaceController
+    required property BarContentController contentController
+    required property UiState uiState
 
-    signal hoverEntered()
-    signal hoverExited()
-    signal closePanel()
-    signal performanceAction(string command)
-    signal performanceVisibleChanged(bool visible)
-    signal systemAction(string command, bool keepOpen)
-    signal levelPreview(string kind, int value, bool muted)
-    signal selectSystemPanel(string panel)
-    signal selectMprisPlayer(string playerName)
+    function runSystemAction(command, keepOpen) {
+        contentController.run(command);
+        contentController.audio.refresh();
+        contentController.brightness.refresh();
+        contentController.bluetooth.refresh();
+        contentController.network.refresh();
+        if (!keepOpen)
+            surfaceController.closePanel();
+
+    }
 
     HoverPopupWindow {
         anchorWindow: root.geometry.panelWindow
@@ -47,17 +27,17 @@ Item {
         anchorY: Theme.barPosition === "left" || Theme.barPosition === "right" ? Math.max(8, systemWindow.anchorY - mediaPlayer.implicitHeight - 8) : root.geometry.popupY(mediaPlayer.implicitHeight, root.geometry.openPanelY)
         contentWidth: 330
         contentHeight: mediaPlayer.implicitHeight
-        open: root.openPanel === "audio" && mediaPlayer.hasPlayers
-        onHoverEntered: root.hoverEntered()
-        onHoverExited: root.hoverExited()
+        open: root.geometry.active && root.surfaceController.openPanel === "audio" && mediaPlayer.hasPlayers
+        onHoverEntered: root.surfaceController.popoutEntered()
+        onHoverExited: root.surfaceController.popoutExited()
 
         MediaPlayer {
             id: mediaPlayer
 
             width: 330
-            activePlayerName: root.activeMprisPlayer
+            activePlayerName: root.uiState.activeMprisPlayer
             onSelectPlayer: (playerName) => {
-                return root.selectMprisPlayer(playerName);
+                root.uiState.activeMprisPlayer = playerName;
             }
         }
 
@@ -69,24 +49,28 @@ Item {
         anchorY: root.geometry.popupY(performancePopout.height, root.geometry.openPanelY)
         contentWidth: performancePopout.width
         contentHeight: performancePopout.height
-        open: root.openPanel === "system"
-        onHoverEntered: root.hoverEntered()
-        onHoverExited: root.hoverExited()
-        onVisibleChanged: root.performanceVisibleChanged(visible)
+        open: root.geometry.active && root.surfaceController.openPanel === "system"
+        onHoverEntered: root.surfaceController.popoutEntered()
+        onHoverExited: root.surfaceController.popoutExited()
+        onVisibleChanged: {
+            if (root.geometry.active)
+                root.contentController.setPerformancePolling(visible);
+
+        }
 
         PerformancePopout {
             id: performancePopout
 
-            status: root.systemStatus || ({
+            status: root.contentController.systemInfo.json || ({
             })
-            batteryStatus: root.batteryStatus || ({
+            batteryStatus: root.contentController.battery.json || ({
             })
-            scriptRoot: root.scriptRoot
-            actionBusy: root.performanceActionBusy
-            actionError: root.performanceActionError
-            statusError: root.performanceStatusError
+            scriptRoot: root.surfaceController.scriptRoot
+            actionBusy: root.contentController.actions.performanceBusy
+            actionError: root.contentController.actions.performanceError
+            statusError: root.contentController.statusError("system")
             onAction: (command) => {
-                return root.performanceAction(command);
+                root.contentController.runPerformance(command);
             }
         }
 
@@ -100,45 +84,45 @@ Item {
         anchorY: root.geometry.popupY(systemPopout.height, root.geometry.openPanelY)
         contentWidth: systemPopout.width
         contentHeight: systemPopout.height
-        open: ["audio", "network", "bluetooth", "brightness"].indexOf(root.openPanel) >= 0
-        onHoverEntered: root.hoverEntered()
-        onHoverExited: root.hoverExited()
+        open: root.geometry.active && ["audio", "network", "bluetooth", "brightness"].indexOf(root.surfaceController.openPanel) >= 0
+        onHoverEntered: root.surfaceController.popoutEntered()
+        onHoverExited: root.surfaceController.popoutExited()
         onVisibleChanged: {
-            if (!visible && ["audio", "network", "bluetooth", "brightness"].indexOf(root.openPanel) >= 0)
-                root.closePanel();
+            if (!visible && root.geometry.active && ["audio", "network", "bluetooth", "brightness"].indexOf(root.surfaceController.openPanel) >= 0)
+                root.surfaceController.closePanel();
 
         }
 
         SystemPopout {
             id: systemPopout
 
-            title: root.systemTitle
-            body: root.systemBody
-            statusError: root.systemStatusError
-            actions: root.systemActions
-            mode: root.openPanel
-            audioVolume: root.audioVolume
-            audioIcon: root.audioIcon
-            audioMuted: root.audioMuted
-            micMuted: root.micMuted
-            networkEnabled: root.networkEnabled
-            bluetoothEnabled: root.bluetoothEnabled
-            wifiIcon: root.wifiIcon
-            wifiText: root.wifiText
-            bluetoothIcon: root.bluetoothIcon
-            brightnessIcon: root.brightnessIcon
-            brightnessPercent: root.brightnessPercent
-            blueLightMode: root.blueLightMode
-            blueLightActive: root.blueLightActive
-            scriptRoot: root.scriptRoot
+            title: root.contentController.content.systemPanelTitle()
+            body: root.contentController.content.systemPanelBody()
+            statusError: root.contentController.statusError(root.surfaceController.openPanel)
+            actions: root.contentController.content.systemPanelActions()
+            mode: root.surfaceController.openPanel
+            audioVolume: root.contentController.audio.json.volume || 0
+            audioIcon: root.contentController.audio.json.icon || "󰕾"
+            audioMuted: !!root.contentController.audio.json.muted
+            micMuted: !!root.contentController.audio.json.micMuted
+            networkEnabled: root.contentController.network.json.class !== "disabled"
+            bluetoothEnabled: root.contentController.bluetooth.json.class !== "disabled"
+            wifiIcon: root.contentController.network.json.icon || "󰤩"
+            wifiText: root.contentController.network.json.ssid || root.contentController.network.json.class || "Wi-Fi"
+            bluetoothIcon: root.contentController.bluetooth.json.icon || "󰂯"
+            brightnessIcon: root.contentController.brightness.json.icon || "󰃠"
+            brightnessPercent: root.contentController.brightness.json.percent || 0
+            blueLightMode: root.contentController.brightness.json.blueLightMode || "auto"
+            blueLightActive: !!root.contentController.brightness.json.blueLightActive
+            scriptRoot: root.surfaceController.scriptRoot
             onAction: (command, keepOpen) => {
-                return root.systemAction(command, keepOpen);
+                root.runSystemAction(command, keepOpen);
             }
             onLevelPreview: (kind, value, muted) => {
-                return root.levelPreview(kind, value, muted);
+                root.surfaceController.osdLevelPreview(kind, value, muted);
             }
             onSectionSelected: (panel) => {
-                return root.selectSystemPanel(panel);
+                root.surfaceController.switchSystemPanel(panel);
             }
         }
 

@@ -23,6 +23,10 @@ class NotificationRuntimeTests(unittest.TestCase):
         bar = (
             REPOSITORY / "quickshell/.config/quickshell/blox/modules/Bar.qml"
         ).read_text(encoding="utf-8")
+        notification_surface = (
+            REPOSITORY
+            / "quickshell/.config/quickshell/blox/popouts/BarNotificationSurface.qml"
+        ).read_text(encoding="utf-8")
         controller = (
             REPOSITORY
             / "quickshell/.config/quickshell/blox/services/NotificationController.qml"
@@ -34,7 +38,10 @@ class NotificationRuntimeTests(unittest.TestCase):
         self.assertIn('actions[i].identifier === "default"', activate)
         self.assertIn("actions[i].invoke()", activate)
         self.assertIn("focusSource(notification)", activate)
-        self.assertEqual(2, bar.count("barNotificationController.activate(notification)"))
+        self.assertEqual(1, bar.count("barNotificationController.activate(notification)"))
+        self.assertIn(
+            "root.notificationController.activate(notification)", notification_surface
+        )
 
     def test_dnd_toggle_updates_persistent_ui_state(self) -> None:
         controller = (

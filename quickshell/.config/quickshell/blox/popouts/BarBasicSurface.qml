@@ -1,3 +1,4 @@
+import "../services"
 import "../shared"
 import QtQuick
 
@@ -5,20 +6,27 @@ Item {
     id: root
 
     required property BarPopoutGeometry geometry
-    property string openPanel: ""
-    property string title: ""
-    property string subtitle: ""
-    property string body: ""
-    property string statusError: ""
-    property var actions: []
-    property string currentId: ""
-    property string headerActionIcon: ""
-    property string headerActionCommand: ""
-    property string headerStatus: ""
+    required property var surfaceController
+    required property BarContentController contentController
+    required property NotificationController notificationController
 
-    signal hoverEntered()
-    signal hoverExited()
-    signal action(string command, bool keepOpen)
+    function runAction(command, keepOpen) {
+        if (command === "__refresh_updates") {
+            contentController.updates.refresh();
+            return ;
+        }
+        if (command === "__clear_notifications") {
+            notificationController.clear();
+            if (!keepOpen)
+                surfaceController.closePanel();
+
+            return ;
+        }
+        contentController.run(command);
+        if (!keepOpen)
+            surfaceController.closePanel();
+
+    }
 
     HoverPopupWindow {
         anchorWindow: root.geometry.panelWindow
@@ -26,25 +34,25 @@ Item {
         anchorY: root.geometry.popupY(basicPopout.height, root.geometry.openPanelY)
         contentWidth: 320
         contentHeight: basicPopout.height
-        open: ["updates", "privacy", "caffeine"].indexOf(root.openPanel) >= 0
-        onHoverEntered: root.hoverEntered()
-        onHoverExited: root.hoverExited()
+        open: root.geometry.active && ["updates", "privacy", "caffeine"].indexOf(root.surfaceController.openPanel) >= 0
+        onHoverEntered: root.surfaceController.popoutEntered()
+        onHoverExited: root.surfaceController.popoutExited()
 
         BasicPopout {
             id: basicPopout
 
             width: 320
-            title: root.title
-            subtitle: root.subtitle
-            body: root.body
-            statusError: root.statusError
-            actions: root.actions
-            currentId: root.currentId
-            headerActionIcon: root.headerActionIcon
-            headerActionCommand: root.headerActionCommand
-            headerStatus: root.headerStatus
+            title: root.contentController.content.panelTitle()
+            subtitle: root.contentController.content.panelSubtitle()
+            body: root.contentController.content.panelBody()
+            statusError: root.contentController.statusError(root.surfaceController.openPanel)
+            actions: root.contentController.content.panelActions()
+            currentId: root.surfaceController.openPanel === "caffeine" ? (root.contentController.caffeine.json.mode || "off") : ""
+            headerActionIcon: root.contentController.content.panelHeaderActionIcon()
+            headerActionCommand: root.contentController.content.panelHeaderActionCommand()
+            headerStatus: root.contentController.content.panelHeaderStatus()
             onAction: (command, keepOpen) => {
-                return root.action(command, keepOpen);
+                root.runAction(command, keepOpen);
             }
         }
 

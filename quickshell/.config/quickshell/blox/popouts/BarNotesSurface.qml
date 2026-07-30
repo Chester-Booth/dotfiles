@@ -1,3 +1,4 @@
+import "../services"
 import "../shared"
 import QtQuick
 
@@ -5,22 +6,8 @@ Item {
     id: root
 
     required property BarPopoutGeometry geometry
-    property string openPanel: ""
-    property var todoStatus
-    property int saveRevision: 0
-    property bool saveBusy: false
-    property string saveError: ""
-    property string statusError: ""
-    property bool refreshBusy: false
-    property string refreshError: ""
-
-    signal hoverEntered()
-    signal hoverExited()
-    signal inputLockChanged(bool locked)
-    signal previous()
-    signal next()
-    signal refresh(string file)
-    signal save(string file, string body)
+    required property var surfaceController
+    required property BarContentController contentController
 
     HoverPopupWindow {
         id: notesWindow
@@ -31,12 +18,12 @@ Item {
         contentWidth: notesPopout.width
         contentHeight: notesPopout.height
         persistentKeyboardFocus: notesPopout.editing
-        open: root.openPanel === "todo"
-        onHoverEntered: root.hoverEntered()
-        onHoverExited: root.hoverExited()
+        open: root.geometry.active && root.surfaceController.openPanel === "todo"
+        onHoverEntered: root.surfaceController.popoutEntered()
+        onHoverExited: root.surfaceController.popoutExited()
         onVisibleChanged: {
-            if (!visible)
-                root.inputLockChanged(false);
+            if (!visible && root.geometry.active)
+                root.surfaceController.setInputPopupLocked(false);
 
         }
 
@@ -44,30 +31,28 @@ Item {
             id: notesPopout
 
             headerActionsOnRight: Theme.barPosition === "right" || ((Theme.barPosition === "top" || Theme.barPosition === "bottom") && root.geometry.openPanelX > root.geometry.screenWidth / 2)
-            title: root.todoStatus && root.todoStatus.name ? root.todoStatus.name : "notes.md"
-            body: root.todoStatus && root.todoStatus.raw ? root.todoStatus.raw : ""
-            file: root.todoStatus && root.todoStatus.file ? root.todoStatus.file : ""
-            index: root.todoStatus && root.todoStatus.index !== undefined ? root.todoStatus.index : 0
-            count: root.todoStatus && root.todoStatus.count !== undefined ? root.todoStatus.count : 1
-            saveRevision: root.saveRevision
-            saveBusy: root.saveBusy
-            saveError: root.saveError
-            statusError: root.statusError
-            refreshBusy: root.refreshBusy
-            refreshError: root.refreshError
+            title: root.contentController.todo.json && root.contentController.todo.json.name ? root.contentController.todo.json.name : "notes.md"
+            body: root.contentController.todo.json && root.contentController.todo.json.raw ? root.contentController.todo.json.raw : ""
+            file: root.contentController.todo.json && root.contentController.todo.json.file ? root.contentController.todo.json.file : ""
+            index: root.contentController.todo.json && root.contentController.todo.json.index !== undefined ? root.contentController.todo.json.index : 0
+            count: root.contentController.todo.json && root.contentController.todo.json.count !== undefined ? root.contentController.todo.json.count : 1
+            saveRevision: root.contentController.actions.notesSaveRevision
+            saveBusy: root.contentController.actions.notesSaveBusy
+            saveError: root.contentController.actions.notesSaveError
+            statusError: root.contentController.statusError("todo")
+            refreshBusy: root.contentController.actions.generatedRefreshBusy
+            refreshError: root.contentController.actions.generatedRefreshError
             maxPopoutWidth: root.geometry.screenWidth > 0 ? root.geometry.screenWidth * 0.75 : 680
             maxPopoutHeight: root.geometry.screenHeight > 0 ? root.geometry.screenHeight * 0.75 : 760
-            onPrevious: root.previous()
-            onNext: root.next()
-            onRefresh: (file) => {
-                return root.refresh(file);
-            }
+            onPrevious: root.contentController.previousTodo()
+            onNext: root.contentController.nextTodo()
+            onRefresh: root.contentController.actions.refreshGeneratedNotes()
             onSave: (file, body) => {
-                return root.save(file, body);
+                root.contentController.actions.saveNotes(file, body);
             }
-            onEditingChanged: root.inputLockChanged(editing)
+            onEditingChanged: root.surfaceController.setInputPopupLocked(editing)
             onFocusRequested: {
-                root.inputLockChanged(true);
+                root.surfaceController.setInputPopupLocked(true);
                 notesWindow.requestKeyboardFocus();
             }
         }

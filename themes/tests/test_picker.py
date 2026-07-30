@@ -272,20 +272,22 @@ class PickerIntegrationSourceTests(unittest.TestCase):
 
     def test_picker_rejects_stale_requests_and_keeps_applied_identity_separate(self) -> None:
         picker = qml_source("Controller")
+        api = qml_source("ApiController")
+        generation = qml_source("GenerationController")
         theme = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/Theme.qml").read_text(encoding="utf-8")
-        self.assertIn("property var activeRequest: null", picker)
-        self.assertIn('"candidateRevision": candidateRevision', picker)
-        self.assertIn('"candidateJson": candidate === null ? "" : JSON.stringify(candidate)', picker)
-        self.assertIn("request.sessionRevision !== root.sessionRevision", picker)
-        self.assertIn("request.candidateRevision !== candidateRevision", picker)
+        self.assertIn("property var activeRequest: null", api)
+        self.assertIn('"candidateRevision": host.candidateRevision', api)
+        self.assertIn('"candidateJson": host.candidate === null ? "" : JSON.stringify(host.candidate)', api)
+        self.assertIn("request.sessionRevision !== host.sessionRevision", api)
+        self.assertIn("request.candidateRevision !== host.candidateRevision", api)
         self.assertIn("function applyValidatedPreview(source)", picker)
         self.assertIn("if (!dirty && selectedId === Theme.activeThemeId)", picker)
         self.assertIn("Theme.cancelPreview()", picker)
         self.assertIn("Theme.previewSource(source)", picker)
-        self.assertIn("applyValidatedPreview(JSON.parse(request.candidateJson))", picker)
-        self.assertIn("validationPending = true", picker)
-        self.assertIn("root.continueQueuedGeneration()", picker)
-        self.assertIn('runApi("show-generate-current", ["show", Theme.activeThemeId])', picker)
+        self.assertIn("host.applyValidatedPreview(JSON.parse(request.candidateJson))", api)
+        self.assertIn("host.validationPending = host.candidate !== null", api)
+        self.assertIn("host.continueQueuedGeneration()", api)
+        self.assertIn('host.runApi("show-generate-current", ["show", Theme.activeThemeId])', generation)
         self.assertIn('if (busy && action !== "preview-edit")', picker)
         self.assertIn('return "busy"', picker)
         self.assertIn("return root.requestClose()", picker)
@@ -318,15 +320,17 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         overview = qml_source("Overview")
         advanced = qml_source("Advanced")
         main = qml_source("")
-        qml = "\n".join((controller, creation, progress, overview, advanced, main))
+        api = qml_source("ApiController")
+        generation = qml_source("GenerationController")
+        qml = "\n".join((controller, api, generation, creation, progress, overview, advanced, main))
         for label in ("Name", "File Path", "Browse", "Base Colour Palette", "Matugen", "Pywal"):
             self.assertIn(f'"{label}"', qml)
-        self.assertIn('runApi("palette", ["palette", path])', qml)
+        self.assertIn('host.runApi("palette", ["palette", path])', qml)
         self.assertIn('"wallpaper": wallpaper', qml)
-        self.assertIn('"backend": backend', qml)
+        self.assertIn('"backend": selectedBackend', qml)
         self.assertIn("request.inputs", qml)
-        self.assertIn("request.inputs.paletteSerial !== paletteRequestSerial", qml)
-        self.assertIn("request.inputs.wallpaper !== newWallpaper.trim()", qml)
+        self.assertIn("request.inputs.paletteSerial !== host.paletteRequestSerial", qml)
+        self.assertIn("request.inputs.wallpaper !== host.newWallpaper.trim()", qml)
         self.assertIn('showModal("progress")', qml)
         self.assertIn('text: "Guide"', qml)
         self.assertIn('if (key === "stylus" || key === "obsidian")', qml)
@@ -353,7 +357,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
 
     def test_widget_position_canvas_supports_drag_resize_snap_and_numeric_geometry(self) -> None:
         widgets = qml_source("Widgets")
-        controller = qml_source("Controller")
+        widget_controller = qml_source("WidgetController")
         for expected in (
             'id: widgetCanvas',
             'text: "Position"',
@@ -365,10 +369,11 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         ):
             with self.subTest(expected=expected):
                 self.assertIn(expected, widgets)
-        self.assertIn('anchor = (bottom ? "bottom-" : "top-") + (right ? "right" : "left")', controller)
+        self.assertIn('anchor = (bottom ? "bottom-" : "top-") + (right ? "right" : "left")', widget_controller)
 
     def test_advanced_picker_can_toggle_place_and_reorder_every_bar_item(self) -> None:
         controller = qml_source("Controller")
+        bar_model = qml_source("BarModel")
         advanced = qml_source("Advanced")
         main = qml_source("")
         for function_name in (
@@ -395,7 +400,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn('visible: ["touchpad", "fan", "gpu"].indexOf(barItemRow.modelData.id) >= 0', advanced)
         self.assertIn("Layout.preferredWidth: visible ? 172 : 0", advanced)
         self.assertIn("controller.setBarItemVisibility(barItemRow.barItemId, visibilityValues[index])", advanced)
-        self.assertIn('"touchpad": "panel-top"', controller)
+        self.assertIn('"touchpad": "panel-top"', bar_model)
         self.assertIn("Drag.active: pickerController.barDragActive", main)
         self.assertEqual(2, advanced.count("target: null"))
         self.assertEqual(2, advanced.count("onTranslationChanged: controller.moveBarDragProxy"))
@@ -413,7 +418,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn('if (region === "start")', controller)
         self.assertIn('if (region === "end")', controller)
         self.assertIn('value === "tray" ? "hidden" : value', advanced)
-        normalise = controller.split("function normaliseBarItemOrders(", 1)[1].split("function setBarItems", 1)[0]
+        normalise = bar_model.split("function normaliseOrders(", 1)[1].split("function label", 1)[0]
         self.assertIn("ordered.push(members[index])", normalise)
         self.assertIn("return ordered", normalise)
         header = advanced.index('text: regionSection.modelData === "hidden" ? "Tray"')
@@ -421,11 +426,11 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertLess(header, first_drop_target)
         self.assertIn("function scrollBarDrag()", controller)
         self.assertIn("running: pickerController.barDragActive", main)
-        self.assertIn("Theme.resolvedBarItems(overrides, position)", controller)
+        self.assertIn("Theme.resolvedBarItems(overrides, position)", bar_model)
         self.assertIn("Theme.resolvedBarItems(overrides, value)", controller)
-        self.assertIn("Theme.loadShell(next.shell)", controller)
-        self.assertIn('if (id === "application-tray")', controller)
-        self.assertIn("return !trayOpensForward(items)", controller)
+        self.assertIn("Theme.loadShell(next.shell)", bar_model)
+        self.assertIn('if (id === "application-tray")', bar_model)
+        self.assertIn("return !trayOpensForward(items)", bar_model)
         self.assertIn("Layout.preferredWidth: 92", advanced)
 
     def test_custom_controls_are_registered_and_font_rows_preview_their_family(self) -> None:
@@ -465,8 +470,8 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn("root.editingFinished();", text_field)
 
     def test_blank_theme_starts_as_a_valid_generic_light_theme(self) -> None:
-        qml = qml_source("Controller")
-        blank = qml.split("function blankTheme(", 1)[1].split("function startNewTheme(", 1)[0]
+        qml = qml_source("GenerationController")
+        blank = qml.split("function blankTheme(", 1)[1].split("function startNew(", 1)[0]
         self.assertIn('blank.variant = "light"', blank)
         self.assertIn('"background": "#ffffff"', blank)
         self.assertIn('"foreground": "#000000"', blank)
@@ -533,14 +538,14 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertNotIn("elide: Text.ElideRight", semantic)
 
     def test_picker_exposes_safe_import_and_export_workflows(self) -> None:
-        controller = qml_source("Controller")
+        api = qml_source("ApiController")
         dialogs = qml_source("FileDialogs")
         library = qml_source("Library")
         self.assertIn('controller.runApi("import", ["import", path]);', dialogs)
         self.assertIn('const args = ["export", controller.candidate.id, "--output", path];', dialogs)
         self.assertIn('args.push("--include-wallpaper");', dialogs)
-        self.assertIn('runApi("list-after-import", ["list"]);', controller)
-        self.assertIn("Apply remains a separate action", controller)
+        self.assertIn('host.runApi("list-after-import", ["list"]);', api)
+        self.assertIn("Apply remains a separate action", api)
         self.assertIn("fileMode: FileDialog.SaveFile", dialogs)
         self.assertIn("enabled: !controller.dirty && !controller.busy", library)
         self.assertNotIn("preview.svg", dialogs)

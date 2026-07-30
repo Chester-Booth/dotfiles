@@ -12,16 +12,16 @@ Scope {
     property Item barDragProxyItem
     property bool open: false
     property bool rendered: false
-    property bool busy: false
-    property string action: ""
-    property string processOutput: ""
-    property string processError: ""
+    property alias busy: apiController.busy
+    property alias action: apiController.action
+    property alias processOutput: apiController.processOutput
+    property alias processError: apiController.processError
     property var themes: []
     property var candidate: null
     property int candidateRevision: 0
     property int sessionRevision: 0
-    property int requestSerial: 0
-    property var activeRequest: null
+    property alias requestSerial: apiController.requestSerial
+    property alias activeRequest: apiController.activeRequest
     property bool validationPending: false
     property string baselineJson: ""
     property string sourceDigest: ""
@@ -35,39 +35,39 @@ Scope {
     property string errorMessage: ""
     property string searchText: ""
     property string editorMode: "overview"
-    property string generatorBackend: "matugen"
+    property alias generatorBackend: generationController.backend
     property string pendingAfterSave: ""
     property string pendingSelection: ""
     property string modalKind: ""
     property string pendingModalConfirmation: ""
-    property bool generateAfterLoad: false
+    property alias generateAfterLoad: generationController.generateAfterLoad
     property string duplicateId: ""
     property string duplicateName: ""
     property string renameName: ""
     property string modalThemeId: ""
     property string modalThemeName: ""
-    property string newThemeName: ""
-    property string newThemeId: ""
-    property string newWallpaper: ""
-    property string newFlowPage: "name"
-    property var paletteOptions: []
-    property int paletteRequestSerial: 0
-    property string paletteRequestPath: ""
-    property bool paletteLoading: false
-    property bool creationBusy: false
-    property var creationRequest: null
+    property alias newThemeName: generationController.newThemeName
+    property alias newThemeId: generationController.newThemeId
+    property alias newWallpaper: generationController.newWallpaper
+    property alias newFlowPage: generationController.newFlowPage
+    property alias paletteOptions: generationController.paletteOptions
+    property alias paletteRequestSerial: generationController.paletteRequestSerial
+    property alias paletteRequestPath: generationController.paletteRequestPath
+    property alias paletteLoading: generationController.paletteLoading
+    property alias creationBusy: generationController.creationBusy
+    property alias creationRequest: generationController.creationRequest
     property var applyProgressRows: []
     property bool applyProgressComplete: false
     property string guideTarget: ""
-    property var widgetDraft: null
-    property int widgetEditIndex: -1
-    property int selectedWidgetIndex: -1
-    property bool widgetEditModePending: false
+    property alias widgetDraft: widgetController.draft
+    property alias widgetEditIndex: widgetController.editIndex
+    property alias selectedWidgetIndex: widgetController.selectedIndex
+    property alias widgetEditModePending: widgetController.editModePending
     property bool exportIncludeWallpaper: true
     property bool exportIncludeWidgets: true
-    property string generatedDownloadTarget: ""
-    property string generatedDownloadFile: ""
-    property bool generatedDownloadArchive: false
+    property alias generatedDownloadTarget: generationController.downloadTarget
+    property alias generatedDownloadFile: generationController.downloadFile
+    property alias generatedDownloadArchive: generationController.downloadArchive
     property string wallpaperDialogTarget: "overview"
     property var fontFamilies: []
     property string fontOutput: ""
@@ -370,6 +370,10 @@ Scope {
         paletteDelay.restart();
     }
 
+    function scheduleValidation() {
+        validationDelay.restart();
+    }
+
     function openWidgetFileDialog() {
         host.dialogs.openWidgetFile();
     }
@@ -407,26 +411,7 @@ Scope {
     }
 
     function runApi(nextAction, args) {
-        if (busy) {
-            errorMessage = "Another theme action is still running.";
-            return false;
-        }
-        action = nextAction;
-        requestSerial += 1;
-        activeRequest = {
-            "serial": requestSerial,
-            "sessionRevision": sessionRevision,
-            "action": nextAction,
-            "candidateRevision": candidateRevision,
-            "candidateJson": candidate === null ? "" : JSON.stringify(candidate)
-        };
-        processOutput = "";
-        processError = "";
-        errorMessage = "";
-        busy = true;
-        apiProcess.command = [apiPath].concat(args).concat(["--json"]);
-        apiProcess.running = true;
-        return true;
+        return apiController.run(nextAction, args);
     }
 
     function refreshThemes(refreshOnly) {
@@ -653,473 +638,115 @@ Scope {
     }
 
     function barItems() {
-        const overrides = candidate && candidate.shell && candidate.shell.bar && candidate.shell.bar.items ? candidate.shell.bar.items : [];
-        const position = candidate && candidate.shell && candidate.shell.bar ? candidate.shell.bar.position : Theme.barPosition;
-        return Theme.resolvedBarItems(overrides, position);
+        return barModel.items();
     }
 
     function trayOpensForward(items) {
-        const source = items || barItems();
-        const tray = source.find((item) => {
-            return item.id === "tray";
-        });
-        if (!tray || tray.region === "end")
-            return false;
-
-        if (tray.region === "start")
-            return true;
-
-        if (tray.region !== "centre")
-            return false;
-
-        const centre = source.filter((item) => {
-            return item.region === "centre";
-        }).sort((left, right) => {
-            return left.order - right.order;
-        });
-        return centre.length > 0 && centre[centre.length - 1].id === "tray";
+        return barModel.trayOpensForward(items || barItems());
     }
 
     function applicationTrayAtStart(items) {
-        return !trayOpensForward(items);
+        return barModel.applicationTrayAtStart(items || barItems());
     }
 
     function normaliseBarItemOrders(items, position) {
-        const regions = ["start", "centre", "end", "hidden"];
-        const tray = items.find((item) => {
-            return item.id === "tray";
-        });
-        if (tray && tray.region === "hidden")
-            tray.region = "end";
-
-        const applicationTray = items.find((item) => {
-            return item.id === "application-tray";
-        });
-        if (applicationTray)
-            applicationTray.region = "hidden";
-
-        const ordered = [];
-        for (let regionIndex = 0; regionIndex < regions.length; ++regionIndex) {
-            const region = regions[regionIndex];
-            const members = items.filter((item) => {
-                return item.region === region;
-            }).sort((left, right) => {
-                return left.order - right.order;
-            });
-            const trayIndex = members.findIndex((item) => {
-                return item.id === "tray";
-            });
-            if (trayIndex >= 0) {
-                const trayItem = members.splice(trayIndex, 1)[0];
-                if (region === "start")
-                    members.push(trayItem);
-                else if (region === "end")
-                    members.unshift(trayItem);
-                else if (region === "centre" && trayIndex < (members.length + 1) / 2)
-                    members.unshift(trayItem);
-                else
-                    members.push(trayItem);
-            }
-            const applicationTrayIndex = members.findIndex((item) => {
-                return item.id === "application-tray";
-            });
-            if (applicationTrayIndex >= 0) {
-                const applicationTrayItem = members.splice(applicationTrayIndex, 1)[0];
-                if (applicationTrayAtStart(items))
-                    members.unshift(applicationTrayItem);
-                else
-                    members.push(applicationTrayItem);
-            }
-            for (let index = 0; index < members.length; ++index) {
-                members[index].order = index;
-                ordered.push(members[index]);
-            }
-        }
-        return ordered;
+        return barModel.normaliseOrders(items);
     }
 
     function setBarItems(items) {
-        const next = cloneCandidate();
-        if (!next.shell)
-            next.shell = shellDefaults();
-
-        if (!next.shell.bar)
-            next.shell.bar = shellDefaults().bar;
-
-        next.shell.bar.items = normaliseBarItemOrders(items);
-        markCandidate(next);
-        Theme.loadShell(next.shell);
+        barModel.setItems(items);
     }
 
     function setBarItemEnabled(id, enabled) {
-        const items = barItems();
-        for (let index = 0; index < items.length; ++index) {
-            if (items[index].id === id) {
-                items[index].enabled = enabled;
-                break;
-            }
-        }
-        setBarItems(items);
+        barModel.setEnabled(id, enabled);
     }
 
     function setBarItemDisplay(id, display) {
-        const items = barItems();
-        for (let index = 0; index < items.length; ++index) {
-            if (items[index].id === id) {
-                items[index].display = display;
-                break;
-            }
-        }
-        setBarItems(items);
+        barModel.setDisplay(id, display);
     }
 
     function setBarItemVisibility(id, visibility) {
-        const items = barItems();
-        for (let index = 0; index < items.length; ++index) {
-            if (items[index].id === id) {
-                items[index].visibility = visibility;
-                break;
-            }
-        }
-        setBarItems(items);
+        barModel.setVisibility(id, visibility);
     }
 
     function setBarItemRegion(id, region) {
-        const items = barItems();
-        if (id === "application-tray")
-            region = "hidden";
-
-        let nextOrder = items.filter((item) => {
-            return item.region === region;
-        }).length;
-        for (let index = 0; index < items.length; ++index) {
-            if (items[index].id === id) {
-                items[index].region = region;
-                items[index].order = nextOrder;
-                break;
-            }
-        }
-        setBarItems(items);
+        barModel.setRegion(id, region);
     }
 
     function moveBarItem(id, direction) {
-        const items = normaliseBarItemOrders(barItems());
-        const selected = items.find((item) => {
-            return item.id === id;
-        });
-        if (!selected)
-            return ;
-
-        if (id === "application-tray")
-            return ;
-
-        if (id === "tray") {
-            if (selected.region !== "centre")
-                return ;
-
-            const members = items.filter((item) => {
-                return item.region === "centre";
-            });
-            selected.order = selected.order === 0 ? members.length : -1;
-            setBarItems(items);
-            return ;
-        }
-        const neighbour = items.find((item) => {
-            return item.region === selected.region && item.order === selected.order + direction;
-        });
-        if (!neighbour)
-            return ;
-
-        const previousOrder = selected.order;
-        selected.order = neighbour.order;
-        neighbour.order = previousOrder;
-        setBarItems(items);
+        barModel.move(id, direction);
     }
 
     function moveBarItemTo(id, region, destinationIndex) {
-        const items = normaliseBarItemOrders(barItems());
-        const selected = items.find((item) => {
-            return item.id === id;
-        });
-        if (!selected)
-            return ;
-
-        if (id === "application-tray") {
-            region = "hidden";
-            destinationIndex = applicationTrayAtStart(items) ? 0 : items.filter((item) => {
-                return item.region === "hidden";
-            }).length;
-        }
-        const sourceRegion = selected.region;
-        const sourceIndex = items.filter((item) => {
-            return item.region === sourceRegion;
-        }).findIndex((item) => {
-            return item.id === id;
-        });
-        const groups = {
-            "start": [],
-            "centre": [],
-            "end": [],
-            "hidden": []
-        };
-        for (const item of items) {
-            if (item.id !== id)
-                groups[item.region].push(item);
-
-        }
-        selected.region = region;
-        const destination = groups[region];
-        if (region === sourceRegion && destinationIndex > sourceIndex)
-            destinationIndex -= 1;
-
-        destination.splice(Math.max(0, Math.min(destination.length, destinationIndex)), 0, selected);
-        const next = [];
-        for (const group of ["start", "centre", "end", "hidden"]) {
-            for (let index = 0; index < groups[group].length; ++index) {
-                groups[group][index].order = index;
-                next.push(groups[group][index]);
-            }
-        }
-        setBarItems(next);
+        barModel.moveTo(id, region, destinationIndex);
     }
 
     function barItemLabel(id) {
-        const labels = {
-            "application-tray": "Application tray",
-            "bt": "Bluetooth",
-            "notifications": "Notifications",
-            "wifi": "Wi-Fi"
-        };
-        return labels[id] || id.charAt(0).toUpperCase() + id.slice(1);
+        return barModel.label(id);
     }
 
     function barPreviewItems(region) {
-        candidateRevision;
-        return barItems().filter((item) => {
-            return item.enabled && item.region === region;
-        }).sort((left, right) => {
-            return left.order - right.order;
-        });
+        return barModel.previewItems(region);
     }
 
     function barPreviewIcon(id) {
-        const icons = {
-            "power": "power",
-            "notes": "notebook-tabs",
-            "workspaces": "grid-2x2",
-            "clock": "clock",
-            "battery": "battery",
-            "tray": "panels-top-left",
-            "notifications": "bell",
-            "wifi": "wifi",
-            "sound": "volume-2",
-            "touchpad": "panel-top",
-            "privacy": "shield",
-            "awake": "coffee",
-            "display": "sun",
-            "bt": "bluetooth",
-            "updates": "refresh-cw",
-            "application-tray": "app-window"
-        };
-        return icons[id] || "app-window";
+        return barModel.previewIcon(id);
     }
 
     function widgetItems() {
-        return candidate && candidate.widgets && candidate.widgets.items ? candidate.widgets.items : Theme.defaultWidgetItems();
+        return widgetController.items();
     }
 
     function localFileUrl(path) {
-        const value = String(path || "");
-        if (value.startsWith("~/"))
-            return "file://" + Quickshell.env("HOME") + value.slice(1);
-
-        if (value.startsWith("/"))
-            return "file://" + value;
-
-        return value;
+        return widgetController.localFileUrl(path);
     }
 
     function widgetPreviewCommand(widget) {
-        const terminalTypes = ["music", "clock", "aquarium", "pipes", "tree", "matrix", "train"];
-        const command = String(widget.content_command || "").replace(/\$SCRIPT_ROOT/g, scriptRoot);
-        if (terminalTypes.indexOf(widget.type) < 0)
-            return ["sh", "-c", command];
-
-        const columns = Math.max(10, Math.floor((widget.width || 320) / 8));
-        const rows = Math.max(4, Math.floor((widget.height || 160) / 18));
-        return [scriptRoot + "/widgets/terminal-frame.py", widget.type, "--command", command, "--columns", String(columns), "--rows", String(rows)];
+        return widgetController.previewCommand(widget);
     }
 
     function setWidgetItems(items) {
-        const next = cloneCandidate();
-        if (!next.widgets)
-            next.widgets = {
-            "profile": "minimal"
-        };
-
-        next.widgets.items = items;
-        markCandidate(next);
+        widgetController.setItems(items);
     }
 
     function updateWidgetGeometry(index, anchor, offsetX, offsetY, width, height) {
-        const items = widgetItems().slice();
-        if (index < 0 || index >= items.length)
-            return ;
-
-        const item = JSON.parse(JSON.stringify(items[index]));
-        item.anchor = anchor;
-        item.offset_x = Math.max(-10000, Math.min(10000, Math.round(offsetX)));
-        item.offset_y = Math.max(-10000, Math.min(10000, Math.round(offsetY)));
-        item.width = width <= 0 ? 0 : Math.max(80, Math.round(width));
-        item.height = height <= 0 ? 0 : Math.max(48, Math.round(height));
-        items[index] = item;
-        setWidgetItems(items);
+        widgetController.updateGeometry(index, anchor, offsetX, offsetY, width, height);
     }
 
     function commitWidgetPreview(index, previewX, previewY, previewWidth, previewHeight, canvasWidth, canvasHeight) {
-        const virtualWidth = 1920;
-        const virtualHeight = 1080;
-        const x = previewX * virtualWidth / canvasWidth;
-        const y = previewY * virtualHeight / canvasHeight;
-        const width = previewWidth * virtualWidth / canvasWidth;
-        const height = previewHeight * virtualHeight / canvasHeight;
-        const centreX = x + width / 2;
-        const centreY = y + height / 2;
-        let anchor = "centre";
-        let offsetX = x - (virtualWidth - width) / 2;
-        let offsetY = y - (virtualHeight - height) / 2;
-        if (Math.abs(centreX - virtualWidth / 2) > virtualWidth * 0.16 || Math.abs(centreY - virtualHeight / 2) > virtualHeight * 0.16) {
-            const right = centreX >= virtualWidth / 2;
-            const bottom = centreY >= virtualHeight / 2;
-            anchor = (bottom ? "bottom-" : "top-") + (right ? "right" : "left");
-            offsetX = right ? virtualWidth - x - width : x;
-            offsetY = bottom ? virtualHeight - y - height : y;
-        }
-        updateWidgetGeometry(index, anchor, offsetX, offsetY, width, height);
+        widgetController.commitPreview(index, previewX, previewY, previewWidth, previewHeight, canvasWidth, canvasHeight);
     }
 
     function newWidgetDraft(type) {
-        const preset = type || "custom";
-        const commands = {
-            "music": "cava",
-            "calendar": "gcalcli agenda",
-            "clock": "tty-clock",
-            "aquarium": "asciiquarium",
-            "pipes": "pipes.sh",
-            "tree": "cbonsai -l",
-            "matrix": "unimatrix",
-            "fortune": "fortune | cowsay",
-            "train": "sl"
-        };
-        return {
-            "id": "widget-" + (widgetItems().length + 1),
-            "name": "New widget",
-            "type": preset,
-            "enabled": true,
-            "content_command": commands[preset] || "",
-            "left_click_command": "",
-            "right_click_command": "",
-            "interval_ms": 60000,
-            "visibility": "empty-workspace",
-            "anchor": "top-left",
-            "offset_x": 20,
-            "offset_y": 20,
-            "width": 0,
-            "height": 0,
-            "shape": "auto",
-            "options": {
-                "auto_size": true,
-                "scale": 1
-            }
-        };
+        return widgetController.newDraft(type);
     }
 
     function widgetPreset(item) {
-        if (!item)
-            return "custom";
-
-        return ["aquarium", "pipes", "tree", "matrix", "fortune", "train"].indexOf(item.type) >= 0 ? "decorative" : item.type;
+        return widgetController.preset(item);
     }
 
     function updateWidgetDraft(values) {
-        if (!widgetDraft)
-            return ;
-
-        const next = JSON.parse(JSON.stringify(widgetDraft));
-        Object.keys(values).forEach((key) => {
-            return next[key] = values[key];
-        });
-        widgetDraft = next;
+        widgetController.updateDraft(values);
     }
 
     function updateWidgetOption(key, value) {
-        if (!widgetDraft)
-            return ;
-
-        const next = JSON.parse(JSON.stringify(widgetDraft));
-        if (!next.options)
-            next.options = {
-        };
-
-        next.options[key] = value;
-        if (next.type === "clock") {
-            const flags = ["tty-clock"];
-            if (next.options.twelve_hour)
-                flags.push("-t");
-
-            if (next.options.seconds)
-                flags.push("-s");
-
-            if (next.options.bold)
-                flags.push("-b");
-
-            if (next.options.blink)
-                flags.push("-B");
-
-            if (next.options.box)
-                flags.push("-x");
-
-            if (next.options.hide_date)
-                flags.push("-D");
-
-            next.content_command = flags.join(" ");
-        } else if (next.type === "calendar")
-            next.content_command = "gcalcli --lineart " + (next.options.lineart || "unicode") + (next.options.colour === false ? " --nocolor" : "") + " " + (next.options.view === "month" ? "calm" : next.options.view === "week" ? "calw" : "agenda");
-        else if (next.type === "music" && key === "config_file")
-            next.content_command = value ? "cava -p " + shellQuote(value) : "cava";
-        widgetDraft = next;
+        widgetController.updateOption(key, value);
     }
 
     function shellQuote(value) {
-        return "'" + String(value).replace(/'/g, "'\\''") + "'";
+        return widgetController.shellQuote(value);
     }
 
     function openWidgetEditor(index) {
-        widgetEditIndex = index;
-        widgetDraft = index >= 0 ? JSON.parse(JSON.stringify(widgetItems()[index])) : newWidgetDraft("custom");
-        showModal("widget");
+        widgetController.openEditor(index);
     }
 
     function openWidgetEditMode() {
-        if (!candidate || widgetEditModePending)
-            return ;
-
-        widgetEditModePending = true;
-        rendered = false;
-        Theme.widgetEditModeRequested();
+        widgetController.openEditMode();
     }
 
     function saveWidgetDraft() {
-        if (!widgetDraft || !widgetDraft.name.trim() || !widgetDraft.id.trim())
-            return ;
-
-        const items = widgetItems().slice();
-        if (widgetEditIndex >= 0)
-            items[widgetEditIndex] = widgetDraft;
-        else
-            items.unshift(widgetDraft);
-        setWidgetItems(items);
-        dismissModal();
+        widgetController.saveDraft();
     }
 
     function openWallpaperDialog(target) {
@@ -1143,156 +770,39 @@ Scope {
     }
 
     function generatedFiles() {
-        if (!candidate || !candidate.targets)
-            return [];
-
-        const files = {
-            "quickshell": ["quickshell/theme.json"],
-            "vicinae": ["vicinae/theme.toml"],
-            "widgets": ["widgets/profile.json"],
-            "kitty": ["kitty/theme.conf"],
-            "wallpaper": ["hypr/wallpaper.json"],
-            "gtk": ["gtk/gtk-3.0/settings.ini", "gtk/gtk-3.0/gtk.css", "gtk/gtk-4.0/settings.ini", "gtk/gtk-4.0/gtk.css", "gtk/metadata.json"],
-            "cursor": ["cursor/metadata.json"],
-            "hyprland": ["hyprland/theme.lua"],
-            "hyprlock": ["hyprlock/theme.conf"],
-            "btop": ["btop/theme.theme"],
-            "micro": ["micro/blox-theme.micro"],
-            "glow": ["glow/style.json"],
-            "code": ["code/settings.json", "code/package.json", "code/themes/blox-dark-2026.json"],
-            "cursor_editor": ["cursor-editor/settings.json"],
-            "stylus": ["stylus/blox-system.user.css"],
-            "obsidian": ["obsidian/style-settings.json"],
-            "powerlevel10k": ["powerlevel10k/theme.zsh"]
-        };
-        const order = ["stylus"].concat(targetKeys.filter((target) => {
-            return target !== "stylus";
-        }));
-        const result = [];
-        for (const target of order) {
-            if (!candidate.targets[target] || !files[target])
-                continue;
-
-            for (const file of files[target]) result.push({
-                "target": target,
-                "file": file,
-                "name": file.slice(file.lastIndexOf("/") + 1)
-            })
-        }
-        return result;
+        return generationController.generatedFiles();
     }
 
     function generatedFileGroups() {
-        const flatFiles = generatedFiles();
-        const result = [];
-        for (const file of flatFiles) {
-            let group = null;
-            for (const candidateGroup of result) {
-                if (candidateGroup.target === file.target) {
-                    group = candidateGroup;
-                    break;
-                }
-            }
-            if (group === null) {
-                group = {
-                    "target": file.target,
-                    "files": []
-                };
-                result.push(group);
-            }
-            group.files.push(file);
-        }
-        return result;
+        return generationController.generatedFileGroups();
     }
 
     function downloadGeneratedFile(target, file) {
-        if (busy)
-            return ;
-
-        generatedDownloadTarget = target;
-        generatedDownloadFile = file;
-        generatedDownloadArchive = false;
-        host.dialogs.openGeneratedExport();
+        generationController.downloadFileTo(target, file);
     }
 
     function downloadGeneratedArchive(target) {
-        if (busy)
-            return ;
-
-        generatedDownloadTarget = target;
-        generatedDownloadFile = target + "-generated-files.zip";
-        generatedDownloadArchive = true;
-        host.dialogs.openGeneratedExport();
+        generationController.downloadTargetArchive(target);
     }
 
     function generateTheme(wallpaper, displayName, themeId, backend) {
-        if (!wallpaper || !wallpaper.trim()) {
-            errorMessage = "Choose a wallpaper first.";
-            return ;
-        }
-        const args = ["generate", wallpaper.trim(), "--backend", backend || generatorBackend];
-        if (displayName)
-            args.push("--name", displayName.trim());
-
-        if (themeId)
-            args.push("--id", themeId.trim());
-
-        if (runApi("generate", args))
-            activeRequest.inputs = {
-            "wallpaper": wallpaper.trim(),
-            "name": displayName || "",
-            "id": themeId || "",
-            "backend": backend || generatorBackend
-        };
-
+        generationController.generate(wallpaper, displayName, themeId, backend);
     }
 
     function requestPalettes() {
-        const path = newWallpaper.trim();
-        paletteRequestSerial += 1;
-        paletteRequestPath = path;
-        paletteOptions = [];
-        if (!path) {
-            paletteLoading = false;
-            return ;
-        }
-        paletteLoading = true;
-        if (runApi("palette", ["palette", path]))
-            activeRequest.inputs = {
-            "wallpaper": path,
-            "paletteSerial": paletteRequestSerial
-        };
-        else
-            paletteLoading = false;
+        generationController.requestPalettes();
     }
 
     function loadActiveForGeneration() {
-        generateAfterLoad = false;
-        return runApi("show-generate-current", ["show", Theme.activeThemeId]);
+        return generationController.loadActive();
     }
 
     function continueQueuedGeneration() {
-        if (!generateAfterLoad || busy || !open)
-            return ;
-
-        if (dirty) {
-            generateAfterLoad = false;
-            showModal("generate-current");
-            return ;
-        }
-        loadActiveForGeneration();
+        generationController.continueQueued();
     }
 
     function requestGenerateCurrent() {
-        openPicker();
-        if (dirty) {
-            showModal("generate-current");
-            return "confirmation-required";
-        }
-        if (!busy)
-            openNewTheme(true);
-
-        return busy ? "queued" : "choose-wallpaper";
+        return generationController.requestCurrent();
     }
 
     function saveCandidate(after) {
@@ -1344,98 +854,15 @@ Scope {
     }
 
     function openNewTheme(wallpaperPage) {
-        if (busy || dirty)
-            return ;
-
-        newThemeName = "";
-        newThemeId = duplicateIdForName(newThemeName);
-        newWallpaper = "";
-        newFlowPage = wallpaperPage ? "wallpaper" : "blank";
-        paletteOptions = [];
-        paletteLoading = false;
-        creationBusy = false;
-        creationRequest = null;
-        showModal("new");
+        generationController.openNew(wallpaperPage);
     }
 
     function blankTheme(template, inputs) {
-        const blank = JSON.parse(JSON.stringify(template));
-        blank.id = inputs.id;
-        blank.name = inputs.name;
-        blank.variant = "light";
-        delete blank.generator;
-        blank.colours = {
-            "background": "#ffffff",
-            "surface": "#ffffff",
-            "surface_alt": "#f2f2f2",
-            "foreground": "#000000",
-            "muted": "#595959",
-            "accent": "#005fcc",
-            "danger": "#b00020",
-            "success": "#137333",
-            "warning": "#8a4b00",
-            "info": "#005fcc",
-            "mauve": "#6f42c1",
-            "teal": "#00796b",
-            "selection_background": "#000000",
-            "selection_foreground": "#ffffff",
-            "border": "#b3b3b3"
-        };
-        blank.terminal = {
-            "ansi_source": "override",
-            "canvas": "#ffffff",
-            "chrome_background": "#f2f2f2"
-        };
-        if (!blank.overrides)
-            blank.overrides = {
-        };
-
-        blank.overrides.ansi = {
-            "color0": "#000000",
-            "color1": "#800000",
-            "color2": "#008000",
-            "color3": "#808000",
-            "color4": "#000080",
-            "color5": "#800080",
-            "color6": "#008080",
-            "color7": "#c0c0c0",
-            "color8": "#808080",
-            "color9": "#ff0000",
-            "color10": "#00ff00",
-            "color11": "#ffff00",
-            "color12": "#0000ff",
-            "color13": "#ff00ff",
-            "color14": "#00ffff",
-            "color15": "#ffffff"
-        };
-        blank.wallpaper = {
-            "fit": "cover",
-            "path": "~/Pictures/wallpapers/blank-light.png"
-        };
-        blank.targets.wallpaper = true;
-        return blank;
+        return generationController.blankTheme(template, inputs);
     }
 
     function startNewTheme(fromWallpaper) {
-        if (!newThemeName.trim() || !newThemeId.trim())
-            return ;
-
-        if (fromWallpaper && !newWallpaper.trim()) {
-            errorMessage = "Choose a wallpaper first.";
-            return ;
-        }
-        creationRequest = {
-            "wallpaper": newWallpaper.trim(),
-            "name": newThemeName.trim(),
-            "id": newThemeId.trim(),
-            "backend": generatorBackend
-        };
-        creationBusy = true;
-        errorMessage = "";
-        if (fromWallpaper)
-            generateTheme(creationRequest.wallpaper, creationRequest.name, creationRequest.id, creationRequest.backend);
-        else if (runApi("new-template", ["show", "blox-panel"]))
-            activeRequest.inputs = creationRequest;
+        generationController.startNew(fromWallpaper);
     }
 
     function openDuplicate(themeId, themeName) {
@@ -1518,198 +945,7 @@ Scope {
     }
 
     function handleResponse(request, response) {
-        const completedAction = request.action;
-        const failed = !response || response.ok !== true;
-        if (completedAction === "palette") {
-            paletteLoading = false;
-            if (!request.inputs || request.inputs.paletteSerial !== paletteRequestSerial || request.inputs.wallpaper !== newWallpaper.trim()) {
-                paletteDelay.restart();
-                return ;
-            }
-            paletteOptions = response && response.data ? response.data : [];
-            apiWarnings = response && response.warnings ? response.warnings : [];
-            if (failed) {
-                errorMessage = response && response.errors ? response.errors.join("\n") : "Palette preview failed.";
-            } else if (!paletteOptions.some((entry) => {
-                return entry.available && entry.backend === generatorBackend;
-            })) {
-                const available = paletteOptions.find((entry) => {
-                    return entry.available;
-                });
-                if (available)
-                    generatorBackend = available.backend;
-
-            }
-            return ;
-        }
-        if (completedAction === "widgets-import") {
-            if (!failed && response.data) {
-                const next = cloneCandidate();
-                next.widgets = response.data;
-                markCandidate(next);
-                statusMessage = "Widget configuration imported.";
-            }
-            return ;
-        }
-        if (completedAction === "preview-edit") {
-            if (candidate === null || request.candidateRevision !== candidateRevision || request.candidateJson !== JSON.stringify(candidate)) {
-                validationPending = candidate !== null;
-                candidateValid = false;
-                return ;
-            }
-            candidateValid = !failed;
-            validationErrors = response && response.errors ? response.errors : ["Preview validation failed."];
-            apiWarnings = response && response.warnings ? response.warnings : [];
-            previewData = response && response.data ? response.data : ({
-            });
-            if (!failed)
-                applyValidatedPreview(JSON.parse(request.candidateJson));
-
-            return ;
-        }
-        if (failed) {
-            errorMessage = response && response.errors ? response.errors.join("\n") : "Theme action failed.";
-            if (completedAction === "generate" || completedAction === "new-template")
-                creationBusy = false;
-
-            if (completedAction === "apply") {
-                applyProgressComplete = true;
-                applyProgressRows = applyProgressRows.map((entry) => {
-                    return ({
-                        "target": entry.target,
-                        "state": "failed",
-                        "message": "failed"
-                    });
-                });
-            }
-            return ;
-        }
-        apiWarnings = response.warnings || [];
-        if (completedAction === "list" || completedAction === "list-refresh") {
-            themes = response.data || [];
-            if (completedAction === "list") {
-                const preferred = themes.some((entry) => {
-                    return entry.id === Theme.activeThemeId;
-                }) ? Theme.activeThemeId : (themes.length > 0 ? themes[0].id : "");
-                if (preferred)
-                    requestSelection(preferred, false);
-
-            }
-        } else if (completedAction === "show") {
-            candidate = JSON.parse(JSON.stringify(response.data));
-            selectedId = candidate.id;
-            sourceDigest = themeDigest(candidate.id);
-            baselineJson = JSON.stringify(candidate);
-            candidateRevision += 1;
-            if (generateAfterLoad) {
-                generateAfterLoad = false;
-                generateTheme(candidate.wallpaper.path);
-            } else {
-                validatePreview();
-            }
-        } else if (completedAction === "show-generate-current") {
-            generateAfterLoad = false;
-            generateTheme(response.data.wallpaper.path);
-        } else if (completedAction === "generate") {
-            candidate = JSON.parse(JSON.stringify(response.data.theme));
-            selectedId = candidate.id;
-            sourceDigest = "";
-            baselineJson = "";
-            previewData = response.data;
-            candidateRevision += 1;
-            creationBusy = false;
-            modalKind = "";
-            Qt.callLater(restoreOverlayFocus);
-            validatePreview();
-        } else if (completedAction === "new-template") {
-            const blank = blankTheme(response.data, request.inputs);
-            candidate = blank;
-            selectedId = candidate.id;
-            sourceDigest = "";
-            baselineJson = "";
-            candidateRevision += 1;
-            creationBusy = false;
-            modalKind = "";
-            Qt.callLater(restoreOverlayFocus);
-            validatePreview();
-        } else if (completedAction === "save") {
-            sourceDigest = response.data.source_sha256;
-            selectedId = candidate.id;
-            baselineJson = JSON.stringify(candidate);
-            candidateRevision += 1;
-            statusMessage = "Theme source saved.";
-            if (pendingAfterSave === "apply") {
-                pendingAfterSave = "";
-                runApi("apply", ["apply", candidate.id]);
-            } else {
-                refreshThemes(true);
-            }
-        } else if (completedAction === "apply") {
-            Theme.reload();
-            baselineJson = JSON.stringify(candidate);
-            candidateRevision += 1;
-            statusMessage = "Theme applied. Some applications may require restart.";
-            applyProgressComplete = true;
-            applyProgressRows = applyProgressRows.map((entry) => {
-                const mode = targetApplyMode(entry.target);
-                const editorName = entry.target === "code" ? "Code" : entry.target === "cursor_editor" ? "Cursor" : "";
-                const editorFailure = editorName && (response.warnings || []).find((warning) => {
-                    return String(warning).indexOf(editorName + " settings were not changed:") >= 0;
-                });
-                if (editorFailure)
-                    return {
-                    "target": entry.target,
-                    "state": "failed",
-                    "message": "Could not apply automatically"
-                };
-
-                return {
-                    "target": entry.target,
-                    "state": mode === "manual" ? "manual" : mode === "restart" ? "restart" : "applied",
-                    "message": mode === "manual" ? "Apply Manually" : mode === "restart" ? targetModeLabel(entry.target) : "Applied"
-                };
-            });
-            refreshThemes(true);
-        } else if (completedAction === "duplicate") {
-            statusMessage = "Theme duplicated.";
-            pendingSelection = response.data.id;
-            runApi("list-after-duplicate", ["list"]);
-        } else if (completedAction === "list-after-duplicate") {
-            themes = response.data || [];
-            const id = pendingSelection;
-            pendingSelection = "";
-            requestSelection(id, false);
-        } else if (completedAction === "rename") {
-            if (response.data.id === selectedId) {
-                candidate.name = response.data.name;
-                sourceDigest = response.data.source_sha256;
-                baselineJson = JSON.stringify(candidate);
-                candidateRevision += 1;
-            }
-            statusMessage = "Display name changed; stable ID preserved.";
-            refreshThemes(true);
-        } else if (completedAction === "delete") {
-            if (response.data.id === selectedId) {
-                Theme.cancelPreview();
-                candidate = null;
-                selectedId = "";
-                sourceDigest = "";
-                baselineJson = "";
-            }
-            statusMessage = "Theme deleted.";
-            refreshThemes(candidate !== null);
-        } else if (completedAction === "import") {
-            statusMessage = "Theme imported. Apply remains a separate action.";
-            pendingSelection = response.data.id;
-            runApi("list-after-import", ["list"]);
-        } else if (completedAction === "list-after-import") {
-            themes = response.data || [];
-            const id = pendingSelection;
-            pendingSelection = "";
-            requestSelection(id, false);
-        } else if (completedAction === "export") {
-            statusMessage = "Theme exported to " + response.data.path;
-        }
+        apiController.handleResponse(request, response);
     }
 
     onOpenChanged: {
@@ -1727,6 +963,26 @@ Scope {
 
     ThemePickerBarModel {
         id: barModel
+
+        host: root
+    }
+
+    ThemePickerWidgetController {
+        id: widgetController
+
+        host: root
+    }
+
+    ThemePickerApiController {
+        id: apiController
+
+        host: root
+    }
+
+    ThemePickerGenerationController {
+        id: generationController
+
+        host: root
     }
 
     Connections {
@@ -1812,50 +1068,6 @@ Scope {
         interval: 350
         repeat: false
         onTriggered: root.requestPalettes()
-    }
-
-    Process {
-        id: apiProcess
-
-        onExited: (exitCode, exitStatus) => {
-            const request = root.activeRequest;
-            root.activeRequest = null;
-            root.busy = false;
-            if (!request || request.sessionRevision !== root.sessionRevision) {
-                if (root.open && root.candidate === null) {
-                    if (root.themes.length === 0)
-                        root.refreshThemes(false);
-                    else
-                        root.requestSelection(Theme.activeThemeId, false);
-                }
-                return ;
-            }
-            let response = null;
-            try {
-                response = JSON.parse(root.processOutput.trim());
-            } catch (error) {
-                root.errorMessage = "Theme API returned invalid JSON: " + String(error) + (root.processError ? "\n" + root.processError.trim() : "");
-                if (root.validationPending && root.candidate !== null)
-                    root.validationDelay.restart();
-
-                root.continueQueuedGeneration();
-                return ;
-            }
-            root.handleResponse(request, response);
-            if (root.validationPending && root.candidate !== null)
-                root.validationDelay.restart();
-
-            root.continueQueuedGeneration();
-        }
-
-        stdout: StdioCollector {
-            onStreamFinished: root.processOutput = this.text
-        }
-
-        stderr: StdioCollector {
-            onStreamFinished: root.processError = this.text
-        }
-
     }
 
     Process {

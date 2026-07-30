@@ -1,6 +1,15 @@
+import "../shared"
 import QtQuick
 
 QtObject {
+    required property var host
+
+    function items() {
+        const overrides = host.candidate && host.candidate.shell && host.candidate.shell.bar && host.candidate.shell.bar.items ? host.candidate.shell.bar.items : [];
+        const position = host.candidate && host.candidate.shell && host.candidate.shell.bar ? host.candidate.shell.bar.position : Theme.barPosition;
+        return Theme.resolvedBarItems(overrides, position);
+    }
+
     function trayOpensForward(items) {
         const tray = items.find((item) => {
             return item.id === "tray";
@@ -109,6 +118,157 @@ QtObject {
             "application-tray": "app-window"
         };
         return icons[id] || "app-window";
+    }
+
+    function setItems(items) {
+        const next = host.cloneCandidate();
+        if (!next.shell)
+            next.shell = host.shellDefaults();
+
+        if (!next.shell.bar)
+            next.shell.bar = host.shellDefaults().bar;
+
+        next.shell.bar.items = normaliseOrders(items);
+        host.markCandidate(next);
+        Theme.loadShell(next.shell);
+    }
+
+    function setEnabled(id, enabled) {
+        const current = items();
+        for (let index = 0; index < current.length; ++index) {
+            if (current[index].id === id) {
+                current[index].enabled = enabled;
+                break;
+            }
+        }
+        setItems(current);
+    }
+
+    function setDisplay(id, display) {
+        const current = items();
+        for (let index = 0; index < current.length; ++index) {
+            if (current[index].id === id) {
+                current[index].display = display;
+                break;
+            }
+        }
+        setItems(current);
+    }
+
+    function setVisibility(id, visibility) {
+        const current = items();
+        for (let index = 0; index < current.length; ++index) {
+            if (current[index].id === id) {
+                current[index].visibility = visibility;
+                break;
+            }
+        }
+        setItems(current);
+    }
+
+    function setRegion(id, region) {
+        const current = items();
+        if (id === "application-tray")
+            region = "hidden";
+
+        const nextOrder = current.filter((item) => {
+            return item.region === region;
+        }).length;
+        for (let index = 0; index < current.length; ++index) {
+            if (current[index].id === id) {
+                current[index].region = region;
+                current[index].order = nextOrder;
+                break;
+            }
+        }
+        setItems(current);
+    }
+
+    function move(id, direction) {
+        const current = normaliseOrders(items());
+        const selected = current.find((item) => {
+            return item.id === id;
+        });
+        if (!selected || id === "application-tray")
+            return ;
+
+        if (id === "tray") {
+            if (selected.region !== "centre")
+                return ;
+
+            const members = current.filter((item) => {
+                return item.region === "centre";
+            });
+            selected.order = selected.order === 0 ? members.length : -1;
+            setItems(current);
+            return ;
+        }
+        const neighbour = current.find((item) => {
+            return item.region === selected.region && item.order === selected.order + direction;
+        });
+        if (!neighbour)
+            return ;
+
+        const previousOrder = selected.order;
+        selected.order = neighbour.order;
+        neighbour.order = previousOrder;
+        setItems(current);
+    }
+
+    function moveTo(id, region, destinationIndex) {
+        const current = normaliseOrders(items());
+        const selected = current.find((item) => {
+            return item.id === id;
+        });
+        if (!selected)
+            return ;
+
+        if (id === "application-tray") {
+            region = "hidden";
+            destinationIndex = applicationTrayAtStart(current) ? 0 : current.filter((item) => {
+                return item.region === "hidden";
+            }).length;
+        }
+        const sourceRegion = selected.region;
+        const sourceIndex = current.filter((item) => {
+            return item.region === sourceRegion;
+        }).findIndex((item) => {
+            return item.id === id;
+        });
+        const groups = {
+            "start": [],
+            "centre": [],
+            "end": [],
+            "hidden": []
+        };
+        for (const item of current) {
+            if (item.id !== id)
+                groups[item.region].push(item);
+
+        }
+        selected.region = region;
+        const destination = groups[region];
+        if (region === sourceRegion && destinationIndex > sourceIndex)
+            destinationIndex -= 1;
+
+        destination.splice(Math.max(0, Math.min(destination.length, destinationIndex)), 0, selected);
+        const next = [];
+        for (const group of ["start", "centre", "end", "hidden"]) {
+            for (let index = 0; index < groups[group].length; ++index) {
+                groups[group][index].order = index;
+                next.push(groups[group][index]);
+            }
+        }
+        setItems(next);
+    }
+
+    function previewItems(region) {
+        host.candidateRevision;
+        return items().filter((item) => {
+            return item.enabled && item.region === region;
+        }).sort((left, right) => {
+            return left.order - right.order;
+        });
     }
 
 }

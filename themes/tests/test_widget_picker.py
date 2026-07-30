@@ -4,6 +4,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 CONTROLLER = ROOT / "quickshell/.config/quickshell/blox/modules/ThemePickerController.qml"
+WIDGET_CONTROLLER = ROOT / "quickshell/.config/quickshell/blox/modules/ThemePickerWidgetController.qml"
 WIDGETS = ROOT / "quickshell/.config/quickshell/blox/modules/ThemePickerWidgets.qml"
 WIDGET_DIALOG = ROOT / "quickshell/.config/quickshell/blox/modules/ThemePickerWidgetDialog.qml"
 EDIT_MODE = ROOT / "quickshell/.config/quickshell/blox/modules/WidgetEditMode.qml"
@@ -13,6 +14,7 @@ class WidgetPickerSourceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.controller = CONTROLLER.read_text(encoding="utf-8")
+        cls.widget_controller = WIDGET_CONTROLLER.read_text(encoding="utf-8")
         cls.widgets = WIDGETS.read_text(encoding="utf-8")
         cls.widget_dialog = WIDGET_DIALOG.read_text(encoding="utf-8")
 
@@ -23,13 +25,13 @@ class WidgetPickerSourceTests(unittest.TestCase):
         self.assertIn('text: "File options"', self.widget_dialog)
 
     def test_new_widgets_are_inserted_first_and_editor_excludes_geometry(self) -> None:
-        self.assertIn("items.unshift(widgetDraft);", self.controller)
+        self.assertIn("current.unshift(draft);", self.widget_controller)
         self.assertNotIn('text: "Position"', self.widget_dialog)
         self.assertNotIn('text: "Shape"', self.widget_dialog)
 
     def test_picker_launches_real_widget_edit_mode(self) -> None:
         self.assertIn('text: "Edit mode"', self.widgets)
-        self.assertIn("Theme.widgetEditModeRequested();", self.controller)
+        self.assertIn("Theme.widgetEditModeRequested();", self.widget_controller)
         self.assertIn("onWidgetEditModeFinished", self.controller)
         edit_mode = EDIT_MODE.read_text(encoding="utf-8")
         self.assertIn("Shared.DesktopWidget {", edit_mode)

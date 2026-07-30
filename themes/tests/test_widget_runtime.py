@@ -99,8 +99,8 @@ class WidgetRuntimeSourceTests(unittest.TestCase):
         self.assertIn("theme.widgetItems = data.widgets.items;", preview)
 
     def test_new_widgets_default_to_empty_workspace_visibility(self) -> None:
-        source = (ROOT / "quickshell/.config/quickshell/blox/modules/ThemePickerController.qml").read_text(encoding="utf-8")
-        draft = source.split("function newWidgetDraft", 1)[1].split("function widgetPreset", 1)[0]
+        source = (ROOT / "quickshell/.config/quickshell/blox/modules/ThemePickerWidgetController.qml").read_text(encoding="utf-8")
+        draft = source.split("function newDraft", 1)[1].split("function preset", 1)[0]
         self.assertIn('"visibility": "empty-workspace"', draft)
 
 

@@ -10,8 +10,10 @@ Rectangle {
     signal hovered()
     signal exited()
 
-    width: Theme.buttonSize
-    height: Theme.buttonSize
+    implicitWidth: Theme.buttonSize
+    implicitHeight: Theme.buttonSize
+    width: implicitWidth
+    height: implicitHeight
     radius: Theme.radius
     color: trayMouse.containsMouse ? Theme.surfaceAlt : "transparent"
     clip: true

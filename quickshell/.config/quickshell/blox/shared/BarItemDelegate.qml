@@ -43,8 +43,8 @@ Item {
     // percentage must only grow along the bar, otherwise a click recentres the
     // whole vertical section and makes neighbouring icons jump sideways.
     visible: contentVisible
-    implicitWidth: !contentVisible ? 0 : root.horizontal && contentLoader.item ? Math.max(Theme.buttonSize, contentLoader.item.implicitWidth || contentLoader.item.width) : Theme.buttonSize
-    implicitHeight: !contentVisible ? 0 : !root.horizontal && contentLoader.item ? Math.max(Theme.buttonSize, contentLoader.item.implicitHeight || contentLoader.item.height) : Theme.buttonSize
+    implicitWidth: !contentVisible ? 0 : root.horizontal && contentLoader.item ? Math.max(Theme.buttonSize, contentLoader.item.implicitWidth) : Theme.buttonSize
+    implicitHeight: !contentVisible ? 0 : !root.horizontal && contentLoader.item ? Math.max(Theme.buttonSize, contentLoader.item.implicitHeight) : Theme.buttonSize
     width: implicitWidth
     height: implicitHeight
 

@@ -641,6 +641,7 @@ class CliContractTests(unittest.TestCase):
         bar = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/Bar.qml").read_text(encoding="utf-8")
         shared = REPOSITORY / "quickshell/.config/quickshell/blox/shared"
         delegate = (shared / "BarItemDelegate.qml").read_text(encoding="utf-8")
+        rail_button = (shared / "RailButton.qml").read_text(encoding="utf-8")
         popouts = (REPOSITORY / "quickshell/.config/quickshell/blox/popouts/BarPopouts.qml").read_text(encoding="utf-8")
 
         for component in (
@@ -662,8 +663,10 @@ class CliContractTests(unittest.TestCase):
         ):
             source = (shared / wrapper).read_text(encoding="utf-8")
             with self.subTest(sized_wrapper=wrapper):
-                self.assertIn("loader.item.implicitWidth || loader.item.width", source)
-                self.assertIn("loader.item.implicitHeight || loader.item.height", source)
+                self.assertIn("loader.item ? loader.item.implicitWidth : 0", source)
+                self.assertIn("loader.item ? loader.item.implicitHeight : 0", source)
+                self.assertNotIn("loader.item.width", source)
+                self.assertNotIn("loader.item.height", source)
 
         for component in (
             "BarNotesSurface {",
@@ -699,6 +702,9 @@ class CliContractTests(unittest.TestCase):
 
         self.assertNotIn("PanelRailButton {", delegate)
         self.assertNotIn("HoverPopupWindow {", popouts)
+        self.assertIn("anchors.fill: parent", delegate)
+        self.assertIn("implicitWidth: Theme.buttonSize", rail_button)
+        self.assertIn("implicitHeight: visible ? Theme.buttonSize : 0", rail_button)
         self.assertIn("BarNotificationToastSurface {", bar)
         self.assertNotIn("NotificationToastStack {", bar)
 
@@ -713,6 +719,8 @@ class CliContractTests(unittest.TestCase):
         self.assertIn("Math.ceil(horizontalClock.implicitWidth) + 16", clock)
         self.assertIn("id: horizontalClock", clock)
         self.assertIn("anchors.centerIn: parent", clock)
+        vertical_clock = clock.split("id: verticalClock", 1)[1].split("Text {", 1)[0]
+        self.assertIn("anchors.horizontalCenter: parent.horizontalCenter", vertical_clock)
         bar = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/Bar.qml").read_text(encoding="utf-8")
         self.assertIn("property var verticalTrayToggleItem", bar)
         self.assertIn("property var horizontalTrayToggleItem", bar)

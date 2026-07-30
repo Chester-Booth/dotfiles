@@ -19,8 +19,10 @@ Rectangle {
     signal exited()
 
     Layout.alignment: Qt.AlignHCenter
-    width: Theme.buttonSize
-    height: visible ? Theme.buttonSize : 0
+    implicitWidth: Theme.buttonSize
+    implicitHeight: visible ? Theme.buttonSize : 0
+    width: implicitWidth
+    height: implicitHeight
     radius: Theme.radius
     color: alert ? Theme.red : active || mouse.containsMouse ? Theme.surfaceAlt : "transparent"
     opacity: mouse.containsMouse ? 0.68 : 1

@@ -11,6 +11,7 @@ Item {
     RailClock {
         id: verticalClock
 
+        anchors.horizontalCenter: parent.horizontalCenter
         visible: !root.context.horizontal
         text: root.context.contentController.railClockText(root.context.horizontal)
         dateMode: root.context.contentController.clockDateMode

@@ -890,7 +890,7 @@ class CliContractTests(unittest.TestCase):
                 self.assertEqual(arguments[0], response["command"])
 
     def test_osd_position_uses_window_edge_flags(self) -> None:
-        source = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/Osd.qml").read_text(encoding="utf-8")
+        source = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/OsdSurface.qml").read_text(encoding="utf-8")
         self.assertIn("id: osdWindow", source)
         for edge in ("onLeft", "onRight", "onTop", "onBottom"):
             self.assertIn(f"readonly property bool {edge}", source)
@@ -899,7 +899,7 @@ class CliContractTests(unittest.TestCase):
             self.assertIn(f"{edge}: on{edge.title()}", source)
 
     def test_osd_animation_translates_from_its_configured_screen_edge(self) -> None:
-        source = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/Osd.qml").read_text(encoding="utf-8")
+        source = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/OsdSurface.qml").read_text(encoding="utf-8")
         self.assertIn("transform: Translate", source)
         self.assertIn("osdWindow.onTop ? -osdCard.height - osdWindow.restingGap : osdWindow.height", source)
         self.assertNotIn("y: root.showing ? (osdWindow.onTop", source)

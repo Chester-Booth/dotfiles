@@ -1,6 +1,9 @@
 Bar 1.0 Bar.qml
 DesktopWidgets 1.0 DesktopWidgets.qml
 Osd 1.0 Osd.qml
+OsdController 1.0 OsdController.qml
+OsdIpc 1.0 OsdIpc.qml
+OsdSurface 1.0 OsdSurface.qml
 ThemePicker 1.0 ThemePicker.qml
 ThemePickerActionDialog 1.0 ThemePickerActionDialog.qml
 ThemePickerAdvanced 1.0 ThemePickerAdvanced.qml

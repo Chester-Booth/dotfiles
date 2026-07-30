@@ -788,6 +788,34 @@ class CliContractTests(unittest.TestCase):
         system = (REPOSITORY / "quickshell/.config/quickshell/blox/popouts/BarSystemSurfaces.qml").read_text(encoding="utf-8")
         self.assertIn('root.surfaceController.openPanel === "audio" && mediaPlayer.hasPlayers', system)
 
+    def test_system_popout_splits_state_and_mode_sections(self) -> None:
+        popouts = REPOSITORY / "quickshell/.config/quickshell/blox/popouts"
+        system = (popouts / "SystemPopout.qml").read_text(encoding="utf-8")
+        controller = (popouts / "SystemPopoutController.qml").read_text(encoding="utf-8")
+        audio = (popouts / "SystemAudioSection.qml").read_text(encoding="utf-8")
+        connectivity = (popouts / "SystemConnectivitySection.qml").read_text(encoding="utf-8")
+        display = (popouts / "SystemDisplaySection.qml").read_text(encoding="utf-8")
+
+        for component in (
+            "SystemPopoutController {",
+            "SystemAudioSection {",
+            "SystemConnectivitySection {",
+            "SystemDisplaySection {",
+        ):
+            with self.subTest(component=component):
+                self.assertIn(component, system)
+
+        self.assertNotIn("component LevelSlider:", system)
+        self.assertNotIn("component SectionButton:", system)
+        self.assertIn("function queueAudio(value)", controller)
+        self.assertIn("function queueBrightness(value)", controller)
+        self.assertIn("audio-set-silent", controller)
+        self.assertIn("brightness-set-silent", controller)
+        self.assertIn('"/control.sh mic " + id', audio)
+        self.assertIn('"/control.sh wifi " + id', connectivity)
+        self.assertIn('"/control.sh bluetooth " + id', connectivity)
+        self.assertIn('"/display/blue-light-mode.sh " + id', display)
+
     def test_fan_and_gpu_are_configurable_runtime_items(self) -> None:
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
         status_item = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarStatusItem.qml").read_text(encoding="utf-8")

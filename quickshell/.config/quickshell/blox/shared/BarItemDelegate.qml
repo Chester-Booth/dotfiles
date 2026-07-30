@@ -75,7 +75,7 @@ Item {
     Loader {
         id: contentLoader
 
-        anchors.centerIn: parent
+        anchors.fill: parent
         onLoaded: root.publishNotificationPosition()
         sourceComponent: {
             if (["power", "notes"].indexOf(root.itemId) >= 0)

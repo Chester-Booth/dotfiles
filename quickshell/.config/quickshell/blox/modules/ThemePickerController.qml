@@ -71,14 +71,14 @@ Scope {
     property string wallpaperDialogTarget: "overview"
     property var fontFamilies: []
     property string fontOutput: ""
-    property bool colourPickerOpen: false
-    property string colourPickerKey: ""
-    property string colourPickerTarget: ""
+    property alias colourPickerOpen: colourController.open
+    property alias colourPickerKey: colourController.key
+    property alias colourPickerTarget: colourController.target
     property var focusBeforeOverlay: null
-    property real colourHue: 0
-    property real colourSaturation: 0
-    property real colourValue: 1
-    property string colourHex: "#ffffff"
+    property alias colourHue: colourController.hue
+    property alias colourSaturation: colourController.saturation
+    property alias colourValue: colourController.value
+    property alias colourHex: colourController.hex
     property bool barDragActive: false
     property string barDragItemId: ""
     property string barDragLabel: ""
@@ -333,78 +333,19 @@ Scope {
     }
 
     function componentHex(value) {
-        return Math.round(Math.max(0, Math.min(255, value))).toString(16).padStart(2, "0");
+        return colourController.componentHex(value);
     }
 
     function hsvHex(hue, saturation, value) {
-        const sector = ((hue % 1) + 1) % 1 * 6;
-        const chroma = value * saturation;
-        const intermediate = chroma * (1 - Math.abs(sector % 2 - 1));
-        const offset = value - chroma;
-        let red = 0;
-        let green = 0;
-        let blue = 0;
-        if (sector < 1) {
-            red = chroma;
-            green = intermediate;
-        } else if (sector < 2) {
-            red = intermediate;
-            green = chroma;
-        } else if (sector < 3) {
-            green = chroma;
-            blue = intermediate;
-        } else if (sector < 4) {
-            green = intermediate;
-            blue = chroma;
-        } else if (sector < 5) {
-            red = intermediate;
-            blue = chroma;
-        } else {
-            red = chroma;
-            blue = intermediate;
-        }
-        return "#" + componentHex((red + offset) * 255) + componentHex((green + offset) * 255) + componentHex((blue + offset) * 255);
+        return colourController.hsvHex(hue, saturation, value);
     }
 
     function loadPickerColour(value) {
-        const normalised = /^#[0-9a-fA-F]{6}$/.test(String(value || "")) ? value : "#ffffff";
-        const hex = String(normalised).replace("#", "");
-        const red = parseInt(hex.slice(0, 2), 16) / 255;
-        const green = parseInt(hex.slice(2, 4), 16) / 255;
-        const blue = parseInt(hex.slice(4, 6), 16) / 255;
-        const maximum = Math.max(red, green, blue);
-        const minimum = Math.min(red, green, blue);
-        const delta = maximum - minimum;
-        let hue = 0;
-        if (delta > 0) {
-            if (maximum === red)
-                hue = ((green - blue) / delta % 6) / 6;
-            else if (maximum === green)
-                hue = ((blue - red) / delta + 2) / 6;
-            else
-                hue = ((red - green) / delta + 4) / 6;
-        }
-        colourHue = hue < 0 ? hue + 1 : hue;
-        colourSaturation = maximum === 0 ? 0 : delta / maximum;
-        colourValue = maximum;
-        colourHex = "#" + hex.toLowerCase();
+        colourController.load(value);
     }
 
     function openColourPicker(key, target) {
-        if (!candidate)
-            return ;
-
-        colourPickerKey = key;
-        colourPickerTarget = target || "";
-        const overrideValues = target && candidate.overrides ? candidate.overrides[target] : null;
-        const previewValues = target === "ansi" && previewData ? previewData.ansi : null;
-        const value = overrideValues && overrideValues[key] ? overrideValues[key] : previewValues && previewValues[key] ? previewValues[key] : candidate.colours[key];
-        loadPickerColour(value);
-        rememberOverlayFocus();
-        colourPickerOpen = true;
-        Qt.callLater(() => {
-            host.focusColourPicker();
-        });
+        colourController.show(key, target);
     }
 
     function rememberOverlayFocus() {
@@ -458,18 +399,11 @@ Scope {
     }
 
     function applyPickerColour(value) {
-        if (!/^#[0-9a-fA-F]{6}$/.test(value))
-            return ;
-
-        colourHex = value.toLowerCase();
-        if (colourPickerTarget)
-            setOverride(colourPickerTarget, colourPickerKey, colourHex);
-        else
-            setColour(colourPickerKey, colourHex);
+        colourController.apply(value);
     }
 
     function updatePickerColour() {
-        applyPickerColour(hsvHex(colourHue, colourSaturation, colourValue));
+        colourController.update();
     }
 
     function runApi(nextAction, args) {
@@ -1783,6 +1717,16 @@ Scope {
             rendered = true;
         else
             hideTimer.restart();
+    }
+
+    ThemePickerColourController {
+        id: colourController
+
+        host: root
+    }
+
+    ThemePickerBarModel {
+        id: barModel
     }
 
     Connections {

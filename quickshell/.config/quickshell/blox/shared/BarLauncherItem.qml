@@ -6,8 +6,8 @@ Item {
     required property string itemId
     required property BarItemContext context
 
-    implicitWidth: loader.item ? loader.item.implicitWidth : 0
-    implicitHeight: loader.item ? loader.item.implicitHeight : 0
+    implicitWidth: loader.item ? loader.item.implicitWidth || loader.item.width : 0
+    implicitHeight: loader.item ? loader.item.implicitHeight || loader.item.height : 0
 
     Loader {
         id: loader

@@ -6,7 +6,7 @@ Rectangle {
     id: root
 
     property string icon: ""
-    property string iconFontFamily: Theme.iconFontFamily
+    property string iconFontFamily: Theme.fontFamily
     property string label: ""
     property color accent: Theme.foreground
     property bool active: false

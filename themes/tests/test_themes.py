@@ -593,6 +593,7 @@ class CliContractTests(unittest.TestCase):
         self.assertIn("root.trayHost.registerTrayToggle(this, root.horizontal)", region)
         self.assertIn("root.trayHost.unregisterTrayToggle(this, root.horizontal)", region)
         self.assertIn("function publishNotificationPosition()", delegate)
+        self.assertIn("anchors.fill: parent", delegate)
         self.assertIn("horizontal !== surfaceController.horizontalBar", delegate)
         self.assertIn("notificationController.panelY = mappedCentre", delegate)
         self.assertIn("onHorizontalChanged: publishNotificationPosition()", delegate)
@@ -637,7 +638,8 @@ class CliContractTests(unittest.TestCase):
                 self.assertNotIn(stale_forwarder, bar)
 
     def test_bar_items_and_popouts_use_domain_components(self) -> None:
-        delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
+        shared = REPOSITORY / "quickshell/.config/quickshell/blox/shared"
+        delegate = (shared / "BarItemDelegate.qml").read_text(encoding="utf-8")
         popouts = (REPOSITORY / "quickshell/.config/quickshell/blox/popouts/BarPopouts.qml").read_text(encoding="utf-8")
 
         for component in (
@@ -651,6 +653,16 @@ class CliContractTests(unittest.TestCase):
         ):
             with self.subTest(item_component=component):
                 self.assertIn(component, delegate)
+
+        for wrapper in (
+            "BarLauncherItem.qml",
+            "BarStatusItem.qml",
+            "BarTrayItem.qml",
+        ):
+            source = (shared / wrapper).read_text(encoding="utf-8")
+            with self.subTest(sized_wrapper=wrapper):
+                self.assertIn("loader.item.implicitWidth || loader.item.width", source)
+                self.assertIn("loader.item.implicitHeight || loader.item.height", source)
 
         for component in (
             "BarNotesSurface {",

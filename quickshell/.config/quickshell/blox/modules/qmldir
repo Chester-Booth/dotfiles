@@ -4,7 +4,9 @@ Osd 1.0 Osd.qml
 ThemePicker 1.0 ThemePicker.qml
 ThemePickerActionDialog 1.0 ThemePickerActionDialog.qml
 ThemePickerAdvanced 1.0 ThemePickerAdvanced.qml
+ThemePickerBarModel 1.0 ThemePickerBarModel.qml
 ThemePickerColourPicker 1.0 ThemePickerColourPicker.qml
+ThemePickerColourController 1.0 ThemePickerColourController.qml
 ThemePickerController 1.0 ThemePickerController.qml
 ThemePickerCreationFlow 1.0 ThemePickerCreationFlow.qml
 ThemePickerFileDialogs 1.0 ThemePickerFileDialogs.qml

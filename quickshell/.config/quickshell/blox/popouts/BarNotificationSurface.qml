@@ -6,7 +6,7 @@ Item {
     id: root
 
     required property BarPopoutGeometry geometry
-    required property var surfaceController
+    required property BarSurfaceController surfaceController
     required property NotificationController notificationController
 
     HoverPopupWindow {

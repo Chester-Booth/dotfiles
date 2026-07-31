@@ -1,4 +1,5 @@
 import "./modules"
+import QtQuick
 import Quickshell
 import Quickshell.Io
 
@@ -17,10 +18,17 @@ Scope {
     }
 
     Bar {
+        id: bar
+
         barOpen: root.barOpen
-        onOsdLevelPreview: (kind, value, muted) => {
+    }
+
+    Connections {
+        function onOsdLevelPreview(kind, value, muted) {
             return osd.preview(kind, value, muted);
         }
+
+        target: bar.controller
     }
 
     Osd {

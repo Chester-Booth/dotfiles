@@ -2,7 +2,7 @@ import "../services"
 import QtQuick
 
 QtObject {
-    required property var surfaceController
+    required property BarSurfaceController surfaceController
     required property BarContentController contentController
     required property WorkspaceController workspaceController
     required property NotificationController notificationController

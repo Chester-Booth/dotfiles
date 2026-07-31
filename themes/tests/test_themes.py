@@ -549,6 +549,7 @@ class CliContractTests(unittest.TestCase):
 
     def test_bar_consumes_configured_regions_and_positions(self) -> None:
         source = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/Bar.qml").read_text(encoding="utf-8")
+        controller = (REPOSITORY / "quickshell/.config/quickshell/blox/services/BarSurfaceController.qml").read_text(encoding="utf-8")
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
         status_item = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarStatusItem.qml").read_text(encoding="utf-8")
         clock_item = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarClockItem.qml").read_text(encoding="utf-8")
@@ -570,21 +571,21 @@ class CliContractTests(unittest.TestCase):
                 self.assertIn(f'"{item_id}"', delegate)
         edge_trigger = source.split("MouseArea {", 1)[1].split("Rectangle {", 1)[0]
         self.assertIn("readonly property int triggerLength", edge_trigger)
-        self.assertIn("width: root.horizontalBar ? triggerLength : 1", edge_trigger)
-        self.assertIn("height: root.horizontalBar ? 1 : triggerLength", edge_trigger)
+        self.assertIn("width: barSurfaceController.horizontalBar ? triggerLength : 1", edge_trigger)
+        self.assertIn("height: barSurfaceController.horizontalBar ? 1 : triggerLength", edge_trigger)
         self.assertIn("parent.width - width", edge_trigger)
         self.assertIn(": parent.height - height", edge_trigger)
-        self.assertIn("root.enterEdgeTrigger()", edge_trigger)
-        self.assertIn("root.leaveEdgeTrigger()", edge_trigger)
+        self.assertIn("barSurfaceController.enterEdgeTrigger()", edge_trigger)
+        self.assertIn("barSurfaceController.leaveEdgeTrigger()", edge_trigger)
         self.assertIn('Theme.barPosition === "bottom"', edge_trigger)
         self.assertIn('Theme.barPosition === "right"', edge_trigger)
-        self.assertIn("Hyprland.activeToplevel.lastIpcObject", source)
-        self.assertIn("Hyprland.refreshToplevels()", source)
-        self.assertIn("ToplevelManager.activeToplevel", source)
-        self.assertIn("activeWaylandToplevel.fullscreen", source)
-        self.assertIn("readonly property bool fullscreenActive", source)
-        self.assertIn("readonly property bool barPinnedOpen: barOpen && !fullscreenActive", source)
-        self.assertIn("exclusiveZone: root.barPinnedOpen", source)
+        self.assertIn("Hyprland.activeToplevel.lastIpcObject", controller)
+        self.assertIn("Hyprland.refreshToplevels()", controller)
+        self.assertIn("ToplevelManager.activeToplevel", controller)
+        self.assertIn("activeWaylandToplevel.fullscreen", controller)
+        self.assertIn("readonly property bool fullscreenActive", controller)
+        self.assertIn("readonly property bool barPinnedOpen: barOpen && !fullscreenActive", controller)
+        self.assertIn("exclusiveZone: barSurfaceController.barPinnedOpen", source)
         self.assertEqual(6, source.count("BarRegion {"))
         self.assertIn("BarItemDelegate {", region)
         self.assertIn("Row {", region)
@@ -605,6 +606,8 @@ class CliContractTests(unittest.TestCase):
 
     def test_bar_uses_explicit_domain_controllers(self) -> None:
         bar = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/Bar.qml").read_text(encoding="utf-8")
+        surface = (REPOSITORY / "quickshell/.config/quickshell/blox/services/BarSurfaceController.qml").read_text(encoding="utf-8")
+        shell = (REPOSITORY / "quickshell/.config/quickshell/blox/shell.qml").read_text(encoding="utf-8")
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
         content = (REPOSITORY / "quickshell/.config/quickshell/blox/services/BarContentController.qml").read_text(encoding="utf-8")
 
@@ -612,6 +615,7 @@ class CliContractTests(unittest.TestCase):
             "BarContentController {",
             "WorkspaceController {",
             "NotificationController {",
+            "BarSurfaceController {",
         ):
             with self.subTest(controller=controller):
                 self.assertIn(controller, bar)
@@ -627,6 +631,37 @@ class CliContractTests(unittest.TestCase):
         self.assertIn("BarStatus {", content)
         self.assertIn("BarActions {", content)
         self.assertIn("BarContent {", content)
+        self.assertIn("required property BarSurfaceController surfaceController", delegate)
+        self.assertIn("readonly property alias controller: barSurfaceController", bar)
+        self.assertIn("target: bar.controller", shell)
+        self.assertIn("function closePanel()", surface)
+        self.assertNotIn("function closePanel()", bar)
+        for relative_path in (
+            "shared/BarItemContext.qml",
+            "shared/BarItemDelegate.qml",
+            "shared/BarRegion.qml",
+            "popouts/BarBasicSurface.qml",
+            "popouts/BarCalendarSurface.qml",
+            "popouts/BarNotificationSurface.qml",
+            "popouts/BarNotesSurface.qml",
+            "popouts/BarPopouts.qml",
+            "popouts/BarSystemSurfaces.qml",
+            "popouts/BarTrayMenuSurface.qml",
+        ):
+            consumer = (
+                REPOSITORY
+                / "quickshell/.config/quickshell/blox"
+                / relative_path
+            ).read_text(encoding="utf-8")
+            with self.subTest(typed_surface_consumer=relative_path):
+                self.assertIn(
+                    "required property BarSurfaceController surfaceController",
+                    consumer,
+                )
+                self.assertNotIn(
+                    "required property var surfaceController",
+                    consumer,
+                )
         for stale_forwarder in (
             "property alias battery:",
             "function workspaceItems()",
@@ -680,7 +715,7 @@ class CliContractTests(unittest.TestCase):
                 self.assertIn(component, popouts)
 
         for controller_property in (
-            "required property var surfaceController",
+            "required property BarSurfaceController surfaceController",
             "required property BarContentController contentController",
             "required property NotificationController notificationController",
             "required property UiState persistentState",

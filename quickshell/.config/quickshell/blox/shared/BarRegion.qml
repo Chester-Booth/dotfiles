@@ -6,7 +6,7 @@ Item {
     id: root
 
     required property var regionItems
-    required property var surfaceController
+    required property BarSurfaceController surfaceController
     required property BarContentController contentController
     required property WorkspaceController workspaceController
     required property NotificationController notificationController

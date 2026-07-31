@@ -1,3 +1,4 @@
+import "../services"
 import "../shared"
 import QtQuick
 
@@ -5,7 +6,7 @@ Item {
     id: root
 
     required property BarPopoutGeometry geometry
-    required property var surfaceController
+    required property BarSurfaceController surfaceController
 
     HoverPopupWindow {
         anchorWindow: root.geometry.panelWindow

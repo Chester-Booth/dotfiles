@@ -6,7 +6,7 @@ Item {
     id: root
 
     required property BarPopoutGeometry geometry
-    required property var surfaceController
+    required property BarSurfaceController surfaceController
     required property BarContentController contentController
     readonly property string effectiveDate: contentController.selectedCalendarDate || Qt.formatDate(contentController.now, "yyyy-MM-dd")
     readonly property var status: contentController.calendar.json || ({

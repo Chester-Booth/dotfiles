@@ -6,7 +6,7 @@ Item {
 
     required property var panelWindow
     required property bool active
-    required property var surfaceController
+    required property BarSurfaceController surfaceController
     required property BarContentController contentController
     required property NotificationController notificationController
     required property UiState persistentState

@@ -66,17 +66,6 @@
       "device": "string"
     }
   },
-  "notifications": {
-    "command": ["status/notifications.sh"],
-    "required": {
-      "icon": "string",
-      "class": "string",
-      "count": "number",
-      "dnd": "boolean",
-      "inhibited": "boolean",
-      "tooltip": "string"
-    }
-  },
   "privacy": {
     "command": ["status/privacy.py"],
     "required": {

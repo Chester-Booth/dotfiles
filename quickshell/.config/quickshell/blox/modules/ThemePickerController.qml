@@ -653,10 +653,6 @@ Scope {
         return barModel.normaliseOrders(items);
     }
 
-    function setBarItems(items) {
-        barModel.setItems(items);
-    }
-
     function setBarItemEnabled(id, enabled) {
         barModel.setEnabled(id, enabled);
     }

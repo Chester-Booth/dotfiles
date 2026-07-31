@@ -381,7 +381,6 @@ class PickerIntegrationSourceTests(unittest.TestCase):
             "trayOpensForward",
             "applicationTrayAtStart",
             "normaliseBarItemOrders",
-            "setBarItems",
             "setBarItemEnabled",
             "setBarItemDisplay",
             "setBarItemVisibility",

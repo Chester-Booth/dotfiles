@@ -85,7 +85,11 @@ Scope {
 
     function categoryResults(applications) {
         return applicationCategories.map((category) => {
-            const count = applications.filter((entry) => (entry.categories || []).some((value) => String(value).toLowerCase() === category.key.toLowerCase())).length;
+            const count = applications.filter((entry) => {
+                return (entry.categories || []).some((value) => {
+                    return String(value).toLowerCase() === category.key.toLowerCase();
+                });
+            }).length;
             return {
                 "kind": "category",
                 "title": category.title,
@@ -99,17 +103,20 @@ Scope {
 
     function usageBoost(entry) {
         const key = normaliseId(entry.id || entry.name);
-        const usage = LauncherState.applicationUsage[key] || ({});
+        const usage = LauncherState.applicationUsage[key] || ({
+        });
         const countBoost = Math.min(15, Math.log2(Number(usage.count || 0) + 1) * 4);
         const age = Date.now() - Number(usage.lastUsed || 0);
-        const recencyBoost = age >= 0 && age < 7 * 86400000 ? 10 * (1 - age / (7 * 86400000)) : 0;
+        const recencyBoost = age >= 0 && age < 7 * 8.64e+07 ? 10 * (1 - age / (7 * 8.64e+07)) : 0;
         return countBoost + recencyBoost;
     }
 
     function recordUse(entry) {
         const key = normaliseId(entry.id || entry.name);
-        const usage = Object.assign({}, LauncherState.applicationUsage);
-        const previous = usage[key] || ({});
+        const usage = Object.assign({
+        }, LauncherState.applicationUsage);
+        const previous = usage[key] || ({
+        });
         usage[key] = {
             "count": Number(previous.count || 0) + 1,
             "lastUsed": Date.now()
@@ -125,10 +132,11 @@ Scope {
         qalcDebounce.stop();
         if (qalc.running)
             qalc.signal(15);
+
         selectedIndex = 0;
         calculation = "";
         calculationSelected = false;
-        if (!query.length) {
+        if (!query.length && !dmenuMode) {
             results = [];
             return ;
         }
@@ -183,6 +191,7 @@ Scope {
         results = text.length ? scored : categoryResults(applications).concat(scored);
         if (looksLikeCalculation(text))
             qalcDebounce.restart();
+
     }
 
     function move(delta) {
@@ -210,6 +219,7 @@ Scope {
     function activateCalculation() {
         if (!calculation.length)
             return ;
+
         copyResult.command = ["wl-copy", calculation];
         copyResult.running = true;
         closeRequested();
@@ -231,8 +241,7 @@ Scope {
             if (result.entry.workingDirectory)
                 command.push("--directory", result.entry.workingDirectory);
 
-            for (const part of result.entry.command)
-                command.push(part);
+            for (const part of result.entry.command) command.push(part)
             terminalCommand.command = command;
             terminalCommand.running = true;
         } else if (result.kind === "app") {
@@ -256,6 +265,7 @@ Scope {
     function startPendingQalc() {
         if (qalc.running || pendingQalcSerial !== requestSerial || !pendingQalcQuery.length)
             return ;
+
         qalc.serial = pendingQalcSerial;
         qalc.command = ["qalc", "-t", "-m", "1200", pendingQalcQuery];
         pendingQalcSerial = 0;
@@ -289,14 +299,8 @@ Scope {
         onRunningChanged: {
             if (running)
                 output = "";
-        }
 
-        stdout: StdioCollector {
-            onStreamFinished: {
-                qalc.output = text.trim();
-            }
         }
-
         onExited: (exitCode) => {
             if (exitCode === 0 && qalc.serial === root.requestSerial && qalc.output.length) {
                 root.calculation = qalc.output;
@@ -304,6 +308,13 @@ Scope {
             }
             if (root.pendingQalcSerial === root.requestSerial)
                 Qt.callLater(root.startPendingQalc);
+
+        }
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                qalc.output = text.trim();
+            }
         }
 
     }

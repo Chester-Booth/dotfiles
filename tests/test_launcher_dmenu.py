@@ -204,6 +204,13 @@ class DmenuClientTests(unittest.TestCase):
             process.stdin.close()
             process.stdout.close()
 
+    def test_quickshell_shows_options_before_a_query_is_entered(self):
+        repository = Path(__file__).parents[1]
+        controller = (repository / "quickshell/.config/quickshell/blox/modules/LauncherMainController.qml").read_text(encoding="utf-8")
+        surface = (repository / "quickshell/.config/quickshell/blox/modules/LauncherMainSurface.qml").read_text(encoding="utf-8")
+        self.assertIn("if (!query.length && !dmenuMode)", controller)
+        self.assertIn("controller.dmenuMode && controller.results.length", surface)
+
 
 if __name__ == "__main__":
     unittest.main()

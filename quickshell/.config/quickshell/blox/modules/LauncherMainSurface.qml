@@ -56,7 +56,7 @@ PanelWindow {
         id: card
 
         width: 770
-        height: controller.query.length ? (controller.dmenuMode && controller.dmenuLimit > 0 ? Math.min(520, 78 + controller.dmenuLimit * 58) : 520) : 62
+        height: controller.query.length || (controller.dmenuMode && controller.results.length) ? (controller.dmenuMode && controller.dmenuLimit > 0 ? Math.min(520, 78 + controller.dmenuLimit * 58) : 520) : 62
         x: (root.width - width) / 2
         y: controller.dmenuMode && controller.dmenuBottom ? root.height - height - 20 : (root.height - 520) / 2
         radius: 9

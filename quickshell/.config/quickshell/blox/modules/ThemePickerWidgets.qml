@@ -544,8 +544,6 @@ ColumnLayout {
                 Layout.fillWidth: true
                 enabled: modelData === "offset_x" || modelData === "offset_y" || !selectedItem || selectedItem.width > 0 || selectedItem.height > 0
                 text: selectedItem ? String(selectedItem[modelData]) : "0"
-                ToolTip.visible: hovered && !enabled
-                ToolTip.text: "Disable Automatic size to set width and height"
                 onEditingFinished: {
                     if (!selectedItem)
                         return ;
@@ -554,6 +552,12 @@ ColumnLayout {
                     const value = modelData === "width" || modelData === "height" ? Math.max(1, parsed || 0) : Math.max(-10000, Math.min(10000, isNaN(parsed) ? 0 : parsed));
                     controller.updateWidgetGeometry(controller.selectedWidgetIndex, selectedItem.anchor, modelData === "offset_x" ? value : selectedItem.offset_x, modelData === "offset_y" ? value : selectedItem.offset_y, modelData === "width" ? value : selectedItem.width, modelData === "height" ? value : selectedItem.height);
                 }
+
+                BloxToolTip {
+                    shown: parent.hovered && !parent.enabled
+                    text: "Disable Automatic size to set width and height"
+                }
+
             }
 
         }

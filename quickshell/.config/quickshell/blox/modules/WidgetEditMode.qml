@@ -418,8 +418,6 @@ PanelWindow {
                         suffix: "px"
                         enabled: parent.modelData.key === "offset_x" || parent.modelData.key === "offset_y" || !root.selectedAutoSize()
                         text: root.selectedItem ? String(root.selectedItem[parent.modelData.key] || 0) : "0"
-                        ToolTip.visible: hovered && !enabled
-                        ToolTip.text: "Disable Automatic size to set width and height"
                         onEditingFinished: {
                             const key = parent.modelData.key;
                             const parsed = parseInt(text);
@@ -428,6 +426,12 @@ PanelWindow {
                             update[key] = key === "width" || key === "height" ? Math.max(1, parsed || 0) : Math.max(-10000, Math.min(10000, isNaN(parsed) ? 0 : parsed));
                             root.updateSelected(update);
                         }
+
+                        BloxToolTip {
+                            shown: parent.hovered && !parent.enabled
+                            text: "Disable Automatic size to set width and height"
+                        }
+
                     }
 
                 }

@@ -183,9 +183,11 @@ ColumnLayout {
                     radius: 6
                     color: controller.candidate && controller.candidate.colours ? controller.validColour(controller.candidate.colours[modelData], "transparent") : "transparent"
                     border.color: Theme.withAlpha(Theme.foreground, 0.45)
-                    ToolTip.visible: semanticHover.hovered && semanticLabel.truncated
-                    ToolTip.text: modelData.replace(/_/g, " ")
-                    ToolTip.delay: 350
+
+                    BloxToolTip {
+                        shown: semanticHover.hovered && semanticLabel.truncated
+                        text: modelData.replace(/_/g, " ")
+                    }
 
                     HoverHandler {
                         id: semanticHover

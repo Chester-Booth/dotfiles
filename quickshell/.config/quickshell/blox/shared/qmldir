@@ -28,6 +28,8 @@ NotificationBody 1.0 NotificationBody.qml
 NotificationContent 1.0 NotificationContent.qml
 BloxButton 1.0 BloxButton.qml
 BloxTextField 1.0 BloxTextField.qml
+BloxToolTip 1.0 BloxToolTip.qml
+PhosphorIcon 1.0 PhosphorIcon.qml
 BloxComboBox 1.0 BloxComboBox.qml
 BloxCheckBox 1.0 BloxCheckBox.qml
 BloxFontPicker 1.0 BloxFontPicker.qml

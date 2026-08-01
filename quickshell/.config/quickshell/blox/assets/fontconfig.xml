@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <include ignore_missing="no">/etc/fonts/fonts.conf</include>
+
+  <!-- Qt Quick cannot render the SVG glyphs in the system Twemoji font. Keep
+       the override local to Quickshell and use Noto's colour bitmap font. -->
+  <match target="pattern">
+    <test qual="any" name="family"><string>Twemoji</string></test>
+    <edit name="family" mode="assign" binding="same"><string>Noto Color Emoji</string></edit>
+  </match>
+</fontconfig>

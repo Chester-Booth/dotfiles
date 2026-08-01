@@ -1,0 +1,10 @@
+[Unit]
+Description=Update Qalculate currency rates each day
+
+[Timer]
+OnBootSec=5m
+OnUnitActiveSec=1d
+Persistent=true
+
+[Install]
+WantedBy=timers.target

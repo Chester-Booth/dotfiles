@@ -1,0 +1,6 @@
+[Unit]
+Description=Update Qalculate currency rates
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/qalc -e

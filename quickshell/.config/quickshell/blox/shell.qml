@@ -44,4 +44,7 @@ Scope {
     ShortcutGuide {
     }
 
+    Launcher {
+    }
+
 }

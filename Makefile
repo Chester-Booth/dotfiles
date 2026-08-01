@@ -1,9 +1,9 @@
 SHELL := /usr/bin/env bash
 QS := quickshell/.config/quickshell/blox
 
-.PHONY: check format lint doctor qmlformat shfmt shellcheck lua-check py-compile test-floating-sudo validate-status validate-themes systemd-verify diff-check
+.PHONY: check format lint doctor qmlformat qmllint shfmt shellcheck lua-check py-compile test-floating-sudo test-launcher validate-status validate-themes systemd-verify diff-check
 
-check: lua-check py-compile test-floating-sudo validate-status validate-themes systemd-verify diff-check
+check: qmllint lua-check py-compile test-floating-sudo test-launcher validate-status validate-themes systemd-verify diff-check
 
 format: qmlformat shfmt
 
@@ -14,6 +14,13 @@ doctor:
 
 qmlformat:
 	@find $(QS) -type f -name '*.qml' -print0 | xargs -0 -r qmlformat -i
+
+qmllint:
+	@if command -v qmllint >/dev/null 2>&1; then \
+		find $(QS) -type f -name '*.qml' -print0 | xargs -0 -r qmllint -I $(QS); \
+	else \
+		echo 'skip qmllint: command not found'; \
+	fi
 
 shfmt:
 	@if command -v shfmt >/dev/null 2>&1; then \
@@ -47,6 +54,10 @@ py-compile:
 
 test-floating-sudo:
 	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests/test_floating_sudo.py -v
+
+test-launcher:
+	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests/test_launcher_apps.py tests/test_launcher_clipboard.py tests/test_launcher_dmenu.py tests/test_launcher_emoji.py tests/test_launcher_processes.py -v
+	@QT_QPA_PLATFORM=offscreen /usr/lib/qt6/bin/qmltestrunner -input tests/qml
 
 validate-status:
 	@$(QS)/scripts/validate-status.py --timeout 10

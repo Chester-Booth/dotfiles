@@ -22,7 +22,7 @@ git make python3 jq ripgrep qmlformat shfmt shellcheck quickshell hyprctl system
 Runtime helpers used by the desktop include:
 
 ```sh
-gcalcli pactl nmcli bluetoothctl brightnessctl asusctl hyprshot vicinae arch-update
+gcalcli pactl nmcli bluetoothctl brightnessctl asusctl hyprshot vicinae arch-update qalc sqlite3 wl-copy wl-paste wtype notify-send python-pillow noto-fonts-emoji
 ```
 
 The exact package names vary by distro. On Arch-based systems, most are either
@@ -45,7 +45,12 @@ ln -sfn "$PWD/bin/battery-low-power" ~/.local/bin/battery-low-power
 ln -sfn "$PWD/bin/fprint-check.sh" ~/.local/bin/fprint-check.sh
 ln -sfn "$PWD/bin/fprint-reenroll.sh" ~/.local/bin/fprint-reenroll.sh
 ln -sfn "$PWD/bin/floating_sudo" ~/.local/bin/floating_sudo
+ln -sfn "$PWD/bin/dmenu" ~/.local/bin/dmenu
 ```
+
+The dmenu client implements `-i`, `-p`, `-l`, `-m`, `-b` and `-f`. With `-f`,
+the launcher takes focus before the client finishes reading stdin. Font and
+colour flags are no-ops because the active shell theme owns those values.
 
 `floating_sudo` needs Kitty, sudo, Python 3, a graphical session, and
 `XDG_RUNTIME_DIR`. Check its reject path before approving a command:
@@ -104,6 +109,7 @@ systemctl --user enable --now fprint-check.timer
 systemctl --user enable --now gcal-update.timer
 systemctl --user enable --now gdrive-bisync.timer
 systemctl --user enable --now icloud-bisync.timer
+systemctl --user enable --now qalc-currency-update.timer
 ```
 
 Skip timers for services you do not use.

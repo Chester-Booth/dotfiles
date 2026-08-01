@@ -168,11 +168,12 @@ class ThemeLibraryMutationTests(unittest.TestCase):
 class PickerIntegrationSourceTests(unittest.TestCase):
     def test_quickshell_modules_are_registered_for_live_reload(self) -> None:
         modules = REPOSITORY / "quickshell/.config/quickshell/blox/modules"
-        registered = {
-            line.split()[0]
-            for line in (modules / "qmldir").read_text(encoding="utf-8").splitlines()
-            if line.strip() and not line.lstrip().startswith("#")
-        }
+        registered = set()
+        for line in (modules / "qmldir").read_text(encoding="utf-8").splitlines():
+            if not line.strip() or line.lstrip().startswith("#"):
+                continue
+            fields = line.split()
+            registered.add(fields[1] if fields[0] == "singleton" else fields[0])
         available = {path.stem for path in modules.glob("*.qml")}
 
         self.assertEqual(available, registered)

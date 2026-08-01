@@ -1,7 +1,7 @@
 local programs = {
     terminal = "kitty",
     file_manager = "thunar",
-    menu = "vicinae toggle",
+    menu = "quickshell ipc -c blox call launcher main",
     editor = "micro",
     visual = "micro",
 }

@@ -208,6 +208,11 @@ end, { non_consuming = true, transparent = true })
 hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true })
 hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 
+-- Let Quickshell dismiss native picker windows only for real outside clicks.
+hl.bind("mouse:272", hl.dsp.event("blox-picker-click"), { click = true, non_consuming = true })
+hl.bind("mouse:273", hl.dsp.event("blox-picker-click"), { click = true, non_consuming = true })
+hl.bind("mouse:274", hl.dsp.event("blox-picker-click"), { click = true, non_consuming = true })
+
 -- Resize the active window to a percentage of its monitor width.
 super_bind("code:87", resize_active_width(0.70))
 super_bind("code:88", resize_active_width(0.50))
@@ -264,10 +269,10 @@ super_bind("SHIFT + T", exec("~/.config/hypr/scripts/ocr-region-to-clipboard.sh"
 super_bind("SHIFT + C", exec([[bash -c 'pgrep -x hyprpicker >/dev/null && pkill -x hyprpicker || hyprpicker -a &']]))
 
 -- Clipboard manager toggle.
-super_bind("V", exec([[vicinae deeplink 'vicinae://launch/clipboard/history']]))
+super_bind("V", exec("quickshell ipc -c blox call launcher clipboard"))
 
 -- Toggle bar.
 super_bind("backslash", exec("quickshell ipc -c blox call bar toggle"))
 
 -- Emoji picker.
-super_bind("period", exec([[vicinae deeplink 'vicinae://launch/core/search-emojis']]))
+super_bind("period", exec("quickshell ipc -c blox call launcher emoji"))

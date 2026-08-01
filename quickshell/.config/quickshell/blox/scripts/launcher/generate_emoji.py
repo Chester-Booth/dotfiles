@@ -8,6 +8,84 @@ import xml.etree.ElementTree as ElementTree
 from pathlib import Path
 
 
+CATEGORY_ORDER = (
+    "Smileys & Emotion",
+    "People & Body",
+    "Animals & Nature",
+    "Food & Drink",
+    "Activities",
+    "Travel & Places",
+    "Objects",
+    "Flags",
+    "Symbols",
+)
+
+SMILEY_SUBGROUP_ORDER = (
+    "face-smiling",
+    "face-affection",
+    "face-tongue",
+    "face-hand",
+    "face-neutral-skeptical",
+    "face-sleepy",
+    "face-unwell",
+    "face-hat",
+    "face-glasses",
+    "face-concerned",
+    "face-negative",
+    "cat-face",
+    "face-costume",
+    "monkey-face",
+    "heart",
+    "emotion",
+)
+
+COMMON_SYMBOL_ORDER = (
+    "‽", "¡", "¿", "§", "¶", "†", "‡", "※", "⁂", "⁎",
+    "№", "℗", "℠", "℡", "℻",
+    "♔", "♕", "♖", "♗", "♘", "♙", "♚", "♛", "♜", "♝", "♞",
+)
+
+
+def symbol_subcategory(value: str, name: str, general_category: str) -> tuple[str, int]:
+    if value in COMMON_SYMBOL_ORDER:
+        return "text-common", COMMON_SYMBOL_ORDER.index(value)
+    if "ARROW" in name or 0x2190 <= ord(value) <= 0x21FF:
+        return "text-arrow", ord(value)
+    if general_category == "Sm" or "INTEGRAL" in name or "SUMMATION" in name:
+        return "text-maths", ord(value)
+    if any(word in name for word in (
+        "SQUARE", "CIRCLE", "TRIANGLE", "DIAMOND", "RECTANGLE", "ELLIPSE", "LOZENGE",
+        "POLYGON", "STAR", "ARC", "CORNER", "BOX DRAWINGS", "BLOCK", "SHADE",
+    )):
+        return "text-shape", ord(value)
+    if general_category == "Sc":
+        return "text-currency", ord(value)
+    if general_category.startswith("P"):
+        return "text-punctuation", ord(value)
+    return "text-other", ord(value)
+
+
+def item_sort_key(item: dict) -> tuple[int, int, int]:
+    category = item["category"]
+    category_order = CATEGORY_ORDER.index(category) if category in CATEGORY_ORDER else len(CATEGORY_ORDER)
+    subgroup = item["subcategory"]
+    if category == "Smileys & Emotion":
+        subgroup_order = SMILEY_SUBGROUP_ORDER.index(subgroup) if subgroup in SMILEY_SUBGROUP_ORDER else len(SMILEY_SUBGROUP_ORDER)
+        return category_order, subgroup_order, item["_order"]
+    if category == "Symbols" and subgroup.startswith("text-"):
+        subgroup_order = {
+            "text-common": 1,
+            "text-shape": 2,
+            "text-arrow": 3,
+            "text-punctuation": 4,
+            "text-maths": 5,
+            "text-currency": 6,
+            "text-other": 7,
+        }[subgroup]
+        return category_order, subgroup_order, item["_suborder"]
+    return category_order, 0, item["_order"]
+
+
 def read_annotations(paths: list[Path]) -> dict[str, dict[str, str]]:
     annotations: dict[str, dict[str, str]] = {}
     for path in paths:
@@ -37,6 +115,7 @@ def main() -> None:
     args = parser.parse_args()
     annotations = read_annotations([args.annotations, args.annotations_derived])
     group = ""
+    subgroup = ""
     items = []
     version = ""
     for line in args.source.read_text(encoding="utf-8").splitlines():
@@ -44,6 +123,8 @@ def main() -> None:
             version = line.split(":", 1)[1].strip()
         elif line.startswith("# group:"):
             group = line.split(":", 1)[1].strip()
+        elif line.startswith("# subgroup:"):
+            subgroup = line.split(":", 1)[1].strip()
         elif "; fully-qualified" in line:
             match = re.match(r"^([0-9A-F ]+)\s*;\s*fully-qualified\s*#\s*(\S+)\s+E[\d.]+\s+(.+)$", line)
             if not match:
@@ -57,6 +138,9 @@ def main() -> None:
                 "name": name,
                 "keywords": keywords,
                 "category": group,
+                "subcategory": subgroup,
+                "_order": len(items),
+                "_suborder": len(items),
             })
     emoji_values = {item["value"] for item in items}
     emoji_text_forms = {value.replace("\ufe0f", "").replace("\ufe0e", "") for value in emoji_values}
@@ -77,8 +161,22 @@ def main() -> None:
         value = chr(codepoint)
         if value in emoji_values or value in emoji_text_forms or fields[1].startswith("<"):
             continue
-        name = fields[1].lower().replace("-", " ")
-        items.append({"value": value, "name": name, "keywords": name, "category": "Symbols"})
+        source_name = fields[1]
+        name = source_name.lower().replace("-", " ")
+        subgroup, suborder = symbol_subcategory(value, source_name, fields[2])
+        items.append({
+            "value": value,
+            "name": name,
+            "keywords": name,
+            "category": "Symbols",
+            "subcategory": subgroup,
+            "_order": len(items),
+            "_suborder": suborder,
+        })
+    items.sort(key=item_sort_key)
+    for item in items:
+        del item["_order"]
+        del item["_suborder"]
     document = {
         "schema_version": 1,
         "unicode_emoji_version": version,

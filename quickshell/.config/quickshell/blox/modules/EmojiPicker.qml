@@ -11,7 +11,7 @@ FloatingWindow {
     property bool open: false
     property var targetScreen
     property bool suppressEmojiActivation: false
-    readonly property var categoryIcons: ["magnifying-glass", "clock-counter-clockwise", "smiley", "person-simple", "paw-print", "hamburger", "soccer-ball", "airplane", "lamp", "shapes", "flag"]
+    readonly property var categoryIcons: ["magnifying-glass", "clock-counter-clockwise", "smiley", "person-simple", "paw-print", "hamburger", "soccer-ball", "airplane", "lamp", "flag", "shapes"]
     readonly property var toneColours: ["#ffdc5d", "#f5d8c7", "#f3d2a2", "#d3a784", "#af7e57", "#7c533e"]
 
     screen: targetScreen
@@ -21,15 +21,27 @@ FloatingWindow {
     implicitHeight: LauncherState.emojiHeight
     minimumSize: Qt.size(327, 260)
     color: "transparent"
-    onWidthChanged: { if (visible && width >= minimumSize.width) LauncherState.emojiWidth = width; }
-    onHeightChanged: { if (visible && height >= minimumSize.height) LauncherState.emojiHeight = height; }
+    onWidthChanged: {
+        if (visible && width >= minimumSize.width)
+            LauncherState.emojiWidth = width;
+
+    }
+    onHeightChanged: {
+        if (visible && height >= minimumSize.height)
+            LauncherState.emojiHeight = height;
+
+    }
     onOpenChanged: {
         if (open) {
-            Qt.callLater(() => emojiGrid.positionViewAtBeginning());
+            Qt.callLater(() => {
+                return emojiGrid.positionViewAtBeginning();
+            });
             if (controller.category === "Search")
                 focusTimer.restart();
             else
-                Qt.callLater(() => emojiGrid.forceActiveFocus());
+                Qt.callLater(() => {
+                return emojiGrid.forceActiveFocus();
+            });
         }
     }
 
@@ -39,11 +51,11 @@ FloatingWindow {
     }
 
     Connections {
-        target: controller
-
         function onItemsChanged() {
             emojiGrid.positionViewAtBeginning();
         }
+
+        target: controller
     }
 
     Rectangle {
@@ -143,6 +155,7 @@ FloatingWindow {
                                     emojiGrid.forceActiveFocus();
                             }
                         }
+
                     }
 
                 }
@@ -230,7 +243,9 @@ FloatingWindow {
                                     MouseArea {
                                         anchors.fill: parent
                                         cursorShape: Qt.PointingHandCursor
-                                        onPressed: (mouse) => mouse.accepted = true
+                                        onPressed: (mouse) => {
+                                            return mouse.accepted = true;
+                                        }
                                         onClicked: (mouse) => {
                                             mouse.accepted = true;
                                             root.suppressEmojiActivation = true;
@@ -305,15 +320,15 @@ FloatingWindow {
                     Keys.onPressed: (event) => {
                         const columns = Math.max(1, Math.floor(width / cellWidth));
                         let delta = 0;
-                        if (event.key === Qt.Key_Left)
+                        if (event.key === Qt.Key_Left) {
                             delta = -1;
-                        else if (event.key === Qt.Key_Right)
+                        } else if (event.key === Qt.Key_Right) {
                             delta = 1;
-                        else if (event.key === Qt.Key_Up)
+                        } else if (event.key === Qt.Key_Up) {
                             delta = -columns;
-                        else if (event.key === Qt.Key_Down)
+                        } else if (event.key === Qt.Key_Down) {
                             delta = columns;
-                        else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+                        } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
                             controller.activate();
                             event.accepted = true;
                             return ;
@@ -420,12 +435,14 @@ FloatingWindow {
                         Popup {
                             id: emojiMenu
 
-                            parent: emojiCell
+                            readonly property point anchorPosition: emojiCell.mapToItem(root.contentItem, emojiCell.width, emojiCell.height)
+
+                            parent: root.contentItem
                             popupType: Popup.Item
                             modal: true
                             dim: false
-                            x: Math.min(emojiCell.width - width, emojiGrid.width - emojiCell.x - width)
-                            y: emojiCell.height
+                            x: Math.max(6, Math.min(root.width - width - 6, anchorPosition.x - width))
+                            y: anchorPosition.y + height <= root.height - 6 ? anchorPosition.y : Math.max(6, anchorPosition.y - emojiCell.height - height)
                             width: 132
                             padding: 4
                             closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
@@ -446,6 +463,7 @@ FloatingWindow {
                                     iconName: "push-pin"
                                     iconColor: Theme.foreground
                                 }
+
                             }
 
                             background: Rectangle {
@@ -453,6 +471,7 @@ FloatingWindow {
                                 color: Theme.surfaceAlt
                                 border.color: Theme.border
                             }
+
                         }
 
                     }
@@ -483,8 +502,25 @@ FloatingWindow {
             onPressed: root.contentItem.QsWindow.window.startSystemResize(Qt.BottomEdge)
         }
 
-        MouseArea { anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom; width: 7; z: 102; cursorShape: Qt.SizeHorCursor; onPressed: root.contentItem.QsWindow.window.startSystemResize(Qt.LeftEdge) }
-        MouseArea { anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; height: 7; z: 103; cursorShape: Qt.SizeVerCursor; onPressed: root.contentItem.QsWindow.window.startSystemResize(Qt.TopEdge) }
+        MouseArea {
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: 7
+            z: 102
+            cursorShape: Qt.SizeHorCursor
+            onPressed: root.contentItem.QsWindow.window.startSystemResize(Qt.LeftEdge)
+        }
+
+        MouseArea {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            height: 7
+            z: 103
+            cursorShape: Qt.SizeVerCursor
+            onPressed: root.contentItem.QsWindow.window.startSystemResize(Qt.TopEdge)
+        }
 
     }
 

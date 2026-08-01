@@ -17,14 +17,18 @@ FloatingWindow {
         focusTimer.stop();
         searchOpen = false;
         controller.query = "";
-        Qt.callLater(() => clipboardList.forceActiveFocus());
+        Qt.callLater(() => {
+            return clipboardList.forceActiveFocus();
+        });
     }
 
     function formatBytes(bytes) {
         if (bytes < 1024)
             return bytes + " B";
+
         if (bytes < 1024 * 1024)
             return (bytes / 1024).toFixed(bytes < 10240 ? 1 : 0) + " KB";
+
         return (bytes / (1024 * 1024)).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0) + " MB";
     }
 
@@ -38,10 +42,12 @@ FloatingWindow {
     onWidthChanged: {
         if (visible && width >= minimumSize.width)
             LauncherState.clipboardWidth = width;
+
     }
     onHeightChanged: {
         if (visible && height >= minimumSize.height)
             LauncherState.clipboardHeight = height;
+
     }
     onOpenChanged: {
         if (open) {
@@ -49,6 +55,7 @@ FloatingWindow {
             controller.refresh();
             if (searchOpen)
                 focusTimer.restart();
+
         } else {
             focusTimer.stop();
         }
@@ -99,6 +106,7 @@ FloatingWindow {
                         cursorShape: Qt.SizeAllCursor
                         onPressed: root.contentItem.QsWindow.window.startSystemMove()
                     }
+
                 }
 
                 BloxButton {
@@ -109,11 +117,10 @@ FloatingWindow {
                     checked: root.searchOpen
                     onClicked: {
                         root.searchOpen = !root.searchOpen;
-                        if (root.searchOpen) {
+                        if (root.searchOpen)
                             focusTimer.restart();
-                        } else {
+                        else
                             root.closeSearch();
-                        }
                     }
 
                     BloxToolTip {
@@ -184,6 +191,7 @@ FloatingWindow {
                 onContentYChanged: {
                     if (contentY + height >= contentHeight - 140)
                         controller.loadMore();
+
                 }
 
                 WheelHandler {
@@ -232,6 +240,7 @@ FloatingWindow {
 
                     required property var modelData
                     required property int index
+
                     width: ListView.view.width - (clipboardScrollbar.policy === ScrollBar.AlwaysOn ? 12 : 0)
                     height: modelData.payload_uri.length > 0 ? 190 : modelData.file_path.length > 0 ? 102 : Math.max(44, Math.min(300, itemText.implicitHeight + 22))
                     radius: 9
@@ -242,6 +251,7 @@ FloatingWindow {
                     onActiveFocusChanged: {
                         if (activeFocus)
                             controller.selectedIndex = index;
+
                     }
                     Keys.onReturnPressed: controller.activate()
                     Keys.onEnterPressed: controller.activate()
@@ -288,6 +298,7 @@ FloatingWindow {
                             font.pixelSize: 13
                             elide: Text.ElideMiddle
                         }
+
                     }
 
                     Text {
@@ -362,12 +373,14 @@ FloatingWindow {
                     Popup {
                         id: itemMenu
 
-                        parent: itemCard
+                        readonly property point anchorPosition: menuButton.mapToItem(root.contentItem, menuButton.width, menuButton.height)
+
+                        parent: root.contentItem
                         popupType: Popup.Item
                         modal: true
                         dim: false
-                        x: itemCard.width - width - 7
-                        y: menuButton.y + menuButton.height + 3
+                        x: Math.max(6, Math.min(root.width - width - 6, anchorPosition.x - width))
+                        y: anchorPosition.y + height <= root.height - 6 ? anchorPosition.y : Math.max(6, anchorPosition.y - menuButton.height - height)
                         width: 142
                         padding: 4
                         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
@@ -472,8 +485,25 @@ FloatingWindow {
             onPressed: root.contentItem.QsWindow.window.startSystemResize(Qt.BottomEdge)
         }
 
-        MouseArea { anchors.left: parent.left; anchors.top: parent.top; anchors.bottom: parent.bottom; width: 7; z: 102; cursorShape: Qt.SizeHorCursor; onPressed: root.contentItem.QsWindow.window.startSystemResize(Qt.LeftEdge) }
-        MouseArea { anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; height: 7; z: 103; cursorShape: Qt.SizeVerCursor; onPressed: root.contentItem.QsWindow.window.startSystemResize(Qt.TopEdge) }
+        MouseArea {
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: 7
+            z: 102
+            cursorShape: Qt.SizeHorCursor
+            onPressed: root.contentItem.QsWindow.window.startSystemResize(Qt.LeftEdge)
+        }
+
+        MouseArea {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            height: 7
+            z: 103
+            cursorShape: Qt.SizeVerCursor
+            onPressed: root.contentItem.QsWindow.window.startSystemResize(Qt.TopEdge)
+        }
 
     }
 

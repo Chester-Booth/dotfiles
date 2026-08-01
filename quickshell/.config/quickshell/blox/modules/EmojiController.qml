@@ -14,7 +14,7 @@ Scope {
     property var toneMap: ({
     })
     readonly property bool copyBusy: copy.running
-    readonly property var categories: ["Search", "Recent", "Smileys & Emotion", "People & Body", "Animals & Nature", "Food & Drink", "Activities", "Travel & Places", "Objects", "Symbols", "Flags"]
+    readonly property var categories: ["Search", "Recent", "Smileys & Emotion", "People & Body", "Animals & Nature", "Food & Drink", "Activities", "Travel & Places", "Objects", "Flags", "Symbols"]
     readonly property var toneNames: ["", "light skin tone", "medium-light skin tone", "medium skin tone", "medium-dark skin tone", "dark skin tone"]
 
     signal closeRequested()
@@ -31,7 +31,8 @@ Scope {
             return !/: .*skin tone$/.test(item.name) && (root.category === "Search" || root.category === "Recent" || item.category === root.category);
         }).map((item, order) => {
             const key = root.itemKey(item);
-            const usage = LauncherState.emojiUsage[key] || ({});
+            const usage = LauncherState.emojiUsage[key] || ({
+            });
             return {
                 "item": item,
                 "pinned": LauncherState.pinnedEmoji.indexOf(key) >= 0,
@@ -45,10 +46,13 @@ Scope {
         matches.sort((a, b) => {
             if (a.pinned !== b.pinned)
                 return a.pinned ? -1 : 1;
+
             if (needle.length && a.score !== b.score)
                 return b.score - a.score;
+
             if (root.category === "Recent")
                 return b.lastUsed - a.lastUsed;
+
             return a.order - b.order;
         });
         items = matches.map((candidate) => {
@@ -78,9 +82,11 @@ Scope {
         });
         recent.unshift(used);
         LauncherState.recentEmoji = recent.slice(0, 50);
-        const usage = Object.assign({}, LauncherState.emojiUsage);
+        const usage = Object.assign({
+        }, LauncherState.emojiUsage);
         const key = root.itemKey(used);
-        const previous = usage[key] || ({});
+        const previous = usage[key] || ({
+        });
         usage[key] = {
             "count": Number(previous.count || 0) + 1,
             "lastUsed": Date.now()
@@ -93,6 +99,7 @@ Scope {
         const item = items[index];
         if (!item)
             return ;
+
         const pins = LauncherState.pinnedEmoji.slice();
         const key = root.itemKey(item);
         const existing = pins.indexOf(key);
@@ -105,12 +112,15 @@ Scope {
     }
 
     function migrateLegacyState() {
-        const values = ({});
-        const names = ({});
+        const values = ({
+        });
+        const names = ({
+        });
         for (const item of allItems) {
             values[item.value] = true;
             if (names[item.name] === undefined)
                 names[item.name] = item.value;
+
         }
         let changed = false;
         const pins = LauncherState.pinnedEmoji.map((key) => {
@@ -120,11 +130,15 @@ Scope {
             }
             return key;
         });
-        const usage = Object.assign({}, LauncherState.emojiUsage);
+        const usage = Object.assign({
+        }, LauncherState.emojiUsage);
         for (const key of Object.keys(usage)) {
             if (!values[key] && names[key] !== undefined) {
                 const target = names[key];
-                const previous = usage[target] || ({"count": 0, "lastUsed": 0});
+                const previous = usage[target] || ({
+                    "count": 0,
+                    "lastUsed": 0
+                });
                 usage[target] = {
                     "count": Number(previous.count || 0) + Number(usage[key].count || 0),
                     "lastUsed": Math.max(Number(previous.lastUsed || 0), Number(usage[key].lastUsed || 0))
@@ -133,10 +147,13 @@ Scope {
                 changed = true;
             }
         }
-        const seenRecent = ({});
+        const seenRecent = ({
+        });
         const recent = [];
         for (const item of LauncherState.recentEmoji) {
-            const hasTone = ["🏻", "🏼", "🏽", "🏾", "🏿"].some((tone) => String(item.value || "").indexOf(tone) >= 0);
+            const hasTone = ["🏻", "🏼", "🏽", "🏾", "🏿"].some((tone) => {
+                return String(item.value || "").indexOf(tone) >= 0;
+            });
             const baseValue = item.baseValue || (hasTone ? names[item.name] : "") || (values[item.value] ? item.value : "") || names[item.name] || item.value;
             if (!baseValue || seenRecent[baseValue]) {
                 changed = true;
@@ -145,7 +162,11 @@ Scope {
             seenRecent[baseValue] = true;
             if (item.baseValue !== baseValue)
                 changed = true;
-            recent.push(Object.assign({}, item, {"baseValue": baseValue}));
+
+            recent.push(Object.assign({
+            }, item, {
+                "baseValue": baseValue
+            }));
         }
         if (changed) {
             LauncherState.pinnedEmoji = pins;

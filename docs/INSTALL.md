@@ -22,7 +22,7 @@ git make python3 jq ripgrep qmlformat shfmt shellcheck quickshell hyprctl system
 Runtime helpers used by the desktop include:
 
 ```sh
-gcalcli pactl nmcli bluetoothctl brightnessctl asusctl hyprshot vicinae arch-update qalc sqlite3 wl-copy wl-paste wtype notify-send python-pillow noto-fonts-emoji
+gcalcli pactl nmcli bluetoothctl brightnessctl asusctl hyprshot vicinae arch-update qalc sqlite3 wl-copy wl-paste wtype notify-send python-pillow ttf-twemoji
 ```
 
 The exact package names vary by distro. On Arch-based systems, most are either

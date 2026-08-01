@@ -44,6 +44,13 @@ COMMON_SYMBOL_ORDER = (
     "№", "℗", "℠", "℡", "℻",
     "♔", "♕", "♖", "♗", "♘", "♙", "♚", "♛", "♜", "♝", "♞",
 )
+SKIN_TONES = "🏻🏼🏽🏾🏿"
+
+
+def tone_metadata(value: str) -> tuple[str, int]:
+    tones = {SKIN_TONES.index(character) + 1 for character in value if character in SKIN_TONES}
+    base_value = "".join(character for character in value if character not in SKIN_TONES)
+    return base_value, tones.pop() if len(tones) == 1 else (-1 if tones else 0)
 
 
 def symbol_subcategory(value: str, name: str, general_category: str) -> tuple[str, int]:
@@ -75,9 +82,9 @@ def item_sort_key(item: dict) -> tuple[int, int, int]:
     if category == "Symbols" and subgroup.startswith("text-"):
         subgroup_order = {
             "text-common": 1,
-            "text-shape": 2,
-            "text-arrow": 3,
-            "text-punctuation": 4,
+            "text-punctuation": 2,
+            "text-shape": 3,
+            "text-arrow": 4,
             "text-maths": 5,
             "text-currency": 6,
             "text-other": 7,
@@ -133,8 +140,11 @@ def main() -> None:
             annotation = annotations.get(value, annotations.get(value.replace("\ufe0f", ""), {}))
             name = annotation.get("name") or match.group(3)
             keywords = annotation.get("keywords") or match.group(3).replace("-", " ")
+            base_value, tone = tone_metadata(value)
             items.append({
                 "value": value,
+                "baseValue": base_value,
+                "tone": tone,
                 "name": name,
                 "keywords": keywords,
                 "category": group,
@@ -166,6 +176,8 @@ def main() -> None:
         subgroup, suborder = symbol_subcategory(value, source_name, fields[2])
         items.append({
             "value": value,
+            "baseValue": value,
+            "tone": 0,
             "name": name,
             "keywords": name,
             "category": "Symbols",

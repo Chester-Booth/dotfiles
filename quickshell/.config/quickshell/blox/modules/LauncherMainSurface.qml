@@ -309,6 +309,7 @@ PanelWindow {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: controller.query
                             color: Theme.foreground
+                            font.family: Theme.bodyFontFamily
                             font.pixelSize: 20
                         }
 
@@ -316,6 +317,7 @@ PanelWindow {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: "Question"
                             color: Theme.muted
+                            font.family: Theme.bodyFontFamily
                             font.pixelSize: 12
                         }
 
@@ -339,6 +341,7 @@ PanelWindow {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: controller.calculation
                             color: Theme.foreground
+                            font.family: Theme.bodyFontFamily
                             font.pixelSize: 20
                             font.bold: true
                         }
@@ -347,6 +350,7 @@ PanelWindow {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: "Answer"
                             color: Theme.muted
+                            font.family: Theme.bodyFontFamily
                             font.pixelSize: 12
                         }
 

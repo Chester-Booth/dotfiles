@@ -11,8 +11,115 @@ FloatingWindow {
     property bool open: false
     property var targetScreen
     property bool suppressEmojiActivation: false
+    property var gridItems: []
     readonly property var categoryIcons: ["magnifying-glass", "clock-counter-clockwise", "smiley", "person-simple", "paw-print", "hamburger", "soccer-ball", "airplane", "lamp", "flag", "shapes"]
-    readonly property var toneColours: ["#ffdc5d", "#f5d8c7", "#f3d2a2", "#d3a784", "#af7e57", "#7c533e"]
+    readonly property var toneColours: ["#ffdc5d", "#f3d2a2", "#f3d2a2", "#d4ab88", "#af7e57", "#7c533e"]
+    readonly property var symbolSections: [{
+        "key": "emoji",
+        "title": "Emoji signs"
+    }, {
+        "key": "common",
+        "title": "Common marks & games"
+    }, {
+        "key": "shape",
+        "title": "Shapes"
+    }, {
+        "key": "arrow",
+        "title": "Arrows"
+    }, {
+        "key": "maths",
+        "title": "Maths & logic"
+    }, {
+        "key": "currency",
+        "title": "Currency"
+    }, {
+        "key": "technical",
+        "title": "Technical notation"
+    }]
+
+    function symbolSectionKey(item) {
+        const subgroup = String(item.subcategory || "");
+        if (!subgroup.startsWith("text-"))
+            return "emoji";
+        if (subgroup === "text-common" || subgroup === "text-punctuation")
+            return "common";
+        if (subgroup === "text-shape")
+            return "shape";
+        if (subgroup === "text-arrow")
+            return "arrow";
+        if (subgroup === "text-maths")
+            return "maths";
+        if (subgroup === "text-currency")
+            return "currency";
+        return "technical";
+    }
+
+    function appendHeading(target, key, title, columns) {
+        while (target.length % columns)
+            target.push({"kind": "spacer", "itemIndex": -1});
+        target.push({"kind": "heading", "sectionKey": key, "title": title, "itemIndex": -1});
+        for (let index = 1; index < columns; index++)
+            target.push({"kind": "spacer", "itemIndex": -1});
+    }
+
+    function rebuildGridItems() {
+        const columns = Math.max(1, Math.floor((emojiGrid.width - emojiGrid.rightMargin) / emojiGrid.cellWidth));
+        const display = [];
+        if (controller.category === "Symbols") {
+            for (const section of symbolSections) {
+                const matches = [];
+                for (let index = 0; index < controller.items.length; index++) {
+                    if (symbolSectionKey(controller.items[index]) === section.key)
+                        matches.push({"kind": "emoji", "item": controller.items[index], "itemIndex": index});
+                }
+                if (!matches.length)
+                    continue;
+                appendHeading(display, section.key, section.title, columns);
+                for (const match of matches)
+                    display.push(match);
+            }
+        } else {
+            for (let index = 0; index < controller.items.length; index++)
+                display.push({"kind": "emoji", "item": controller.items[index], "itemIndex": index});
+        }
+        gridItems = display;
+    }
+
+    function gridIndexForItem(itemIndex) {
+        for (let index = 0; index < gridItems.length; index++) {
+            if (gridItems[index].itemIndex === itemIndex)
+                return index;
+        }
+        return -1;
+    }
+
+    function jumpToSymbolSection(key) {
+        for (let index = 0; index < gridItems.length; index++) {
+            const item = gridItems[index];
+            if (item.kind === "heading" && item.sectionKey === key) {
+                activeSymbolSection = key;
+                emojiGrid.positionViewAtIndex(index, GridView.Beginning);
+                emojiGrid.forceActiveFocus();
+                return ;
+            }
+        }
+    }
+
+    function updateActiveSymbolSection() {
+        if (controller.category !== "Symbols")
+            return ;
+        const columns = Math.max(1, Math.floor((emojiGrid.width - emojiGrid.rightMargin) / emojiGrid.cellWidth));
+        const firstIndex = Math.min(gridItems.length - 1, Math.max(0, Math.floor(emojiGrid.contentY / emojiGrid.cellHeight) * columns));
+        for (let index = firstIndex; index >= 0; index--) {
+            if (gridItems[index].kind === "heading") {
+                activeSymbolSection = gridItems[index].sectionKey;
+                return ;
+            }
+        }
+        activeSymbolSection = "emoji";
+    }
+
+    property string activeSymbolSection: "emoji"
 
     screen: targetScreen
     visible: open
@@ -52,6 +159,7 @@ FloatingWindow {
 
     Connections {
         function onItemsChanged() {
+            root.rebuildGridItems();
             emojiGrid.positionViewAtBeginning();
         }
 
@@ -305,18 +413,57 @@ FloatingWindow {
                     Keys.onEscapePressed: controller.closeRequested()
                 }
 
+                ListView {
+                    id: symbolJumpList
+
+                    width: parent.width
+                    height: visible ? 36 : 0
+                    visible: controller.category === "Symbols"
+                    orientation: ListView.Horizontal
+                    spacing: 6
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+                    model: root.symbolSections
+
+                    WheelHandler {
+                        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                        onWheel: (event) => {
+                            const pixelDelta = event.pixelDelta.y || 0;
+                            const angleDelta = event.angleDelta.y || 0;
+                            const delta = pixelDelta !== 0 ? pixelDelta : angleDelta / 2;
+                            const maximumContentX = Math.max(symbolJumpList.originX, symbolJumpList.originX + symbolJumpList.contentWidth - symbolJumpList.width);
+                            symbolJumpList.contentX = Math.max(symbolJumpList.originX, Math.min(maximumContentX, symbolJumpList.contentX - delta * 4));
+                            event.accepted = true;
+                        }
+                    }
+
+                    delegate: BloxButton {
+                        required property var modelData
+
+                        height: 34
+                        width: implicitWidth
+                        compact: true
+                        text: modelData.title
+                        checked: root.activeSymbolSection === modelData.key
+                        onClicked: root.jumpToSymbolSection(modelData.key)
+                    }
+                }
+
                 GridView {
                     id: emojiGrid
 
                     width: parent.width
-                    height: parent.height - (search.visible ? search.height + 8 : 0)
+                    height: parent.height - (search.visible ? search.height + 8 : 0) - (symbolJumpList.visible ? symbolJumpList.height + 8 : 0)
                     rightMargin: emojiScrollbar.policy === ScrollBar.AlwaysOn ? 12 : 0
                     cellWidth: 58
                     cellHeight: 54
                     clip: true
-                    model: controller.items
-                    currentIndex: controller.selectedIndex
+                    model: root.gridItems
+                    currentIndex: root.gridIndexForItem(controller.selectedIndex)
                     activeFocusOnTab: true
+                    onWidthChanged: root.rebuildGridItems()
+                    onContentYChanged: root.updateActiveSymbolSection()
+                    Component.onCompleted: root.rebuildGridItems()
                     Keys.onPressed: (event) => {
                         const columns = Math.max(1, Math.floor(width / cellWidth));
                         let delta = 0;
@@ -338,8 +485,14 @@ FloatingWindow {
                             return ;
                         }
                         if (delta !== 0 && controller.items.length) {
-                            controller.selectedIndex = Math.max(0, Math.min(controller.items.length - 1, controller.selectedIndex + delta));
-                            positionViewAtIndex(controller.selectedIndex, GridView.Contain);
+                            let target = Math.max(0, Math.min(root.gridItems.length - 1, currentIndex + delta));
+                            const direction = delta < 0 ? -1 : 1;
+                            while (target >= 0 && target < root.gridItems.length && root.gridItems[target].kind !== "emoji")
+                                target += direction;
+                            if (target >= 0 && target < root.gridItems.length) {
+                                controller.selectedIndex = root.gridItems[target].itemIndex;
+                                positionViewAtIndex(target, GridView.Contain);
+                            }
                             event.accepted = true;
                         }
                     }
@@ -381,15 +534,28 @@ FloatingWindow {
                         width: 48
                         height: 48
                         radius: 8
-                        color: index === controller.selectedIndex ? Theme.surfaceAlt : emojiHover.hovered ? Theme.withAlpha(Theme.foreground, 0.07) : "transparent"
+                        z: modelData.kind === "heading" ? 2 : 0
+                        color: modelData.kind === "emoji" && modelData.itemIndex === controller.selectedIndex ? Theme.surfaceAlt : emojiHover.hovered ? Theme.withAlpha(Theme.foreground, 0.07) : "transparent"
+
+                        Text {
+                            anchors.left: parent.left
+                            anchors.leftMargin: 4
+                            anchors.verticalCenter: parent.verticalCenter
+                            visible: modelData.kind === "heading"
+                            width: emojiGrid.width - emojiGrid.rightMargin - 8
+                            text: modelData.title || ""
+                            color: Theme.muted
+                            font.family: Theme.bodyFontFamily
+                            font.pixelSize: 12
+                            font.bold: true
+                        }
 
                         Text {
                             anchors.centerIn: parent
-                            text: modelData.value
+                            visible: modelData.kind === "emoji"
+                            text: modelData.item ? modelData.item.value : ""
                             color: Theme.foreground
-                            // Qt Quick cannot render Twemoji's SVG glyphs here.
-                            // Noto's bitmap colour glyphs cover full Emoji sequences.
-                            font.family: "Noto Color Emoji"
+                            font.family: "Twemoji"
                             font.pixelSize: 25
                         }
 
@@ -400,34 +566,36 @@ FloatingWindow {
                             anchors.topMargin: 3
                             width: 12
                             height: 12
-                            visible: modelData.pinned
+                            visible: modelData.kind === "emoji" && modelData.item && modelData.item.pinned
                             iconName: "push-pin"
                             iconColor: Theme.foreground
                         }
 
                         BloxToolTip {
-                            shown: emojiHover.hovered
-                            text: modelData.name + (modelData.pinned ? " · Pinned" : " · Right-click to pin")
+                            shown: modelData.kind === "emoji" && emojiHover.hovered
+                            text: modelData.item ? modelData.item.name + (modelData.item.pinned ? " · Pinned" : " · Right-click to pin") : ""
                         }
 
                         HoverHandler {
                             id: emojiHover
 
-                            cursorShape: Qt.PointingHandCursor
+                            enabled: modelData.kind === "emoji"
+                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                         }
 
                         TapHandler {
-                            enabled: !root.suppressEmojiActivation && !toneMenu.opened
+                            enabled: modelData.kind === "emoji" && !root.suppressEmojiActivation && !toneMenu.opened
                             onTapped: {
-                                controller.selectedIndex = index;
+                                controller.selectedIndex = modelData.itemIndex;
                                 controller.activate();
                             }
                         }
 
                         TapHandler {
                             acceptedButtons: Qt.RightButton
+                            enabled: modelData.kind === "emoji"
                             onTapped: {
-                                controller.selectedIndex = index;
+                                controller.selectedIndex = modelData.itemIndex;
                                 emojiMenu.open();
                             }
                         }
@@ -448,9 +616,9 @@ FloatingWindow {
                             closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
                             contentItem: BloxButton {
-                                text: modelData.pinned ? "Unpin" : "Pin"
+                                text: modelData.item && modelData.item.pinned ? "Unpin" : "Pin"
                                 onClicked: {
-                                    controller.togglePin(index);
+                                    controller.togglePin(modelData.itemIndex);
                                     emojiMenu.close();
                                 }
 

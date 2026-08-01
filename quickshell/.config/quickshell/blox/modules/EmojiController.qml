@@ -16,19 +16,45 @@ Scope {
     readonly property bool copyBusy: copy.running
     readonly property var categories: ["Search", "Recent", "Smileys & Emotion", "People & Body", "Animals & Nature", "Food & Drink", "Activities", "Travel & Places", "Objects", "Flags", "Symbols"]
     readonly property var toneNames: ["", "light skin tone", "medium-light skin tone", "medium skin tone", "medium-dark skin tone", "dark skin tone"]
+    readonly property var toneCharacters: ["", "🏻", "🏼", "🏽", "🏾", "🏿"]
 
     signal closeRequested()
     signal pasteRequested()
 
     function itemKey(item) {
-        return String(item.baseValue || item.value || "");
+        return root.baseEmoji(item.baseValue || item.value || "");
+    }
+
+    function baseEmoji(value) {
+        let base = String(value || "");
+        for (let index = 1; index < root.toneCharacters.length; index++)
+            base = base.split(root.toneCharacters[index]).join("");
+        return base;
+    }
+
+    function toneKey(value) {
+        return root.baseEmoji(value).split("\ufe0f").join("").split("\ufe0e").join("");
+    }
+
+    function toneIndex(value) {
+        let result = 0;
+        const text = String(value || "");
+        for (let index = 1; index < root.toneCharacters.length; index++) {
+            if (text.indexOf(root.toneCharacters[index]) < 0)
+                continue;
+            if (result !== 0)
+                return -1;
+            result = index;
+        }
+        return result;
     }
 
     function filter() {
         const needle = root.category === "Search" ? query.trim() : "";
         const source = root.category === "Recent" && !needle.length ? LauncherState.recentEmoji : allItems;
         const matches = source.filter((item) => {
-            return !/: .*skin tone$/.test(item.name) && (root.category === "Search" || root.category === "Recent" || item.category === root.category);
+            const isRecent = root.category === "Recent";
+            return (isRecent || root.toneIndex(item.value) === 0) && (root.category === "Search" || isRecent || item.category === root.category);
         }).map((item, order) => {
             const key = root.itemKey(item);
             const usage = LauncherState.emojiUsage[key] || ({
@@ -57,12 +83,13 @@ Scope {
         });
         items = matches.map((candidate) => {
             const item = candidate.item;
-            const toned = LauncherState.emojiTone > 0 ? root.toneMap[item.name + ": " + root.toneNames[LauncherState.emojiTone]] : "";
+            const toned = LauncherState.emojiTone > 0 ? root.toneMap[root.toneKey(item.value) + ":" + LauncherState.emojiTone] : "";
             return {
                 "value": toned || item.value,
                 "name": item.name,
                 "keywords": item.keywords,
                 "category": item.category,
+                "subcategory": item.subcategory || "",
                 "baseValue": root.itemKey(item),
                 "pinned": candidate.pinned
             };
@@ -201,8 +228,10 @@ Scope {
                 root.migrateLegacyState();
                 const tones = {
                 };
-                for (const item of root.allItems) if (/: .*skin tone$/.test(item.name)) {
-                    tones[item.name] = item.value;
+                for (const item of root.allItems) {
+                    const tone = root.toneIndex(item.value);
+                    if (tone > 0)
+                        tones[root.toneKey(item.value) + ":" + tone] = item.value;
                 }
                 root.toneMap = tones;
             } catch (error) {

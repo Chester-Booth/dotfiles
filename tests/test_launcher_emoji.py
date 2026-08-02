@@ -116,7 +116,27 @@ class EmojiDatasetTests(unittest.TestCase):
         self.assertIn("root.toneKey(item.value)", controller)
         self.assertIn('"Nerd Fonts"', controller)
         self.assertIn('item.name + " " + item.keywords', controller)
-        self.assertIn('["#ffdc5d", "#f3d2a2", "#f3d2a2", "#d4ab88", "#af7e57", "#7c533e"]', picker)
+        self.assertIn('["#ffdc5d", "#f7dece", "#e0bb95", "#c58c6b", "#a56b46", "#6f432a"]', picker)
+        self.assertIn('text: "Choose tones…"', picker)
+        self.assertIn('text: "Choose skin tones"', picker)
+        self.assertIn("controller.activateToneVariant", picker)
+        self.assertIn("contextAnchor = item.mapToItem(root.contentItem", picker)
+        self.assertIn("onOpened: root.popupOpened()", picker)
+        self.assertIn("onClosed: root.popupClosed()", picker)
+        self.assertIn("property int activeEmojiPopups: 0", picker)
+        self.assertIn("onClicked: toneComposer.defaultSelected = true", picker)
+        self.assertIn("root.loadNextPage()", picker)
+        self.assertIn("property var variantMap", controller)
+        self.assertIn("property var multiToneGroups", controller)
+        self.assertIn("LauncherState.emojiVariants", controller)
+        self.assertIn("property int browseLimit: 100", controller)
+        self.assertIn("property bool canLoadMore: false", controller)
+        self.assertIn("items = pinned.concat(page)", controller)
+        self.assertIn("root.browseLimit += 100", controller)
+
+        state = (repository / "quickshell/.config/quickshell/blox/modules/LauncherState.qml").read_text(encoding="utf-8")
+        self.assertIn("property alias emojiVariants", state)
+        self.assertIn("property var emojiVariants", state)
 
     def test_tone_variants_match_bases_with_presentation_selectors(self):
         path = Path(__file__).parents[1] / "quickshell/.config/quickshell/blox/assets/emoji.json"
@@ -133,6 +153,58 @@ class EmojiDatasetTests(unittest.TestCase):
         for value in ("🖐️", "✌️", "☝️", "✍️", "⛹️", "🏋️‍♂️"):
             for tone in range(1, 6):
                 self.assertIn((tone_key(value), tone), toned_keys)
+
+    def test_dataset_contains_complete_ordered_mixed_tone_groups(self):
+        path = Path(__file__).parents[1] / "quickshell/.config/quickshell/blox/assets/emoji.json"
+        items = json.loads(path.read_text(encoding="utf-8"))["items"]
+        tone_characters = "🏻🏼🏽🏾🏿"
+        tone_names = (
+            "light skin tone", "medium-light skin tone", "medium skin tone",
+            "medium-dark skin tone", "dark skin tone",
+        )
+
+        def tones(value):
+            return tuple(tone_characters.index(character) + 1 for character in value if character in tone_characters)
+
+        def variant_group(name):
+            changed = True
+            while changed:
+                changed = False
+                for tone_name in tone_names:
+                    for separator in (", ", ": "):
+                        suffix = separator + tone_name
+                        if name.endswith(suffix):
+                            name = name[:-len(suffix)]
+                            changed = True
+                            break
+                    if changed:
+                        break
+            return {
+                "couple with heart: person, person": "couple with heart",
+                "kiss: person, person": "kiss",
+            }.get(name, name)
+
+        mixed = [item for item in items if len(set(tones(item["value"]))) > 1]
+        mixed_groups = {variant_group(item["name"]) for item in mixed}
+        groups = {group: set() for group in mixed_groups}
+        base_groups = set()
+        for item in items:
+            pair = tones(item["value"])
+            group = variant_group(item["name"])
+            if not pair:
+                base_groups.add(group)
+            elif group not in groups:
+                continue
+            elif len(pair) == 1:
+                groups.setdefault(group, set()).add((pair[0], pair[0]))
+            else:
+                groups.setdefault(group, set()).add(pair)
+
+        self.assertEqual(380, len(mixed))
+        self.assertEqual(19, len(groups))
+        expected = {(first, second) for first in range(1, 6) for second in range(1, 6)}
+        self.assertTrue(all(pairs == expected for pairs in groups.values()))
+        self.assertTrue(set(groups).issubset(base_groups))
 
 
 if __name__ == "__main__":

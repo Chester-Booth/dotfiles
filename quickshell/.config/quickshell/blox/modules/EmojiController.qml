@@ -13,8 +13,14 @@ Scope {
     property var baseItems: []
     property var items: []
     property int selectedIndex: 0
+    property int browseLimit: 100
+    property bool canLoadMore: false
     property string category: "Search"
     property var toneMap: ({
+    })
+    property var variantMap: ({
+    })
+    property var multiToneGroups: ({
     })
     property var searchRecords: []
     property bool searchWorkerInitialised: false
@@ -65,10 +71,96 @@ Scope {
         return result;
     }
 
+    function tonePair(value) {
+        const pair = [];
+        const text = String(value || "");
+        for (const character of text) {
+            const tone = root.toneCharacters.indexOf(character);
+            if (tone > 0)
+                pair.push(tone);
+
+        }
+        return pair;
+    }
+
+    function variantGroupName(name) {
+        let group = String(name || "");
+        let changed = true;
+        while (changed) {
+            changed = false;
+            for (let index = 1; index < root.toneNames.length; index++) {
+                const commaSuffix = ", " + root.toneNames[index];
+                const colonSuffix = ": " + root.toneNames[index];
+                if (group.endsWith(commaSuffix)) {
+                    group = group.slice(0, -commaSuffix.length);
+                    changed = true;
+                } else if (group.endsWith(colonSuffix)) {
+                    group = group.slice(0, -colonSuffix.length);
+                    changed = true;
+                }
+            }
+        }
+        if (group === "couple with heart: person, person")
+            return "couple with heart";
+
+        if (group === "kiss: person, person")
+            return "kiss";
+
+        return group;
+    }
+
+    function variantGroup(item) {
+        if (!item)
+            return "";
+
+        return root.variantGroupName(item.variantGroup || item.name || "");
+    }
+
+    function variantValue(item, firstTone, secondTone) {
+        const variants = root.variantMap[root.variantGroup(item)] || ({
+        });
+        return variants[firstTone + ":" + secondTone] || "";
+    }
+
+    function preferredTonePair(item) {
+        if (!item)
+            return [0, 0];
+
+        const preferred = LauncherState.emojiVariants[root.variantGroup(item)] || "";
+        let pair = root.tonePair(preferred || item.value);
+        if (pair.length === 1)
+            pair = [pair[0], pair[0]];
+
+        if (pair.length >= 2)
+            return [pair[0], pair[1]];
+
+        if (preferred || LauncherState.emojiTone === 0)
+            return [0, 0];
+
+        return [LauncherState.emojiTone, LauncherState.emojiTone];
+    }
+
+    function prefersDefaultVariant(item) {
+        if (!item)
+            return true;
+
+        const preferred = LauncherState.emojiVariants[root.variantGroup(item)] || "";
+        if (preferred)
+            return root.tonePair(preferred).length === 0;
+
+        return LauncherState.emojiTone === 0;
+    }
+
     function displayItem(item, pinned) {
-        const toned = LauncherState.emojiTone > 0 ? root.toneMap[root.toneKey(item.value) + ":" + LauncherState.emojiTone] : "";
+        const group = root.variantGroup(item);
+        const variants = root.variantMap[group] || ({
+        });
+        const preferred = LauncherState.emojiVariants[group] || "";
+        const globalTone = LauncherState.emojiTone;
+        const toned = globalTone > 0 ? variants[globalTone + ":" + globalTone] || variants[String(globalTone)] || root.toneMap[root.toneKey(item.value) + ":" + globalTone] : "";
+        const displayValue = root.category === "Recent" && item.baseValue ? item.value : preferred || toned || item.value;
         return {
-            "value": toned || item.value,
+            "value": displayValue,
             "name": item.name,
             "keywords": item.keywords,
             "category": item.category,
@@ -78,6 +170,8 @@ Scope {
             "fontFamily": item.fontFamily || "Twemoji",
             "kind": item.kind || "emoji",
             "baseValue": root.itemKey(item),
+            "variantGroup": group,
+            "hasMixedTones": Boolean(root.multiToneGroups[group]),
             "pinned": pinned
         };
     }
@@ -96,6 +190,31 @@ Scope {
 
     function filterSync() {
         const source = root.category === "Recent" ? LauncherState.recentEmoji : root.baseItems;
+        if (root.category === "Search" && !root.query.trim().length) {
+            root.canLoadMore = false;
+            const pins = LauncherState.pinnedEmoji;
+            const pinSet = {
+            };
+            for (const key of pins) pinSet[key] = true
+            const pinned = [];
+            const page = [];
+            let unpinnedCount = 0;
+            for (const item of source) {
+                const key = root.itemKey(item);
+                if (pinSet[key]) {
+                    pinned.push(root.displayItem(item, true));
+                } else if (unpinnedCount < root.browseLimit) {
+                    page.push(root.displayItem(item, false));
+                    unpinnedCount++;
+                } else {
+                    root.canLoadMore = true;
+                }
+            }
+            items = pinned.concat(page);
+            selectedIndex = 0;
+            return ;
+        }
+        root.canLoadMore = false;
         const matches = source.filter((item) => {
             const isRecent = root.category === "Recent";
             const categoryMatch = root.category === "Search" || isRecent || item.category === root.category;
@@ -125,6 +244,14 @@ Scope {
             return root.displayItem(candidate.item, candidate.pinned);
         });
         selectedIndex = 0;
+    }
+
+    function loadMore() {
+        if (root.category !== "Search" || root.query.trim().length || !root.canLoadMore)
+            return ;
+
+        root.browseLimit += 100;
+        root.filterSync();
     }
 
     function requestSearch() {
@@ -175,13 +302,23 @@ Scope {
         root.filterSync();
     }
 
-    function activate() {
-        if (copy.running || !items[selectedIndex])
+    function activateValue(index, value, remember) {
+        if (copy.running || !items[index])
             return ;
 
-        copy.command = ["wl-copy", items[selectedIndex].value];
+        const item = items[index];
+        const used = Object.assign({
+        }, item, {
+            "value": value || item.value
+        });
+        if (remember && item.hasMixedTones) {
+            const variants = Object.assign({
+            }, LauncherState.emojiVariants);
+            variants[item.variantGroup] = used.value;
+            LauncherState.emojiVariants = variants;
+        }
+        copy.command = ["wl-copy", used.value];
         copy.running = true;
-        const used = items[selectedIndex];
         const recent = LauncherState.recentEmoji.filter((item) => {
             return root.itemKey(item) !== root.itemKey(used);
         });
@@ -198,6 +335,28 @@ Scope {
         };
         LauncherState.emojiUsage = usage;
         root.refresh(false);
+    }
+
+    function activate() {
+        root.activateValue(selectedIndex, "", false);
+    }
+
+    function activateToneVariant(index, firstTone, secondTone) {
+        const item = items[index];
+        if (!item)
+            return ;
+
+        const value = root.variantValue(item, firstTone, secondTone);
+        if (value)
+            root.activateValue(index, value, true);
+
+    }
+
+    function activateDefaultVariant(index) {
+        const item = items[index];
+        if (item)
+            root.activateValue(index, item.baseValue, true);
+
     }
 
     function togglePin(index) {
@@ -288,11 +447,30 @@ Scope {
         root.migrateLegacyState();
         const tones = {
         };
+        const variants = {
+        };
+        const multiTone = {
+        };
         const baseItems = [];
         const records = [];
         for (let index = 0; index < root.allItems.length; index++) {
             const item = root.allItems[index];
             const tone = root.toneIndex(item.value);
+            const pair = root.tonePair(item.value);
+            const group = root.variantGroup(item);
+            if (pair.length) {
+                if (!variants[group])
+                    variants[group] = ({
+                });
+
+                variants[group][pair.join(":")] = item.value;
+                if (pair.length === 1)
+                    variants[group][pair[0] + ":" + pair[0]] = item.value;
+
+                if (pair.length > 1)
+                    multiTone[group] = true;
+
+            }
             if (tone > 0)
                 tones[root.toneKey(item.value) + ":" + tone] = item.value;
 
@@ -309,6 +487,8 @@ Scope {
             });
         }
         root.toneMap = tones;
+        root.variantMap = variants;
+        root.multiToneGroups = multiTone;
         root.baseItems = baseItems;
         root.searchRecords = records;
         root.searchWorkerInitialised = false;
@@ -316,8 +496,14 @@ Scope {
         root.refresh(false);
     }
 
-    onQueryChanged: refresh(true)
+    onQueryChanged: {
+        if (!query.trim().length)
+            browseLimit = 100;
+
+        refresh(true);
+    }
     onCategoryChanged: {
+        browseLimit = 100;
         if (category !== "Search" && query.length)
             query = "";
 

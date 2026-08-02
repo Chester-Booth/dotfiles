@@ -11,9 +11,15 @@ FloatingWindow {
     property bool open: false
     property var targetScreen
     property bool suppressEmojiActivation: false
+    property int activeEmojiPopups: 0
+    property bool loadingPage: false
+    property real preservedContentY: 0
+    property int contextItemIndex: -1
+    property point contextAnchor: Qt.point(0, 0)
+    readonly property var contextItem: contextItemIndex >= 0 && controller.items[contextItemIndex] ? controller.items[contextItemIndex] : null
     property var gridItems: []
     readonly property var categoryIcons: ["magnifying-glass", "clock-counter-clockwise", "smiley", "person-simple", "paw-print", "hamburger", "soccer-ball", "airplane", "lamp", "flag", "shapes", "code"]
-    readonly property var toneColours: ["#ffdc5d", "#f3d2a2", "#f3d2a2", "#d4ab88", "#af7e57", "#7c533e"]
+    readonly property var toneColours: ["#ffdc5d", "#f7dece", "#e0bb95", "#c58c6b", "#a56b46", "#6f432a"]
     readonly property var symbolSections: [{
         "key": "emoji",
         "title": "Emoji signs"
@@ -38,6 +44,39 @@ FloatingWindow {
     }]
     property string activeNerdFontSection: "files"
     property string activeSymbolSection: "emoji"
+
+    function popupOpened() {
+        activeEmojiPopups++;
+        toneGuard.stop();
+        suppressEmojiActivation = true;
+    }
+
+    function popupClosed() {
+        activeEmojiPopups = Math.max(0, activeEmojiPopups - 1);
+        if (activeEmojiPopups === 0)
+            toneGuard.restart();
+
+    }
+
+    function prepareEmojiContext(itemIndex, item) {
+        contextItemIndex = itemIndex;
+        contextAnchor = item.mapToItem(root.contentItem, item.width, item.height);
+        controller.selectedIndex = itemIndex;
+    }
+
+    function loadNextPage() {
+        if (loadingPage || !controller.canLoadMore)
+            return ;
+
+        loadingPage = true;
+        preservedContentY = emojiGrid.contentY;
+        controller.loadMore();
+        Qt.callLater(() => {
+            const maximum = Math.max(emojiGrid.originY, emojiGrid.originY + emojiGrid.contentHeight - emojiGrid.height);
+            emojiGrid.contentY = Math.max(emojiGrid.originY, Math.min(maximum, preservedContentY));
+            loadingPage = false;
+        });
+    }
 
     function symbolSectionKey(item) {
         const subgroup = String(item.subcategory || "");
@@ -202,6 +241,14 @@ FloatingWindow {
                 Qt.callLater(() => {
                 return emojiGrid.forceActiveFocus();
             });
+        } else {
+            toneMenu.close();
+            if (emojiGrid.currentItem && emojiGrid.currentItem.closePopups)
+                emojiGrid.currentItem.closePopups();
+
+            activeEmojiPopups = 0;
+            suppressEmojiActivation = false;
+            toneGuard.stop();
         }
     }
 
@@ -213,7 +260,9 @@ FloatingWindow {
     Connections {
         function onItemsChanged() {
             root.rebuildGridItems();
-            emojiGrid.positionViewAtBeginning();
+            if (!root.loadingPage)
+                emojiGrid.positionViewAtBeginning();
+
         }
 
         target: controller
@@ -379,6 +428,8 @@ FloatingWindow {
                         height: 46
                         padding: 6
                         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+                        onOpened: root.popupOpened()
+                        onClosed: root.popupClosed()
 
                         contentItem: Row {
                             id: toneRow
@@ -409,10 +460,8 @@ FloatingWindow {
                                         }
                                         onClicked: (mouse) => {
                                             mouse.accepted = true;
-                                            root.suppressEmojiActivation = true;
                                             LauncherState.emojiTone = index;
                                             toneMenu.close();
-                                            toneGuard.restart();
                                         }
                                     }
 
@@ -649,7 +698,12 @@ FloatingWindow {
                     currentIndex: root.gridIndexForItem(controller.selectedIndex)
                     activeFocusOnTab: true
                     onWidthChanged: root.rebuildGridItems()
-                    onContentYChanged: root.updateActiveSymbolSection()
+                    onContentYChanged: {
+                        root.updateActiveSymbolSection();
+                        if (controller.category === "Search" && !controller.query.trim().length && controller.canLoadMore && contentY + height >= contentHeight - cellHeight * 2)
+                            root.loadNextPage();
+
+                    }
                     Component.onCompleted: root.rebuildGridItems()
                     Keys.onPressed: (event) => {
                         const columns = Math.max(1, Math.floor(width / cellWidth));
@@ -662,6 +716,10 @@ FloatingWindow {
                             delta = -columns;
                         } else if (event.key === Qt.Key_Down) {
                             delta = columns;
+                        } else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && (event.modifiers & Qt.ShiftModifier) && currentItem && currentItem.mixedToneCapable) {
+                            currentItem.openToneComposer();
+                            event.accepted = true;
+                            return ;
                         } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
                             controller.activate();
                             event.accepted = true;
@@ -716,6 +774,20 @@ FloatingWindow {
 
                         required property var modelData
                         required property int index
+                        readonly property bool mixedToneCapable: Boolean(modelData.kind === "emoji" && modelData.item && modelData.item.hasMixedTones)
+
+                        function openToneComposer() {
+                            if (!mixedToneCapable)
+                                return ;
+
+                            root.prepareEmojiContext(modelData.itemIndex, emojiCell);
+                            toneComposer.openForItem();
+                        }
+
+                        function closePopups() {
+                            emojiMenu.close();
+                            toneComposer.close();
+                        }
 
                         width: 48
                         height: 48
@@ -757,9 +829,40 @@ FloatingWindow {
                             iconColor: Theme.foreground
                         }
 
+                        Item {
+                            anchors.left: parent.left
+                            anchors.leftMargin: 3
+                            anchors.bottom: parent.bottom
+                            anchors.bottomMargin: 3
+                            width: 18
+                            height: 11
+                            visible: modelData.kind === "emoji" && modelData.item && modelData.item.hasMixedTones && (emojiHover.hovered || modelData.itemIndex === controller.selectedIndex)
+
+                            Rectangle {
+                                anchors.left: parent.left
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 10
+                                height: 10
+                                radius: 5
+                                color: root.toneColours[controller.preferredTonePair(modelData.item)[0]]
+                                border.color: Theme.surface
+                            }
+
+                            Rectangle {
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 10
+                                height: 10
+                                radius: 5
+                                color: root.toneColours[controller.preferredTonePair(modelData.item)[1]]
+                                border.color: Theme.surface
+                            }
+
+                        }
+
                         BloxToolTip {
                             shown: modelData.kind === "emoji" && emojiHover.hovered
-                            text: modelData.item ? modelData.item.name + (modelData.item.identifier ? " · " + modelData.item.identifier : "") + (modelData.item.pinned ? " · Pinned" : " · Right-click to pin") : ""
+                            text: modelData.item ? modelData.item.name + (modelData.item.identifier ? " · " + modelData.item.identifier : "") + (modelData.item.hasMixedTones ? " · Right-click for tones" : modelData.item.pinned ? " · Pinned" : " · Right-click to pin") : ""
                         }
 
                         HoverHandler {
@@ -781,7 +884,7 @@ FloatingWindow {
                             acceptedButtons: Qt.RightButton
                             enabled: modelData.kind === "emoji"
                             onTapped: {
-                                controller.selectedIndex = modelData.itemIndex;
+                                root.prepareEmojiContext(modelData.itemIndex, emojiCell);
                                 emojiMenu.open();
                             }
                         }
@@ -789,39 +892,280 @@ FloatingWindow {
                         Popup {
                             id: emojiMenu
 
-                            readonly property point anchorPosition: emojiCell.mapToItem(root.contentItem, emojiCell.width, emojiCell.height)
-
                             parent: root.contentItem
                             popupType: Popup.Item
                             modal: true
                             dim: false
-                            x: Math.max(6, Math.min(root.width - width - 6, anchorPosition.x - width))
-                            y: anchorPosition.y + height <= root.height - 6 ? anchorPosition.y : Math.max(6, anchorPosition.y - emojiCell.height - height)
-                            width: 132
+                            x: Math.max(6, Math.min(root.width - width - 6, root.contextAnchor.x - width))
+                            y: root.contextAnchor.y + height <= root.height - 6 ? root.contextAnchor.y : Math.max(6, root.contextAnchor.y - emojiCell.height - height)
+                            width: 168
                             padding: 4
                             closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+                            onOpened: root.popupOpened()
+                            onClosed: root.popupClosed()
 
-                            contentItem: BloxButton {
-                                text: modelData.item && modelData.item.pinned ? "Unpin" : "Pin"
-                                onClicked: {
-                                    controller.togglePin(modelData.itemIndex);
-                                    emojiMenu.close();
+                            contentItem: Column {
+                                spacing: 3
+
+                                BloxButton {
+                                    visible: modelData.item && modelData.item.hasMixedTones
+                                    width: emojiMenu.availableWidth
+                                    height: visible ? 34 : 0
+                                    compact: true
+                                    text: "Choose tones…"
+                                    onClicked: {
+                                        emojiMenu.close();
+                                        emojiCell.openToneComposer();
+                                    }
                                 }
 
-                                PhosphorIcon {
-                                    anchors.left: parent.left
-                                    anchors.leftMargin: 9
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: 15
-                                    height: 15
-                                    iconName: "push-pin"
-                                    iconColor: Theme.foreground
+                                BloxButton {
+                                    width: emojiMenu.availableWidth
+                                    height: 34
+                                    compact: true
+                                    text: modelData.item && modelData.item.pinned ? "Unpin" : "Pin"
+                                    onClicked: {
+                                        controller.togglePin(modelData.itemIndex);
+                                        emojiMenu.close();
+                                    }
+
+                                    PhosphorIcon {
+                                        anchors.left: parent.left
+                                        anchors.leftMargin: 9
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: 15
+                                        height: 15
+                                        iconName: "push-pin"
+                                        iconColor: Theme.foreground
+                                    }
+
                                 }
 
                             }
 
                             background: Rectangle {
                                 radius: 9
+                                color: Theme.surfaceAlt
+                                border.color: Theme.border
+                            }
+
+                        }
+
+                        Popup {
+                            id: toneComposer
+
+                            property int firstTone: 3
+                            property int secondTone: 3
+                            property bool defaultSelected: false
+                            readonly property string previewValue: !modelData.item ? "" : defaultSelected ? modelData.item.baseValue : controller.variantValue(modelData.item, firstTone, secondTone)
+
+                            function openForItem() {
+                                const pair = controller.preferredTonePair(modelData.item);
+                                firstTone = pair[0] > 0 ? pair[0] : 3;
+                                secondTone = pair[1] > 0 ? pair[1] : 3;
+                                defaultSelected = controller.prefersDefaultVariant(modelData.item);
+                                open();
+                                Qt.callLater(() => {
+                                    const choice = firstToneChoices.itemAt(firstTone - 1);
+                                    if (choice)
+                                        choice.forceActiveFocus();
+
+                                });
+                            }
+
+                            parent: root.contentItem
+                            popupType: Popup.Item
+                            modal: true
+                            dim: false
+                            x: Math.max(6, Math.min(root.width - width - 6, root.contextAnchor.x - width))
+                            y: root.contextAnchor.y + height <= root.height - 6 ? root.contextAnchor.y : Math.max(6, root.contextAnchor.y - emojiCell.height - height)
+                            width: 264
+                            height: 226
+                            padding: 10
+                            closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+                            onOpened: root.popupOpened()
+                            onClosed: root.popupClosed()
+
+                            contentItem: Column {
+                                spacing: 8
+
+                                Text {
+                                    width: parent.width
+                                    text: "Choose skin tones"
+                                    color: Theme.foreground
+                                    font.family: Theme.bodyFontFamily
+                                    font.pixelSize: 13
+                                    font.bold: true
+                                }
+
+                                Rectangle {
+                                    width: parent.width
+                                    height: 54
+                                    radius: 8
+                                    color: Theme.withAlpha(Theme.foreground, 0.06)
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: toneComposer.previewValue || (modelData.item ? modelData.item.baseValue : "")
+                                        font.family: "Twemoji"
+                                        font.pixelSize: 32
+                                    }
+
+                                }
+
+                                Row {
+                                    width: parent.width
+                                    height: 30
+                                    spacing: 7
+
+                                    Text {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: 40
+                                        text: "Left"
+                                        color: Theme.muted
+                                        font.family: Theme.bodyFontFamily
+                                        font.pixelSize: 12
+                                    }
+
+                                    Repeater {
+                                        id: firstToneChoices
+
+                                        model: 5
+
+                                        Rectangle {
+                                            required property int index
+
+                                            activeFocusOnTab: true
+                                            width: 28
+                                            height: 28
+                                            radius: 14
+                                            color: root.toneColours[index + 1]
+                                            border.width: !toneComposer.defaultSelected && toneComposer.firstTone === index + 1 ? 3 : 1
+                                            border.color: !toneComposer.defaultSelected && toneComposer.firstTone === index + 1 || activeFocus ? Theme.accent : Theme.border
+                                            Keys.onReturnPressed: {
+                                                toneComposer.defaultSelected = false;
+                                                toneComposer.firstTone = index + 1;
+                                            }
+                                            Keys.onEnterPressed: {
+                                                toneComposer.defaultSelected = false;
+                                                toneComposer.firstTone = index + 1;
+                                            }
+                                            Keys.onSpacePressed: {
+                                                toneComposer.defaultSelected = false;
+                                                toneComposer.firstTone = index + 1;
+                                            }
+
+                                            TapHandler {
+                                                onTapped: {
+                                                    toneComposer.defaultSelected = false;
+                                                    toneComposer.firstTone = index + 1;
+                                                }
+                                            }
+
+                                            HoverHandler {
+                                                cursorShape: Qt.PointingHandCursor
+                                            }
+
+                                        }
+
+                                    }
+
+                                }
+
+                                Row {
+                                    width: parent.width
+                                    height: 30
+                                    spacing: 7
+
+                                    Text {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: 40
+                                        text: "Right"
+                                        color: Theme.muted
+                                        font.family: Theme.bodyFontFamily
+                                        font.pixelSize: 12
+                                    }
+
+                                    Repeater {
+                                        id: secondToneChoices
+
+                                        model: 5
+
+                                        Rectangle {
+                                            required property int index
+
+                                            activeFocusOnTab: true
+                                            width: 28
+                                            height: 28
+                                            radius: 14
+                                            color: root.toneColours[index + 1]
+                                            border.width: !toneComposer.defaultSelected && toneComposer.secondTone === index + 1 ? 3 : 1
+                                            border.color: !toneComposer.defaultSelected && toneComposer.secondTone === index + 1 || activeFocus ? Theme.accent : Theme.border
+                                            Keys.onReturnPressed: {
+                                                toneComposer.defaultSelected = false;
+                                                toneComposer.secondTone = index + 1;
+                                            }
+                                            Keys.onEnterPressed: {
+                                                toneComposer.defaultSelected = false;
+                                                toneComposer.secondTone = index + 1;
+                                            }
+                                            Keys.onSpacePressed: {
+                                                toneComposer.defaultSelected = false;
+                                                toneComposer.secondTone = index + 1;
+                                            }
+
+                                            TapHandler {
+                                                onTapped: {
+                                                    toneComposer.defaultSelected = false;
+                                                    toneComposer.secondTone = index + 1;
+                                                }
+                                            }
+
+                                            HoverHandler {
+                                                cursorShape: Qt.PointingHandCursor
+                                            }
+
+                                        }
+
+                                    }
+
+                                }
+
+                                Row {
+                                    width: parent.width
+                                    height: 34
+                                    spacing: 7
+
+                                    BloxButton {
+                                        width: (parent.width - parent.spacing) / 2
+                                        height: 34
+                                        compact: true
+                                        checked: toneComposer.defaultSelected
+                                        text: "Default"
+                                        onClicked: toneComposer.defaultSelected = true
+                                    }
+
+                                    BloxButton {
+                                        width: (parent.width - parent.spacing) / 2
+                                        height: 34
+                                        compact: true
+                                        enabled: toneComposer.previewValue.length > 0
+                                        text: "Copy"
+                                        onClicked: {
+                                            if (toneComposer.defaultSelected)
+                                                controller.activateDefaultVariant(modelData.itemIndex);
+                                            else
+                                                controller.activateToneVariant(modelData.itemIndex, toneComposer.firstTone, toneComposer.secondTone);
+                                            toneComposer.close();
+                                        }
+                                    }
+
+                                }
+
+                            }
+
+                            background: Rectangle {
+                                radius: 10
                                 color: Theme.surfaceAlt
                                 border.color: Theme.border
                             }
@@ -889,7 +1233,11 @@ FloatingWindow {
         id: toneGuard
 
         interval: 180
-        onTriggered: root.suppressEmojiActivation = false
+        onTriggered: {
+            if (root.activeEmojiPopups === 0)
+                root.suppressEmojiActivation = false;
+
+        }
     }
 
 }

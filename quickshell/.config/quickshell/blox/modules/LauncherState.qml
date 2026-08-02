@@ -13,6 +13,7 @@ Singleton {
     property alias emojiX: state.emojiX
     property alias emojiY: state.emojiY
     property alias emojiTone: state.emojiTone
+    property alias emojiVariants: state.emojiVariants
     property alias recentEmoji: state.recentEmoji
     property alias pinnedEmoji: state.pinnedEmoji
     property alias emojiUsage: state.emojiUsage
@@ -38,10 +39,14 @@ Singleton {
             property int emojiX: -1
             property int emojiY: -1
             property int emojiTone: 0
+            property var emojiVariants: ({
+            })
             property var recentEmoji: []
             property var pinnedEmoji: []
-            property var emojiUsage: ({})
-            property var applicationUsage: ({})
+            property var emojiUsage: ({
+            })
+            property var applicationUsage: ({
+            })
         }
 
     }

@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 
 QtObject {
     id: root
@@ -36,9 +37,15 @@ QtObject {
 
     function powerCommand(kind) {
         if (kind === "update-shutdown")
-            return "kitty --class update-shutdown --title update-shutdown sh -c '" + scriptRoot + "/update/run.sh; " + scriptRoot + "/power/safe.sh shutdown'";
+            return terminalCommand("update-shutdown", scriptRoot + "/update/run.sh; " + scriptRoot + "/power/safe.sh shutdown");
 
         return scriptRoot + "/power/safe.sh " + kind;
+    }
+
+    function terminalCommand(title, command) {
+        const display = Quickshell.env("DISPLAY");
+        const waylandDisplay = Quickshell.env("WAYLAND_DISPLAY");
+        return "systemd-run --user --collect --quiet --setenv=DISPLAY=" + display + " --setenv=WAYLAND_DISPLAY=" + waylandDisplay + " -- kitty --class " + title + " --title " + title + " sh -c '" + command + "'";
     }
 
     function updateSummary() {
@@ -205,8 +212,8 @@ QtObject {
 
     function panelActions() {
         if (openPanel === "updates") {
-            const updateRun = "kitty --class update --title update sh -c '" + scriptRoot + "/update/run.sh; echo Done - press enter; read'";
-            const updateList = "kitty --class update-list --title update-list sh -c '" + scriptRoot + "/update/list.sh'";
+            const updateRun = terminalCommand("update", scriptRoot + "/update/run.sh; echo Done - press enter; read");
+            const updateList = terminalCommand("update-list", scriptRoot + "/update/list.sh");
             return [action("Run updates", updateRun, {
                 "icon": "󰇚"
             }), action("List updates", updateList, {

@@ -914,7 +914,7 @@ FloatingWindow {
                                     width: emojiMenu.availableWidth
                                     height: visible ? 34 : 0
                                     compact: true
-                                    text: "Choose tone"
+                                    text: "Choose tones"
                                     onClicked: {
                                         emojiMenu.close();
                                         emojiCell.openToneComposer();

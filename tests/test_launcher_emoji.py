@@ -4,6 +4,34 @@ from pathlib import Path
 
 
 class EmojiDatasetTests(unittest.TestCase):
+    def test_nerd_font_dataset_matches_catalogue_and_search_aliases(self):
+        path = Path(__file__).parents[1] / "quickshell/.config/quickshell/blox/assets/nerd-fonts.json"
+        document = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(1, document["schema_version"])
+        self.assertEqual("3.4.0", document["nerd_fonts_version"])
+        self.assertEqual("Symbols Nerd Font", document["font_family"])
+        self.assertEqual(10764, len(document["items"]))
+        self.assertEqual(
+            {"cod", "custom", "dev", "extra", "fa", "fae", "iec", "indent", "indentation", "linux", "md", "oct", "pl", "ple", "pom", "seti", "weather"},
+            {source["key"] for source in document["sources"]},
+        )
+        filters = {source["key"]: source for source in document["source_filters"]}
+        self.assertEqual({"fa", "fae"}, set(filters["fa"]["keys"]))
+        self.assertEqual(
+            {"iec", "indent", "indentation", "pl", "ple", "pom"},
+            set(filters["terminal"]["keys"]),
+        )
+        self.assertEqual(10, len(filters))
+        address_book = next(item for item in document["items"] if item["identifier"] == "nf-fa-address_book")
+        for alias in ("nerd font", "nerdfont", "font awesome", "fontawesome", "address book", "fa-address_book"):
+            self.assertIn(alias, address_book["keywords"])
+        self.assertEqual("Nerd Fonts", address_book["category"])
+        self.assertEqual("Symbols Nerd Font", address_book["fontFamily"])
+        self.assertEqual(
+            {"files", "arrows", "development", "terminal", "communication", "media", "devices", "status", "weather", "interface"},
+            {item["subcategory"] for item in document["items"]},
+        )
+
     def test_unicode_dataset_has_all_groups_and_thousands_of_entries(self):
         path = Path(__file__).parents[1] / "quickshell/.config/quickshell/blox/assets/emoji.json"
         document = json.loads(path.read_text(encoding="utf-8"))
@@ -69,7 +97,7 @@ class EmojiDatasetTests(unittest.TestCase):
         repository = Path(__file__).parents[1]
         picker = (repository / "quickshell/.config/quickshell/blox/modules/EmojiPicker.qml").read_text(encoding="utf-8")
         autostart = (repository / "hyprland/.config/hypr/conf.d/autostart.lua").read_text(encoding="utf-8")
-        self.assertIn('font.family: "Twemoji"', picker)
+        self.assertIn(': "Twemoji"', picker)
         self.assertNotIn("Noto Color Emoji", picker)
         self.assertNotIn("FONTCONFIG_FILE", autostart)
         self.assertFalse((repository / "quickshell/.config/quickshell/blox/assets/fontconfig.xml").exists())
@@ -79,10 +107,15 @@ class EmojiDatasetTests(unittest.TestCase):
         ):
             self.assertIn(heading, picker)
         self.assertIn("jumpToSymbolSection", picker)
+        self.assertIn("jumpToNerdFontSection", picker)
+        self.assertIn('fontFamily ? modelData.item.fontFamily : "Twemoji"', picker)
+        self.assertIn('"code"', picker)
         controller = (repository / "quickshell/.config/quickshell/blox/modules/EmojiController.qml").read_text(encoding="utf-8")
         self.assertIn("if (tone !== 0)", controller)
         self.assertIn("base.split(root.toneCharacters[index]).join", controller)
         self.assertIn("root.toneKey(item.value)", controller)
+        self.assertIn('"Nerd Fonts"', controller)
+        self.assertIn('item.name + " " + item.keywords', controller)
         self.assertIn('["#ffdc5d", "#f3d2a2", "#f3d2a2", "#d4ab88", "#af7e57", "#7c533e"]', picker)
 
     def test_tone_variants_match_bases_with_presentation_selectors(self):

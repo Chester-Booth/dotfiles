@@ -8,6 +8,8 @@ Scope {
 
     property string query: ""
     property var allItems: []
+    property var emojiItems: []
+    property var nerdFontItems: []
     property var baseItems: []
     property var items: []
     property int selectedIndex: 0
@@ -17,8 +19,17 @@ Scope {
     property var searchRecords: []
     property bool searchWorkerInitialised: false
     property int searchRequest: 0
+    property bool emojiLoaded: false
+    property bool nerdFontsLoaded: false
+    property string nerdFontSource: "all"
+    property var nerdFontSources: [{
+        "key": "all",
+        "title": "All sources",
+        "count": 0
+    }]
+    property var nerdFontPurposes: []
     readonly property bool copyBusy: copy.running
-    readonly property var categories: ["Search", "Recent", "Smileys & Emotion", "People & Body", "Animals & Nature", "Food & Drink", "Activities", "Travel & Places", "Objects", "Flags", "Symbols"]
+    readonly property var categories: ["Search", "Recent", "Smileys & Emotion", "People & Body", "Animals & Nature", "Food & Drink", "Activities", "Travel & Places", "Objects", "Flags", "Symbols", "Nerd Fonts"]
     readonly property var toneNames: ["", "light skin tone", "medium-light skin tone", "medium skin tone", "medium-dark skin tone", "dark skin tone"]
     readonly property var toneCharacters: ["", "🏻", "🏼", "🏽", "🏾", "🏿"]
 
@@ -62,16 +73,34 @@ Scope {
             "keywords": item.keywords,
             "category": item.category,
             "subcategory": item.subcategory || "",
+            "identifier": item.identifier || "",
+            "source": item.source || "",
+            "fontFamily": item.fontFamily || "Twemoji",
+            "kind": item.kind || "emoji",
             "baseValue": root.itemKey(item),
             "pinned": pinned
         };
+    }
+
+    function nerdFontSourceMatches(item) {
+        if (root.nerdFontSource === "all")
+            return true;
+
+        for (const source of root.nerdFontSources) {
+            if (source.key === root.nerdFontSource)
+                return (source.keys || [source.key]).indexOf(item.source) >= 0;
+
+        }
+        return true;
     }
 
     function filterSync() {
         const source = root.category === "Recent" ? LauncherState.recentEmoji : root.baseItems;
         const matches = source.filter((item) => {
             const isRecent = root.category === "Recent";
-            return root.category === "Search" || isRecent || item.category === root.category;
+            const categoryMatch = root.category === "Search" || isRecent || item.category === root.category;
+            const sourceMatch = root.category !== "Nerd Fonts" || root.nerdFontSourceMatches(item);
+            return categoryMatch && sourceMatch;
         }).map((item, order) => {
             const key = root.itemKey(item);
             const usage = LauncherState.emojiUsage[key] || ({
@@ -251,6 +280,42 @@ Scope {
         }
     }
 
+    function rebuildDataset() {
+        if (!root.emojiLoaded || !root.nerdFontsLoaded)
+            return ;
+
+        root.allItems = root.emojiItems.concat(root.nerdFontItems);
+        root.migrateLegacyState();
+        const tones = {
+        };
+        const baseItems = [];
+        const records = [];
+        for (let index = 0; index < root.allItems.length; index++) {
+            const item = root.allItems[index];
+            const tone = root.toneIndex(item.value);
+            if (tone > 0)
+                tones[root.toneKey(item.value) + ":" + tone] = item.value;
+
+            if (tone !== 0)
+                continue;
+
+            baseItems.push(item);
+            records.push({
+                "index": index,
+                "key": root.itemKey(item),
+                "searchText": (item.name + " " + item.keywords).toLowerCase(),
+                "isEmoji": item.kind !== "nerd-font" && !String(item.subcategory || "").startsWith("text-"),
+                "order": index
+            });
+        }
+        root.toneMap = tones;
+        root.baseItems = baseItems;
+        root.searchRecords = records;
+        root.searchWorkerInitialised = false;
+        root.initialiseSearchWorker();
+        root.refresh(false);
+    }
+
     onQueryChanged: refresh(true)
     onCategoryChanged: {
         if (category !== "Search" && query.length)
@@ -258,6 +323,7 @@ Scope {
 
         refresh(false);
     }
+    onNerdFontSourceChanged: refresh(false)
 
     Connections {
         function onEmojiToneChanged() {
@@ -273,40 +339,35 @@ Scope {
         blockLoading: true
         onLoaded: {
             try {
-                root.allItems = JSON.parse(text()).items || [];
-                root.migrateLegacyState();
-                const tones = {
-                };
-                const baseItems = [];
-                const records = [];
-                for (let index = 0; index < root.allItems.length; index++) {
-                    const item = root.allItems[index];
-                    const tone = root.toneIndex(item.value);
-                    if (tone > 0)
-                        tones[root.toneKey(item.value) + ":" + tone] = item.value;
-
-                    if (tone !== 0)
-                        continue;
-
-                    baseItems.push(item);
-                    records.push({
-                        "index": index,
-                        "key": root.itemKey(item),
-                        "searchText": (item.name + " " + item.keywords).toLowerCase(),
-                        "isEmoji": !String(item.subcategory || "").startsWith("text-"),
-                        "order": index
-                    });
-                }
-                root.toneMap = tones;
-                root.baseItems = baseItems;
-                root.searchRecords = records;
-                root.searchWorkerInitialised = false;
-                root.initialiseSearchWorker();
+                root.emojiItems = JSON.parse(text()).items || [];
             } catch (error) {
-                root.allItems = [];
-                root.baseItems = [];
+                root.emojiItems = [];
             }
-            root.refresh(false);
+            root.emojiLoaded = true;
+            root.rebuildDataset();
+        }
+    }
+
+    FileView {
+        path: Qt.resolvedUrl("../assets/nerd-fonts.json")
+        preload: true
+        blockLoading: true
+        onLoaded: {
+            try {
+                const document = JSON.parse(text());
+                root.nerdFontItems = document.items || [];
+                root.nerdFontPurposes = document.purposes || [];
+                root.nerdFontSources = [{
+                    "key": "all",
+                    "title": "All sources",
+                    "count": root.nerdFontItems.length
+                }].concat(document.source_filters || document.sources || []);
+            } catch (error) {
+                root.nerdFontItems = [];
+                root.nerdFontPurposes = [];
+            }
+            root.nerdFontsLoaded = true;
+            root.rebuildDataset();
         }
     }
 

@@ -12,7 +12,7 @@ FloatingWindow {
     property var targetScreen
     property bool suppressEmojiActivation: false
     property var gridItems: []
-    readonly property var categoryIcons: ["magnifying-glass", "clock-counter-clockwise", "smiley", "person-simple", "paw-print", "hamburger", "soccer-ball", "airplane", "lamp", "flag", "shapes"]
+    readonly property var categoryIcons: ["magnifying-glass", "clock-counter-clockwise", "smiley", "person-simple", "paw-print", "hamburger", "soccer-ball", "airplane", "lamp", "flag", "shapes", "code"]
     readonly property var toneColours: ["#ffdc5d", "#f3d2a2", "#f3d2a2", "#d4ab88", "#af7e57", "#7c533e"]
     readonly property var symbolSections: [{
         "key": "emoji",
@@ -36,51 +36,78 @@ FloatingWindow {
         "key": "technical",
         "title": "Technical notation"
     }]
+    property string activeNerdFontSection: "files"
+    property string activeSymbolSection: "emoji"
 
     function symbolSectionKey(item) {
         const subgroup = String(item.subcategory || "");
         if (!subgroup.startsWith("text-"))
             return "emoji";
+
         if (subgroup === "text-common" || subgroup === "text-punctuation")
             return "common";
+
         if (subgroup === "text-shape")
             return "shape";
+
         if (subgroup === "text-arrow")
             return "arrow";
+
         if (subgroup === "text-maths")
             return "maths";
+
         if (subgroup === "text-currency")
             return "currency";
+
         return "technical";
     }
 
     function appendHeading(target, key, title, columns) {
-        while (target.length % columns)
-            target.push({"kind": "spacer", "itemIndex": -1});
-        target.push({"kind": "heading", "sectionKey": key, "title": title, "itemIndex": -1});
-        for (let index = 1; index < columns; index++)
-            target.push({"kind": "spacer", "itemIndex": -1});
+        while (target.length % columns)target.push({
+            "kind": "spacer",
+            "itemIndex": -1
+        })
+        target.push({
+            "kind": "heading",
+            "sectionKey": key,
+            "title": title,
+            "itemIndex": -1
+        });
+        for (let index = 1; index < columns; index++) target.push({
+            "kind": "spacer",
+            "itemIndex": -1
+        })
     }
 
     function rebuildGridItems() {
         const columns = Math.max(1, Math.floor((emojiGrid.width - emojiGrid.rightMargin) / emojiGrid.cellWidth));
         const display = [];
-        if (controller.category === "Symbols") {
-            for (const section of symbolSections) {
+        if (controller.category === "Symbols" || controller.category === "Nerd Fonts") {
+            const sections = controller.category === "Symbols" ? symbolSections : controller.nerdFontPurposes;
+            for (const section of sections) {
                 const matches = [];
                 for (let index = 0; index < controller.items.length; index++) {
-                    if (symbolSectionKey(controller.items[index]) === section.key)
-                        matches.push({"kind": "emoji", "item": controller.items[index], "itemIndex": index});
+                    const sectionKey = controller.category === "Symbols" ? symbolSectionKey(controller.items[index]) : controller.items[index].subcategory;
+                    if (sectionKey === section.key)
+                        matches.push({
+                        "kind": "emoji",
+                        "item": controller.items[index],
+                        "itemIndex": index
+                    });
+
                 }
                 if (!matches.length)
                     continue;
+
                 appendHeading(display, section.key, section.title, columns);
-                for (const match of matches)
-                    display.push(match);
+                for (const match of matches) display.push(match)
             }
         } else {
-            for (let index = 0; index < controller.items.length; index++)
-                display.push({"kind": "emoji", "item": controller.items[index], "itemIndex": index});
+            for (let index = 0; index < controller.items.length; index++) display.push({
+                "kind": "emoji",
+                "item": controller.items[index],
+                "itemIndex": index
+            })
         }
         gridItems = display;
     }
@@ -89,6 +116,7 @@ FloatingWindow {
         for (let index = 0; index < gridItems.length; index++) {
             if (gridItems[index].itemIndex === itemIndex)
                 return index;
+
         }
         return -1;
     }
@@ -105,21 +133,46 @@ FloatingWindow {
         }
     }
 
+    function jumpToNerdFontSection(key) {
+        for (let index = 0; index < gridItems.length; index++) {
+            const item = gridItems[index];
+            if (item.kind === "heading" && item.sectionKey === key) {
+                activeNerdFontSection = key;
+                emojiGrid.positionViewAtIndex(index, GridView.Beginning);
+                emojiGrid.forceActiveFocus();
+                return ;
+            }
+        }
+    }
+
     function updateActiveSymbolSection() {
-        if (controller.category !== "Symbols")
+        if (controller.category !== "Symbols" && controller.category !== "Nerd Fonts")
             return ;
+
         const columns = Math.max(1, Math.floor((emojiGrid.width - emojiGrid.rightMargin) / emojiGrid.cellWidth));
         const firstIndex = Math.min(gridItems.length - 1, Math.max(0, Math.floor(emojiGrid.contentY / emojiGrid.cellHeight) * columns));
         for (let index = firstIndex; index >= 0; index--) {
             if (gridItems[index].kind === "heading") {
-                activeSymbolSection = gridItems[index].sectionKey;
+                if (controller.category === "Symbols")
+                    activeSymbolSection = gridItems[index].sectionKey;
+                else
+                    activeNerdFontSection = gridItems[index].sectionKey;
                 return ;
             }
         }
-        activeSymbolSection = "emoji";
+        if (controller.category === "Symbols")
+            activeSymbolSection = "emoji";
+
     }
 
-    property string activeSymbolSection: "emoji"
+    function nerdFontSourceTitle() {
+        for (const source of controller.nerdFontSources) {
+            if (source.key === controller.nerdFontSource)
+                return source.title;
+
+        }
+        return "All sources";
+    }
 
     screen: targetScreen
     visible: open
@@ -404,7 +457,7 @@ FloatingWindow {
                     width: parent.width
                     visible: controller.category === "Search"
                     height: visible ? implicitHeight : 0
-                    placeholderText: "Search emoji"
+                    placeholderText: "Search emoji and icons"
                     text: controller.query
                     onTextEdited: (value) => {
                         return controller.query = value;
@@ -413,47 +466,181 @@ FloatingWindow {
                     Keys.onEscapePressed: controller.closeRequested()
                 }
 
-                ListView {
-                    id: symbolJumpList
+                Row {
+                    id: sectionBar
 
                     width: parent.width
                     height: visible ? 36 : 0
-                    visible: controller.category === "Symbols"
-                    orientation: ListView.Horizontal
+                    visible: controller.category === "Symbols" || controller.category === "Nerd Fonts"
                     spacing: 6
-                    clip: true
-                    boundsBehavior: Flickable.StopAtBounds
-                    model: root.symbolSections
 
-                    WheelHandler {
-                        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                        onWheel: (event) => {
-                            const pixelDelta = event.pixelDelta.y || 0;
-                            const angleDelta = event.angleDelta.y || 0;
-                            const delta = pixelDelta !== 0 ? pixelDelta : angleDelta / 2;
-                            const maximumContentX = Math.max(symbolJumpList.originX, symbolJumpList.originX + symbolJumpList.contentWidth - symbolJumpList.width);
-                            symbolJumpList.contentX = Math.max(symbolJumpList.originX, Math.min(maximumContentX, symbolJumpList.contentX - delta * 4));
-                            event.accepted = true;
-                        }
-                    }
+                    BloxButton {
+                        id: nerdFontSourceButton
 
-                    delegate: BloxButton {
-                        required property var modelData
-
+                        visible: controller.category === "Nerd Fonts"
+                        width: visible ? Math.min(180, sourceLabelMetrics.advanceWidth + 45) : 0
                         height: 34
-                        width: implicitWidth
                         compact: true
-                        text: modelData.title
-                        checked: root.activeSymbolSection === modelData.key
-                        onClicked: root.jumpToSymbolSection(modelData.key)
+                        onClicked: nerdFontSourceMenu.opened ? nerdFontSourceMenu.close() : nerdFontSourceMenu.open()
+
+                        TextMetrics {
+                            id: sourceLabelMetrics
+
+                            font.family: Theme.bodyFontFamily
+                            font.pixelSize: 12
+                            text: root.nerdFontSourceTitle()
+                        }
+
+                        Row {
+                            anchors.centerIn: parent
+                            spacing: 7
+
+                            PhosphorIcon {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 16
+                                height: 16
+                                iconName: "funnel"
+                                iconColor: Theme.foreground
+                            }
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: nerdFontSourceButton.width - 42
+                                text: root.nerdFontSourceTitle()
+                                color: Theme.foreground
+                                font.family: Theme.bodyFontFamily
+                                font.pixelSize: 12
+                                elide: Text.ElideRight
+                            }
+
+                        }
+
+                        Popup {
+                            id: nerdFontSourceMenu
+
+                            parent: nerdFontSourceButton
+                            popupType: Popup.Item
+                            modal: true
+                            dim: false
+                            x: 0
+                            y: nerdFontSourceButton.height + 4
+                            width: 240
+                            height: Math.min(360, nerdFontSourceList.contentHeight + 8)
+                            padding: 4
+                            closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+                            contentItem: ListView {
+                                id: nerdFontSourceList
+
+                                clip: true
+                                spacing: 3
+                                boundsBehavior: Flickable.StopAtBounds
+                                model: controller.nerdFontSources
+
+                                ScrollBar.vertical: ScrollBar {
+                                    id: nerdFontSourceScrollbar
+
+                                    width: 8
+                                    policy: nerdFontSourceList.contentHeight > nerdFontSourceList.height ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+
+                                    background: Rectangle {
+                                        radius: 999
+                                        color: Theme.withAlpha(Theme.foreground, 0.08)
+                                    }
+
+                                    contentItem: Rectangle {
+                                        implicitWidth: 5
+                                        radius: 999
+                                        color: nerdFontSourceScrollbar.hovered ? Theme.foreground : Theme.muted
+                                    }
+
+                                }
+
+                                delegate: BloxButton {
+                                    required property var modelData
+
+                                    width: nerdFontSourceList.width - 8
+                                    height: 34
+                                    compact: true
+                                    checked: controller.nerdFontSource === modelData.key
+                                    text: modelData.title + " · " + modelData.count
+                                    onClicked: {
+                                        controller.nerdFontSource = modelData.key;
+                                        nerdFontSourceMenu.close();
+                                        emojiGrid.forceActiveFocus();
+                                    }
+                                }
+
+                            }
+
+                            background: Rectangle {
+                                radius: 9
+                                color: Theme.surfaceAlt
+                                border.color: Theme.border
+                            }
+
+                        }
+
                     }
+
+                    Rectangle {
+                        id: nerdFontSectionDivider
+
+                        visible: controller.category === "Nerd Fonts"
+                        width: visible ? 1 : 0
+                        height: 26
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: Theme.border
+                    }
+
+                    ListView {
+                        id: symbolJumpList
+
+                        width: parent.width - nerdFontSourceButton.width - nerdFontSectionDivider.width - (nerdFontSourceButton.visible ? parent.spacing * 2 : 0)
+                        height: 36
+                        orientation: ListView.Horizontal
+                        spacing: 6
+                        clip: true
+                        boundsBehavior: Flickable.StopAtBounds
+                        model: controller.category === "Symbols" ? root.symbolSections : controller.nerdFontPurposes
+
+                        WheelHandler {
+                            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                            onWheel: (event) => {
+                                const pixelDelta = event.pixelDelta.y || 0;
+                                const angleDelta = event.angleDelta.y || 0;
+                                const delta = pixelDelta !== 0 ? pixelDelta : angleDelta / 2;
+                                const maximumContentX = Math.max(symbolJumpList.originX, symbolJumpList.originX + symbolJumpList.contentWidth - symbolJumpList.width);
+                                symbolJumpList.contentX = Math.max(symbolJumpList.originX, Math.min(maximumContentX, symbolJumpList.contentX - delta * 4));
+                                event.accepted = true;
+                            }
+                        }
+
+                        delegate: BloxButton {
+                            required property var modelData
+
+                            height: 34
+                            width: implicitWidth
+                            compact: true
+                            text: modelData.title
+                            checked: controller.category === "Symbols" ? root.activeSymbolSection === modelData.key : root.activeNerdFontSection === modelData.key
+                            onClicked: {
+                                if (controller.category === "Symbols")
+                                    root.jumpToSymbolSection(modelData.key);
+                                else
+                                    root.jumpToNerdFontSection(modelData.key);
+                            }
+                        }
+
+                    }
+
                 }
 
                 GridView {
                     id: emojiGrid
 
                     width: parent.width
-                    height: parent.height - (search.visible ? search.height + 8 : 0) - (symbolJumpList.visible ? symbolJumpList.height + 8 : 0)
+                    height: parent.height - (search.visible ? search.height + 8 : 0) - (sectionBar.visible ? sectionBar.height + 8 : 0)
                     rightMargin: emojiScrollbar.policy === ScrollBar.AlwaysOn ? 12 : 0
                     cellWidth: 58
                     cellHeight: 54
@@ -487,8 +674,7 @@ FloatingWindow {
                         if (delta !== 0 && controller.items.length) {
                             let target = Math.max(0, Math.min(root.gridItems.length - 1, currentIndex + delta));
                             const direction = delta < 0 ? -1 : 1;
-                            while (target >= 0 && target < root.gridItems.length && root.gridItems[target].kind !== "emoji")
-                                target += direction;
+                            while (target >= 0 && target < root.gridItems.length && root.gridItems[target].kind !== "emoji")target += direction
                             if (target >= 0 && target < root.gridItems.length) {
                                 controller.selectedIndex = root.gridItems[target].itemIndex;
                                 positionViewAtIndex(target, GridView.Contain);
@@ -555,7 +741,7 @@ FloatingWindow {
                             visible: modelData.kind === "emoji"
                             text: modelData.item ? modelData.item.value : ""
                             color: Theme.foreground
-                            font.family: "Twemoji"
+                            font.family: modelData.item && modelData.item.fontFamily ? modelData.item.fontFamily : "Twemoji"
                             font.pixelSize: 25
                         }
 
@@ -573,7 +759,7 @@ FloatingWindow {
 
                         BloxToolTip {
                             shown: modelData.kind === "emoji" && emojiHover.hovered
-                            text: modelData.item ? modelData.item.name + (modelData.item.pinned ? " · Pinned" : " · Right-click to pin") : ""
+                            text: modelData.item ? modelData.item.name + (modelData.item.identifier ? " · " + modelData.item.identifier : "") + (modelData.item.pinned ? " · Pinned" : " · Right-click to pin") : ""
                         }
 
                         HoverHandler {

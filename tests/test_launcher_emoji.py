@@ -80,7 +80,7 @@ class EmojiDatasetTests(unittest.TestCase):
             self.assertIn(heading, picker)
         self.assertIn("jumpToSymbolSection", picker)
         controller = (repository / "quickshell/.config/quickshell/blox/modules/EmojiController.qml").read_text(encoding="utf-8")
-        self.assertIn("root.toneIndex(item.value) === 0", controller)
+        self.assertIn("if (tone !== 0)", controller)
         self.assertIn("base.split(root.toneCharacters[index]).join", controller)
         self.assertIn("root.toneKey(item.value)", controller)
         self.assertIn('["#ffdc5d", "#f3d2a2", "#f3d2a2", "#d4ab88", "#af7e57", "#7c533e"]', picker)

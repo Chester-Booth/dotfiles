@@ -1,4 +1,4 @@
-import "../shared/Fuzzy.js" as Fuzzy
+import QtQml.WorkerScript
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -8,11 +8,15 @@ Scope {
 
     property string query: ""
     property var allItems: []
+    property var baseItems: []
     property var items: []
     property int selectedIndex: 0
     property string category: "Search"
     property var toneMap: ({
     })
+    property var searchRecords: []
+    property bool searchWorkerInitialised: false
+    property int searchRequest: 0
     readonly property bool copyBusy: copy.running
     readonly property var categories: ["Search", "Recent", "Smileys & Emotion", "People & Body", "Animals & Nature", "Food & Drink", "Activities", "Travel & Places", "Objects", "Flags", "Symbols"]
     readonly property var toneNames: ["", "light skin tone", "medium-light skin tone", "medium skin tone", "medium-dark skin tone", "dark skin tone"]
@@ -27,8 +31,7 @@ Scope {
 
     function baseEmoji(value) {
         let base = String(value || "");
-        for (let index = 1; index < root.toneCharacters.length; index++)
-            base = base.split(root.toneCharacters[index]).join("");
+        for (let index = 1; index < root.toneCharacters.length; index++) base = base.split(root.toneCharacters[index]).join("")
         return base;
     }
 
@@ -42,19 +45,33 @@ Scope {
         for (let index = 1; index < root.toneCharacters.length; index++) {
             if (text.indexOf(root.toneCharacters[index]) < 0)
                 continue;
+
             if (result !== 0)
                 return -1;
+
             result = index;
         }
         return result;
     }
 
-    function filter() {
-        const needle = root.category === "Search" ? query.trim() : "";
-        const source = root.category === "Recent" && !needle.length ? LauncherState.recentEmoji : allItems;
+    function displayItem(item, pinned) {
+        const toned = LauncherState.emojiTone > 0 ? root.toneMap[root.toneKey(item.value) + ":" + LauncherState.emojiTone] : "";
+        return {
+            "value": toned || item.value,
+            "name": item.name,
+            "keywords": item.keywords,
+            "category": item.category,
+            "subcategory": item.subcategory || "",
+            "baseValue": root.itemKey(item),
+            "pinned": pinned
+        };
+    }
+
+    function filterSync() {
+        const source = root.category === "Recent" ? LauncherState.recentEmoji : root.baseItems;
         const matches = source.filter((item) => {
             const isRecent = root.category === "Recent";
-            return (isRecent || root.toneIndex(item.value) === 0) && (root.category === "Search" || isRecent || item.category === root.category);
+            return root.category === "Search" || isRecent || item.category === root.category;
         }).map((item, order) => {
             const key = root.itemKey(item);
             const usage = LauncherState.emojiUsage[key] || ({
@@ -63,18 +80,12 @@ Scope {
                 "item": item,
                 "pinned": LauncherState.pinnedEmoji.indexOf(key) >= 0,
                 "lastUsed": Number(usage.lastUsed || 0),
-                "order": order,
-                "score": needle.length ? Fuzzy.score(needle, item.name + " " + item.keywords) : 0
+                "order": order
             };
-        }).filter((candidate) => {
-            return candidate.score >= 0;
         });
         matches.sort((a, b) => {
             if (a.pinned !== b.pinned)
                 return a.pinned ? -1 : 1;
-
-            if (needle.length && a.score !== b.score)
-                return b.score - a.score;
 
             if (root.category === "Recent")
                 return b.lastUsed - a.lastUsed;
@@ -82,19 +93,57 @@ Scope {
             return a.order - b.order;
         });
         items = matches.map((candidate) => {
-            const item = candidate.item;
-            const toned = LauncherState.emojiTone > 0 ? root.toneMap[root.toneKey(item.value) + ":" + LauncherState.emojiTone] : "";
-            return {
-                "value": toned || item.value,
-                "name": item.name,
-                "keywords": item.keywords,
-                "category": item.category,
-                "subcategory": item.subcategory || "",
-                "baseValue": root.itemKey(item),
-                "pinned": candidate.pinned
-            };
+            return root.displayItem(candidate.item, candidate.pinned);
         });
         selectedIndex = 0;
+    }
+
+    function requestSearch() {
+        const needle = query.trim().toLowerCase();
+        if (root.category !== "Search" || !needle.length)
+            return ;
+
+        if (!root.searchWorkerInitialised) {
+            root.initialiseSearchWorker();
+            return ;
+        }
+        const request = ++root.searchRequest;
+        searchWorker.sendMessage({
+            "type": "search",
+            "request": request,
+            "query": needle,
+            "pins": LauncherState.pinnedEmoji
+        });
+    }
+
+    function initialiseSearchWorker() {
+        if (!searchWorker.ready || root.searchWorkerInitialised || !root.searchRecords.length)
+            return ;
+
+        searchWorker.sendMessage({
+            "type": "initialise",
+            "records": root.searchRecords
+        });
+        root.searchWorkerInitialised = true;
+        root.searchRecords = [];
+        if (root.category === "Search" && query.trim().length)
+            root.requestSearch();
+
+    }
+
+    function refresh(debounce) {
+        if (root.category === "Search" && query.trim().length) {
+            if (debounce) {
+                searchTimer.restart();
+            } else {
+                searchTimer.stop();
+                root.requestSearch();
+            }
+            return ;
+        }
+        searchTimer.stop();
+        root.searchRequest++;
+        root.filterSync();
     }
 
     function activate() {
@@ -119,7 +168,7 @@ Scope {
             "lastUsed": Date.now()
         };
         LauncherState.emojiUsage = usage;
-        root.filter();
+        root.refresh(false);
     }
 
     function togglePin(index) {
@@ -135,7 +184,7 @@ Scope {
         else
             pins.push(key);
         LauncherState.pinnedEmoji = pins;
-        filter();
+        refresh(false);
     }
 
     function migrateLegacyState() {
@@ -202,17 +251,17 @@ Scope {
         }
     }
 
-    onQueryChanged: filter()
+    onQueryChanged: refresh(true)
     onCategoryChanged: {
         if (category !== "Search" && query.length)
             query = "";
 
-        filter();
+        refresh(false);
     }
 
     Connections {
         function onEmojiToneChanged() {
-            root.filter();
+            root.refresh(false);
         }
 
         target: LauncherState
@@ -228,16 +277,62 @@ Scope {
                 root.migrateLegacyState();
                 const tones = {
                 };
-                for (const item of root.allItems) {
+                const baseItems = [];
+                const records = [];
+                for (let index = 0; index < root.allItems.length; index++) {
+                    const item = root.allItems[index];
                     const tone = root.toneIndex(item.value);
                     if (tone > 0)
                         tones[root.toneKey(item.value) + ":" + tone] = item.value;
+
+                    if (tone !== 0)
+                        continue;
+
+                    baseItems.push(item);
+                    records.push({
+                        "index": index,
+                        "key": root.itemKey(item),
+                        "searchText": (item.name + " " + item.keywords).toLowerCase(),
+                        "isEmoji": !String(item.subcategory || "").startsWith("text-"),
+                        "order": index
+                    });
                 }
                 root.toneMap = tones;
+                root.baseItems = baseItems;
+                root.searchRecords = records;
+                root.searchWorkerInitialised = false;
+                root.initialiseSearchWorker();
             } catch (error) {
                 root.allItems = [];
+                root.baseItems = [];
             }
-            root.filter();
+            root.refresh(false);
+        }
+    }
+
+    Timer {
+        id: searchTimer
+
+        interval: 45
+        repeat: false
+        onTriggered: root.requestSearch()
+    }
+
+    WorkerScript {
+        id: searchWorker
+
+        source: "EmojiSearchWorker.mjs"
+        onReadyChanged: root.initialiseSearchWorker()
+        onMessage: (message) => {
+            if (message.type !== "results" || message.request !== root.searchRequest || root.category !== "Search" || message.query !== root.query.trim().toLowerCase())
+                return ;
+
+            const pins = LauncherState.pinnedEmoji;
+            root.items = message.indices.map((index) => {
+                const item = root.allItems[index];
+                return root.displayItem(item, pins.indexOf(root.itemKey(item)) >= 0);
+            });
+            root.selectedIndex = 0;
         }
     }
 

@@ -1,7 +1,7 @@
 SHELL := /usr/bin/env bash
 QS := quickshell/.config/quickshell/blox
 
-.PHONY: check format lint doctor qmlformat qmllint shfmt shellcheck lua-check py-compile test-floating-sudo test-launcher validate-status validate-themes systemd-verify diff-check
+.PHONY: check format lint doctor qmlformat qmllint shfmt shellcheck lua-check py-compile test-floating-sudo test-launcher validate-status validate-themes update-theme-golden systemd-verify diff-check
 
 check: qmllint lua-check py-compile test-floating-sudo test-launcher validate-status validate-themes systemd-verify diff-check
 
@@ -64,6 +64,9 @@ validate-status:
 
 validate-themes:
 	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s themes/tests -v
+
+update-theme-golden:
+	@PYTHONDONTWRITEBYTECODE=1 python3 themes/tests/helpers/update_golden.py
 
 systemd-verify:
 	@systemd-analyze --user verify systemd/*.service systemd/*.timer

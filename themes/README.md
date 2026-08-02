@@ -146,4 +146,5 @@ Every JSON response has `api_version`, `command`, `ok`, `status`, `data`,
 | 8 | application lock contention |
 
 Run `make validate-themes` for schema fixtures, golden render checks, and
-determinism coverage.
+determinism coverage. After an intended change to the canonical `blox-panel`
+theme or its renderer, run `make update-theme-golden` to accept the new output.

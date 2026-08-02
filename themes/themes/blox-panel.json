@@ -59,12 +59,6 @@
         },
         {
           "enabled": true,
-          "id": "notes",
-          "order": 1,
-          "region": "start"
-        },
-        {
-          "enabled": true,
           "id": "clock",
           "order": 0,
           "region": "centre"
@@ -77,28 +71,34 @@
         },
         {
           "enabled": true,
-          "id": "sound",
+          "id": "notes",
           "order": 1,
           "region": "end"
         },
         {
           "enabled": true,
-          "id": "fan",
+          "id": "sound",
           "order": 2,
-          "region": "end",
-          "visibility": "normal"
+          "region": "end"
         },
         {
           "enabled": true,
-          "id": "gpu",
+          "id": "fan",
           "order": 3,
           "region": "end",
           "visibility": "normal"
         },
         {
           "enabled": true,
-          "id": "touchpad",
+          "id": "gpu",
           "order": 4,
+          "region": "end",
+          "visibility": "normal"
+        },
+        {
+          "enabled": true,
+          "id": "touchpad",
+          "order": 5,
           "region": "end",
           "visibility": "normal"
         },
@@ -106,13 +106,13 @@
           "display": "numeric",
           "enabled": true,
           "id": "battery",
-          "order": 5,
+          "order": 6,
           "region": "end"
         },
         {
           "enabled": true,
           "id": "power",
-          "order": 6,
+          "order": 7,
           "region": "end"
         },
         {
@@ -210,6 +210,28 @@
   },
   "widgets": {
     "items": [
+      {
+        "anchor": "centre",
+        "content_command": "unimatrix",
+        "enabled": false,
+        "height": 1080,
+        "id": "widget-8",
+        "interval_ms": 60000,
+        "left_click_command": "",
+        "name": "matrix",
+        "offset_x": 0,
+        "offset_y": 0,
+        "options": {
+          "auto_size": false,
+          "background_opacity": 0,
+          "scale": 1
+        },
+        "right_click_command": "",
+        "shape": "auto",
+        "type": "matrix",
+        "visibility": "empty-workspace",
+        "width": 1920
+      },
       {
         "anchor": "top-left",
         "content_command": "pipes.sh",

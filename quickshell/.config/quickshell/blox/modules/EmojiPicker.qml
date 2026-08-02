@@ -864,7 +864,7 @@ FloatingWindow {
 
                         BloxToolTip {
                             shown: modelData.kind === "emoji" && emojiHover.hovered
-                            text: modelData.item ? modelData.item.name + (modelData.item.identifier ? " · " + modelData.item.identifier : "") + (modelData.item.hasMixedTones ? " · Right-click for tones" : modelData.item.pinned ? " · Pinned" : " · Right-click to pin") : ""
+                            text: modelData.item ? modelData.item.name + (modelData.item.pinned ? " · Pinned" : " · Right-click to pin") + (modelData.item.hasMixedTones ? modelData.item.pinned ? " · Right-click for tones" : " or adjust tones" : "") : ""
                         }
 
                         HoverHandler {
@@ -914,7 +914,7 @@ FloatingWindow {
                                     width: emojiMenu.availableWidth
                                     height: visible ? 34 : 0
                                     compact: true
-                                    text: "Choose tones…"
+                                    text: "Choose tone"
                                     onClicked: {
                                         emojiMenu.close();
                                         emojiCell.openToneComposer();

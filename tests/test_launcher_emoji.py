@@ -117,7 +117,7 @@ class EmojiDatasetTests(unittest.TestCase):
         self.assertIn('"Nerd Fonts"', controller)
         self.assertIn('item.name + " " + item.keywords', controller)
         self.assertIn('["#ffdc5d", "#f7dece", "#e0bb95", "#c58c6b", "#a56b46", "#6f432a"]', picker)
-        self.assertIn('text: "Choose tones…"', picker)
+        self.assertIn('text: "Choose tone"', picker)
         self.assertIn('text: "Choose skin tones"', picker)
         self.assertIn("controller.activateToneVariant", picker)
         self.assertIn("contextAnchor = item.mapToItem(root.contentItem", picker)

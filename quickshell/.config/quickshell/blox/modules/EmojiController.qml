@@ -12,9 +12,11 @@ Scope {
     property var nerdFontItems: []
     property var baseItems: []
     property var items: []
+    property var browseItems: []
+    property var browsePinned: ({
+    })
+    property bool virtualBrowse: false
     property int selectedIndex: 0
-    property int browseLimit: 100
-    property bool canLoadMore: false
     property string category: "Search"
     property var toneMap: ({
     })
@@ -35,6 +37,7 @@ Scope {
     }]
     property var nerdFontPurposes: []
     readonly property bool copyBusy: copy.running
+    readonly property int itemCount: virtualBrowse ? browseItems.length : items.length
     readonly property var categories: ["Search", "Recent", "Smileys & Emotion", "People & Body", "Animals & Nature", "Food & Drink", "Activities", "Travel & Places", "Objects", "Flags", "Symbols", "Nerd Fonts"]
     readonly property var toneNames: ["", "light skin tone", "medium-light skin tone", "medium skin tone", "medium-dark skin tone", "dark skin tone"]
     readonly property var toneCharacters: ["", "🏻", "🏼", "🏽", "🏾", "🏿"]
@@ -176,6 +179,14 @@ Scope {
         };
     }
 
+    function itemAt(index) {
+        if (!root.virtualBrowse)
+            return root.items[index] || null;
+
+        const item = root.browseItems[index];
+        return item ? root.displayItem(item, Boolean(root.browsePinned[root.itemKey(item)])) : null;
+    }
+
     function nerdFontSourceMatches(item) {
         if (root.nerdFontSource === "all")
             return true;
@@ -191,30 +202,30 @@ Scope {
     function filterSync() {
         const source = root.category === "Recent" ? LauncherState.recentEmoji : root.baseItems;
         if (root.category === "Search" && !root.query.trim().length) {
-            root.canLoadMore = false;
             const pins = LauncherState.pinnedEmoji;
             const pinSet = {
             };
             for (const key of pins) pinSet[key] = true
             const pinned = [];
-            const page = [];
-            let unpinnedCount = 0;
+            const unpinned = [];
             for (const item of source) {
                 const key = root.itemKey(item);
-                if (pinSet[key]) {
-                    pinned.push(root.displayItem(item, true));
-                } else if (unpinnedCount < root.browseLimit) {
-                    page.push(root.displayItem(item, false));
-                    unpinnedCount++;
-                } else {
-                    root.canLoadMore = true;
-                }
+                if (pinSet[key])
+                    pinned.push(item);
+                else
+                    unpinned.push(item);
             }
-            items = pinned.concat(page);
+            root.browsePinned = pinSet;
+            root.browseItems = pinned.concat(unpinned);
+            root.virtualBrowse = true;
+            root.items = [];
             selectedIndex = 0;
             return ;
         }
-        root.canLoadMore = false;
+        root.virtualBrowse = false;
+        root.browseItems = [];
+        root.browsePinned = ({
+        });
         const matches = source.filter((item) => {
             const isRecent = root.category === "Recent";
             const categoryMatch = root.category === "Search" || isRecent || item.category === root.category;
@@ -244,14 +255,6 @@ Scope {
             return root.displayItem(candidate.item, candidate.pinned);
         });
         selectedIndex = 0;
-    }
-
-    function loadMore() {
-        if (root.category !== "Search" || root.query.trim().length || !root.canLoadMore)
-            return ;
-
-        root.browseLimit += 100;
-        root.filterSync();
     }
 
     function requestSearch() {
@@ -303,10 +306,10 @@ Scope {
     }
 
     function activateValue(index, value, remember) {
-        if (copy.running || !items[index])
+        const item = root.itemAt(index);
+        if (copy.running || !item)
             return ;
 
-        const item = items[index];
         const used = Object.assign({
         }, item, {
             "value": value || item.value
@@ -342,7 +345,7 @@ Scope {
     }
 
     function activateToneVariant(index, firstTone, secondTone) {
-        const item = items[index];
+        const item = root.itemAt(index);
         if (!item)
             return ;
 
@@ -353,14 +356,14 @@ Scope {
     }
 
     function activateDefaultVariant(index) {
-        const item = items[index];
+        const item = root.itemAt(index);
         if (item)
             root.activateValue(index, item.baseValue, true);
 
     }
 
     function togglePin(index) {
-        const item = items[index];
+        const item = root.itemAt(index);
         if (!item)
             return ;
 
@@ -496,14 +499,8 @@ Scope {
         root.refresh(false);
     }
 
-    onQueryChanged: {
-        if (!query.trim().length)
-            browseLimit = 100;
-
-        refresh(true);
-    }
+    onQueryChanged: refresh(true)
     onCategoryChanged: {
-        browseLimit = 100;
         if (category !== "Search" && query.length)
             query = "";
 
@@ -575,6 +572,10 @@ Scope {
                 return ;
 
             const pins = LauncherState.pinnedEmoji;
+            root.virtualBrowse = false;
+            root.browseItems = [];
+            root.browsePinned = ({
+            });
             root.items = message.indices.map((index) => {
                 const item = root.allItems[index];
                 return root.displayItem(item, pins.indexOf(root.itemKey(item)) >= 0);

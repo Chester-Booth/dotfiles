@@ -12,11 +12,9 @@ FloatingWindow {
     property var targetScreen
     property bool suppressEmojiActivation: false
     property int activeEmojiPopups: 0
-    property bool loadingPage: false
-    property real preservedContentY: 0
     property int contextItemIndex: -1
     property point contextAnchor: Qt.point(0, 0)
-    readonly property var contextItem: contextItemIndex >= 0 && controller.items[contextItemIndex] ? controller.items[contextItemIndex] : null
+    readonly property var contextItem: contextItemIndex >= 0 ? controller.itemAt(contextItemIndex) : null
     property var gridItems: []
     readonly property var categoryIcons: ["magnifying-glass", "clock-counter-clockwise", "smiley", "person-simple", "paw-print", "hamburger", "soccer-ball", "airplane", "lamp", "flag", "shapes", "code"]
     readonly property var toneColours: ["#ffdc5d", "#f7dece", "#e0bb95", "#c58c6b", "#a56b46", "#6f432a"]
@@ -64,20 +62,6 @@ FloatingWindow {
         controller.selectedIndex = itemIndex;
     }
 
-    function loadNextPage() {
-        if (loadingPage || !controller.canLoadMore)
-            return ;
-
-        loadingPage = true;
-        preservedContentY = emojiGrid.contentY;
-        controller.loadMore();
-        Qt.callLater(() => {
-            const maximum = Math.max(emojiGrid.originY, emojiGrid.originY + emojiGrid.contentHeight - emojiGrid.height);
-            emojiGrid.contentY = Math.max(emojiGrid.originY, Math.min(maximum, preservedContentY));
-            loadingPage = false;
-        });
-    }
-
     function symbolSectionKey(item) {
         const subgroup = String(item.subcategory || "");
         if (!subgroup.startsWith("text-"))
@@ -119,6 +103,10 @@ FloatingWindow {
     }
 
     function rebuildGridItems() {
+        if (controller.virtualBrowse) {
+            gridItems = [];
+            return ;
+        }
         const columns = Math.max(1, Math.floor((emojiGrid.width - emojiGrid.rightMargin) / emojiGrid.cellWidth));
         const display = [];
         if (controller.category === "Symbols" || controller.category === "Nerd Fonts") {
@@ -260,9 +248,18 @@ FloatingWindow {
     Connections {
         function onItemsChanged() {
             root.rebuildGridItems();
-            if (!root.loadingPage)
+            emojiGrid.positionViewAtBeginning();
+        }
+
+        function onBrowseItemsChanged() {
+            if (controller.virtualBrowse)
                 emojiGrid.positionViewAtBeginning();
 
+        }
+
+        function onVirtualBrowseChanged() {
+            root.rebuildGridItems();
+            emojiGrid.positionViewAtBeginning();
         }
 
         target: controller
@@ -694,16 +691,11 @@ FloatingWindow {
                     cellWidth: 58
                     cellHeight: 54
                     clip: true
-                    model: root.gridItems
-                    currentIndex: root.gridIndexForItem(controller.selectedIndex)
+                    model: controller.virtualBrowse ? controller.itemCount : root.gridItems.length
+                    currentIndex: controller.virtualBrowse ? controller.selectedIndex : root.gridIndexForItem(controller.selectedIndex)
                     activeFocusOnTab: true
                     onWidthChanged: root.rebuildGridItems()
-                    onContentYChanged: {
-                        root.updateActiveSymbolSection();
-                        if (controller.category === "Search" && !controller.query.trim().length && controller.canLoadMore && contentY + height >= contentHeight - cellHeight * 2)
-                            root.loadNextPage();
-
-                    }
+                    onContentYChanged: root.updateActiveSymbolSection()
                     Component.onCompleted: root.rebuildGridItems()
                     Keys.onPressed: (event) => {
                         const columns = Math.max(1, Math.floor(width / cellWidth));
@@ -729,13 +721,19 @@ FloatingWindow {
                             event.accepted = true;
                             return ;
                         }
-                        if (delta !== 0 && controller.items.length) {
-                            let target = Math.max(0, Math.min(root.gridItems.length - 1, currentIndex + delta));
-                            const direction = delta < 0 ? -1 : 1;
-                            while (target >= 0 && target < root.gridItems.length && root.gridItems[target].kind !== "emoji")target += direction
-                            if (target >= 0 && target < root.gridItems.length) {
-                                controller.selectedIndex = root.gridItems[target].itemIndex;
+                        if (delta !== 0 && controller.itemCount) {
+                            if (controller.virtualBrowse) {
+                                const target = Math.max(0, Math.min(controller.itemCount - 1, currentIndex + delta));
+                                controller.selectedIndex = target;
                                 positionViewAtIndex(target, GridView.Contain);
+                            } else {
+                                let target = Math.max(0, Math.min(root.gridItems.length - 1, currentIndex + delta));
+                                const direction = delta < 0 ? -1 : 1;
+                                while (target >= 0 && target < root.gridItems.length && root.gridItems[target].kind !== "emoji")target += direction
+                                if (target >= 0 && target < root.gridItems.length) {
+                                    controller.selectedIndex = root.gridItems[target].itemIndex;
+                                    positionViewAtIndex(target, GridView.Contain);
+                                }
                             }
                             event.accepted = true;
                         }
@@ -772,8 +770,12 @@ FloatingWindow {
                     delegate: Rectangle {
                         id: emojiCell
 
-                        required property var modelData
                         required property int index
+                        readonly property var modelData: controller.virtualBrowse ? ({
+                            "kind": "emoji",
+                            "item": controller.itemAt(index),
+                            "itemIndex": index
+                        }) : root.gridItems[index]
                         readonly property bool mixedToneCapable: Boolean(modelData.kind === "emoji" && modelData.item && modelData.item.hasMixedTones)
 
                         function openToneComposer() {

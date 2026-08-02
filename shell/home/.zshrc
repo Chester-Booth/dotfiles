@@ -163,3 +163,7 @@ if [[ "$TERMINAL_EMULATOR" == "JetBrains-JediTerm" || "$TERM_PROGRAM" == "vscode
   typeset -g POWERLEVEL9K_DISABLE_RPROMPT=true
   unset RPROMPT
 fi
+
+
+# make multi-char emoji render correctly
+setopt COMBINING_CHARS

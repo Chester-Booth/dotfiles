@@ -11,6 +11,7 @@ import subprocess
 import sys
 from io import BytesIO
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 
 from PIL import Image, UnidentifiedImageError
 
@@ -43,6 +44,32 @@ def image_mime(data: bytes) -> str | None:
     except (Image.DecompressionBombError, OSError, UnidentifiedImageError, ValueError):
         return None
     return mime
+
+
+def canonical_file_uris(mime: str, data: bytes) -> bytes | None:
+    base_mime = mime.split(";", 1)[0].lower()
+    if base_mime not in ("text/plain", "text/uri-list"):
+        return None
+    try:
+        lines = data.decode("utf-8").splitlines()
+    except UnicodeDecodeError:
+        return None
+
+    uris = []
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parsed = urlparse(line)
+        if parsed.scheme != "file" or parsed.netloc not in ("", "localhost") or parsed.query or parsed.fragment:
+            return None
+        path = Path(unquote(parsed.path))
+        if base_mime == "text/plain" and not path.exists():
+            return None
+        uris.append(path.as_uri())
+    if not uris:
+        return None
+    return ("\r\n".join(uris) + "\r\n").encode()
 
 
 def main() -> int:
@@ -82,7 +109,11 @@ def main() -> int:
                 return 0
             data = sys.stdin.buffer.read(MAX_PAYLOAD + 1)
             mime = args.mime
-            if mime.startswith("image/"):
+            file_uris = canonical_file_uris(mime, data)
+            if file_uris is not None:
+                mime = "text/uri-list"
+                data = file_uris
+            elif mime.startswith("image/"):
                 mime = image_mime(data)
                 if mime is None:
                     reply(id=None, skipped="unsupported-image")

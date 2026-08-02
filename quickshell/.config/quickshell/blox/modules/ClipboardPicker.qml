@@ -286,9 +286,21 @@ FloatingWindow {
                         color: Theme.surface
                         border.color: Theme.border
 
-                        Text {
+                        PhosphorIcon {
+                            id: fileIcon
+
                             anchors.left: parent.left
                             anchors.leftMargin: 10
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 20
+                            height: 20
+                            iconName: modelData.file_icon || "file"
+                            iconColor: Theme.foreground
+                        }
+
+                        Text {
+                            anchors.left: fileIcon.right
+                            anchors.leftMargin: 8
                             anchors.right: parent.right
                             anchors.rightMargin: 9
                             anchors.verticalCenter: parent.verticalCenter

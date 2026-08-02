@@ -14,6 +14,46 @@ from urllib.parse import unquote, urlparse
 SCHEMA_VERSION = 1
 MAX_PAYLOAD = 32 * 1024 * 1024
 MAX_UNPINNED_BYTES = 500 * 1024 * 1024
+FILE_ICON_EXTENSIONS = {
+    **dict.fromkeys((".7z", ".apk", ".bz2", ".cab", ".cbr", ".cbz", ".deb", ".gz", ".iso", ".jar", ".lz", ".lz4", ".rar", ".rpm", ".tar", ".tbz", ".tbz2", ".tgz", ".txz", ".war", ".whl", ".xpi", ".xz", ".zip", ".zst"), "file-archive"),
+    **dict.fromkeys((".aac", ".flac", ".m4a", ".mp3", ".ogg", ".opus", ".wav", ".wma"), "file-audio"),
+    **dict.fromkeys((".c",), "file-c"),
+    **dict.fromkeys((".cs",), "file-c-sharp"),
+    **dict.fromkeys((".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp"), "file-cpp"),
+    **dict.fromkeys((".css",), "file-css"),
+    **dict.fromkeys((".csv", ".tsv"), "file-csv"),
+    **dict.fromkeys((".doc", ".docx", ".odt", ".rtf"), "file-doc"),
+    **dict.fromkeys((".htm", ".html", ".xhtml"), "file-html"),
+    **dict.fromkeys((".avif", ".bmp", ".gif", ".heic", ".ico", ".tif", ".tiff", ".webp"), "file-image"),
+    **dict.fromkeys((".cfg", ".conf", ".ini"), "file-ini"),
+    **dict.fromkeys((".jpeg", ".jpg"), "file-jpg"),
+    **dict.fromkeys((".js", ".mjs"), "file-js"),
+    **dict.fromkeys((".jsx",), "file-jsx"),
+    **dict.fromkeys((".markdown", ".md", ".mdown"), "file-md"),
+    **dict.fromkeys((".pdf",), "file-pdf"),
+    **dict.fromkeys((".png",), "file-png"),
+    **dict.fromkeys((".odp", ".ppt", ".pptx"), "file-ppt"),
+    **dict.fromkeys((".py", ".pyw"), "file-py"),
+    **dict.fromkeys((".rs",), "file-rs"),
+    **dict.fromkeys((".sql",), "file-sql"),
+    **dict.fromkeys((".svg",), "file-svg"),
+    **dict.fromkeys((".log", ".rst", ".tex", ".text", ".txt"), "file-text"),
+    **dict.fromkeys((".ts",), "file-ts"),
+    **dict.fromkeys((".tsx",), "file-tsx"),
+    **dict.fromkeys((".avi", ".m4v", ".mkv", ".mov", ".mp4", ".mpeg", ".mpg", ".webm"), "file-video"),
+    **dict.fromkeys((".vue",), "file-vue"),
+    **dict.fromkeys((".ods", ".xls", ".xlsx"), "file-xls"),
+    **dict.fromkeys((".bash", ".fish", ".go", ".java", ".json", ".kt", ".kts", ".lua", ".php", ".qml", ".rb", ".sh", ".swift", ".toml", ".xml", ".yaml", ".yml", ".zsh"), "file-code"),
+}
+FILE_ICON_NAMES = {
+    "dockerfile": "file-code",
+    "justfile": "file-code",
+    "makefile": "file-code",
+}
+
+
+def file_icon(path: Path) -> str:
+    return FILE_ICON_NAMES.get(path.name.lower(), FILE_ICON_EXTENSIONS.get(path.suffix.lower(), "file"))
 
 
 class Store:
@@ -183,6 +223,7 @@ class Store:
         for item in items:
             item["file_path"] = ""
             item["file_size"] = 0
+            item["file_icon"] = "file"
             if item["mime"].startswith("image/"):
                 payload = self.item(item["id"])["payload_path"]
                 item["payload_uri"] = (self.payloads / payload).as_uri()
@@ -196,6 +237,7 @@ class Store:
                 if parsed.scheme == "file":
                     path = Path(unquote(parsed.path))
                     item["file_path"] = str(path)
+                    item["file_icon"] = file_icon(path)
                     try:
                         item["file_size"] = path.stat().st_size
                     except OSError:

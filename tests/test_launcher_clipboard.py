@@ -61,6 +61,29 @@ class ClipboardStoreTests(unittest.TestCase):
         row = self.store.list()[0][0]
         self.assertEqual(str(attached), row["file_path"])
         self.assertEqual(10, row["file_size"])
+        self.assertEqual("file-text", row["file_icon"])
+
+    def test_file_icons_cover_common_formats_and_have_a_generic_fallback(self):
+        expected = {
+            "bundle.zip": "file-archive",
+            "source.tar.gz": "file-archive",
+            "page.html": "file-html",
+            "readme.md": "file-md",
+            "photo.webp": "file-image",
+            "script.qml": "file-code",
+            "unknown.blox": "file",
+        }
+        for name, icon in expected.items():
+            with self.subTest(name=name):
+                self.assertEqual(icon, clipboard_store.file_icon(Path(name)))
+
+    def test_file_cards_use_the_phosphor_file_icon(self):
+        repository = Path(__file__).parents[1]
+        picker = (repository / "quickshell/.config/quickshell/blox/modules/ClipboardPicker.qml").read_text(encoding="utf-8")
+        self.assertIn('iconName: modelData.file_icon || "file"', picker)
+        assets = repository / "quickshell/.config/quickshell/blox/assets/phosphor"
+        icons = set(clipboard_store.FILE_ICON_EXTENSIONS.values()) | set(clipboard_store.FILE_ICON_NAMES.values()) | {"file"}
+        self.assertEqual([], [icon for icon in sorted(icons) if not (assets / f"{icon}.svg").exists()])
 
     def test_rejects_empty_and_oversized_payloads(self):
         self.assertIsNone(self.store.ingest("text/plain", b""))
@@ -167,6 +190,37 @@ class ClipboardStoreTests(unittest.TestCase):
             self.assertEqual([], rows)
         finally:
             cli_store.db.close()
+
+    def test_cli_deduplicates_the_plain_text_and_uri_list_views_of_a_file(self):
+        command = MODULE.with_name("clipboardctl.py")
+        attached = Path(self.temp.name) / "script.py"
+        attached.write_text("print('hello')\n")
+        environment = {**os.environ, "XDG_RUNTIME_DIR": self.temp.name}
+        representations = (
+            ("text/plain;charset=utf-8", attached.as_uri().encode()),
+            ("text/uri-list", (attached.as_uri() + "\n").encode()),
+        )
+        for index, order in enumerate((representations, tuple(reversed(representations)))):
+            with self.subTest(order=index):
+                root = Path(self.temp.name) / f"file-deduplication-{index}"
+                for mime, payload in order:
+                    result = subprocess.run(
+                        [sys.executable, command, "--root", root, "ingest", "--mime", mime],
+                        input=payload,
+                        capture_output=True,
+                        env=environment,
+                        check=False,
+                    )
+                    self.assertEqual(0, result.returncode)
+
+                cli_store = clipboard_store.Store(root)
+                try:
+                    rows, _ = cli_store.list()
+                    self.assertEqual(1, len(rows))
+                    self.assertEqual("text/uri-list", rows[0]["mime"])
+                    self.assertEqual(str(attached), rows[0]["file_path"])
+                finally:
+                    cli_store.db.close()
 
     def test_cli_rejects_images_with_unsafe_decoded_dimensions(self):
         command = MODULE.with_name("clipboardctl.py")

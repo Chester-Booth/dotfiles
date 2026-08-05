@@ -72,6 +72,13 @@ alias codex="codex --yolo"
 alias ns='notify-send'
 alias bin='gio trash'
 
+cpss() {
+    local files=(~/Pictures/Screenshots/*(.Nom))
+    print -rn -- "$files[1]" | wl-copy
+    print 'Copied.'
+}
+
+
 # git alias
 alias gs='git status --short'
 alias gsw='git switch '

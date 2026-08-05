@@ -58,7 +58,7 @@
         "scminput": false,
         "c": true,
         "python": true,
-        "cpp": true
+        "cpp": false
     },
     "kotlin.languageServer.enabled": false,
     "kotlin.debugAdapter.enabled": false,

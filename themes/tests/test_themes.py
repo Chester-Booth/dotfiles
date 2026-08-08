@@ -757,6 +757,7 @@ class CliContractTests(unittest.TestCase):
         self.assertIn('.replace(/ /g, "\\n\\n")', item)
         self.assertIn('root.staysHorizontal ? Text.WrapAnywhere : Text.NoWrap', item)
         self.assertIn('lineHeight: root.staysHorizontal ? 0.75 : 1', item)
+        self.assertIn('clip: staysHorizontal', item)
         self.assertIn('"active-window-title": "Active window title"', picker_model)
         self.assertIn('["inward", "outward", "horizontal"]', picker)
         self.assertIn('["left", "right"].indexOf(barPosition) >= 0', picker)

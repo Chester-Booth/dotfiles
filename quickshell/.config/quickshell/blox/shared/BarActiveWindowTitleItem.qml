@@ -18,6 +18,7 @@ Item {
         return Theme.barPosition === "right" ? (inward ? -90 : 90) : (inward ? 90 : -90);
     }
 
+    clip: staysHorizontal
     implicitWidth: root.context.horizontal ? Math.min(360, Math.max(Theme.buttonSize, titleText.implicitWidth + 16)) : Theme.buttonSize
     implicitHeight: root.context.horizontal ? Theme.buttonSize : Math.min(240, Math.max(Theme.buttonSize, (staysHorizontal ? titleText.implicitHeight : titleText.implicitWidth) + 16))
 

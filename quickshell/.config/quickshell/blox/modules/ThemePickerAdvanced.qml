@@ -312,6 +312,20 @@ ColumnLayout {
                                     }
                                 }
 
+                                BloxComboBox {
+                                    readonly property var orientationValues: ["inward", "outward", "horizontal"]
+                                    readonly property string barPosition: controller.shellValue("bar", "position")
+
+                                    visible: barItemRow.modelData.id === "active-window-title" && ["left", "right"].indexOf(barPosition) >= 0
+                                    Layout.preferredWidth: visible ? 164 : 0
+                                    Layout.preferredHeight: 32
+                                    model: ["flip inward", "flip outward", "stay horizontal"]
+                                    currentIndex: Math.max(0, orientationValues.indexOf(barItemRow.modelData.orientation || "inward"))
+                                    onActivated: (index) => {
+                                        return controller.setBarItemOrientation(barItemRow.barItemId, orientationValues[index]);
+                                    }
+                                }
+
                             }
 
                             Item {

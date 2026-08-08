@@ -743,6 +743,25 @@ class CliContractTests(unittest.TestCase):
         self.assertIn("BarNotificationToastSurface {", bar)
         self.assertNotIn("NotificationToastStack {", bar)
 
+    def test_active_window_title_is_registered_and_uses_hyprland_focus(self) -> None:
+        shared = REPOSITORY / "quickshell/.config/quickshell/blox/shared"
+        qmldir = (shared / "qmldir").read_text(encoding="utf-8")
+        item = (shared / "BarActiveWindowTitleItem.qml").read_text(encoding="utf-8")
+        picker_model = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePickerBarModel.qml").read_text(encoding="utf-8")
+        picker = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/ThemePickerAdvanced.qml").read_text(encoding="utf-8")
+        self.assertIn("BarActiveWindowTitleItem 1.0 BarActiveWindowTitleItem.qml", qmldir)
+        self.assertIn("activeWindow.workspace.id === Hyprland.focusedWorkspace.id", item)
+        self.assertIn("activeWindowIsHere ? activeWindow.title", item)
+        self.assertIn('titleOrientation === "inward"', item)
+        self.assertIn('Theme.barPosition === "right"', item)
+        self.assertIn('.replace(/ /g, "\\n\\n")', item)
+        self.assertIn('root.staysHorizontal ? Text.WrapAnywhere : Text.NoWrap', item)
+        self.assertIn('lineHeight: root.staysHorizontal ? 0.75 : 1', item)
+        self.assertIn('"active-window-title": "Active window title"', picker_model)
+        self.assertIn('["inward", "outward", "horizontal"]', picker)
+        self.assertIn('["left", "right"].indexOf(barPosition) >= 0', picker)
+        self.assertIn('["flip inward", "flip outward", "stay horizontal"]', picker)
+
     def test_configured_battery_uses_live_status_without_cross_axis_jump(self) -> None:
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
         battery = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarBatteryItem.qml").read_text(encoding="utf-8")

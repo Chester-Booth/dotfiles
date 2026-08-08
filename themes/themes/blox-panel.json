@@ -59,6 +59,12 @@
         },
         {
           "enabled": true,
+          "id": "active-window-title",
+          "order": 1,
+          "region": "start"
+        },
+        {
+          "enabled": true,
           "id": "clock",
           "order": 0,
           "region": "centre"

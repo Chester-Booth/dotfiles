@@ -157,11 +157,12 @@
       "type": "object", "additionalProperties": false,
       "required": ["id", "enabled", "region", "order"],
       "properties": {
-        "id": {"enum": ["power", "notes", "workspaces", "clock", "battery", "notifications", "wifi", "sound", "privacy", "awake", "display", "bt", "updates", "fan", "gpu", "touchpad", "tray", "application-tray"]},
+        "id": {"enum": ["power", "notes", "workspaces", "clock", "active-window-title", "battery", "notifications", "wifi", "sound", "privacy", "awake", "display", "bt", "updates", "fan", "gpu", "touchpad", "tray", "application-tray"]},
         "enabled": {"type": "boolean"},
         "region": {"enum": ["start", "centre", "end", "hidden"]},
         "order": {"type": "integer", "minimum": 0, "maximum": 99},
         "display": {"enum": ["toggle", "numeric", "icon"]},
+        "orientation": {"enum": ["inward", "outward", "horizontal"]},
         "visibility": {"enum": ["always", "normal"]}
       }
     },

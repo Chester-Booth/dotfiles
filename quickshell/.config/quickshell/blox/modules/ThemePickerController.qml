@@ -665,6 +665,10 @@ Scope {
         barModel.setVisibility(id, visibility);
     }
 
+    function setBarItemOrientation(id, orientation) {
+        barModel.setOrientation(id, orientation);
+    }
+
     function setBarItemRegion(id, region) {
         barModel.setRegion(id, region);
     }

@@ -90,6 +90,7 @@ QtObject {
 
     function label(id) {
         const labels = {
+            "active-window-title": "Active window title",
             "application-tray": "Application tray",
             "bt": "Bluetooth",
             "notifications": "Notifications",
@@ -100,6 +101,7 @@ QtObject {
 
     function previewIcon(id) {
         const icons = {
+            "active-window-title": "text-cursor-input",
             "power": "power",
             "notes": "notebook-tabs",
             "workspaces": "grid-2x2",
@@ -160,6 +162,17 @@ QtObject {
         for (let index = 0; index < current.length; ++index) {
             if (current[index].id === id) {
                 current[index].visibility = visibility;
+                break;
+            }
+        }
+        setItems(current);
+    }
+
+    function setOrientation(id, orientation) {
+        const current = items();
+        for (let index = 0; index < current.length; ++index) {
+            if (current[index].id === id) {
+                current[index].orientation = orientation;
                 break;
             }
         }

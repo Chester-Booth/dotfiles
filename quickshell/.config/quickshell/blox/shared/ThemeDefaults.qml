@@ -63,6 +63,12 @@ QtObject {
             "region": "centre",
             "order": 0
         }, {
+            "id": "active-window-title",
+            "enabled": false,
+            "region": "centre",
+            "order": 1,
+            "orientation": "inward"
+        }, {
             "id": "battery",
             "enabled": true,
             "region": "end",

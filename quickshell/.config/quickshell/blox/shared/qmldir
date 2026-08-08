@@ -8,6 +8,7 @@ BarItemDelegate 1.0 BarItemDelegate.qml
 BarLauncherItem 1.0 BarLauncherItem.qml
 BarWorkspaceItem 1.0 BarWorkspaceItem.qml
 BarClockItem 1.0 BarClockItem.qml
+BarActiveWindowTitleItem 1.0 BarActiveWindowTitleItem.qml
 BarBatteryItem 1.0 BarBatteryItem.qml
 BarNotificationItem 1.0 BarNotificationItem.qml
 BarStatusItem 1.0 BarStatusItem.qml

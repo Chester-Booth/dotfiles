@@ -87,6 +87,9 @@ Item {
             if (root.itemId === "clock")
                 return clockComponent;
 
+            if (root.itemId === "active-window-title")
+                return activeWindowTitleComponent;
+
             if (root.itemId === "battery")
                 return batteryComponent;
 
@@ -135,6 +138,15 @@ Item {
         id: batteryComponent
 
         BarBatteryItem {
+            context: itemContext
+        }
+
+    }
+
+    Component {
+        id: activeWindowTitleComponent
+
+        BarActiveWindowTitleItem {
             context: itemContext
         }
 

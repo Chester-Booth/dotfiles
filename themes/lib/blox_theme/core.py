@@ -45,6 +45,7 @@ DEFAULT_BAR_ITEMS = (
     {"id": "notes", "enabled": True, "region": "start", "order": 1},
     {"id": "workspaces", "enabled": True, "region": "start", "order": 2},
     {"id": "clock", "enabled": True, "region": "centre", "order": 0},
+    {"id": "active-window-title", "enabled": False, "region": "centre", "order": 1, "orientation": "inward"},
     {"id": "battery", "enabled": True, "region": "end", "order": 0, "display": "toggle"},
     {"id": "tray", "enabled": True, "region": "end", "order": 1},
     {"id": "notifications", "enabled": True, "region": "end", "order": 2},

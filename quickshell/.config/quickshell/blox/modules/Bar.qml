@@ -263,6 +263,11 @@ Scope {
                         y: configuredRail.verticalTrayToggleItem && configuredRail.verticalTrayToggleItem.trayOpensForward ? configuredRail.verticalTrayPoint.y + configuredRail.verticalTrayToggleItem.height + spacing : configuredRail.verticalTrayPoint.y - height - spacing
                         spacing: 2
 
+                        HoverHandler {
+                            margin: configuredRail.anchors.margins
+                            onHoveredChanged: hovered ? barSurfaceController.trayBoundsEntered() : barSurfaceController.trayBoundsExited()
+                        }
+
                         Repeater {
                             model: Theme.barHiddenItems.filter((item) => {
                                 return item.id !== "tray";
@@ -290,6 +295,11 @@ Scope {
                         x: configuredRail.horizontalTrayToggleItem && configuredRail.horizontalTrayToggleItem.trayOpensForward ? configuredRail.horizontalTrayPoint.x + configuredRail.horizontalTrayToggleItem.width + spacing : configuredRail.horizontalTrayPoint.x - width - spacing
                         y: configuredRail.horizontalTrayPoint.y
                         spacing: 2
+
+                        HoverHandler {
+                            margin: configuredRail.anchors.margins
+                            onHoveredChanged: hovered ? barSurfaceController.trayBoundsEntered() : barSurfaceController.trayBoundsExited()
+                        }
 
                         Repeater {
                             model: Theme.barHiddenItems.filter((item) => {

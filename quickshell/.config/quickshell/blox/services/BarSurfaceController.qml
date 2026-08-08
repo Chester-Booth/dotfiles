@@ -21,13 +21,14 @@ Scope {
     readonly property var activeWaylandToplevel: ToplevelManager.activeToplevel
     readonly property bool fullscreenActive: activeWaylandToplevel ? activeWaylandToplevel.fullscreen : Number(activeToplevelState.fullscreen || 0) > 0
     readonly property bool barPinnedOpen: barOpen && !fullscreenActive
-    readonly property bool hoverRevealHeld: !barPinnedOpen && (edgeTriggerHovered || railSurfaceHovered || openPanel.length > 0 || trayOpen || trayMenuOpen || popoutHovered || trayHovered || inputPopupLocked)
+    readonly property bool hoverRevealHeld: !barPinnedOpen && (edgeTriggerHovered || railSurfaceHovered || openPanel.length > 0 || trayOpen || trayMenuOpen || popoutHovered || trayHovered || trayBoundsHovered || inputPopupLocked)
     readonly property bool barVisible: barPinnedOpen || hoverRevealHeld
     property real barSlide: barVisible ? 1 : 0
     property bool trayOpen: false
     property string hoveredSource: ""
     property bool popoutHovered: false
     property bool trayHovered: false
+    property bool trayBoundsHovered: false
     property bool inputPopupLocked: false
     property var trayMenuHandle: null
     property string trayMenuTitle: ""
@@ -136,6 +137,16 @@ Scope {
         scheduleHoverClose();
     }
 
+    function trayBoundsEntered() {
+        trayBoundsHovered = true;
+        hoverCloseDelay.stop();
+    }
+
+    function trayBoundsExited() {
+        trayBoundsHovered = false;
+        scheduleHoverClose();
+    }
+
     function popoutEntered() {
         popoutHovered = true;
         hoverCloseDelay.stop();
@@ -172,6 +183,7 @@ Scope {
         closePanel();
         closeTrayMenu();
         trayHovered = false;
+        trayBoundsHovered = false;
         trayOpen = false;
     }
 
@@ -232,7 +244,7 @@ Scope {
         interval: 180
         repeat: false
         onTriggered: {
-            if (root.hoveredSource.length === 0 && !root.popoutHovered && !root.trayHovered && !root.inputPopupLocked) {
+            if (root.hoveredSource.length === 0 && !root.popoutHovered && !root.trayHovered && !root.trayBoundsHovered && !root.inputPopupLocked) {
                 root.closePanel();
                 root.closeTrayMenu();
                 root.trayOpen = false;

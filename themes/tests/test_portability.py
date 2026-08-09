@@ -78,6 +78,21 @@ class PortabilityTests(unittest.TestCase):
         self.assertEqual(b"portable wallpaper", imported_wallpaper.read_bytes())
         self.assertTrue(data["wallpaper_imported"])
 
+    def test_repository_relative_wallpaper_bundle_keeps_the_source_reference_portable(self) -> None:
+        self.theme["id"] = "repository-wallpaper"
+        self.theme["wallpaper"]["path"] = "themes/schema/theme.schema.json"
+        bundle = self.export(include_wallpaper=True)
+
+        with zipfile.ZipFile(bundle) as archive:
+            exported = json.loads(archive.read("theme.json"))
+            self.assertEqual("themes/schema/theme.schema.json", exported["wallpaper"]["path"])
+
+        data, _ = portability.import_theme(bundle, self.library)
+        imported = json.loads(Path(data["path"]).read_text(encoding="utf-8"))
+        imported_wallpaper = Path(imported["wallpaper"]["path"])
+        self.assertTrue(imported_wallpaper.is_file())
+        self.assertEqual((THEMES / "schema/theme.schema.json").read_bytes(), imported_wallpaper.read_bytes())
+
     def test_import_cli_never_applies_and_reports_missing_dependencies_as_warnings(self) -> None:
         source = self.root / "loose.json"
         source.write_text(json.dumps(self.theme), encoding="utf-8")

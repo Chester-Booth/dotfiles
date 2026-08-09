@@ -114,6 +114,27 @@ def themes_dir() -> Path:
     return repository_root() / "themes"
 
 
+def resolve_wallpaper_path(value: str, source_path: Path | None = None) -> Path:
+    """Resolve a wallpaper reference without changing the source theme.
+
+    Source themes stored in this repository use paths relative to the
+    repository root.  A theme loaded from elsewhere instead uses its own
+    directory, which keeps loose JSON exports usable before they are imported.
+    Absolute and home-relative references retain their existing meaning.
+    """
+    path = Path(value).expanduser()
+    if path.is_absolute():
+        return path.resolve()
+    root = repository_root()
+    if source_path is not None:
+        source = source_path.expanduser().resolve()
+        try:
+            source.relative_to(root)
+        except ValueError:
+            root = source.parent
+    return (root / path).resolve()
+
+
 def state_dir() -> Path:
     root = os.environ.get("XDG_STATE_HOME")
     return Path(root).expanduser() / "blox-theme" if root else Path.home() / ".local/state/blox-theme"
@@ -154,6 +175,7 @@ def list_themes() -> list[dict[str, Any]]:
     for path in sorted((themes_dir() / "themes").glob("*.json")):
         try:
             data = load_json(path)
+            wallpaper = data.get("wallpaper", {}).get("path", "")
             entries.append(
                 {
                     "id": data.get("id", path.stem),
@@ -163,7 +185,7 @@ def list_themes() -> list[dict[str, Any]]:
                     "source_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
                     "preview": {
                         "colours": data.get("colours", {}),
-                        "wallpaper": data.get("wallpaper", {}).get("path", ""),
+                        "wallpaper": str(resolve_wallpaper_path(wallpaper, path)) if wallpaper else "",
                         "fonts": {
                             role: data.get("fonts", {}).get(role, "")
                             for role in ("ui", "mono", "panel")
@@ -270,10 +292,10 @@ def _named_asset_exists(name: str, roots: tuple[Path, ...]) -> bool:
     return any((root / name).exists() for root in roots)
 
 
-def dependency_checks(theme: dict[str, Any], targets: set[str] | None = None) -> CheckResult:
+def dependency_checks(theme: dict[str, Any], targets: set[str] | None = None, source_path: Path | None = None) -> CheckResult:
     result = CheckResult()
     enabled = lambda target: theme["targets"][target] and (targets is None or target in targets)
-    wallpaper = Path(theme["wallpaper"]["path"]).expanduser()
+    wallpaper = resolve_wallpaper_path(theme["wallpaper"]["path"], source_path)
     if enabled("wallpaper") and not wallpaper.is_file():
         result.errors.append(f"wallpaper does not exist: {wallpaper}")
 
@@ -308,7 +330,9 @@ def dependency_checks(theme: dict[str, Any], targets: set[str] | None = None) ->
     return result
 
 
-def validate_theme(theme: dict[str, Any], check_dependencies: bool = True, targets: set[str] | None = None) -> CheckResult:
+def validate_theme(
+    theme: dict[str, Any], check_dependencies: bool = True, targets: set[str] | None = None, source_path: Path | None = None
+) -> CheckResult:
     result = CheckResult(errors=schema_errors(theme))
     if result.errors:
         return result
@@ -363,7 +387,7 @@ def validate_theme(theme: dict[str, Any], check_dependencies: bool = True, targe
             if ratio < minimum:
                 result.warnings.append(f"GTK override {foreground}/{background} contrast is {ratio:.2f}:1; recommends {minimum:.1f}:1")
     if check_dependencies:
-        dependencies = dependency_checks(theme, targets=targets)
+        dependencies = dependency_checks(theme, targets=targets, source_path=source_path)
         result.errors.extend(dependencies.errors)
         result.warnings.extend(dependencies.warnings)
     return result
@@ -507,8 +531,16 @@ spinner = "{c['foreground']}"
 '''
 
 
-def render_wallpaper(theme: dict[str, Any]) -> str:
-    return canonical_json({"schema_version": 1, "path": theme["wallpaper"]["path"], "fit": theme["wallpaper"]["fit"]})
+def render_wallpaper(theme: dict[str, Any], source_path: Path | None = None) -> str:
+    reference = theme["wallpaper"]["path"]
+    rendered_path = reference if Path(reference).expanduser().is_absolute() else str(resolve_wallpaper_path(reference, source_path))
+    return canonical_json(
+        {
+            "schema_version": 1,
+            "path": rendered_path,
+            "fit": theme["wallpaper"]["fit"],
+        }
+    )
 
 
 def render_gtk_settings(theme: dict[str, Any]) -> str:
@@ -990,7 +1022,7 @@ def render_widgets(theme: dict[str, Any]) -> str:
     return canonical_json({"schema_version": 1, "profile": profile, **profiles[profile], "items": widgets.get("items", defaults)})
 
 
-def render_theme(theme: dict[str, Any]) -> tuple[dict[str, str], list[str]]:
+def render_theme(theme: dict[str, Any], source_path: Path | None = None) -> tuple[dict[str, str], list[str]]:
     ansi = derive_ansi(theme)
     files: dict[str, str] = {}
     targets = theme["targets"]
@@ -1001,7 +1033,7 @@ def render_theme(theme: dict[str, Any]) -> tuple[dict[str, str], list[str]]:
     if targets["kitty"]:
         files["kitty/theme.conf"] = render_kitty(theme, ansi)
     if targets["wallpaper"]:
-        files["hypr/wallpaper.json"] = render_wallpaper(theme)
+        files["hypr/wallpaper.json"] = render_wallpaper(theme, source_path)
     if targets["gtk"]:
         files.update(render_gtk(theme))
     if targets["cursor"]:

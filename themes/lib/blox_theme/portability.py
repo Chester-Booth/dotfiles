@@ -12,7 +12,7 @@ import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable
 
-from .core import canonical_json, dependency_checks, validate_theme
+from .core import canonical_json, dependency_checks, resolve_wallpaper_path, validate_theme
 from .generators import GeneratorFailure, save_theme_source
 
 
@@ -74,8 +74,8 @@ def dependency_notes(theme: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _dependency_warnings(theme: dict[str, Any]) -> list[str]:
-    checked = dependency_checks(theme)
+def _dependency_warnings(theme: dict[str, Any], source_path: Path | None = None) -> list[str]:
+    checked = dependency_checks(theme, source_path=source_path)
     return [f"missing dependency: {message}" for message in checked.errors] + checked.warnings
 
 
@@ -115,10 +115,10 @@ def _zip_info(name: str) -> zipfile.ZipInfo:
 
 
 def export_bundle(
-    theme: dict[str, Any], output: Path, include_wallpaper: bool = True, include_widgets: bool = True
+    theme: dict[str, Any], output: Path, include_wallpaper: bool = True, include_widgets: bool = True, source_path: Path | None = None
 ) -> tuple[dict[str, Any], list[str]]:
     migrated, migration_warnings = migrate_theme(theme)
-    checked = validate_theme(migrated, check_dependencies=False)
+    checked = validate_theme(migrated, check_dependencies=False, source_path=source_path)
     if checked.errors:
         raise PortabilityFailure("invalid theme: " + "; ".join(checked.errors))
 
@@ -132,7 +132,7 @@ def export_bundle(
     }
     wallpaper_record: dict[str, Any] | None = None
     if include_wallpaper:
-        source = Path(migrated["wallpaper"]["path"]).expanduser()
+        source = resolve_wallpaper_path(migrated["wallpaper"]["path"], source_path)
         if source.is_symlink() or not source.is_file():
             raise PortabilityFailure(f"wallpaper is not a regular file: {source}")
         if source.stat().st_size > MAX_MEMBER_BYTES:
@@ -179,7 +179,7 @@ def export_bundle(
         "wallpaper_included": include_wallpaper,
         "widgets_included": include_widgets,
     }
-    return data, migration_warnings + checked.warnings + _dependency_warnings(migrated)
+    return data, migration_warnings + checked.warnings + _dependency_warnings(migrated, source_path)
 
 
 def _safe_member_name(name: str) -> bool:
@@ -309,7 +309,9 @@ def import_theme(path: Path, library: Path) -> tuple[dict[str, Any], list[str]]:
         wallpaper_data = None
         wallpaper_name = None
         source_kind = "json"
-    checked = validate_theme(theme, check_dependencies=False)
+        if not Path(theme["wallpaper"]["path"]).expanduser().is_absolute():
+            theme["wallpaper"]["path"] = str(resolve_wallpaper_path(theme["wallpaper"]["path"], source))
+    checked = validate_theme(theme, check_dependencies=False, source_path=source)
     if checked.errors:
         raise PortabilityFailure("invalid imported theme: " + "; ".join(checked.errors))
     theme_destination = library / "themes" / f"{theme['id']}.json"
@@ -337,7 +339,7 @@ def import_theme(path: Path, library: Path) -> tuple[dict[str, Any], list[str]]:
             wallpaper_destination.unlink(missing_ok=True)
             wallpaper_destination.parent.rmdir()
         raise
-    result_warnings = warnings + checked.warnings + _dependency_warnings(theme)
+    result_warnings = warnings + checked.warnings + _dependency_warnings(theme, destination)
     data = {
         "id": theme["id"],
         "path": str(destination),

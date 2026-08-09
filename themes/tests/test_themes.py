@@ -151,6 +151,27 @@ class ThemeSchemaTests(unittest.TestCase):
                 candidate["targets"][target] = True
                 self.assertTrue(any(message in error for error in dependency_checks(candidate).errors))
 
+    def test_repository_relative_wallpaper_paths_resolve_for_checks_and_rendering(self) -> None:
+        path, source = load_theme("blox-panel")
+        theme = copy.deepcopy(source)
+        theme["wallpaper"]["path"] = "themes/schema/theme.schema.json"
+
+        result = dependency_checks(theme, source_path=path)
+        self.assertFalse(any("wallpaper does not exist" in error for error in result.errors))
+        files, _ = render_theme(theme, path)
+        wallpaper = json.loads(files["hypr/wallpaper.json"])
+        self.assertEqual(str(REPOSITORY / "themes/schema/theme.schema.json"), wallpaper["path"])
+        self.assertEqual("themes/schema/theme.schema.json", theme["wallpaper"]["path"])
+
+    def test_absolute_and_home_relative_wallpaper_references_are_rendered_unchanged(self) -> None:
+        _, source = load_theme("blox-panel")
+        for reference in ("/tmp/wallpaper.webp", "~/Pictures/wallpaper.webp"):
+            with self.subTest(reference=reference):
+                theme = copy.deepcopy(source)
+                theme["wallpaper"]["path"] = reference
+                wallpaper = json.loads(render_theme(theme)[0]["hypr/wallpaper.json"])
+                self.assertEqual(reference, wallpaper["path"])
+
     def test_missing_generated_cursor_is_a_warning(self) -> None:
         _, theme = load_theme("blox-panel")
         theme["cursor"]["base"] = "Definitely-Missing-Cursor"

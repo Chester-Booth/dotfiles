@@ -56,6 +56,8 @@ Singleton {
     }
     readonly property string themePath: stateRoot + "/blox-theme/current/quickshell/theme.json"
     readonly property string widgetPath: stateRoot + "/blox-theme/current/widgets/profile.json"
+    property var pendingWallpaperCommand: []
+    property string previewWallpaperKey: ""
 
     signal osdPositionPreviewRequested()
     signal notificationPositionPreviewRequested()
@@ -115,25 +117,60 @@ Singleton {
         return document.loadActiveIdentity(raw);
     }
 
+    function runPendingWallpaperCommand() {
+        if (wallpaperProcess.running || pendingWallpaperCommand.length === 0)
+            return ;
+
+        const arguments = pendingWallpaperCommand;
+        pendingWallpaperCommand = [];
+        wallpaperProcess.command = [Quickshell.shellDir + "/scripts/theme/themectl.sh"].concat(arguments).concat(["--json"]);
+        wallpaperProcess.running = true;
+    }
+
+    function queueWallpaperCommand(arguments) {
+        pendingWallpaperCommand = arguments;
+        runPendingWallpaperCommand();
+    }
+
     function previewSource(raw) : bool {
-        return document.previewSource(raw);
+        const loaded = document.previewSource(raw);
+        if (!loaded)
+            return false;
+
+        const data = typeof raw === "string" ? JSON.parse(raw) : raw;
+        if (data.targets && data.targets.wallpaper) {
+            const key = data.wallpaper.path + "\n" + data.wallpaper.fit;
+            if (key !== previewWallpaperKey) {
+                previewWallpaperKey = key;
+                queueWallpaperCommand(["wallpaper-preview", typeof raw === "string" ? raw : JSON.stringify(raw)]);
+            }
+        } else if (previewWallpaperKey.length > 0) {
+            previewWallpaperKey = "";
+            queueWallpaperCommand(["wallpaper-restore"]);
+        }
+
+        return true;
     }
 
     function cancelPreview() : string {
         previewActive = false;
         previewThemeId = "";
+        previewWallpaperKey = "";
         const active = themeFile.text();
         if (!active || !loadJson(active))
             reset();
 
         reloadWidgets();
+        queueWallpaperCommand(["wallpaper-restore"]);
         return themeId;
     }
 
     function reload() : string {
         previewActive = false;
         previewThemeId = "";
+        previewWallpaperKey = "";
         themeFile.reload();
+        queueWallpaperCommand(["wallpaper-restore"]);
         return themeId;
     }
 
@@ -144,6 +181,12 @@ Singleton {
 
     ThemeDefaults {
         id: defaults
+    }
+
+    Process {
+        id: wallpaperProcess
+
+        onExited: root.runPendingWallpaperCommand()
     }
 
     ThemeDocumentController {

@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable
 
 from . import RENDERER_VERSION
-from .core import canonical_json, render_theme, repository_root, sha256_text, state_dir
+from .core import canonical_json, render_theme, repository_root, resolve_wallpaper_path, sha256_text, state_dir
 from .editor import EditorSettingsFailure, apply_fragment
 
 
@@ -907,6 +907,43 @@ def _reload_vicinae(mode: str, run_command: Callable[[list[str]], subprocess.Com
     return None
 
 
+def set_live_wallpaper(
+    wallpaper: str,
+    fit: str,
+    run_command: Callable[[list[str]], subprocess.CompletedProcess[str]] = _run,
+) -> str | None:
+    monitors = run_command(["hyprctl", "monitors", "-j"])
+    if monitors.returncode != 0:
+        return "Hyprland monitor discovery failed"
+    try:
+        names = [entry["name"] for entry in json.loads(monitors.stdout) if entry.get("name")]
+    except (json.JSONDecodeError, TypeError, KeyError):
+        return "Hyprland returned invalid monitor data"
+    if not names:
+        return "Hyprland returned no active monitors"
+    commands = [
+        ["hyprctl", "hyprpaper", "wallpaper", f"{name}, {wallpaper}, {fit}"]
+        for name in names
+    ]
+    results = [run_command(command) for command in commands]
+    if any(result.returncode != 0 for result in results):
+        return f"Hyprpaper live update failed; run: {_command_text(commands[0])}"
+    return None
+
+
+def restore_live_wallpaper(
+    run_command: Callable[[list[str]], subprocess.CompletedProcess[str]] = _run,
+) -> str | None:
+    source = state_dir() / "current/hypr/wallpaper.json"
+    try:
+        data = json.loads(source.read_text(encoding="utf-8"))
+        wallpaper = str(resolve_wallpaper_path(data["path"]))
+        fit = data["fit"]
+    except (OSError, json.JSONDecodeError, KeyError, TypeError) as error:
+        return f"Active wallpaper metadata is invalid: {error}"
+    return set_live_wallpaper(wallpaper, fit, run_command)
+
+
 def _reload_wallpaper(root: Path, mode: str, run_command: Callable[[list[str]], subprocess.CompletedProcess[str]]) -> str | None:
     source = root / "current/hypr/wallpaper.json"
     if mode == "reset":
@@ -920,7 +957,7 @@ def _reload_wallpaper(root: Path, mode: str, run_command: Callable[[list[str]], 
             data = json.loads(source.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as error:
             return f"Wallpaper metadata is invalid: {error}"
-    wallpaper = str(Path(data["path"]).expanduser().resolve())
+    wallpaper = str(resolve_wallpaper_path(data["path"]))
     config = root / "integration/hyprpaper.conf"
     config.parent.mkdir(parents=True, exist_ok=True)
     temporary = config.with_name(f".{config.name}-{uuid.uuid4().hex}")
@@ -936,9 +973,13 @@ def _reload_wallpaper(root: Path, mode: str, run_command: Callable[[list[str]], 
     os.replace(temporary, config)
     _fsync_directory(config.parent)
 
-    # Restarting from the generated configuration keeps the on-disk source and
-    # the live daemon in sync.  A stale daemon may not expose an IPC socket, so
-    # the wallpaper command alone is not a reliable live update.
+    # Set every active output explicitly. Hyprpaper treats an empty monitor as
+    # a fallback and does not replace outputs which already have an assignment.
+    if set_live_wallpaper(wallpaper, data["fit"], run_command) is None:
+        return None
+
+    # If there is no usable IPC socket, start a clean daemon from the persistent
+    # config. The fallback applies because the new process has no assignments.
     run_command(["systemctl", "--user", "stop", "blox-hyprpaper.service"])
     run_command(["pkill", "-x", "hyprpaper"])
     command = [
@@ -1112,7 +1153,12 @@ def apply_theme(theme_path: Path, theme: dict[str, Any], targets: Iterable[str],
         previous_record = current_generation(root)
         previous_path = previous_record[0] if previous_record else None
         previous_manifest = previous_record[1] if previous_record else None
-        files, _ = renderer(theme)
+        render_input = theme
+        if not Path(theme["wallpaper"]["path"]).expanduser().is_absolute():
+            render_input = dict(theme)
+            render_input["wallpaper"] = dict(theme["wallpaper"])
+            render_input["wallpaper"]["path"] = str(resolve_wallpaper_path(theme["wallpaper"]["path"], theme_path))
+        files, _ = renderer(render_input)
         for target in selected:
             missing = [name for name in TARGET_REQUIRED_FILES[target] if name not in files]
             if missing:

@@ -32,6 +32,7 @@ from .core import (
     render_theme,
     rendered_diff,
     repository_root,
+    resolve_wallpaper_path,
     state_dir,
     themes_dir,
     validate_theme,
@@ -48,7 +49,9 @@ from .runtime import (
     loader_checks,
     reconcile,
     reset_target,
+    restore_live_wallpaper,
     rollback,
+    set_live_wallpaper,
     setup_cursor,
     setup_gtk,
 )
@@ -87,6 +90,11 @@ def parser() -> argparse.ArgumentParser:
         child = subcommands.add_parser(name)
         child.add_argument("theme")
         child.add_argument("--json", action="store_true")
+    wallpaper_preview = subcommands.add_parser("wallpaper-preview", help="temporarily show a source theme wallpaper")
+    wallpaper_preview.add_argument("theme")
+    wallpaper_preview.add_argument("--json", action="store_true")
+    wallpaper_restore = subcommands.add_parser("wallpaper-restore", help="restore the active theme wallpaper")
+    wallpaper_restore.add_argument("--json", action="store_true")
     render = subcommands.add_parser("render")
     render.add_argument("theme")
     render.add_argument("--output", type=Path)
@@ -193,7 +201,7 @@ def checked_theme(command: str, reference: str, check_dependencies: bool = True)
         return None, None, envelope(command, errors=[str(error)]), EXIT_DEPENDENCY
     except (OSError, json.JSONDecodeError, ValueError) as error:
         return None, None, envelope(command, errors=[str(error)]), EXIT_VALIDATION
-    checked = validate_theme(theme, check_dependencies=check_dependencies)
+    checked = validate_theme(theme, check_dependencies=check_dependencies, source_path=path)
     if checked.errors:
         return path, theme, envelope(command, errors=checked.errors, warnings=checked.warnings), EXIT_VALIDATION
     return path, theme, None, EXIT_OK
@@ -414,6 +422,7 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
                 output,
                 include_wallpaper=args.include_wallpaper,
                 include_widgets=not args.exclude_widgets,
+                source_path=path,
             )
         except PortabilityFailure as error:
             return envelope(command, errors=[str(error)]), EXIT_VALIDATION
@@ -489,24 +498,41 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         data = {"generation": manifest["generation_id"], "theme_id": manifest["theme_id"], "active_targets": manifest["enabled_targets"]}
         return envelope(command, data, warnings=warnings), EXIT_RELOAD_WARNING if warnings else EXIT_OK
 
-    path, theme, failure, code = checked_theme(command, args.theme, check_dependencies=command not in ("show", "apply"))
+    if command == "wallpaper-restore":
+        warning = restore_live_wallpaper()
+        return (
+            (envelope(command, errors=[warning]), EXIT_APPLY)
+            if warning
+            else (envelope(command, {"restored": True}), EXIT_OK)
+        )
+
+    path, theme, failure, code = checked_theme(command, args.theme, check_dependencies=command not in ("show", "apply", "wallpaper-preview"))
     if failure:
         return failure, code
     assert path is not None and theme is not None
 
-    checked = validate_theme(theme, check_dependencies=command != "show")
+    checked = validate_theme(theme, check_dependencies=command not in ("show", "wallpaper-preview"), source_path=path)
     if command == "show":
         return envelope(command, theme), EXIT_OK
     if command == "validate":
         data = {"id": theme["id"], "path": str(path), "valid": True}
         return envelope(command, data, warnings=checked.warnings), EXIT_OK
 
+    if command == "wallpaper-preview":
+        if not theme["targets"]["wallpaper"]:
+            return envelope(command, {"changed": False}), EXIT_OK
+        wallpaper = str(resolve_wallpaper_path(theme["wallpaper"]["path"], path))
+        warning = set_live_wallpaper(wallpaper, theme["wallpaper"]["fit"])
+        if warning:
+            return envelope(command, errors=[warning]), EXIT_APPLY
+        return envelope(command, {"changed": True, "path": wallpaper}), EXIT_OK
+
     if command == "apply":
         try:
             selected = configured_targets(theme, args.targets)
         except RuntimeFailure as error:
             return envelope(command, errors=[str(error)]), EXIT_VALIDATION
-        checked = validate_theme(theme, check_dependencies=True, targets=set(selected))
+        checked = validate_theme(theme, check_dependencies=True, targets=set(selected), source_path=path)
         if checked.errors:
             return envelope(command, errors=checked.errors, warnings=checked.warnings), EXIT_VALIDATION
         try:
@@ -527,7 +553,7 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         return envelope(command, data, warnings=all_warnings), EXIT_RELOAD_WARNING if warnings else EXIT_OK
 
     try:
-        files, render_warnings = render_theme(theme)
+        files, render_warnings = render_theme(theme, path)
         manifest = render_manifest(path, theme, files)
     except (KeyError, TypeError, ValueError) as error:
         return envelope(command, errors=[f"render failed: {error}"]), EXIT_RENDER

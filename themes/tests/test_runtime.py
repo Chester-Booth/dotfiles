@@ -204,8 +204,15 @@ class RuntimeTests(unittest.TestCase):
         for name in changed_files:
             self.assertNotEqual(before[name], (after_path / name).read_bytes(), name)
 
-    def test_wallpaper_apply_writes_config_then_restarts_hyprpaper(self) -> None:
-        runner = FakeCommands()
+    def test_wallpaper_apply_writes_config_then_updates_active_monitors(self) -> None:
+        class ActiveMonitorCommands(FakeCommands):
+            def __call__(self, command: list[str]) -> subprocess.CompletedProcess[str]:
+                self.commands.append(command)
+                if command == ["hyprctl", "monitors", "-j"]:
+                    return subprocess.CompletedProcess(command, 0, '[{"name":"eDP-1"}]', "")
+                return subprocess.CompletedProcess(command, 0, "", "")
+
+        runner = ActiveMonitorCommands()
         apply_theme(
             self.canonical_path,
             self.canonical,
@@ -219,23 +226,21 @@ class RuntimeTests(unittest.TestCase):
         self.assertIn(f"path = {Path(self.canonical['wallpaper']['path']).expanduser().resolve()}", contents)
         self.assertIn(f"fit_mode = {self.canonical['wallpaper']['fit']}", contents)
         self.assertIn(
-            ["systemctl", "--user", "stop", "blox-hyprpaper.service"],
-            runner.commands,
-        )
-        self.assertIn(["pkill", "-x", "hyprpaper"], runner.commands)
-        self.assertIn(
             [
-                "systemd-run",
-                "--user",
-                "--unit=blox-hyprpaper",
-                "--collect",
-                "--quiet",
+                "hyprctl",
                 "hyprpaper",
-                "--config",
-                str(config),
+                "wallpaper",
+                f"eDP-1, {Path(self.canonical['wallpaper']['path']).expanduser().resolve()}, {self.canonical['wallpaper']['fit']}",
             ],
             runner.commands,
         )
+        self.assertNotIn(["pkill", "-x", "hyprpaper"], runner.commands)
+
+    def test_wallpaper_apply_resolves_repository_relative_source_paths(self) -> None:
+        self.canonical["wallpaper"]["path"] = "themes/schema/theme.schema.json"
+        apply_theme(self.canonical_path, self.canonical, ("wallpaper",), run_command=FakeCommands())
+        config = (self.state / "integration/hyprpaper.conf").read_text(encoding="utf-8")
+        self.assertIn(f"path = {REPOSITORY / 'themes/schema/theme.schema.json'}", config)
 
     def test_render_failure_cannot_expose_partial_generation(self) -> None:
         self.apply_canonical()

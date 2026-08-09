@@ -279,7 +279,13 @@ class RendererTests(unittest.TestCase):
         shell = json.loads(render_theme(self.theme)[0]["quickshell/theme.json"])["shell"]
         items = {item["id"]: item for item in shell["bar"]["items"]}
         self.assertEqual(len(DEFAULT_BAR_ITEMS), len(items))
-        self.assertEqual({"id": "clock", "enabled": False, "region": "end", "order": 7}, items["clock"])
+        self.assertEqual("end", items["clock"]["region"])
+        self.assertFalse(items["clock"]["enabled"])
+        end_items = sorted(
+            (item for item in items.values() if item["region"] == "end"),
+            key=lambda item: item["order"],
+        )
+        self.assertEqual("tray", end_items[0]["id"])
         self.assertEqual("start", items["wifi"]["region"])
         self.assertTrue(items["power"]["enabled"])
         self.assertEqual("toggle", items["battery"]["display"])

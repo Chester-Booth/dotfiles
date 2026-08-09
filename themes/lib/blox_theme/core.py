@@ -73,13 +73,30 @@ def resolved_bar_items(bar: dict[str, Any] | None) -> list[dict[str, Any]]:
     if "tray" in overrides and "application-tray" not in overrides:
         overrides["application-tray"] = {**overrides.pop("tray"), "id": "application-tray"}
     items = [{**default, **overrides.get(default["id"], {})} for default in DEFAULT_BAR_ITEMS]
+    tray = next(item for item in items if item["id"] == "tray")
+    if tray["region"] == "hidden":
+        tray["region"] = "end"
+    visible = sorted(
+        (item for item in items if item["region"] == tray["region"]),
+        key=lambda item: item["order"],
+    )
+    tray_index = visible.index(tray)
+    visible.remove(tray)
+    if tray["region"] == "start":
+        visible.append(tray)
+    elif tray["region"] == "end" or tray_index < (len(visible) + 1) / 2:
+        visible.insert(0, tray)
+    else:
+        visible.append(tray)
+    for order, item in enumerate(visible):
+        item["order"] = order
+
     application_tray = next(item for item in items if item["id"] == "application-tray")
     application_tray["region"] = "hidden"
     hidden = sorted(
         (item for item in items if item["region"] == "hidden" and item["id"] != "application-tray"),
         key=lambda item: item["order"],
     )
-    tray = next(item for item in items if item["id"] == "tray")
     if tray["region"] == "start":
         tray_opens_forward = True
     elif tray["region"] == "centre":

@@ -185,6 +185,27 @@ QtObject {
             }, items[index], override);
 
         }
+        const tray = items.find((item) => {
+            return item.id === "tray";
+        });
+        if (tray.region === "hidden")
+            tray.region = "end";
+
+        const visible = items.filter((item) => {
+            return item.region === tray.region;
+        }).sort((left, right) => {
+            return left.order - right.order;
+        });
+        const trayIndex = visible.indexOf(tray);
+        visible.splice(trayIndex, 1);
+        if (tray.region === "start")
+            visible.push(tray);
+        else if (tray.region === "end" || trayIndex < (visible.length + 1) / 2)
+            visible.unshift(tray);
+        else
+            visible.push(tray);
+        for (let index = 0; index < visible.length; ++index) visible[index].order = index
+
         const applicationTray = items.find((item) => {
             return item.id === "application-tray";
         });

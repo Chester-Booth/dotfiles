@@ -78,13 +78,13 @@
         },
         {
           "enabled": true,
-          "id": "notes",
+          "id": "sound",
           "order": 1,
           "region": "end"
         },
         {
           "enabled": true,
-          "id": "sound",
+          "id": "notes",
           "order": 2,
           "region": "end"
         },

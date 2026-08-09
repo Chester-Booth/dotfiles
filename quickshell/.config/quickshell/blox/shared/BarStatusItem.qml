@@ -19,7 +19,7 @@ Item {
         };
         return panels[itemId] || "";
     }
-    readonly property string source: itemId === "fan" || itemId === "gpu" ? itemId : ""
+    readonly property string source: itemId
 
     function icon() {
         const content = context.contentController;

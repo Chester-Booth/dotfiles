@@ -166,6 +166,15 @@ class ThemeLibraryMutationTests(unittest.TestCase):
 
 
 class PickerIntegrationSourceTests(unittest.TestCase):
+    def test_picker_refreshes_sources_each_time_it_opens(self) -> None:
+        controller = qml_source("Controller")
+        open_picker = controller.split("function openPicker()", 1)[1].split(
+            "function requestClose()", 1
+        )[0]
+
+        self.assertIn("refreshThemes(false);", open_picker)
+        self.assertNotIn("if (themes.length === 0)", open_picker)
+
     def test_quickshell_modules_are_registered_for_live_reload(self) -> None:
         modules = REPOSITORY / "quickshell/.config/quickshell/blox/modules"
         registered = set()

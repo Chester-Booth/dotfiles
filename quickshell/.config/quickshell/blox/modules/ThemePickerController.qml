@@ -439,10 +439,7 @@ Scope {
         recoverPickerWorkspace("");
         revealTimer.restart();
         statusMessage = "Loading themes…";
-        if (themes.length === 0)
-            refreshThemes(false);
-        else if (candidate === null)
-            requestSelection(Theme.activeThemeId, false);
+        refreshThemes(false);
         return "open";
     }
 

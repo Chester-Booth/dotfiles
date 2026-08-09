@@ -105,6 +105,19 @@ Rectangle {
             clip: true
             spacing: 4
             model: controller.filteredThemes()
+            boundsBehavior: Flickable.StopAtBounds
+
+            WheelHandler {
+                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                onWheel: (event) => {
+                    const pixelDelta = event.pixelDelta.y || 0;
+                    const angleDelta = event.angleDelta.y || 0;
+                    const delta = pixelDelta !== 0 ? pixelDelta : angleDelta / 2;
+                    const maximumContentY = Math.max(themeList.originY, themeList.originY + themeList.contentHeight - themeList.height);
+                    themeList.contentY = Math.max(themeList.originY, Math.min(maximumContentY, themeList.contentY - delta * 4));
+                    event.accepted = true;
+                }
+            }
 
             ScrollBar.vertical: ScrollBar {
                 policy: themeList.contentHeight > themeList.height ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff

@@ -13,12 +13,17 @@ Column {
     readonly property bool hasImage: notification && notification.image && String(notification.image).length > 0
     readonly property string appIcon: notification && notification.appIcon ? Quickshell.iconPath(notification.appIcon, true) : ""
 
+    signal actionInvoked(var notification)
+
     function refreshActions() {
         const next = [];
         const actions = notification ? notification.actions : null;
         if (actions) {
             for (let i = 0; i < actions.length; i++) {
-                if (String(actions[i].text || "").trim().length > 0)
+                // The default action belongs to the card itself. Showing it as
+                // a second button is what gives Discord notifications a
+                // redundant "View" button.
+                if (actions[i].identifier !== "default" && String(actions[i].text || "").trim().length > 0)
                     next.push(actions[i]);
 
             }
@@ -160,7 +165,10 @@ Column {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: modelData.invoke()
+                    onClicked: {
+                        root.actionInvoked(root.notification);
+                        modelData.invoke();
+                    }
                 }
 
             }

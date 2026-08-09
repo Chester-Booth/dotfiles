@@ -18,6 +18,32 @@ class NotificationRuntimeTests(unittest.TestCase):
             "function actionIcon", 1
         )[0]
         self.assertIn('String(actions[i].text || "").trim().length > 0', refresh)
+        self.assertIn('actions[i].identifier !== "default"', refresh)
+
+    def test_notification_action_buttons_focus_the_source(self) -> None:
+        content = (
+            REPOSITORY
+            / "quickshell/.config/quickshell/blox/shared/NotificationContent.qml"
+        ).read_text(encoding="utf-8")
+        toast_surface = (
+            REPOSITORY
+            / "quickshell/.config/quickshell/blox/popouts/BarNotificationToastSurface.qml"
+        ).read_text(encoding="utf-8")
+
+        action_click = content.split("id: actionMouse", 1)[1].split("}", 2)[0]
+        self.assertIn("root.actionInvoked(root.notification)", action_click)
+        self.assertIn(
+            "root.notificationController.focusSource(notification)", toast_surface
+        )
+
+    def test_notification_focus_uses_current_hyprland_dispatch_syntax(self) -> None:
+        helper = (
+            REPOSITORY
+            / "hyprland/.config/hypr/scripts/focus-notification-source-workspace.sh"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('hl.dsp.focus({ window = \\"address:$address\\" })', helper)
+        self.assertNotIn("hyprctl dispatch focuswindow", helper)
 
     def test_notification_card_invokes_the_default_action(self) -> None:
         notification_surface = (
@@ -104,11 +130,31 @@ class NotificationRuntimeTests(unittest.TestCase):
         )[0]
 
         self.assertIn(
-            "expiryTimer.interval = animateHorizontalMovement ? fullLifetime : remainingLifetime",
+            "toast.startExpiry(animateHorizontalMovement ? fullLifetime : remainingLifetime)",
             completed,
         )
-        self.assertIn("expiryTimer.start()", completed)
         self.assertNotIn("running:", expiry_timer)
+
+    def test_hover_pauses_toast_expiry_and_shows_its_click_action(self) -> None:
+        stack = (
+            REPOSITORY
+            / "quickshell/.config/quickshell/blox/popouts/NotificationToastStack.qml"
+        ).read_text(encoding="utf-8")
+        controller = (
+            REPOSITORY
+            / "quickshell/.config/quickshell/blox/services/NotificationController.qml"
+        ).read_text(encoding="utf-8")
+
+        hover = stack.split("id: toastHover", 1)[1].split("NotificationContent", 1)[0]
+        self.assertIn("toast.pauseExpiry()", hover)
+        self.assertIn("toast.resumeExpiry()", hover)
+        self.assertIn("BloxToolTip {", stack)
+        self.assertIn("text: toast.clickTooltip", stack)
+        self.assertIn("x: toastHover.point.position.x", stack)
+        self.assertIn("y: toastHover.point.position.y", stack)
+        self.assertIn('preferredPlacement: "top-right"', stack)
+        self.assertIn('return label.length > 0 ? label : "Open"', controller)
+        self.assertIn('return canFocusSource(notification) ? "Focus" : ""', controller)
 
     def test_position_preview_uses_a_real_desktop_notification(self) -> None:
         controller = (

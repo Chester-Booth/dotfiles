@@ -32,6 +32,9 @@ Item {
             onActivate: (notification) => {
                 return root.notificationController.activate(notification);
             }
+            onActionInvoked: (notification) => {
+                return root.notificationController.focusSource(notification);
+            }
         }
 
     }

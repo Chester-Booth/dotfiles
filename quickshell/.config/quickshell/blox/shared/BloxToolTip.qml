@@ -7,6 +7,7 @@ Popup {
     property bool shown: false
     property string text: ""
     property int delay: 320
+    property string preferredPlacement: "auto"
     readonly property var hostWindow: parent ? parent.Window.window : null
 
     popupType: Popup.Item
@@ -37,9 +38,12 @@ Popup {
                 const point = root.parent.mapToItem(null, 0, 0);
                 const windowWidth = hostWindow.width;
                 const windowHeight = hostWindow.height;
-                const sceneX = Math.max(4, Math.min(windowWidth - root.width - 4, point.x + (root.parent.width - root.width) / 2));
+                const topRight = root.preferredPlacement === "top-right";
+                const wantedX = topRight ? point.x + root.parent.width + 8 : point.x + (root.parent.width - root.width) / 2;
+                const sceneX = Math.max(4, Math.min(windowWidth - root.width - 4, wantedX));
                 const below = point.y + root.parent.height + 6;
-                const sceneY = below + root.height <= windowHeight - 4 ? below : Math.max(4, point.y - root.height - 6);
+                const wantedY = topRight ? point.y - root.height - 8 : below + root.height <= windowHeight - 4 ? below : point.y - root.height - 6;
+                const sceneY = Math.max(4, Math.min(windowHeight - root.height - 4, wantedY));
                 root.x = sceneX - point.x;
                 root.y = sceneY - point.y;
                 root.open();

@@ -4,10 +4,18 @@ set -euo pipefail
 
 app_name="${BLOX_NOTIFICATION_APP_NAME:-}"
 desktop_entry="${BLOX_NOTIFICATION_DESKTOP_ENTRY:-}"
-summary="${BLOX_NOTIFICATION_SUMMARY:-}"
+window_address="${BLOX_NOTIFICATION_WINDOW_ADDRESS:-}"
+sender_pid="${BLOX_NOTIFICATION_SENDER_PID:-}"
 
-if [[ -z "$app_name" && -z "$desktop_entry" ]]; then
+if [[ -z "$app_name" && -z "$desktop_entry" && -z "$window_address" && -z "$sender_pid" ]]; then
     exit 0
+fi
+
+if [[ ! "$window_address" =~ ^0x[0-9a-fA-F]+$ ]]; then
+    window_address=""
+fi
+if [[ ! "$sender_pid" =~ ^[0-9]+$ ]]; then
+    sender_pid=""
 fi
 
 clients_json="$(hyprctl clients -j 2>/dev/null || true)"
@@ -19,7 +27,8 @@ match="$(
     jq -r \
         --arg app "$app_name" \
         --arg desktop "$desktop_entry" \
-        --arg summary "$summary" '
+        --arg address "$window_address" \
+        --argjson pid "${sender_pid:-0}" '
         def norm:
             tostring
             | ascii_downcase
@@ -64,7 +73,13 @@ match="$(
         candidates as $candidates
         | [
             .[]
-            | .score = client_score($candidates)
+            | .score = (
+                if $address != "" and (.address // "") == $address then 1000
+                elif $pid > 0 and (.pid // 0) == $pid then 900
+                elif $address != "" or $pid > 0 then 0
+                else client_score($candidates)
+                end
+              )
             | select(.score > 0)
           ]
         | sort_by(-.score, (.focusHistoryID // 999999))
@@ -89,8 +104,6 @@ if [[ "${FOCUS_NOTIFICATION_DRY_RUN:-}" == "1" ]]; then
     exit 0
 fi
 
-if [[ -n "$workspace_id" && "$workspace_id" != "null" ]]; then
-    hyprctl dispatch workspace "$workspace_id" >/dev/null 2>&1 || true
-fi
-
-hyprctl dispatch focuswindow "address:$address" >/dev/null
+# Focusing a window also changes to its workspace. Hyprland 0.55 replaced
+# the old `focuswindow` dispatcher arguments with this Lua form.
+hyprctl dispatch "hl.dsp.focus({ window = \"address:$address\" })" >/dev/null

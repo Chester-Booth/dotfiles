@@ -1,6 +1,7 @@
 import "../shared"
 import QtQuick
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Services.Notifications
 
@@ -57,6 +58,9 @@ Scope {
         if (!notification)
             return ;
 
+        // Focus first so an action can safely close its notification or change
+        // the application's own view.
+        focusSource(notification);
         const actions = notification.actions || [];
         for (let i = 0; i < actions.length; i++) {
             if (actions[i].identifier === "default") {
@@ -64,15 +68,75 @@ Scope {
                 return ;
             }
         }
-        focusSource(notification);
+    }
+
+    function hint(notification, names) {
+        const hints = notification && notification.hints ? notification.hints : null;
+        if (!hints)
+            return "";
+
+        for (let i = 0; i < names.length; i++) {
+            const value = hints[names[i]];
+            if (value !== undefined && value !== null && String(value).length > 0)
+                return String(value);
+        }
+        return "";
+    }
+
+    function normaliseFocusValue(value) {
+        return String(value || "").toLowerCase().replace(/\.desktop$/, "").replace(/[^a-z0-9]/g, "");
+    }
+
+    function canFocusSource(notification) {
+        if (!notification)
+            return false;
+
+        const wantedAddress = hint(notification, ["x-blox-window-address", "window-address"]);
+        const wantedPid = Number(hint(notification, ["x-blox-sender-pid", "sender-pid", "x-kde-pid", "pid"])) || 0;
+        const app = normaliseFocusValue(notification.appName);
+        const desktop = normaliseFocusValue(notification.desktopEntry);
+        const candidates = [app, desktop].filter((value, index, values) => value.length > 1 && values.indexOf(value) === index);
+        const toplevels = Hyprland.toplevels ? Hyprland.toplevels.values : [];
+
+        for (let i = 0; i < toplevels.length; i++) {
+            const client = toplevels[i].lastIpcObject || ({});
+            if (wantedAddress.length > 0 && String(client.address || "").toLowerCase() === wantedAddress.toLowerCase())
+                return true;
+            if (wantedPid > 0 && Number(client.pid || 0) === wantedPid)
+                return true;
+            if (wantedAddress.length > 0 || wantedPid > 0)
+                continue;
+
+            const clientClass = normaliseFocusValue(client.class);
+            const initialClass = normaliseFocusValue(client.initialClass);
+            for (let candidateIndex = 0; candidateIndex < candidates.length; candidateIndex++) {
+                const candidate = candidates[candidateIndex];
+                if (clientClass === candidate || initialClass === candidate || (candidate.length > 2 && (clientClass.indexOf(candidate) >= 0 || initialClass.indexOf(candidate) >= 0)))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    function activationLabel(notification) {
+        const actions = notification ? notification.actions || [] : [];
+        for (let i = 0; i < actions.length; i++) {
+            if (actions[i].identifier === "default") {
+                const label = String(actions[i].text || "").trim();
+                return label.length > 0 ? label : "Open";
+            }
+        }
+        return canFocusSource(notification) ? "Focus" : "";
     }
 
     function focusSource(notification) {
         if (!notification || !actionRunner || focusScript.length === 0)
             return ;
 
-        log("activate", "app=" + (notification.appName || "") + " desktop=" + (notification.desktopEntry || "") + " summary=" + (notification.summary || ""));
-        actionRunner.runArgs(["env", "BLOX_NOTIFICATION_APP_NAME=" + (notification.appName || ""), "BLOX_NOTIFICATION_DESKTOP_ENTRY=" + (notification.desktopEntry || ""), "BLOX_NOTIFICATION_SUMMARY=" + (notification.summary || ""), focusScript]);
+        const windowAddress = hint(notification, ["x-blox-window-address", "window-address"]);
+        const senderPid = hint(notification, ["x-blox-sender-pid", "sender-pid", "x-kde-pid", "pid"]);
+        log("activate", "app=" + (notification.appName || "") + " desktop=" + (notification.desktopEntry || "") + " address=" + windowAddress + " pid=" + senderPid + " summary=" + (notification.summary || ""));
+        actionRunner.runArgs(["env", "BLOX_NOTIFICATION_APP_NAME=" + (notification.appName || ""), "BLOX_NOTIFICATION_DESKTOP_ENTRY=" + (notification.desktopEntry || ""), "BLOX_NOTIFICATION_WINDOW_ADDRESS=" + windowAddress, "BLOX_NOTIFICATION_SENDER_PID=" + senderPid, focusScript]);
     }
 
     function open(centreY) {

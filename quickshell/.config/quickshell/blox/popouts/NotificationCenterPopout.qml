@@ -15,6 +15,7 @@ Rectangle {
 
     signal toggleDnd()
     signal activate(var notification)
+    signal actionInvoked(var notification)
 
     function orderedNotifications() {
         const items = root.notifications ? root.notifications.slice() : [];
@@ -336,6 +337,7 @@ Rectangle {
             meta: root.notificationMeta(card.notification)
             maximumBodyLineCount: 4
             headerRightPadding: 32
+            onActionInvoked: (notification) => root.actionInvoked(notification)
         }
 
         Rectangle {

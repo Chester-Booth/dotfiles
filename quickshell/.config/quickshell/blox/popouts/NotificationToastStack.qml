@@ -6,6 +6,7 @@ Item {
     id: root
 
     property var toasts: []
+    property var activationLabel: null
     property string position: "bottom-right"
     readonly property bool entersFromLeft: position === "top-left" || position === "bottom-left"
     readonly property bool entersVertically: position === "centre-top" || position === "centre-bottom"
@@ -19,6 +20,7 @@ Item {
 
     signal dismiss(var notification, bool closeNotification)
     signal activate(var notification)
+    signal actionInvoked(var notification)
 
     function takeEntranceAnimation(toastId) {
         if (animatedToastIds[toastId] === true)
@@ -69,11 +71,35 @@ Item {
                 property bool dragged: false
                 property bool closeNotificationOnDismiss: false
                 property bool animateHorizontalMovement: true
+                property int remainingLifetime: 0
+                property double expiryStartedAt: 0
+                readonly property string clickTooltip: root.activationLabel ? root.activationLabel(notification) : ""
+
+                function startExpiry(duration) {
+                    remainingLifetime = Math.max(1, duration);
+                    expiryTimer.interval = remainingLifetime;
+                    expiryStartedAt = Date.now();
+                    expiryTimer.restart();
+                }
+
+                function pauseExpiry() {
+                    if (!expiryTimer.running)
+                        return ;
+
+                    remainingLifetime = Math.max(1, remainingLifetime - (Date.now() - expiryStartedAt));
+                    expiryTimer.stop();
+                }
+
+                function resumeExpiry() {
+                    if (!dismissing && !expiryTimer.running)
+                        startExpiry(remainingLifetime);
+                }
 
                 function finishDismiss(closeNotification) {
                     if (dismissing)
                         return ;
 
+                    expiryTimer.stop();
                     closeNotificationOnDismiss = closeNotification;
                     dismissing = true;
                     x = root.entranceX;
@@ -94,8 +120,7 @@ Item {
                     animateHorizontalMovement = root.takeEntranceAnimation(modelData.toastId);
                     const fullLifetime = Math.max(3500, modelData.timeout || 6000);
                     const remainingLifetime = modelData.expiresAt ? Math.max(1, modelData.expiresAt - Date.now()) : fullLifetime;
-                    expiryTimer.interval = animateHorizontalMovement ? fullLifetime : remainingLifetime;
-                    expiryTimer.start();
+                    toast.startExpiry(animateHorizontalMovement ? fullLifetime : remainingLifetime);
                     x = 0;
                     y = 0;
                     if (!animateHorizontalMovement)
@@ -120,6 +145,33 @@ Item {
                     onTriggered: toast.finishDismiss(false)
                 }
 
+                Item {
+                    id: tooltipAnchor
+
+                    x: toastHover.point.position.x
+                    y: toastHover.point.position.y
+                    width: 1
+                    height: 1
+
+                    BloxToolTip {
+                        shown: toastHover.hovered && toast.clickTooltip.length > 0 && !toast.dismissing
+                        text: toast.clickTooltip
+                        preferredPlacement: "top-right"
+                    }
+                }
+
+                HoverHandler {
+                    id: toastHover
+
+                    cursorShape: toast.clickTooltip.length > 0 ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    onHoveredChanged: {
+                        if (hovered)
+                            toast.pauseExpiry();
+                        else
+                            toast.resumeExpiry();
+                    }
+                }
+
                 NotificationContent {
                     id: toastBody
 
@@ -130,6 +182,7 @@ Item {
                     meta: toast.notification && toast.notification.appName ? toast.notification.appName + " • now" : "notification • now"
                     maximumBodyLineCount: 4
                     headerRightPadding: 32
+                    onActionInvoked: (notification) => root.actionInvoked(notification)
                 }
 
                 Rectangle {

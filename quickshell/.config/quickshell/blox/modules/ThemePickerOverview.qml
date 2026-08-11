@@ -134,10 +134,10 @@ ColumnLayout {
                 placeholderText: "/path/to/wallpaper"
                 text: {
                     controller.candidateRevision;
-                    return controller.candidate && controller.candidate.wallpaper ? controller.candidate.wallpaper.path : "";
+                    return controller.candidate && controller.candidate.wallpaper ? controller.wallpaperDisplayPath(controller.candidate.wallpaper.path) : "";
                 }
                 onEditingFinished: {
-                    controller.setWallpaperPath(text);
+                    controller.setWallpaperDisplayPath(text);
                 }
             }
 

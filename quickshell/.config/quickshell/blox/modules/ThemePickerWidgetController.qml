@@ -17,13 +17,35 @@ QtObject {
 
     function localFileUrl(path) {
         const value = String(path || "");
+        if (value.startsWith("file:"))
+            return value;
+
         if (value.startsWith("~/"))
             return "file://" + Quickshell.env("HOME") + value.slice(1);
 
         if (value.startsWith("/"))
             return "file://" + value;
 
-        return value;
+        if (host.baselineJson) {
+            try {
+                const source = JSON.parse(host.baselineJson);
+                if (source.wallpaper && source.wallpaper.path === value) {
+                    for (const theme of host.themes) {
+                        if (theme.id === host.selectedId && theme.preview && theme.preview.wallpaper)
+                            return localFileUrl(theme.preview.wallpaper);
+
+                    }
+                }
+            } catch (error) {
+                console.warn("[blox.theme-picker] rejected source theme baseline: " + error);
+            }
+        }
+        return Theme.wallpaperUrl(value);
+    }
+
+    function localFilePath(path) {
+        const url = String(localFileUrl(path));
+        return url.startsWith("file://") ? url.slice(7) : url;
     }
 
     function previewCommand(widget) {

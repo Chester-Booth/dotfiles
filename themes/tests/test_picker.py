@@ -186,18 +186,35 @@ class ThemeLibraryMutationTests(unittest.TestCase):
 
 
 class PickerIntegrationSourceTests(unittest.TestCase):
-    def test_inline_wallpaper_preview_uses_the_repository_as_its_base(self) -> None:
-        _, candidate = load_theme("catppuccin-mocha")
+    def test_selected_theme_wallpaper_uses_the_resolved_library_preview(self) -> None:
+        controller = qml_source("WidgetController")
+        overview = qml_source("Overview")
+        resolver = controller.split("function localFileUrl(path)", 1)[1].split(
+            "function previewCommand", 1
+        )[0]
+
+        self.assertIn("source.wallpaper.path === value", resolver)
+        self.assertIn("theme.id === host.selectedId", resolver)
+        self.assertIn("return localFileUrl(theme.preview.wallpaper);", resolver)
+        self.assertIn("return Theme.wallpaperUrl(value);", resolver)
+        self.assertIn('url.startsWith("file://") ? url.slice(7) : url', resolver)
+        self.assertIn("controller.wallpaperDisplayPath(controller.candidate.wallpaper.path)", overview)
+        self.assertIn("controller.setWallpaperDisplayPath(text);", overview)
+
+    def test_inline_builtin_preview_keeps_its_application_data_base(self) -> None:
+        source, candidate = load_theme("catppuccin-mocha")
         candidate = copy.deepcopy(candidate)
-        candidate["wallpaper"]["path"] = "themes/schema/theme.schema.json"
 
         path, _, failure, code = cli.checked_theme(
             "preview", json.dumps(candidate), check_dependencies=False
         )
 
         self.assertEqual(0, code, failure)
-        self.assertEqual(THEMES / "themes/.inline-theme.json", path)
-        self.assertEqual(REPOSITORY / "themes/schema/theme.schema.json", resolve_wallpaper_path(candidate["wallpaper"]["path"], path))
+        self.assertEqual(source, path)
+        self.assertEqual(
+            THEMES / "wallpapers/showcase/catppuccin-mocha.webp",
+            resolve_wallpaper_path(candidate["wallpaper"]["path"], path),
+        )
 
     def test_picker_refreshes_sources_each_time_it_opens(self) -> None:
         controller = qml_source("Controller")

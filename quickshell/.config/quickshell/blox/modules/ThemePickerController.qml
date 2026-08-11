@@ -590,6 +590,14 @@ Scope {
         markCandidate(next);
     }
 
+    function setWallpaperDisplayPath(path) {
+        const value = String(path || "").trim();
+        if (!candidate || value === wallpaperDisplayPath(candidate.wallpaper.path))
+            return ;
+
+        setWallpaperPath(value);
+    }
+
     function shellDefaults() {
         return {
             "bar": {
@@ -700,6 +708,10 @@ Scope {
 
     function localFileUrl(path) {
         return widgetController.localFileUrl(path);
+    }
+
+    function wallpaperDisplayPath(path) {
+        return widgetController.localFilePath(path);
     }
 
     function widgetPreviewCommand(widget) {

@@ -191,7 +191,8 @@ def checked_theme(command: str, reference: str, check_dependencies: bool = True)
             theme = json.loads(reference)
             if not isinstance(theme, dict):
                 raise ValueError("theme root must be a JSON object")
-            path = themes_dir() / "themes/.inline-theme.json"
+            source = theme_path(str(theme.get("id", "")))
+            path = source if source.is_file() else builtin_themes_dir() / ".inline-theme.json"
         else:
             path, theme = load_theme(reference)
     except FileNotFoundError as error:

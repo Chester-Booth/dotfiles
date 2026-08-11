@@ -984,11 +984,14 @@ class CliContractTests(unittest.TestCase):
         preview = entries[0]["preview"]
         self.assertIn("colours", preview)
         self.assertIn("wallpaper", preview)
+        self.assertEqual(0, preview["widget_count"])
         self.assertEqual({"ui", "mono", "panel"}, set(preview["fonts"]))
         self.assertIn(preview["bar"]["position"], {"left", "right", "top", "bottom"})
         self.assertTrue(preview["bar"]["items"])
         solarized = next(entry for entry in entries if entry["id"] == "solarized-dark")
         self.assertTrue(solarized["builtin"])
+        dracula = next(entry for entry in entries if entry["id"] == "dracula")
+        self.assertEqual(1, dracula["preview"]["widget_count"])
         self.assertEqual(
             str(REPOSITORY / "themes/wallpapers/showcase/solarized-dark.webp"),
             solarized["preview"]["wallpaper"],

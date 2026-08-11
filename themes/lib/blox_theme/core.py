@@ -253,6 +253,11 @@ def list_themes() -> list[dict[str, Any]]:
                     "preview": {
                         "colours": data.get("colours", {}),
                         "wallpaper": str(resolve_wallpaper_path(wallpaper, path)) if wallpaper else "",
+                        "widget_count": sum(
+                            1
+                            for item in data.get("widgets", {}).get("items", [])
+                            if isinstance(item, dict) and item.get("enabled", True)
+                        ),
                         "fonts": {
                             role: data.get("fonts", {}).get(role, "")
                             for role in ("ui", "mono", "panel")

@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import urllib.request
 import uuid
 from pathlib import Path, PurePosixPath
@@ -149,6 +150,53 @@ def _extract_source(archive: Path, destination: Path, expected_directory: str) -
 def _checked_run(command: list[str], cwd: Path | None = None, timeout: int = 300) -> subprocess.CompletedProcess[str]:
     try:
         result = subprocess.run(command, cwd=cwd, capture_output=True, text=True, check=False, timeout=timeout)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise CursorFailure(f"cursor setup command failed to run: {' '.join(command)}: {error}") from error
+    if result.returncode:
+        detail = result.stderr.strip() or result.stdout.strip() or f"exit status {result.returncode}"
+        raise CursorFailure(f"cursor setup command failed: {' '.join(command)}: {detail}")
+    return result
+
+
+def _checked_run_with_bitmap_progress(
+    command: list[str],
+    source: Path,
+    output: Path,
+    progress: Callable[[str], None],
+    cwd: Path | None = None,
+    timeout: int = 900,
+) -> subprocess.CompletedProcess[str]:
+    """Run cbmp while reporting each bitmap it finishes."""
+    total = sum(1 for _, _, files in os.walk(source, followlinks=True) for name in files if name.endswith(".svg"))
+    started = time.monotonic()
+    try:
+        with tempfile.TemporaryFile(mode="w+") as stdout, tempfile.TemporaryFile(mode="w+") as stderr:
+            process = subprocess.Popen(command, cwd=cwd, stdout=stdout, stderr=stderr, text=True)
+            progress(f"cbmp started • 0/{total}")
+            reported = 0
+            while process.poll() is None:
+                generated = sorted(output.glob("*.png"), key=lambda path: path.stat().st_mtime_ns)
+                if len(generated) > reported:
+                    reported = len(generated)
+                    progress(f"Rendering {generated[-1].stem}.svg • {min(reported, total)}/{total}")
+                if time.monotonic() - started >= timeout:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=2)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait()
+                    raise subprocess.TimeoutExpired(command, timeout)
+                time.sleep(0.2)
+
+            generated = sorted(output.glob("*.png"), key=lambda path: path.stat().st_mtime_ns)
+            if len(generated) > reported:
+                progress(f"Rendering {generated[-1].stem}.svg • {min(len(generated), total)}/{total}")
+            if process.returncode == 0:
+                progress(f"cbmp finished • {min(len(generated), total)}/{total}")
+            stdout.seek(0)
+            stderr.seek(0)
+            result = subprocess.CompletedProcess(command, process.returncode, stdout.read(), stderr.read())
     except (OSError, subprocess.TimeoutExpired) as error:
         raise CursorFailure(f"cursor setup command failed to run: {' '.join(command)}: {error}") from error
     if result.returncode:
@@ -306,7 +354,7 @@ def validate_cursor_cache(cache: Path, metadata: dict[str, Any]) -> bool:
     return record == {"schema_version": 1, "metadata": metadata, "files": files} and (theme / "index.theme").is_file() and (theme / "cursors/left_ptr").is_file()
 
 
-def build_cursor_cache(metadata: dict[str, Any], root: Path | None = None) -> tuple[Path, bool]:
+def build_cursor_cache(metadata: dict[str, Any], root: Path | None = None, progress: Callable[[str], None] | None = None) -> tuple[Path, bool]:
     if metadata.get("mode") != "generated":
         raise CursorFailure("installed cursor mode does not use the generated cache")
     check = toolchain_check()
@@ -332,10 +380,15 @@ def build_cursor_cache(metadata: dict[str, Any], root: Path | None = None) -> tu
     config = source / f"configs/{config_variant}/x.build.toml"
     colours = metadata["colours"]
     try:
-        _checked_run([
+        bitmap_command = [
             str(paths["cbmp"]), "-d", str(svg), "-o", str(bitmaps),
             "-bc", colours["base"], "-oc", colours["outline"], "-wc", colours["watch_background"],
-        ], cwd=source)
+        ]
+        if progress is None:
+            _checked_run(bitmap_command, cwd=source, timeout=900)
+        else:
+            _checked_run_with_bitmap_progress(bitmap_command, svg, bitmaps, progress, cwd=source)
+            progress("ctgen started")
         _checked_run([
             str(paths["ctgen"]), str(config), "-s", *[str(size) for size in metadata["sizes"]],
             "-p", "x11", "-d", str(bitmaps), "-o", str(output), "-n", CURSOR_THEME_NAME,
@@ -347,6 +400,8 @@ def build_cursor_cache(metadata: dict[str, Any], root: Path | None = None) -> tu
         os.replace(built, candidate / "theme")
         shutil.rmtree(bitmaps, ignore_errors=True)
         shutil.rmtree(output, ignore_errors=True)
+        if progress is not None:
+            progress("Validating cursor cache")
         record = {"schema_version": 1, "metadata": metadata, "files": _cache_files(candidate / "theme")}
         (candidate / "cache.json").write_text(canonical_json(record), encoding="utf-8")
         os.replace(candidate, cache)

@@ -102,6 +102,7 @@ def parser() -> argparse.ArgumentParser:
     apply_parser.add_argument("theme")
     apply_parser.add_argument("--targets", help="comma-separated runtime targets")
     apply_parser.add_argument("--json", action="store_true")
+    apply_parser.add_argument("--progress-ndjson", action="store_true", help="write structured progress events to stderr")
     reconcile_parser = subcommands.add_parser("reconcile")
     reconcile_parser.add_argument("--targets", help="comma-separated active targets")
     reconcile_parser.add_argument("--json", action="store_true")
@@ -524,11 +525,44 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         checked = validate_theme(theme, check_dependencies=True, targets=set(selected), source_path=path)
         if checked.errors:
             return envelope(command, errors=checked.errors, warnings=checked.warnings), EXIT_VALIDATION
+        progress_total = 3 + len(selected)
+        last_progress: dict[str, Any] = {}
+
+        def emit_progress(event: dict[str, Any]) -> None:
+            nonlocal last_progress
+            last_progress = event
+            if not args.progress_ndjson:
+                return
+            print(json.dumps({"type": "theme-progress", **event}, sort_keys=True, separators=(",", ":")), file=sys.stderr, flush=True)
+
+        def emit_failure(error: Exception) -> None:
+            if last_progress.get("state") == "failed":
+                return
+            emit_progress({
+                "kind": "stage",
+                "stage": last_progress.get("stage", "source"),
+                "state": "failed",
+                "message": str(error),
+                "completed": last_progress.get("completed", 0),
+                "total": progress_total,
+            })
+
+        emit_progress({
+            "kind": "stage",
+            "stage": "prepare",
+            "state": "active",
+            "message": "Checking theme and dependencies",
+            "completed": 0,
+            "total": progress_total,
+            "targets": list(selected),
+        })
         try:
-            manifest, warnings = apply_theme(path, theme, selected)
+            manifest, warnings = apply_theme(path, theme, selected, progress=emit_progress)
         except LockContended as error:
+            emit_failure(error)
             return envelope(command, errors=[str(error)]), EXIT_LOCKED
         except (OSError, RuntimeFailure, TypeError, ValueError) as error:
+            emit_failure(error)
             return envelope(command, errors=[str(error)]), EXIT_APPLY
         data = {"generation": manifest["generation_id"], "theme_id": manifest["theme_id"], "changed_targets": list(selected), "active_targets": manifest["enabled_targets"]}
         operation_warnings = []

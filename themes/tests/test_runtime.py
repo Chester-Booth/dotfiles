@@ -525,6 +525,26 @@ class RuntimeCliTests(unittest.TestCase):
             self.assertEqual(0, apply_code)
             self.assertTrue(applied["ok"])
             first = applied["data"]["generation"]
+            streamed = subprocess.run(
+                [str(THEMES / "bin/themectl"), "apply", "catppuccin-mocha", "--targets", "quickshell,wallpaper", "--progress-ndjson", "--json"],
+                cwd=REPOSITORY,
+                env=environment,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(0, streamed.returncode)
+            events = [json.loads(line) for line in streamed.stderr.splitlines()]
+            self.assertTrue(events)
+            self.assertTrue(all(event["type"] == "theme-progress" for event in events))
+            self.assertEqual(["quickshell", "wallpaper"], events[0]["targets"])
+            stage_ids = list(dict.fromkeys(event["stage"] for event in events if event["kind"] == "stage"))
+            self.assertEqual(["prepare", "cursor", "activation", "applications"], stage_ids)
+            target_events = [event for event in events if event["kind"] == "target"]
+            self.assertEqual(["quickshell", "quickshell", "wallpaper", "wallpaper"], [event["target"] for event in target_events])
+            self.assertEqual(["active", "applied", "active", "applied"], [event["state"] for event in target_events])
+            self.assertEqual(events[-1]["total"], events[-1]["completed"])
+            first = json.loads(streamed.stdout)["data"]["generation"]
             reconcile_code, reconciled = invoke("reconcile")
             self.assertEqual(0, reconcile_code)
             self.assertEqual(first, reconciled["data"]["generation"])

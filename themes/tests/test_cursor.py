@@ -102,11 +102,28 @@ class CursorCacheTests(unittest.TestCase):
             theme_path, hit = build_cursor_cache(self.metadata)
             self.assertFalse(hit)
             self.assertTrue(validate_cursor_cache(theme_path.parent, self.metadata))
+            self.assertEqual(900, runner.call_args_list[0].kwargs["timeout"])
             first_calls = runner.call_count
             again, hit = build_cursor_cache(self.metadata)
         self.assertTrue(hit)
         self.assertEqual(theme_path, again)
         self.assertEqual(first_calls, runner.call_count)
+
+    def test_build_streams_bitmap_and_compiler_progress(self) -> None:
+        messages = []
+
+        def fake_bitmap_run(command, source, output, progress, cwd=None, timeout=900):
+            output.mkdir(parents=True)
+            (output / "wait.png").write_bytes(b"png")
+            progress("Rendering wait.svg • 1/164")
+            return subprocess.CompletedProcess(command, 0, "", "")
+
+        with mock.patch("blox_theme.cursor._checked_run_with_bitmap_progress", side_effect=fake_bitmap_run), mock.patch("blox_theme.cursor._checked_run", side_effect=self.fake_run):
+            build_cursor_cache(self.metadata, progress=messages.append)
+
+        self.assertEqual("Rendering wait.svg • 1/164", messages[0])
+        self.assertIn("ctgen started", messages)
+        self.assertEqual("Validating cursor cache", messages[-1])
 
     def test_corrupt_cache_is_rejected_without_rebuild(self) -> None:
         with mock.patch("blox_theme.cursor._checked_run", side_effect=self.fake_run):

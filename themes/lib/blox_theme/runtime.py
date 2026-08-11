@@ -945,9 +945,12 @@ def _reload_cursor(root: Path, mode: str, run_command: Callable[[list[str]], sub
     return warnings
 
 
-def run_reload_actions(root: Path, targets: Iterable[str], mode: str = "reload", run_command: Callable[[list[str]], subprocess.CompletedProcess[str]] = _run) -> list[str]:
+def run_reload_actions(root: Path, targets: Iterable[str], mode: str = "reload", run_command: Callable[[list[str]], subprocess.CompletedProcess[str]] = _run, progress: Callable[[str, str, str], None] | None = None) -> list[str]:
     warnings = []
     for target in targets:
+        if progress is not None:
+            progress(target, "active", "Applying…")
+        warning_start = len(warnings)
         if target == "quickshell":
             warning = _reload_quickshell(mode, run_command)
             if warning:
@@ -1008,12 +1011,29 @@ def run_reload_actions(root: Path, targets: Iterable[str], mode: str = "reload",
             warnings.append("Obsidian's generated Style Settings import was removed; existing vault settings were not changed" if mode == "reset" else f"Obsidian requires Minimal and Style Settings; manually import {root / 'current/obsidian/style-settings.json'}")
         elif target == "powerlevel10k":
             warnings.append("Powerlevel10k will use the base configuration in new shells" if mode == "reset" else "Powerlevel10k theme changes apply to new shells; source the generated fragment to update the current shell")
+        if progress is not None:
+            target_warnings = warnings[warning_start:]
+            failed = next((warning for warning in target_warnings if any(token in warning.lower() for token in ("failed", "not changed", "unavailable", "could not"))), "")
+            if failed:
+                progress(target, "failed", failed)
+            elif target in ("stylus", "obsidian"):
+                progress(target, "manual", "Apply manually")
+            elif target in ("gtk", "cursor", "hyprlock", "btop", "micro", "glow", "code", "cursor_editor", "powerlevel10k"):
+                progress(target, "restart", "Restart needed" if target not in ("code", "cursor_editor") else "Reload Window")
+            else:
+                progress(target, "applied", "Applied")
     return warnings
 
 
-def apply_theme(theme_path: Path, theme: dict[str, Any], targets: Iterable[str], run_command: Callable[[list[str]], subprocess.CompletedProcess[str]] = _run, renderer: Callable[[dict[str, Any]], tuple[dict[str, str], list[str]]] = render_theme, cursor_builder: Callable[[dict[str, Any], Path], tuple[Path, bool]] | None = None) -> tuple[dict[str, Any], list[str]]:
+def apply_theme(theme_path: Path, theme: dict[str, Any], targets: Iterable[str], run_command: Callable[[list[str]], subprocess.CompletedProcess[str]] = _run, renderer: Callable[[dict[str, Any]], tuple[dict[str, str], list[str]]] = render_theme, cursor_builder: Callable[[dict[str, Any], Path], tuple[Path, bool]] | None = None, progress: Callable[[dict[str, Any]], None] | None = None) -> tuple[dict[str, Any], list[str]]:
     root = state_dir()
     selected = tuple(targets)
+    progress_total = 3 + len(selected)
+
+    def report(kind: str, stage: str, state: str, message: str, completed: int, target: str = "") -> None:
+        if progress is not None:
+            progress({"kind": kind, "stage": stage, "target": target, "state": state, "message": message, "completed": completed, "total": progress_total})
+
     unknown = sorted(set(selected) - set(TARGET_NAMES))
     if unknown:
         raise RuntimeFailure(f"unsupported runtime target(s): {', '.join(unknown)}")
@@ -1031,11 +1051,16 @@ def apply_theme(theme_path: Path, theme: dict[str, Any], targets: Iterable[str],
             render_input = dict(theme)
             render_input["wallpaper"] = dict(theme["wallpaper"])
             render_input["wallpaper"]["path"] = str(resolve_wallpaper_path(theme["wallpaper"]["path"], theme_path))
+        report("stage", "prepare", "active", "Generating target files", 0)
         files, _ = renderer(render_input)
         for target in selected:
             missing = [name for name in TARGET_REQUIRED_FILES[target] if name not in files]
             if missing:
+                report("stage", "prepare", "failed", f"Renderer did not produce {target}: {', '.join(missing)}", 0)
                 raise RuntimeFailure(f"renderer did not produce {target}: {', '.join(missing)}")
+        report("stage", "prepare", "done", f"Theme checked · {len(files)} generated files ready", 1)
+        report("stage", "cursor", "active", "Checking generated cursor assets", 1)
+        cursor_message = "No cursor assets enabled"
         if "cursor" in selected:
             try:
                 metadata = json.loads(files["cursor/metadata.json"])
@@ -1043,18 +1068,33 @@ def apply_theme(theme_path: Path, theme: dict[str, Any], targets: Iterable[str],
                     from .cursor import CursorFailure, build_cursor_cache
 
                     try:
-                        (cursor_builder or build_cursor_cache)(metadata, root)
+                        report("stage", "cursor", "active", "Building generated cursor assets", 1)
+                        if cursor_builder is None:
+                            def cursor_progress(detail: str) -> None:
+                                report("stage", "cursor", "active", f"Building generated cursor assets • {detail}", 1)
+
+                            _, cache_hit = build_cursor_cache(metadata, root, progress=cursor_progress)
+                        else:
+                            _, cache_hit = cursor_builder(metadata, root)
+                        cursor_message = "Generated cursor cache ready" if cache_hit else "Generated cursor assets built"
                     except CursorFailure as error:
+                        report("stage", "cursor", "failed", str(error), 1)
                         raise RuntimeFailure(str(error)) from error
+                else:
+                    cursor_message = "Installed cursor theme ready"
             except (json.JSONDecodeError, KeyError, TypeError) as error:
+                report("stage", "cursor", "failed", f"Renderer produced invalid cursor metadata: {error}", 1)
                 raise RuntimeFailure(f"renderer produced invalid cursor metadata: {error}") from error
             _ensure_cursor_integration(root, run_command)
+        report("stage", "cursor", "done", cursor_message, 2)
 
         generation_id = _new_generation_id()
         candidate = generations / f".candidate-{uuid.uuid4().hex}"
         final = generations / generation_id
         candidate.mkdir(mode=0o700)
+        application_started = False
         try:
+            report("stage", "activation", "active", "Writing an atomic theme generation", 2)
             _copy_previous(previous_path, candidate)
             for target in selected:
                 _remove_target(candidate, target)
@@ -1101,10 +1141,23 @@ def apply_theme(theme_path: Path, theme: dict[str, Any], targets: Iterable[str],
                 finally:
                     shutil.rmtree(final, ignore_errors=True)
                 raise
-            reload_warnings = run_reload_actions(root, selected, run_command=run_command)
+            report("stage", "activation", "done", "Theme generation activated", 3)
+            report("stage", "applications", "active", f"Applying {len(selected)} enabled targets", 3)
+            application_started = True
+            completed_targets = 0
+
+            def report_target(target: str, state: str, message: str) -> None:
+                nonlocal completed_targets
+                if state != "active":
+                    completed_targets += 1
+                report("target", "applications", state, message, 3 + completed_targets, target)
+
+            reload_warnings = run_reload_actions(root, selected, run_command=run_command, progress=report_target)
+            report("stage", "applications", "done", "Application targets finished", progress_total)
             _prune_generations(root, final)
             return manifest, reload_warnings
-        except Exception:
+        except Exception as error:
+            report("stage", "applications" if application_started else "activation", "failed", str(error), 3 if application_started else 2)
             shutil.rmtree(candidate, ignore_errors=True)
             raise
 

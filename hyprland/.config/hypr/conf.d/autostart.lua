@@ -8,8 +8,7 @@ hl.on("hyprland.start", function()
     hl.exec_cmd([[bash -c "sleep 1 && systemctl --user restart hyprpolkitagent"]])
 
     -- 3. Other apps.
-    hl.exec_cmd([[bash -c 'install -d -m 0700 "$XDG_RUNTIME_DIR/blox-launcher" && quickshell --no-duplicate --path ~/.config/quickshell/blox']])
-    hl.exec_cmd("hyprpaper")
+    hl.exec_cmd([[bash -c 'install -d -m 0700 "$XDG_RUNTIME_DIR/blox-launcher" && systemctl --user restart quickshell.service']])
     hl.exec_cmd("blueman-applet")
     hl.exec_cmd("hypridle")
     hl.exec_cmd("~/.config/quickshell/blox/scripts/display/blue-light-mode.sh")

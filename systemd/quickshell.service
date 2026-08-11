@@ -1,0 +1,10 @@
+[Unit]
+Description=Blox Quickshell desktop shell
+StartLimitIntervalSec=30
+StartLimitBurst=5
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/quickshell --no-duplicate --path %h/.config/quickshell/blox
+Restart=on-failure
+RestartSec=2

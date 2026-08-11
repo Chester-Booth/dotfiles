@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -u
 
-config_name="${QUICKSHELL_CONFIG_NAME:-blox}"
 mode="${1:-eco}"
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
-quickshell ipc -c "$config_name" call osd gpu "$mode" >/dev/null 2>&1 || true
+"$script_dir/ipc.sh" osd gpu "$mode" >/dev/null 2>&1 || true

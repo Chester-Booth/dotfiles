@@ -2,7 +2,6 @@
 set -u
 
 script_root="${QUICKSHELL_SCRIPT_ROOT:-$HOME/.config/quickshell/blox/scripts}"
-config_name="${QUICKSHELL_CONFIG_NAME:-blox}"
 brightness_device="${BRIGHTNESS_DEVICE:-amdgpu_bl1}"
 keyboard_device="${KEYBOARD_BRIGHTNESS_DEVICE:-asus::kbd_backlight}"
 camera_device="${CAMERA_DEVICE:-asus::camera}"
@@ -17,7 +16,7 @@ upower_kbd_path="/org/freedesktop/UPower/KbdBacklight"
 upower_kbd_interface="org.freedesktop.UPower.KbdBacklight"
 
 ipc() {
-	quickshell ipc -c "$config_name" call osd "$@" >/dev/null 2>&1 || true
+	"$script_root/ipc.sh" osd "$@" >/dev/null 2>&1 || true
 }
 
 brightness_percent() {

@@ -124,6 +124,13 @@ Scope {
         LauncherState.applicationUsage = usage;
     }
 
+    function iconSource(entry) {
+        const icon = String(entry.icon || "");
+        if (!icon.length)
+            return "";
+        return icon.startsWith("/") ? "file://" + icon : Quickshell.iconPath(icon, true);
+    }
+
     function executeCurrentDesktopEntry(entry) {
         const desktopId = String(entry.id || "").replace(/\.desktop$/, "");
         if (desktopId.length) {
@@ -192,7 +199,7 @@ Scope {
                 "kind": entry.runInTerminal ? "command" : "app",
                 "title": entry.name,
                 "subtitle": entry.comment || entry.id,
-                "icon": String(entry.icon || "").startsWith("/") ? "file://" + entry.icon : Quickshell.iconPath(entry.icon || ""),
+                "icon": iconSource(entry),
                 "score": value + (text.length ? usageBoost(entry) : 0),
                 "entry": entry
             });
@@ -287,6 +294,13 @@ Scope {
     }
 
     onQueryChanged: refresh()
+
+    Connections {
+        target: DesktopEntries
+        function onApplicationsChanged() {
+            root.refresh();
+        }
+    }
 
     Timer {
         id: qalcDebounce

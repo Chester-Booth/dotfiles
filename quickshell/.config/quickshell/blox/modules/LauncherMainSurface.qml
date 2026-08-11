@@ -199,7 +199,6 @@ PanelWindow {
                             sourceSize.width: 30
                             sourceSize.height: 30
                             fillMode: Image.PreserveAspectFit
-                            asynchronous: true
                         }
 
                         PhosphorIcon {
@@ -207,7 +206,7 @@ PanelWindow {
                             width: 22
                             height: 22
                             visible: modelData.kind === "category" || ((modelData.kind === "app" || modelData.kind === "command") && modelData.icon.length === 0)
-                            iconName: modelData.kind === "category" ? modelData.iconName : modelData.kind === "command" ? "terminal-window" : "presentation-chart"
+                            iconName: modelData.kind === "category" ? modelData.iconName : modelData.kind === "command" ? "terminal-window" : "image-broken"
                             iconColor: Theme.foreground
                         }
 

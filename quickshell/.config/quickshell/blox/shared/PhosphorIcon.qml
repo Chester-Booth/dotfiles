@@ -5,7 +5,7 @@ Image {
     required property string iconName
     property color iconColor: Theme.foreground
 
-    source: "../assets/phosphor/" + iconName + ".svg"
+    source: iconName === "" ? "" : "../assets/phosphor/" + iconName + ".svg"
     fillMode: Image.PreserveAspectFit
     smooth: true
     mipmap: true

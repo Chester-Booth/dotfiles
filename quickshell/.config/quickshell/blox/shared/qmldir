@@ -1,7 +1,6 @@
 singleton Theme 1.0 Theme.qml
 ThemeDefaults 1.0 ThemeDefaults.qml
 ThemeDocumentController 1.0 ThemeDocumentController.qml
-singleton Lucide 1.0 Lucide.qml
 RailButton 1.0 RailButton.qml
 BarItemContext 1.0 BarItemContext.qml
 BarItemDelegate 1.0 BarItemDelegate.qml

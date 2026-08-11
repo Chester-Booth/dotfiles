@@ -54,7 +54,7 @@ ColumnLayout {
         BloxButton {
             visible: controller.guideTarget === "stylus"
             Layout.alignment: Qt.AlignRight
-            iconName: "download"
+            iconName: "download-simple"
             text: "Download file"
             onClicked: controller.downloadGeneratedFile("stylus", "stylus/blox-system.user.css")
         }

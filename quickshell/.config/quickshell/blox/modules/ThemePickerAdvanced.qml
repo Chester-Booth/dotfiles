@@ -242,12 +242,12 @@ ColumnLayout {
                                 Layout.preferredWidth: 18
                                 Layout.fillHeight: true
 
-                                Text {
+                                PhosphorIcon {
                                     anchors.centerIn: parent
-                                    text: Lucide.icon("grip-vertical")
-                                    color: handleHover.hovered ? Theme.foreground : Theme.muted
-                                    font.family: Lucide.family
-                                    font.pixelSize: 17
+                                    width: 17
+                                    height: 17
+                                    iconName: "dots-six-vertical"
+                                    iconColor: handleHover.hovered ? Theme.foreground : Theme.muted
                                 }
 
                                 HoverHandler {
@@ -369,7 +369,7 @@ ColumnLayout {
                                 Layout.preferredWidth: 34
                                 Layout.preferredHeight: 32
                                 compact: true
-                                iconName: "chevron-up"
+                                iconName: "caret-up"
                                 enabled: barItemRow.modelData.id === "application-tray" ? false : barItemRow.modelData.id === "tray" ? barItemRow.modelData.region === "centre" && barItemRow.index > 0 : barItemRow.index > 0
                                 onClicked: controller.moveBarItem(barItemRow.barItemId, -1)
                             }
@@ -378,7 +378,7 @@ ColumnLayout {
                                 Layout.preferredWidth: 34
                                 Layout.preferredHeight: 32
                                 compact: true
-                                iconName: "chevron-down"
+                                iconName: "caret-down"
                                 enabled: barItemRow.modelData.id === "application-tray" ? false : barItemRow.modelData.id === "tray" ? barItemRow.modelData.region === "centre" && barItemRow.index === 0 && barItemRepeater.count > 1 : barItemRow.index < barItemRepeater.count - 1
                                 onClicked: controller.moveBarItem(barItemRow.barItemId, 1)
                             }
@@ -777,7 +777,7 @@ ColumnLayout {
 
                     BloxButton {
                         visible: modelData.files.length > 1
-                        iconName: "download"
+                        iconName: "download-simple"
                         text: "Download all (.zip)"
                         onClicked: controller.downloadGeneratedArchive(modelData.target)
                     }
@@ -794,7 +794,7 @@ ColumnLayout {
                         BloxButton {
                             required property var modelData
 
-                            iconName: "download"
+                            iconName: "download-simple"
                             text: modelData.name
                             onClicked: controller.downloadGeneratedFile(modelData.target, modelData.file)
                         }
@@ -892,7 +892,7 @@ ColumnLayout {
                             BloxButton {
                                 visible: overrideEditor.overrideValue.length > 0
                                 Layout.preferredWidth: 38
-                                iconName: "rotate-ccw"
+                                iconName: "arrow-counter-clockwise"
                                 text: ""
                                 onClicked: controller.setOverride(overrideEditor.targetName, overrideEditor.modelData, "")
                             }

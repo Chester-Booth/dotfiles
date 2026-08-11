@@ -101,22 +101,22 @@ QtObject {
 
     function previewIcon(id) {
         const icons = {
-            "active-window-title": "text-cursor-input",
+            "active-window-title": "cursor-text",
             "power": "power",
-            "notes": "notebook-tabs",
-            "workspaces": "grid-2x2",
+            "notes": "notebook",
+            "workspaces": "squares-four",
             "clock": "clock",
-            "battery": "battery",
-            "tray": "panels-top-left",
+            "battery": "battery-full",
+            "tray": "app-window",
             "notifications": "bell",
-            "wifi": "wifi",
-            "sound": "volume-2",
-            "touchpad": "panel-top",
+            "wifi": "wifi-high",
+            "sound": "speaker-high",
+            "touchpad": "cursor-click",
             "privacy": "shield",
             "awake": "coffee",
             "display": "sun",
             "bt": "bluetooth",
-            "updates": "refresh-cw",
+            "updates": "arrows-clockwise",
             "application-tray": "app-window"
         };
         return icons[id] || "app-window";

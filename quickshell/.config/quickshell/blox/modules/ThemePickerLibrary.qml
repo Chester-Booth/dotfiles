@@ -81,7 +81,7 @@ Rectangle {
 
             BloxButton {
                 Layout.fillWidth: true
-                iconName: "download"
+                iconName: "download-simple"
                 text: "Import"
                 enabled: !controller.dirty && !controller.busy
                 onClicked: controller.openImportDialog()
@@ -89,7 +89,7 @@ Rectangle {
 
             BloxButton {
                 Layout.fillWidth: true
-                iconName: "upload"
+                iconName: "upload-simple"
                 text: "Export"
                 enabled: controller.candidate && controller.sourceDigest.length > 0 && !controller.dirty && !controller.busy
                 onClicked: controller.openExportDialog()
@@ -405,12 +405,12 @@ Rectangle {
                     radius: 8
                     color: kebabMouse.containsMouse || themeActions.visible ? Theme.withAlpha(themeDelegate.previewAccent, 0.22) : "transparent"
 
-                    Text {
+                    PhosphorIcon {
                         anchors.centerIn: parent
-                        text: Lucide.icon("ellipsis")
-                        color: kebabMouse.containsMouse || themeActions.visible ? themeDelegate.previewForeground : themeDelegate.previewMuted
-                        font.family: Lucide.family
-                        font.pixelSize: 18
+                        width: 18
+                        height: 18
+                        iconName: "dots-three"
+                        iconColor: kebabMouse.containsMouse || themeActions.visible ? themeDelegate.previewForeground : themeDelegate.previewMuted
                     }
 
                     MouseArea {

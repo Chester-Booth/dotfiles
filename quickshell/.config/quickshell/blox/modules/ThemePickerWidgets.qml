@@ -46,7 +46,7 @@ ColumnLayout {
         }
 
         BloxButton {
-            iconName: "grid-2x2"
+            iconName: "squares-four"
             text: "Edit mode"
             onClicked: controller.openWidgetEditMode()
         }
@@ -58,13 +58,13 @@ ColumnLayout {
         }
 
         BloxButton {
-            iconName: "download"
+            iconName: "download-simple"
             text: "Import"
             onClicked: controller.openWidgetImportDialog()
         }
 
         BloxButton {
-            iconName: "upload"
+            iconName: "upload-simple"
             text: "Export"
             onClicked: controller.openWidgetExportDialog()
         }
@@ -273,12 +273,12 @@ ColumnLayout {
                 width: barPreview.horizontal ? 15 : barPreview.width
                 height: barPreview.horizontal ? barPreview.height : 15
 
-                Text {
+                PhosphorIcon {
                     anchors.centerIn: parent
-                    text: Lucide.icon(controller.barPreviewIcon(parent.modelData.id))
-                    color: Theme.foreground
-                    font.family: Lucide.family
-                    font.pixelSize: 8
+                    width: 9
+                    height: 9
+                    iconName: controller.barPreviewIcon(parent.modelData.id)
+                    iconColor: Theme.foreground
                 }
 
             }

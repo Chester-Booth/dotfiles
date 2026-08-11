@@ -1,7 +1,7 @@
 import QtQuick
 
 Rectangle {
-    id: root
+    id: buttonRoot
 
     property string text: ""
     property string iconName: ""
@@ -38,28 +38,26 @@ Rectangle {
         id: buttonContent
 
         anchors.centerIn: parent
-        spacing: root.iconName.length > 0 && root.text.length > 0 ? 7 : 0
+        spacing: buttonRoot.iconName.length > 0 && buttonRoot.text.length > 0 ? 7 : 0
 
-        Text {
-            visible: root.iconName.length > 0
+        PhosphorIcon {
+            visible: buttonRoot.iconName.length > 0
             anchors.verticalCenter: parent.verticalCenter
-            text: Lucide.icon(root.iconName)
-            color: label.color
-            font.family: Lucide.family
-            font.pixelSize: root.iconSize
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
+            width: buttonRoot.iconSize
+            height: buttonRoot.iconSize
+            iconName: buttonRoot.iconName
+            iconColor: label.color
         }
 
         Text {
             id: label
 
             anchors.verticalCenter: parent.verticalCenter
-            text: root.text
-            color: !root.enabled ? Theme.muted : root.destructive ? Theme.red : root.checked ? root.accent : Theme.foreground
+            text: buttonRoot.text
+            color: !buttonRoot.enabled ? Theme.muted : buttonRoot.destructive ? Theme.red : buttonRoot.checked ? buttonRoot.accent : Theme.foreground
             font.family: Theme.bodyFontFamily
             font.pixelSize: 12
-            font.bold: root.checked
+            font.bold: buttonRoot.checked
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
@@ -70,14 +68,14 @@ Rectangle {
     HoverHandler {
         id: hover
 
-        cursorShape: root.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+        cursorShape: buttonRoot.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
     }
 
     TapHandler {
         id: tap
 
-        enabled: root.enabled
-        onTapped: root.clicked()
+        enabled: buttonRoot.enabled
+        onTapped: buttonRoot.clicked()
     }
 
 }

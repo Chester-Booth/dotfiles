@@ -263,7 +263,7 @@ PanelWindow {
 
             BloxButton {
                 text: "Save"
-                iconName: "save"
+                iconName: "floppy-disk"
                 accent: Theme.green
                 onClicked: root.saveRequested()
             }
@@ -442,15 +442,15 @@ PanelWindow {
 
         }
 
-        Text {
+        PhosphorIcon {
             anchors.left: parent.left
             anchors.leftMargin: 12
             anchors.top: parent.top
             anchors.topMargin: 17
-            text: Lucide.icon("grip-vertical")
-            color: Theme.muted
-            font.family: Lucide.family
-            font.pixelSize: 18
+            width: 18
+            height: 18
+            iconName: "dots-six-vertical"
+            iconColor: Theme.muted
         }
 
         MouseArea {

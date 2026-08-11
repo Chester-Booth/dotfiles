@@ -93,13 +93,15 @@ QtObject {
             if (failed) {
                 host.errorMessage = response && response.errors ? response.errors.join("\n") : "Palette preview failed.";
             } else if (!host.paletteOptions.some((entry) => {
-                return entry.available && entry.backend === host.generatorBackend;
+                return entry.available && entry.backend === host.generatorBackend && entry.mode === host.newVariant;
             })) {
                 const available = host.paletteOptions.find((entry) => {
                     return entry.available;
                 });
                 if (available)
                     host.generatorBackend = available.backend;
+                if (available)
+                    host.newVariant = available.mode;
 
             }
             return ;

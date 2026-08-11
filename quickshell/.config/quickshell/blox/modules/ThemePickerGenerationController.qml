@@ -6,6 +6,7 @@ QtObject {
 
     required property var host
     property string backend: "matugen"
+    property string newVariant: "dark"
     property bool generateAfterLoad: false
     property string newThemeName: ""
     property string newThemeId: ""
@@ -103,13 +104,14 @@ QtObject {
         host.host.dialogs.openGeneratedExport();
     }
 
-    function generate(wallpaper, displayName, themeId, requestedBackend) {
+    function generate(wallpaper, displayName, themeId, requestedBackend, requestedVariant) {
         if (!wallpaper || !wallpaper.trim()) {
             host.errorMessage = "Choose a wallpaper first.";
             return ;
         }
         const selectedBackend = requestedBackend || backend;
-        const args = ["generate", wallpaper.trim(), "--backend", selectedBackend];
+        const selectedVariant = requestedVariant || newVariant;
+        const args = ["generate", wallpaper.trim(), "--backend", selectedBackend, "--mode", selectedVariant];
         if (displayName)
             args.push("--name", displayName.trim());
 
@@ -121,7 +123,8 @@ QtObject {
             "wallpaper": wallpaper.trim(),
             "name": displayName || "",
             "id": themeId || "",
-            "backend": selectedBackend
+            "backend": selectedBackend,
+            "variant": selectedVariant
         };
 
     }
@@ -181,6 +184,7 @@ QtObject {
         newThemeName = "";
         newThemeId = host.duplicateIdForName(newThemeName);
         newWallpaper = "";
+        newVariant = Theme.variant === "light" ? "light" : "dark";
         newFlowPage = wallpaperPage ? "wallpaper" : "blank";
         paletteOptions = [];
         paletteLoading = false;
@@ -193,55 +197,57 @@ QtObject {
         const blank = JSON.parse(JSON.stringify(template));
         blank.id = inputs.id;
         blank.name = inputs.name;
-        blank.variant = "light";
+        const variant = inputs.variant === "light" ? "light" : "dark";
+        const light = variant === "light";
+        blank.variant = variant;
         delete blank.generator;
         blank.colours = {
-            "background": "#ffffff",
-            "surface": "#ffffff",
-            "surface_alt": "#f2f2f2",
-            "foreground": "#000000",
-            "muted": "#595959",
-            "accent": "#005fcc",
-            "danger": "#b00020",
-            "success": "#137333",
-            "warning": "#8a4b00",
-            "info": "#005fcc",
-            "mauve": "#6f42c1",
-            "teal": "#00796b",
-            "selection_background": "#000000",
-            "selection_foreground": "#ffffff",
-            "border": "#b3b3b3"
+            "background": light ? "#ffffff" : "#111318",
+            "surface": light ? "#ffffff" : "#1b1d23",
+            "surface_alt": light ? "#f2f2f2" : "#252830",
+            "foreground": light ? "#000000" : "#f2f3f5",
+            "muted": light ? "#595959" : "#a9adb7",
+            "accent": light ? "#005fcc" : "#8ab4f8",
+            "danger": light ? "#b00020" : "#ff7b92",
+            "success": light ? "#137333" : "#7bd88f",
+            "warning": light ? "#8a4b00" : "#f6c177",
+            "info": light ? "#005fcc" : "#78b9f2",
+            "mauve": light ? "#6f42c1" : "#c4a7e7",
+            "teal": light ? "#00796b" : "#6bd6c5",
+            "selection_background": light ? "#000000" : "#f2f3f5",
+            "selection_foreground": light ? "#ffffff" : "#111318",
+            "border": light ? "#b3b3b3" : "#444852"
         };
         blank.terminal = {
             "ansi_source": "override",
-            "canvas": "#ffffff",
-            "chrome_background": "#f2f2f2"
+            "canvas": light ? "#ffffff" : "#111318",
+            "chrome_background": light ? "#f2f2f2" : "#1b1d23"
         };
         if (!blank.overrides)
             blank.overrides = {
         };
 
         blank.overrides.ansi = {
-            "color0": "#000000",
-            "color1": "#800000",
-            "color2": "#008000",
-            "color3": "#808000",
-            "color4": "#000080",
-            "color5": "#800080",
-            "color6": "#008080",
-            "color7": "#c0c0c0",
-            "color8": "#808080",
-            "color9": "#ff0000",
-            "color10": "#00ff00",
-            "color11": "#ffff00",
-            "color12": "#0000ff",
-            "color13": "#ff00ff",
-            "color14": "#00ffff",
-            "color15": "#ffffff"
+            "color0": light ? "#000000" : "#111318",
+            "color1": light ? "#800000" : "#ff7b92",
+            "color2": light ? "#008000" : "#7bd88f",
+            "color3": light ? "#808000" : "#f6c177",
+            "color4": light ? "#000080" : "#78b9f2",
+            "color5": light ? "#800080" : "#c4a7e7",
+            "color6": light ? "#008080" : "#6bd6c5",
+            "color7": light ? "#c0c0c0" : "#d7d9df",
+            "color8": light ? "#808080" : "#6d7280",
+            "color9": light ? "#ff0000" : "#ff9aab",
+            "color10": light ? "#00ff00" : "#9be5a8",
+            "color11": light ? "#ffff00" : "#f9d99a",
+            "color12": light ? "#0000ff" : "#9ac7ff",
+            "color13": light ? "#ff00ff" : "#d7baf5",
+            "color14": light ? "#00ffff" : "#91e1d5",
+            "color15": light ? "#ffffff" : "#f2f3f5"
         };
         blank.wallpaper = {
             "fit": "cover",
-            "path": "~/Pictures/wallpapers/blank-light.png"
+            "path": light ? "~/Pictures/wallpapers/blank-light.png" : "~/Pictures/wallpapers/blank-dark.png"
         };
         blank.targets.wallpaper = true;
         return blank;
@@ -259,12 +265,13 @@ QtObject {
             "wallpaper": newWallpaper.trim(),
             "name": newThemeName.trim(),
             "id": newThemeId.trim(),
-            "backend": backend
+            "backend": backend,
+            "variant": newVariant
         };
         creationBusy = true;
         host.errorMessage = "";
         if (fromWallpaper)
-            generate(creationRequest.wallpaper, creationRequest.name, creationRequest.id, creationRequest.backend);
+            generate(creationRequest.wallpaper, creationRequest.name, creationRequest.id, creationRequest.backend, creationRequest.variant);
         else if (host.runApi("new-template", ["show", "catppuccin-mocha"]))
             host.activeRequest.inputs = creationRequest;
     }

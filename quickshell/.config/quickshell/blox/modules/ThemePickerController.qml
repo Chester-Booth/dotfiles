@@ -36,6 +36,7 @@ Scope {
     property string searchText: ""
     property string editorMode: "overview"
     property alias generatorBackend: generationController.backend
+    property alias newVariant: generationController.newVariant
     property string pendingAfterSave: ""
     property string pendingSelection: ""
     property string modalKind: ""

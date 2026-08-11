@@ -141,7 +141,7 @@ FocusScope {
                     visible: controller.modalKind === "new" && !controller.creationBusy
                     text: "Create"
                     enabled: controller.newThemeId.trim().length > 0 && controller.newThemeName.trim().length > 0 && (controller.newFlowPage === "blank" || controller.newWallpaper.trim().length > 0 && controller.paletteOptions.some((entry) => {
-                        return entry.backend === controller.generatorBackend && entry.available;
+                        return entry.backend === controller.generatorBackend && entry.mode === controller.newVariant && entry.available;
                     }))
                     onClicked: controller.startNewTheme(controller.newFlowPage === "wallpaper")
                 }

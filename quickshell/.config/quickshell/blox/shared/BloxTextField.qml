@@ -31,6 +31,7 @@ Rectangle {
     TextInput {
         id: editor
 
+        activeFocusOnTab: root.enabled && !root.readOnly
         anchors.fill: parent
         anchors.leftMargin: 11
         anchors.rightMargin: root.suffix.length > 0 ? suffixLabel.implicitWidth + 18 : 11

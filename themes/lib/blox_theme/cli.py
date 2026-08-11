@@ -344,12 +344,13 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         entries = []
         warnings = []
         for backend in BACKENDS:
-            try:
-                theme, contrasts = generate_theme(args.wallpaper, backend=backend, mode=args.mode)
-                entries.append({"backend": backend, "available": True, "colours": theme["colours"], "contrast": contrasts})
-            except (FileNotFoundError, GeneratorFailure, OSError) as error:
-                entries.append({"backend": backend, "available": False, "colours": {}, "contrast": []})
-                warnings.append(f"{backend} palette unavailable: {error}")
+            for mode in ("dark", "light"):
+                try:
+                    theme, contrasts = generate_theme(args.wallpaper, backend=backend, mode=mode)
+                    entries.append({"backend": backend, "mode": mode, "available": True, "colours": theme["colours"], "contrast": contrasts})
+                except (FileNotFoundError, GeneratorFailure, OSError) as error:
+                    entries.append({"backend": backend, "mode": mode, "available": False, "colours": {}, "contrast": [], "reason": str(error)})
+                    warnings.append(f"{backend} {mode} palette unavailable: {error}")
         if not any(entry["available"] for entry in entries):
             return envelope(command, entries, errors=["no palette generator is available"], warnings=warnings), EXIT_DEPENDENCY
         return envelope(command, entries, warnings=warnings), EXIT_OK

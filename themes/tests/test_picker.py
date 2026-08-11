@@ -63,6 +63,22 @@ class ThemeLibraryMutationTests(unittest.TestCase):
     def invoke(self, *arguments: str) -> tuple[dict, int]:
         return cli.run(cli.parser().parse_args(arguments))
 
+    def test_palette_returns_each_backend_in_both_modes(self) -> None:
+        wallpaper = self.root / "wallpaper.png"
+        wallpaper.write_bytes(b"image")
+
+        def generated(_wallpaper: Path, backend: str, mode: str):
+            return ({"colours": {"background": f"#{backend}-{mode}"}}, [])
+
+        with mock.patch("blox_theme.cli.generate_theme", side_effect=generated):
+            response, code = self.invoke("palette", str(wallpaper), "--json")
+
+        self.assertEqual(0, code, response)
+        self.assertEqual(
+            [("matugen", "dark"), ("matugen", "light"), ("pywal", "dark"), ("pywal", "light")],
+            [(entry["backend"], entry["mode"]) for entry in response["data"]],
+        )
+
     def test_duplicate_rename_and_confirmed_delete_preserve_stable_ids(self) -> None:
         duplicate, code = self.invoke("duplicate", "catppuccin-mocha", "phase6-copy", "--name", "Phase Six Copy", "--json")
         self.assertEqual(0, code)
@@ -387,9 +403,25 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         api = qml_source("ApiController")
         generation = qml_source("GenerationController")
         qml = "\n".join((controller, api, generation, creation, progress, overview, advanced, main))
-        for label in ("Name", "File Path", "Browse", "Base Colour Palette", "Matugen", "Pywal"):
+        for label in ("Name", "File Path", "Browse", "Generated Colour Palettes", "Matugen", "Pywal"):
             self.assertIn(f'"{label}"', qml)
         self.assertIn('host.runApi("palette", ["palette", path])', qml)
+        self.assertIn('"--mode", selectedVariant', qml)
+        self.assertIn('property string newVariant: "dark"', qml)
+        self.assertIn('model: ["dark", "light"]', creation)
+        self.assertIn('controller.newVariant = modelData.mode', creation)
+        self.assertIn("columns: 2", creation)
+        self.assertIn("Layout.preferredHeight: 132", creation)
+        self.assertIn('source: "file://" + controller.newWallpaper.trim()', creation)
+        self.assertIn("activeFocusOnTab: modelData.available", creation)
+        self.assertIn("Keys.onSpacePressed: choose()", creation)
+        self.assertIn("palettePill.forceActiveFocus()", creation)
+        self.assertIn("width: parent.width * 0.49", creation)
+        self.assertIn("radius: 0", creation)
+        self.assertIn("modelData.colours.surface_alt", creation)
+        self.assertIn('modelData.colours.selection_background', creation)
+        self.assertIn('"selection_background", "selection_foreground", "teal"', creation)
+        self.assertIn('"warning", "border", "info"', creation)
         self.assertIn('"wallpaper": wallpaper', qml)
         self.assertIn('"backend": selectedBackend', qml)
         self.assertIn("request.inputs", qml)
@@ -535,20 +567,22 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn("signal accepted()", text_field)
         self.assertIn("function focusEditor(selectAllText)", text_field)
         self.assertIn("root.editingFinished();", text_field)
+        self.assertIn("activeFocusOnTab: root.enabled && !root.readOnly", text_field)
 
-    def test_blank_theme_starts_as_a_valid_generic_light_theme(self) -> None:
+    def test_blank_theme_seeds_matching_light_and_dark_palettes(self) -> None:
         qml = qml_source("GenerationController")
         blank = qml.split("function blankTheme(", 1)[1].split("function startNew(", 1)[0]
-        self.assertIn('blank.variant = "light"', blank)
-        self.assertIn('"background": "#ffffff"', blank)
-        self.assertIn('"foreground": "#000000"', blank)
+        self.assertIn('blank.variant = variant', blank)
+        self.assertIn('"background": light ? "#ffffff" : "#111318"', blank)
+        self.assertIn('"foreground": light ? "#000000" : "#f2f3f5"', blank)
         self.assertIn('"ansi_source": "override"', blank)
-        self.assertIn('"color0": "#000000"', blank)
-        self.assertIn('"color15": "#ffffff"', blank)
-        self.assertIn('"path": "~/Pictures/wallpapers/blank-light.png"', blank)
+        self.assertIn('"color0": light ? "#000000" : "#111318"', blank)
+        self.assertIn('"color15": light ? "#ffffff" : "#f2f3f5"', blank)
+        self.assertIn('light ? "~/Pictures/wallpapers/blank-light.png" : "~/Pictures/wallpapers/blank-dark.png"', blank)
         self.assertIn("blank.targets.wallpaper = true", blank)
         self.assertNotIn('blank.fonts[role] = ""', blank)
         self.assertTrue((REPOSITORY / "wallpapers/wallpapers/blank-light.png").is_file())
+        self.assertTrue((REPOSITORY / "wallpapers/wallpapers/blank-dark.png").is_file())
 
     def test_advanced_mode_can_edit_terminal_colours(self) -> None:
         controller = qml_source("Controller")

@@ -662,12 +662,20 @@ class PickerIntegrationSourceTests(unittest.TestCase):
 
     def test_theme_picker_desktop_fallbacks_are_discoverable(self) -> None:
         applications = REPOSITORY / "applications/.local/share/applications"
+        icons = REPOSITORY / "applications/.local/share/icons/hicolor/scalable/apps"
         launchers = sorted(applications.glob("blox-theme-*.desktop"))
         self.assertEqual(["blox-theme-from-wallpaper.desktop", "blox-theme-picker.desktop"], [path.name for path in launchers])
+        expected_icons = {
+            "blox-theme-from-wallpaper.desktop": "blox-theme-from-wallpaper",
+            "blox-theme-picker.desktop": "blox-theme-picker",
+        }
         for launcher in launchers:
             text = launcher.read_text(encoding="utf-8")
             self.assertIn("Type=Application", text)
             self.assertIn("quickshell ipc -c blox call themePicker", text)
+            icon = expected_icons[launcher.name]
+            self.assertIn(f"Icon={icon}", text)
+            self.assertTrue((icons / f"{icon}.svg").is_file())
 
         helper = (REPOSITORY / "quickshell/.config/quickshell/blox/scripts/theme/picker-ipc.sh").read_text(encoding="utf-8")
         self.assertIn('exec "$script_root/ipc.sh" themePicker "$action"', helper)

@@ -8,6 +8,7 @@ QtObject {
     required property NotificationController notificationController
     property bool horizontal: false
     property real panelExtent: 0
+    property real maximumExtent: Number.POSITIVE_INFINITY
     property bool trayOpensForward: false
     property string batteryDisplay: "toggle"
     property var notificationPositionPublisher: null

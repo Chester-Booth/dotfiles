@@ -124,6 +124,19 @@ Scope {
         LauncherState.applicationUsage = usage;
     }
 
+    function executeCurrentDesktopEntry(entry) {
+        const desktopId = String(entry.id || "").replace(/\.desktop$/, "");
+        if (desktopId.length) {
+            // DesktopEntries can retain an old Exec value after its source
+            // file changes. Resolve the desktop file again at activation time,
+            // so launcher clicks always use its current Exec.
+            desktopLauncher.command = [Quickshell.env("HOME") + "/.config/quickshell/blox/scripts/launcher/desktop_exec.py", desktopId];
+            desktopLauncher.running = true;
+        } else {
+            entry.execute();
+        }
+    }
+
     function refresh() {
         const text = query.trim();
         requestSerial++;
@@ -328,7 +341,7 @@ Scope {
 
         onExited: (exitCode) => {
             if (exitCode === 3 && root.pendingEntry)
-                root.pendingEntry.execute();
+                root.executeCurrentDesktopEntry(root.pendingEntry);
 
             root.pendingEntry = null;
         }
@@ -336,6 +349,10 @@ Scope {
 
     Process {
         id: terminalCommand
+    }
+
+    Process {
+        id: desktopLauncher
     }
 
 }

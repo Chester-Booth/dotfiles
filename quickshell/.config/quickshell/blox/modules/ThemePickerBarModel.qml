@@ -179,6 +179,17 @@ QtObject {
         setItems(current);
     }
 
+    function setTitleLength(id, titleLength) {
+        const current = items();
+        for (let index = 0; index < current.length; ++index) {
+            if (current[index].id === id) {
+                current[index].titleLength = titleLength;
+                break;
+            }
+        }
+        setItems(current);
+    }
+
     function setRegion(id, region) {
         const current = items();
         if (id === "application-tray")

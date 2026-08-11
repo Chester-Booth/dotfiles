@@ -67,7 +67,8 @@ QtObject {
             "enabled": false,
             "region": "centre",
             "order": 1,
-            "orientation": "inward"
+            "orientation": "inward",
+            "titleLength": "truncate"
         }, {
             "id": "battery",
             "enabled": true,

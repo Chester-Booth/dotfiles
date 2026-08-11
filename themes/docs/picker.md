@@ -3,9 +3,9 @@
 Open, inspect or cancel the Quickshell picker with:
 
 ```sh
-quickshell ipc -c blox call themePicker open
-quickshell ipc -c blox call themePicker status
-quickshell ipc -c blox call themePicker cancel
+~/.config/quickshell/blox/scripts/theme/picker-ipc.sh open
+~/.config/quickshell/blox/scripts/theme/picker-ipc.sh status
+~/.config/quickshell/blox/scripts/theme/picker-ipc.sh cancel
 ```
 
 `generateCurrent` opens simple mode and runs the preferred Matugen adapter for

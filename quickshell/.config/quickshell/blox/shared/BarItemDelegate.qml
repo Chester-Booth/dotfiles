@@ -12,6 +12,7 @@ Item {
     required property NotificationController notificationController
     property bool horizontal: false
     property real panelExtent: 0
+    property real maximumExtent: Number.POSITIVE_INFINITY
     property bool trayOpensForward: false
     readonly property var itemConfig: Theme.barItems.find((item) => {
         return item.id === root.itemId;
@@ -65,6 +66,7 @@ Item {
         notificationController: root.notificationController
         horizontal: root.horizontal
         panelExtent: root.panelExtent
+        maximumExtent: root.maximumExtent
         trayOpensForward: root.trayOpensForward
         batteryDisplay: root.batteryDisplay
         notificationPositionPublisher: () => {

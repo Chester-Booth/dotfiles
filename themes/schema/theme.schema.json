@@ -163,6 +163,7 @@
         "order": {"type": "integer", "minimum": 0, "maximum": 99},
         "display": {"enum": ["toggle", "numeric", "icon"]},
         "orientation": {"enum": ["inward", "outward", "horizontal"]},
+        "titleLength": {"enum": ["truncate", "full"]},
         "visibility": {"enum": ["always", "normal"]}
       }
     },

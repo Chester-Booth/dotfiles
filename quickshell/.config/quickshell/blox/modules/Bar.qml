@@ -128,8 +128,38 @@ Scope {
 
                     property var verticalTrayToggleItem: null
                     property var horizontalTrayToggleItem: null
+                    property string verticalTrayRegion: ""
+                    property string horizontalTrayRegion: ""
                     readonly property point verticalTrayPoint: mappedTrayPoint(verticalTrayToggleItem)
                     readonly property point horizontalTrayPoint: mappedTrayPoint(horizontalTrayToggleItem)
+                    readonly property real verticalContentStart: {
+                        let edge = verticalStartRegion.minimumExtent;
+                        if (barSurfaceController.trayOpen && verticalTrayRegion === "start" && verticalTrayToggleItem && verticalTrayToggleItem.trayOpensForward)
+                            edge = Math.max(edge, verticalExpandedTray.y + verticalExpandedTray.height);
+
+                        return edge;
+                    }
+                    readonly property real verticalContentEnd: {
+                        let edge = height - verticalEndRegion.minimumExtent;
+                        if (barSurfaceController.trayOpen && verticalTrayRegion === "end" && verticalTrayToggleItem && !verticalTrayToggleItem.trayOpensForward)
+                            edge = Math.min(edge, verticalExpandedTray.y);
+
+                        return edge;
+                    }
+                    readonly property real horizontalContentStart: {
+                        let edge = horizontalStartRegion.minimumExtent;
+                        if (barSurfaceController.trayOpen && horizontalTrayRegion === "start" && horizontalTrayToggleItem && horizontalTrayToggleItem.trayOpensForward)
+                            edge = Math.max(edge, horizontalExpandedTray.x + horizontalExpandedTray.width);
+
+                        return edge;
+                    }
+                    readonly property real horizontalContentEnd: {
+                        let edge = width - horizontalEndRegion.minimumExtent;
+                        if (barSurfaceController.trayOpen && horizontalTrayRegion === "end" && horizontalTrayToggleItem && !horizontalTrayToggleItem.trayOpensForward)
+                            edge = Math.min(edge, horizontalExpandedTray.x);
+
+                        return edge;
+                    }
 
                     function mappedTrayPoint(item) {
                         if (!item)
@@ -148,27 +178,35 @@ Scope {
                         return Qt.point(point.x + geometryDependency * 0, point.y);
                     }
 
-                    function registerTrayToggle(item, horizontal) {
+                    function registerTrayToggle(item, horizontal, region) {
                         if (item.itemId !== "tray")
                             return ;
 
-                        if (horizontal)
+                        if (horizontal) {
                             horizontalTrayToggleItem = item;
-                        else
+                            horizontalTrayRegion = region;
+                        } else {
                             verticalTrayToggleItem = item;
+                            verticalTrayRegion = region;
+                        }
                     }
 
                     function unregisterTrayToggle(item, horizontal) {
-                        if (horizontal && horizontalTrayToggleItem === item)
+                        if (horizontal && horizontalTrayToggleItem === item) {
                             horizontalTrayToggleItem = null;
-                        else if (!horizontal && verticalTrayToggleItem === item)
+                            horizontalTrayRegion = "";
+                        } else if (!horizontal && verticalTrayToggleItem === item) {
                             verticalTrayToggleItem = null;
+                            verticalTrayRegion = "";
+                        }
                     }
 
                     anchors.fill: parent
                     anchors.margins: 4
 
                     BarRegion {
+                        id: verticalStartRegion
+
                         visible: !barSurfaceController.horizontalBar
                         anchors.top: parent.top
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -181,11 +219,15 @@ Scope {
                         horizontal: false
                         panelExtent: panel.height
                         region: "start"
+                        maximumExtent: Math.max(0, Math.min(parent.height / 2 - verticalCentreRegion.minimumExtent / 2, parent.height - verticalEndRegion.minimumExtent))
                     }
 
                     BarRegion {
+                        id: verticalCentreRegion
+
                         visible: !barSurfaceController.horizontalBar
-                        anchors.centerIn: parent
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        y: Math.max(configuredRail.verticalContentStart, Math.min((parent.height - height) / 2, configuredRail.verticalContentEnd - height))
                         regionItems: Theme.barCentreItems
                         surfaceController: barSurfaceController
                         contentController: barContentController
@@ -195,9 +237,12 @@ Scope {
                         horizontal: false
                         panelExtent: panel.height
                         region: "centre"
+                        maximumExtent: Math.max(0, configuredRail.verticalContentEnd - configuredRail.verticalContentStart)
                     }
 
                     BarRegion {
+                        id: verticalEndRegion
+
                         visible: !barSurfaceController.horizontalBar
                         anchors.bottom: parent.bottom
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -210,9 +255,12 @@ Scope {
                         horizontal: false
                         panelExtent: panel.height
                         region: "end"
+                        maximumExtent: Math.max(0, parent.height - Math.max(verticalStartRegion.minimumExtent, parent.height / 2 + verticalCentreRegion.minimumExtent / 2))
                     }
 
                     BarRegion {
+                        id: horizontalStartRegion
+
                         visible: barSurfaceController.horizontalBar
                         anchors.left: parent.left
                         anchors.verticalCenter: parent.verticalCenter
@@ -225,11 +273,15 @@ Scope {
                         horizontal: true
                         panelExtent: panel.height
                         region: "start"
+                        maximumExtent: Math.max(0, Math.min(parent.width / 2 - horizontalCentreRegion.minimumExtent / 2, parent.width - horizontalEndRegion.minimumExtent))
                     }
 
                     BarRegion {
+                        id: horizontalCentreRegion
+
                         visible: barSurfaceController.horizontalBar
-                        anchors.centerIn: parent
+                        anchors.verticalCenter: parent.verticalCenter
+                        x: Math.max(configuredRail.horizontalContentStart, Math.min((parent.width - width) / 2, configuredRail.horizontalContentEnd - width))
                         regionItems: Theme.barCentreItems
                         surfaceController: barSurfaceController
                         contentController: barContentController
@@ -239,9 +291,12 @@ Scope {
                         horizontal: true
                         panelExtent: panel.height
                         region: "centre"
+                        maximumExtent: Math.max(0, configuredRail.horizontalContentEnd - configuredRail.horizontalContentStart)
                     }
 
                     BarRegion {
+                        id: horizontalEndRegion
+
                         visible: barSurfaceController.horizontalBar
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
@@ -254,9 +309,12 @@ Scope {
                         horizontal: true
                         panelExtent: panel.height
                         region: "end"
+                        maximumExtent: Math.max(0, parent.width - Math.max(horizontalStartRegion.minimumExtent, parent.width / 2 + horizontalCentreRegion.minimumExtent / 2))
                     }
 
                     Column {
+                        id: verticalExpandedTray
+
                         visible: !barSurfaceController.horizontalBar && barSurfaceController.trayOpen && configuredRail.verticalTrayToggleItem
                         z: 100
                         x: configuredRail.verticalTrayPoint.x
@@ -290,6 +348,8 @@ Scope {
                     }
 
                     Row {
+                        id: horizontalExpandedTray
+
                         visible: barSurfaceController.horizontalBar && barSurfaceController.trayOpen && configuredRail.horizontalTrayToggleItem
                         z: 100
                         x: configuredRail.horizontalTrayToggleItem && configuredRail.horizontalTrayToggleItem.trayOpensForward ? configuredRail.horizontalTrayPoint.x + configuredRail.horizontalTrayToggleItem.width + spacing : configuredRail.horizontalTrayPoint.x - width - spacing

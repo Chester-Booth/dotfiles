@@ -326,6 +326,19 @@ ColumnLayout {
                                     }
                                 }
 
+                                BloxComboBox {
+                                    readonly property var titleLengthValues: ["truncate", "full"]
+
+                                    visible: barItemRow.modelData.id === "active-window-title"
+                                    Layout.preferredWidth: visible ? 172 : 0
+                                    Layout.preferredHeight: 32
+                                    model: ["cut off long titles", "show full title"]
+                                    currentIndex: Math.max(0, titleLengthValues.indexOf(barItemRow.modelData.titleLength || "truncate"))
+                                    onActivated: (index) => {
+                                        return controller.setBarItemTitleLength(barItemRow.barItemId, titleLengthValues[index]);
+                                    }
+                                }
+
                             }
 
                             Item {

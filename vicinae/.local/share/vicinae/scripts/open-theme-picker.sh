@@ -8,4 +8,4 @@
 # @vicinae.description Open the full Blox theme picker inside Quickshell.
 set -euo pipefail
 
-exec quickshell ipc -c blox call themePicker open
+exec "$HOME/.config/quickshell/blox/scripts/theme/picker-ipc.sh" open

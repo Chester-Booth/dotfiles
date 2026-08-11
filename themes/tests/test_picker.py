@@ -397,6 +397,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
             "setBarItemEnabled",
             "setBarItemDisplay",
             "setBarItemVisibility",
+            "setBarItemTitleLength",
             "setBarItemRegion",
             "moveBarItem",
             "moveBarItemTo",
@@ -412,6 +413,9 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn('visible: ["privacy", "touchpad", "fan", "gpu"].indexOf(barItemRow.modelData.id) >= 0', advanced)
         self.assertIn("Layout.preferredWidth: visible ? 172 : 0", advanced)
         self.assertIn("controller.setBarItemVisibility(barItemRow.barItemId, visibilityValues[index])", advanced)
+        self.assertIn('model: ["cut off long titles", "show full title"]', advanced)
+        self.assertIn('visible: barItemRow.modelData.id === "active-window-title"', advanced)
+        self.assertIn("controller.setBarItemTitleLength(barItemRow.barItemId, titleLengthValues[index])", advanced)
         self.assertIn('"touchpad": "panel-top"', bar_model)
         self.assertIn("Drag.active: pickerController.barDragActive", main)
         self.assertEqual(2, advanced.count("target: null"))
@@ -605,6 +609,10 @@ class PickerIntegrationSourceTests(unittest.TestCase):
             text = launcher.read_text(encoding="utf-8")
             self.assertIn("Type=Application", text)
             self.assertIn("quickshell ipc -c blox call themePicker", text)
+
+        helper = (REPOSITORY / "quickshell/.config/quickshell/blox/scripts/theme/picker-ipc.sh").read_text(encoding="utf-8")
+        self.assertIn('exec quickshell ipc --pid "$main_pid" call themePicker "$action"', helper)
+        self.assertNotIn("ipc -c blox", helper)
 
 
 if __name__ == "__main__":

@@ -8,4 +8,4 @@
 # @vicinae.description Open the Blox picker and generate an editable Matugen theme from the active wallpaper.
 set -euo pipefail
 
-exec quickshell ipc -c blox call themePicker generateCurrent
+exec "$HOME/.config/quickshell/blox/scripts/theme/picker-ipc.sh" generateCurrent

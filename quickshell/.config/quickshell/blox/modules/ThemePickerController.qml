@@ -666,6 +666,10 @@ Scope {
         barModel.setOrientation(id, orientation);
     }
 
+    function setBarItemTitleLength(id, titleLength) {
+        barModel.setTitleLength(id, titleLength);
+    }
+
     function setBarItemRegion(id, region) {
         barModel.setRegion(id, region);
     }

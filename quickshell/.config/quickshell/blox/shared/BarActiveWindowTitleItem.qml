@@ -10,6 +10,9 @@ Item {
     readonly property string title: activeWindowIsHere ? activeWindow.title : ""
     readonly property var itemConfig: Theme.barItems.find((item) => item.id === "active-window-title") || ({})
     readonly property string titleOrientation: itemConfig.orientation || "inward"
+    readonly property bool showFullTitle: itemConfig.titleLength === "full"
+    readonly property real preferredTitleExtent: root.context.horizontal ? Math.max(Theme.buttonSize, titleText.implicitWidth + 16) : Math.max(Theme.buttonSize, (staysHorizontal ? titleText.implicitHeight : titleText.implicitWidth) + 16)
+    readonly property real configuredTitleExtent: showFullTitle ? preferredTitleExtent : Math.min(root.context.horizontal ? 360 : 240, preferredTitleExtent)
     readonly property bool staysHorizontal: !root.context.horizontal && titleOrientation === "horizontal"
     readonly property real titleRotation: {
         if (root.context.horizontal || staysHorizontal)
@@ -19,8 +22,8 @@ Item {
     }
 
     clip: staysHorizontal
-    implicitWidth: root.context.horizontal ? Math.min(360, Math.max(Theme.buttonSize, titleText.implicitWidth + 16)) : Theme.buttonSize
-    implicitHeight: root.context.horizontal ? Theme.buttonSize : Math.min(240, Math.max(Theme.buttonSize, (staysHorizontal ? titleText.implicitHeight : titleText.implicitWidth) + 16))
+    implicitWidth: root.context.horizontal ? Math.min(configuredTitleExtent, root.context.maximumExtent) : Theme.buttonSize
+    implicitHeight: root.context.horizontal ? Theme.buttonSize : Math.min(configuredTitleExtent, root.context.maximumExtent)
 
     Text {
         id: titleText

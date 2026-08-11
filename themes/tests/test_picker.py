@@ -677,6 +677,10 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn('exec quickshell ipc --pid "$main_pid" call "$@"', ipc_helper)
         self.assertNotIn("quickshell ipc -c", ipc_helper)
 
+    def test_launcher_theme_preview_pluralises_widget_count(self) -> None:
+        launcher = (PICKER_MODULES / "LauncherMainSurface.qml").read_text(encoding="utf-8")
+        self.assertIn('widgetCount === 1 ? " widget" : " widgets"', launcher)
+
 
 if __name__ == "__main__":
     unittest.main()

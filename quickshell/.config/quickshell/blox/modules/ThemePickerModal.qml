@@ -43,7 +43,7 @@ FocusScope {
 
     Rectangle {
         anchors.centerIn: parent
-        width: 500
+        width: controller.modalKind === "progress" ? Math.min(770, modalFocusScope.width - 80) : 500
         height: Math.min(modalFocusScope.height - 80, implicitHeight)
         implicitHeight: modalColumn.implicitHeight + 40
         radius: 10
@@ -69,6 +69,7 @@ FocusScope {
             spacing: 12
 
             Label {
+                visible: controller.modalKind !== "progress"
                 Layout.fillWidth: true
                 text: controller.modalKind === "new" ? "New theme" : controller.modalKind === "widget" ? (controller.widgetEditIndex >= 0 ? "Edit widget" : "New widget") : controller.modalKind === "progress" ? "Applying theme" : controller.modalKind === "guide" ? "Manual application guide" : controller.modalKind === "delete" ? "Delete theme permanently?" : controller.modalKind === "duplicate" ? "Duplicate theme" : controller.modalKind === "rename" ? "Rename display name" : controller.modalKind === "export" ? "Export theme" : "Discard unsaved changes?"
                 color: Theme.foreground
@@ -78,7 +79,7 @@ FocusScope {
             }
 
             Text {
-                visible: controller.modalKind === "new" || controller.modalKind === "progress" || controller.modalKind === "guide" || controller.modalKind === "navigate" || controller.modalKind === "generate-current" || controller.modalKind === "close" || controller.modalKind === "delete" || controller.modalKind === "export"
+                visible: controller.modalKind === "new" || controller.modalKind === "guide" || controller.modalKind === "navigate" || controller.modalKind === "generate-current" || controller.modalKind === "close" || controller.modalKind === "delete" || controller.modalKind === "export"
                 Layout.fillWidth: true
                 text: controller.modalKind === "new" ? controller.creationBusy ? "Creating the theme from the selected inputs…" : controller.newFlowPage === "blank" ? "Create a blank editable theme." : "Choose a wallpaper and the palette generator to use." : controller.modalKind === "progress" ? controller.applyProgressComplete ? "Application finished. Review any follow-up actions below." : "Generating and applying each enabled target…" : controller.modalKind === "delete" ? "This removes the editable source. The action cannot be undone." : controller.modalKind === "export" ? "Create a portable bundle. Fonts, GTK, icon and cursor themes remain dependency notes." : "The temporary Quickshell preview will be restored to the active theme."
                 color: Theme.muted
@@ -133,8 +134,13 @@ FocusScope {
 
                     visible: controller.modalKind !== "progress" || controller.applyProgressComplete
                     iconName: controller.modalKind === "progress" || controller.modalKind === "guide" ? "x" : ""
-                    text: controller.modalKind === "progress" || controller.modalKind === "guide" ? "Close" : "Cancel"
-                    onClicked: controller.dismissModal()
+                    text: controller.modalKind === "guide" ? "Back" : controller.modalKind === "progress" ? "Close" : "Cancel"
+                    onClicked: {
+                        if (controller.modalKind === "guide")
+                            controller.modalKind = "progress";
+                        else
+                            controller.dismissModal();
+                    }
                 }
 
                 BloxButton {

@@ -1,5 +1,7 @@
+import "../shared"
 import "../shared/Fuzzy.js" as Fuzzy
 import "../shared/LauncherLogic.js" as LauncherLogic
+import QtQml.WorkerScript
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -22,6 +24,25 @@ Scope {
     property int dmenuLimit: 0
     property bool dmenuBottom: false
     property var pendingEntry: null
+    property var themes: []
+    property bool themesLoading: false
+    property string themesError: ""
+    property var themeSearchRecords: []
+    property bool themeSearchWorkerInitialised: false
+    property int themeSearchRequest: 0
+    property bool applyingTheme: false
+    property string applyingThemeId: ""
+    property string applyingThemeName: ""
+    property string applyError: ""
+    property var applyProgressStages: []
+    property var applyProgressRows: []
+    property real applyProgressValue: 0
+    property string applyProgressMessage: "Preparing theme application"
+    property bool applyProgressShowTargets: false
+    property bool applyProgressComplete: false
+    property string applyGuideTarget: ""
+    property string retryingTarget: ""
+    property bool applyWindowOpen: false
     readonly property var applicationCategories: [{
         "title": "Audio & Video",
         "key": "AudioVideo",
@@ -70,6 +91,7 @@ Scope {
 
     signal closeRequested()
     signal dmenuSelected(string value)
+    signal themeApplyStarted()
 
     function normaliseId(value) {
         return LauncherLogic.normaliseId(value);
@@ -101,6 +123,221 @@ Scope {
         });
     }
 
+    function themeAction() {
+        return {
+            "kind": "theme-action",
+            "title": "Change theme",
+            "subtitle": themes.length + (themes.length === 1 ? " theme" : " themes"),
+            "iconName": "palette",
+            "score": 0
+        };
+    }
+
+    function themeResults(indices) {
+        const selected = indices || themes.map((entry, index) => {
+            return index;
+        });
+        return selected.map((index) => {
+            const entry = themes[index];
+            return {
+                "kind": "theme",
+                "title": entry.name,
+                "subtitle": entry.id,
+                "score": 0,
+                "theme": entry
+            };
+        });
+    }
+
+    function requestThemeSearch() {
+        const needle = query.startsWith("%") ? query.slice(1).trim().toLowerCase() : "";
+        if (!needle.length || !themeSearchWorkerInitialised)
+            return ;
+
+        const request = ++themeSearchRequest;
+        themeSearchWorker.sendMessage({
+            "type": "search",
+            "request": request,
+            "query": needle
+        });
+    }
+
+    function initialiseThemeSearchWorker() {
+        if (!themeSearchWorker.ready || themeSearchWorkerInitialised || !themeSearchRecords.length)
+            return ;
+
+        themeSearchWorker.sendMessage({
+            "type": "initialise",
+            "records": themeSearchRecords
+        });
+        themeSearchWorkerInitialised = true;
+        themeSearchRecords = [];
+        if (query.startsWith("%") && query.slice(1).trim().length)
+            requestThemeSearch();
+
+    }
+
+    function previewColour(entry, key, fallback) {
+        const colours = entry && entry.preview ? entry.preview.colours || ({
+        }) : ({
+        });
+        const value = String(colours[key] || "");
+        return /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback;
+    }
+
+    function previewBarPosition(entry) {
+        const position = String(entry && entry.preview && entry.preview.bar ? entry.preview.bar.position || "left" : "left");
+        return ["left", "right", "top", "bottom"].indexOf(position) >= 0 ? position : "left";
+    }
+
+    function previewBarCount(entry, region) {
+        const items = entry && entry.preview && entry.preview.bar && entry.preview.bar.items && entry.preview.bar.items.length !== undefined ? entry.preview.bar.items : [];
+        let count = 0;
+        for (let index = 0; index < items.length; index++) {
+            const item = items[index];
+            if (item && item.enabled !== false && item.region === region)
+                count++;
+
+        }
+        return count;
+    }
+
+    function previewWidgetCount(entry) {
+        const count = entry && entry.preview ? Number(entry.preview.widget_count) : 0;
+        return isNaN(count) ? 0 : count;
+    }
+
+    function localFileUrl(path) {
+        const value = String(path || "");
+        if (!value.length || value.startsWith("file:"))
+            return value;
+
+        return "file://" + value;
+    }
+
+    function loadThemes() {
+        if (themesLoading || themeListProcess.running)
+            return ;
+
+        themesLoading = true;
+        themesError = "";
+        themeListProcess.command = [Quickshell.env("HOME") + "/.config/quickshell/blox/scripts/theme/themectl.sh", "list", "--json"];
+        themeListProcess.running = true;
+    }
+
+    function applyTheme(entry) {
+        if (applyingTheme || !entry || !entry.id)
+            return ;
+
+        applyingTheme = true;
+        applyingThemeId = entry.id;
+        applyingThemeName = entry.name || entry.id;
+        applyError = "";
+        retryingTarget = "";
+        applyProgressStages = [{
+            "id": "prepare",
+            "name": "Prepare",
+            "state": "active",
+            "message": "Checking theme and dependencies"
+        }, {
+            "id": "cursor",
+            "name": "Cursor assets",
+            "state": "queued",
+            "message": "Check or build generated assets"
+        }, {
+            "id": "activation",
+            "name": "Activate",
+            "state": "queued",
+            "message": "Write and activate the theme"
+        }, {
+            "id": "applications",
+            "name": "Applications",
+            "state": "queued",
+            "message": "Apply enabled targets"
+        }];
+        applyProgressRows = [];
+        applyProgressValue = 0;
+        applyProgressMessage = "Checking theme and dependencies";
+        applyProgressShowTargets = false;
+        applyProgressComplete = false;
+        applyGuideTarget = "";
+        applyWindowOpen = true;
+        themeApplyProcess.cancelling = false;
+        themeApplyProcess.command = [Quickshell.env("HOME") + "/.config/quickshell/blox/scripts/theme/themectl.sh", "apply", entry.id, "--json", "--progress-ndjson"];
+        themeApplyProcess.running = true;
+        themeApplyStarted();
+    }
+
+    function dismissThemeApply() {
+        applyWindowOpen = false;
+        applyGuideTarget = "";
+        if (themeApplyProcess.running) {
+            themeApplyProcess.cancelling = true;
+            themeApplyProcess.signal(15);
+        }
+        applyingTheme = false;
+        applyProgressComplete = false;
+        retryingTarget = "";
+    }
+
+    function retryThemeTarget(target) {
+        if (applyingTheme || !applyingThemeId.length)
+            return ;
+
+        retryingTarget = target;
+        applyingTheme = true;
+        applyWindowOpen = true;
+        applyProgressComplete = false;
+        applyProgressMessage = "Retrying " + target.replace("cursor_editor", "cursor");
+        applyProgressRows = applyProgressRows.map((row) => {
+            return row.target === target ? Object.assign({
+            }, row, {
+                "state": "active",
+                "message": "Retrying…"
+            }) : row;
+        });
+        themeApplyProcess.command = [Quickshell.env("HOME") + "/.config/quickshell/blox/scripts/theme/themectl.sh", "apply", applyingThemeId, "--targets", target, "--json", "--progress-ndjson"];
+        themeApplyProcess.running = true;
+    }
+
+    function handleApplyProgress(event) {
+        if (!event || event.type !== "theme-progress")
+            return ;
+
+        applyProgressValue = event.total > 0 ? Number(event.completed || 0) / Number(event.total) : applyProgressValue;
+        applyProgressMessage = event.message || applyProgressMessage;
+        if (event.targets && !retryingTarget.length)
+            applyProgressRows = event.targets.map((target) => {
+            return ({
+                "target": target,
+                "state": "queued",
+                "message": "Queued"
+            });
+        });
+
+        if (event.kind === "stage") {
+            applyProgressStages = applyProgressStages.map((stage) => {
+                return stage.id === event.stage ? Object.assign({
+                }, stage, {
+                    "state": event.state,
+                    "message": event.message
+                }) : stage;
+            });
+            if (event.stage === "applications" && event.state !== "queued")
+                applyProgressShowTargets = true;
+
+        } else if (event.kind === "target") {
+            applyProgressShowTargets = true;
+            applyProgressRows = applyProgressRows.map((row) => {
+                return row.target === event.target ? Object.assign({
+                }, row, {
+                    "state": event.state,
+                    "message": event.message
+                }) : row;
+            });
+        }
+    }
+
     function usageBoost(entry) {
         const key = normaliseId(entry.id || entry.name);
         const usage = LauncherState.applicationUsage[key] || ({
@@ -128,6 +365,7 @@ Scope {
         const icon = String(entry.icon || "");
         if (!icon.length)
             return "";
+
         return icon.startsWith("/") ? "file://" + icon : Quickshell.iconPath(icon, true);
     }
 
@@ -178,6 +416,24 @@ Scope {
             results = matched.slice(0, 100);
             return ;
         }
+        if (query.startsWith("%")) {
+            if (!themes.length && !themesLoading && !themesError.length)
+                loadThemes();
+
+            const needle = query.slice(1).trim();
+            if (!themes.length) {
+                results = [];
+            } else if (!needle.length) {
+                themeSearchTimer.stop();
+                themeSearchRequest++;
+                results = themeResults();
+            } else {
+                themeSearchTimer.restart();
+            }
+            return ;
+        }
+        themeSearchTimer.stop();
+        themeSearchRequest++;
         const applications = DesktopEntries.applications.values || [];
         if (query === "$") {
             results = categoryResults(applications);
@@ -186,6 +442,12 @@ Scope {
         const categoryMatch = query.match(/^\$([^\s]+)$/);
         const categoryKey = categoryMatch ? categoryMatch[1].toLowerCase() : "";
         const scored = [];
+        const action = themeAction();
+        const actionScore = categoryKey === "settings" ? 0 : categoryKey ? -1 : Fuzzy.score(text, "Change theme switch appearance colours wallpaper settings");
+        if (actionScore >= 0) {
+            action.score = actionScore;
+            scored.push(action);
+        }
         for (const entry of applications) {
             if (categoryKey && !(entry.categories || []).some((category) => {
                 return String(category).toLowerCase() === categoryKey;
@@ -255,6 +517,14 @@ Scope {
             query = "$" + result.categoryKey;
             return ;
         }
+        if (result.kind === "theme-action") {
+            query = "%";
+            return ;
+        }
+        if (result.kind === "theme") {
+            applyTheme(result.theme);
+            return ;
+        }
         if (result.kind === "command") {
             recordUse(result.entry);
             const command = ["kitty", "--detach"];
@@ -293,13 +563,22 @@ Scope {
         qalc.running = true;
     }
 
-    onQueryChanged: refresh()
+    onQueryChanged: {
+        if (!query.startsWith("%")) {
+            applyError = "";
+            applyProgressComplete = false;
+            applyGuideTarget = "";
+        }
+        refresh();
+    }
+    Component.onCompleted: loadThemes()
 
     Connections {
-        target: DesktopEntries
         function onApplicationsChanged() {
             root.refresh();
         }
+
+        target: DesktopEntries
     }
 
     Timer {
@@ -367,6 +646,121 @@ Scope {
 
     Process {
         id: desktopLauncher
+    }
+
+    Process {
+        id: themeListProcess
+
+        property string output: ""
+
+        onRunningChanged: {
+            if (running)
+                output = "";
+
+        }
+        onExited: (exitCode) => {
+            root.themesLoading = false;
+            try {
+                const response = JSON.parse(output);
+                if (exitCode === 0 && Array.isArray(response.data)) {
+                    root.themes = response.data;
+                    root.themeSearchRecords = response.data.map((entry, index) => {
+                        return {
+                            "index": index,
+                            "name": String(entry.name || entry.id || ""),
+                            "searchText": [entry.name, entry.id].join(" ").toLowerCase()
+                        };
+                    });
+                    root.themeSearchWorkerInitialised = false;
+                    root.initialiseThemeSearchWorker();
+                    root.themesError = "";
+                } else {
+                    root.themesError = response.errors && response.errors.length ? response.errors.join("\n") : "Could not load themes";
+                }
+            } catch (error) {
+                root.themesError = "Could not read the theme list";
+            }
+            root.refresh();
+        }
+
+        stdout: StdioCollector {
+            onStreamFinished: themeListProcess.output = text
+        }
+
+    }
+
+    Process {
+        id: themeApplyProcess
+
+        property string output: ""
+        property bool cancelling: false
+
+        onRunningChanged: {
+            if (running)
+                output = "";
+
+        }
+        onExited: (exitCode) => {
+            if (cancelling) {
+                cancelling = false;
+                output = "";
+                return ;
+            }
+            root.applyingTheme = false;
+            try {
+                const response = JSON.parse(output);
+                if ((exitCode === 0 || exitCode === 10) && response.data && response.data.theme_id) {
+                    Theme.reload();
+                    root.applyProgressValue = 1;
+                    root.applyProgressComplete = true;
+                    root.applyProgressMessage = "Application finished · Review follow-up actions";
+                    root.retryingTarget = "";
+                    return ;
+                }
+                root.applyError = response.errors && response.errors.length ? response.errors.join("\n") : "Could not apply theme";
+            } catch (error) {
+                root.applyError = "Could not read the apply result";
+            }
+            root.applyProgressComplete = true;
+        }
+
+        stdout: StdioCollector {
+            onStreamFinished: themeApplyProcess.output = text
+        }
+
+        stderr: SplitParser {
+            splitMarker: "\n"
+            onRead: (line) => {
+                try {
+                    root.handleApplyProgress(JSON.parse(line));
+                } catch (error) {
+                }
+            }
+        }
+
+    }
+
+    Timer {
+        id: themeSearchTimer
+
+        interval: 45
+        repeat: false
+        onTriggered: root.requestThemeSearch()
+    }
+
+    WorkerScript {
+        id: themeSearchWorker
+
+        source: "ThemeSearchWorker.mjs"
+        onReadyChanged: root.initialiseThemeSearchWorker()
+        onMessage: (message) => {
+            const needle = root.query.startsWith("%") ? root.query.slice(1).trim().toLowerCase() : "";
+            if (message.type !== "results" || message.request !== root.themeSearchRequest || message.query !== needle)
+                return ;
+
+            root.results = root.themeResults(message.indices);
+            root.selectedIndex = 0;
+        }
     }
 
 }

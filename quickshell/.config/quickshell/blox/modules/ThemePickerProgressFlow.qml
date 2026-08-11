@@ -11,58 +11,25 @@ ColumnLayout {
     Layout.fillWidth: true
     spacing: 12
 
-    ScrollView {
+    ThemeApplyProgress {
         visible: controller.modalKind === "progress"
         Layout.fillWidth: true
-        Layout.preferredHeight: Math.min(420, progressGrid.implicitHeight)
-        contentWidth: availableWidth
-        clip: true
-
-        GridLayout {
-            id: progressGrid
-
-            width: parent.width
-            columns: 1
-            columnSpacing: 14
-            rowSpacing: 8
-
-            Repeater {
-                model: controller.applyProgressRows
-
-                RowLayout {
-                    required property var modelData
-
-                    Layout.preferredWidth: progressGrid.width
-
-                    Text {
-                        text: modelData.target.replace("cursor_editor", "cursor")
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        Layout.preferredWidth: 150
-                    }
-
-                    Text {
-                        text: modelData.message
-                        color: modelData.state === "failed" || modelData.state === "manual" ? Theme.red : modelData.state === "restart" ? Theme.yellow : modelData.state === "applied" ? Theme.green : Theme.blue
-                        Layout.fillWidth: true
-                        elide: Text.ElideRight
-                    }
-
-                    BloxButton {
-                        visible: modelData.state === "manual"
-                        text: "Guide"
-                        onClicked: {
-                            controller.guideTarget = modelData.target;
-                            controller.modalKind = "guide";
-                        }
-                    }
-
-                }
-
-            }
-
+        Layout.preferredHeight: controller.applyProgressShowTargets ? 570 : 280
+        themeName: controller.candidate ? controller.candidate.name : "Theme"
+        stages: controller.applyProgressStages
+        targets: controller.applyProgressRows
+        progress: controller.applyProgressValue
+        message: controller.applyProgressMessage
+        showTargets: controller.applyProgressShowTargets
+        complete: controller.applyProgressComplete
+        error: controller.errorMessage
+        onRetryRequested: (target) => {
+            return controller.retryApplyTarget(target);
         }
-
+        onGuideRequested: (target) => {
+            controller.guideTarget = target;
+            controller.modalKind = "guide";
+        }
     }
 
     ColumnLayout {

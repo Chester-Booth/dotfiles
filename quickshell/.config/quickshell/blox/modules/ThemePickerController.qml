@@ -59,6 +59,10 @@ Scope {
     property alias creationRequest: generationController.creationRequest
     property var applyProgressRows: []
     property bool applyProgressComplete: false
+    property var applyProgressStages: []
+    property real applyProgressValue: 0
+    property string applyProgressMessage: "Preparing theme application"
+    property bool applyProgressShowTargets: false
     property string guideTarget: ""
     property alias widgetDraft: widgetController.draft
     property alias widgetEditIndex: widgetController.editIndex
@@ -836,13 +840,37 @@ Scope {
             return ;
 
         applyProgressComplete = false;
+        applyProgressStages = [{
+            "id": "prepare",
+            "name": "Prepare",
+            "state": "active",
+            "message": "Checking theme and dependencies"
+        }, {
+            "id": "cursor",
+            "name": "Cursor assets",
+            "state": "queued",
+            "message": "Check or build generated assets"
+        }, {
+            "id": "activation",
+            "name": "Activate",
+            "state": "queued",
+            "message": "Write and activate the theme"
+        }, {
+            "id": "applications",
+            "name": "Applications",
+            "state": "queued",
+            "message": "Apply enabled targets"
+        }];
+        applyProgressValue = 0;
+        applyProgressMessage = "Checking theme and dependencies";
+        applyProgressShowTargets = false;
         applyProgressRows = targetKeys.filter((key) => {
             return candidate.targets[key] && targetAvailable(key);
         }).map((key) => {
             return ({
                 "target": key,
-                "state": "running",
-                "message": "generating files"
+                "state": "queued",
+                "message": "Queued"
             });
         });
         showModal("progress");
@@ -851,6 +879,52 @@ Scope {
             return ;
         }
         runApi("apply", ["apply", candidate.id]);
+    }
+
+    function handleApplyProgress(event) {
+        if (!event || event.type !== "theme-progress")
+            return ;
+
+        applyProgressValue = event.total > 0 ? Number(event.completed || 0) / Number(event.total) : applyProgressValue;
+        applyProgressMessage = event.message || applyProgressMessage;
+        if (event.kind === "stage") {
+            applyProgressStages = applyProgressStages.map((stage) => {
+                return stage.id === event.stage ? Object.assign({
+                }, stage, {
+                    "state": event.state,
+                    "message": event.message
+                }) : stage;
+            });
+            if (event.stage === "applications" && event.state !== "queued")
+                applyProgressShowTargets = true;
+
+        } else if (event.kind === "target") {
+            applyProgressShowTargets = true;
+            applyProgressRows = applyProgressRows.map((row) => {
+                return row.target === event.target ? Object.assign({
+                }, row, {
+                    "state": event.state,
+                    "message": event.message
+                }) : row;
+            });
+        }
+    }
+
+    function retryApplyTarget(target) {
+        if (busy || candidate === null)
+            return ;
+
+        applyProgressComplete = false;
+        applyProgressShowTargets = true;
+        applyProgressMessage = "Retrying " + target.replace("cursor_editor", "cursor");
+        applyProgressRows = applyProgressRows.map((row) => {
+            return row.target === target ? Object.assign({
+            }, row, {
+                "state": "active",
+                "message": "Retrying…"
+            }) : row;
+        });
+        runApi("apply-retry", ["apply", candidate.id, "--targets", target]);
     }
 
     function revertCandidate() {

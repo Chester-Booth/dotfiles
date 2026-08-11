@@ -28,6 +28,7 @@ Launcher 1.0 Launcher.qml
 singleton LauncherState 1.0 LauncherState.qml
 LauncherMainController 1.0 LauncherMainController.qml
 LauncherMainSurface 1.0 LauncherMainSurface.qml
+LauncherThemeApplyWindow 1.0 LauncherThemeApplyWindow.qml
 ClipboardController 1.0 ClipboardController.qml
 ClipboardPicker 1.0 ClipboardPicker.qml
 ClipboardWatcher 1.0 ClipboardWatcher.qml

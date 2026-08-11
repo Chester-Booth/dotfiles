@@ -130,6 +130,7 @@ Scope {
         id: mainController
 
         onCloseRequested: root.close()
+        onThemeApplyStarted: root.close()
     }
 
     ClipboardController {
@@ -198,6 +199,11 @@ Scope {
         controller: mainController
         targetScreen: root.targetScreen
         open: root.activeSurface === "main" || root.activeSurface === "dmenu"
+    }
+
+    LauncherThemeApplyWindow {
+        controller: mainController
+        targetScreen: root.targetScreen
     }
 
     ClipboardPicker {

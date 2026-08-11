@@ -14,48 +14,6 @@ QtObject {
     property var activeRequest: null
     property Process apiProcess
 
-    apiProcess: Process {
-        onExited: (exitCode, exitStatus) => {
-            const request = root.activeRequest;
-            root.activeRequest = null;
-            root.busy = false;
-            if (!request || request.sessionRevision !== host.sessionRevision) {
-                if (host.open && host.candidate === null) {
-                    if (host.themes.length === 0)
-                        host.refreshThemes(false);
-                    else
-                        host.requestSelection(Theme.activeThemeId, false);
-                }
-                return ;
-            }
-            let response = null;
-            try {
-                response = JSON.parse(root.processOutput.trim());
-            } catch (error) {
-                host.errorMessage = "Theme API returned invalid JSON: " + String(error) + (root.processError ? "\n" + root.processError.trim() : "");
-                if (host.validationPending && host.candidate !== null)
-                    host.scheduleValidation();
-
-                host.continueQueuedGeneration();
-                return ;
-            }
-            root.handleResponse(request, response);
-            if (host.validationPending && host.candidate !== null)
-                host.scheduleValidation();
-
-            host.continueQueuedGeneration();
-        }
-
-        stdout: StdioCollector {
-            onStreamFinished: root.processOutput = this.text
-        }
-
-        stderr: StdioCollector {
-            onStreamFinished: root.processError = this.text
-        }
-
-    }
-
     function run(nextAction, args) {
         if (busy) {
             host.errorMessage = "Another theme action is still running.";
@@ -74,7 +32,8 @@ QtObject {
         processError = "";
         host.errorMessage = "";
         busy = true;
-        apiProcess.command = [host.apiPath].concat(args).concat(["--json"]);
+        const progressArgs = nextAction.startsWith("apply") ? ["--progress-ndjson"] : [];
+        apiProcess.command = [host.apiPath].concat(args).concat(["--json"]).concat(progressArgs);
         apiProcess.running = true;
         return true;
     }
@@ -100,6 +59,7 @@ QtObject {
                 });
                 if (available)
                     host.generatorBackend = available.backend;
+
                 if (available)
                     host.newVariant = available.mode;
 
@@ -136,15 +96,16 @@ QtObject {
             if (completedAction === "generate" || completedAction === "new-template")
                 host.creationBusy = false;
 
-            if (completedAction === "apply") {
+            if (completedAction === "apply" || completedAction === "apply-retry") {
                 host.applyProgressComplete = true;
-                host.applyProgressRows = host.applyProgressRows.map((entry) => {
-                    return ({
-                        "target": entry.target,
-                        "state": "failed",
-                        "message": "failed"
+                if (completedAction === "apply-retry")
+                    host.applyProgressRows = host.applyProgressRows.map((entry) => {
+                        return entry.state === "active" ? ({
+                            "target": entry.target,
+                            "state": "failed",
+                            "message": "Could not apply automatically"
+                        }) : entry;
                     });
-                });
             }
             return ;
         }
@@ -212,13 +173,18 @@ QtObject {
             } else {
                 host.refreshThemes(true);
             }
-        } else if (completedAction === "apply") {
+        } else if (completedAction === "apply" || completedAction === "apply-retry") {
             Theme.reload();
             host.baselineJson = JSON.stringify(host.candidate);
             host.candidateRevision += 1;
             host.statusMessage = "Theme applied. Some applications may require restart.";
             host.applyProgressComplete = true;
+            host.applyProgressValue = 1;
+            host.applyProgressMessage = "Application finished · Review follow-up actions";
             host.applyProgressRows = host.applyProgressRows.map((entry) => {
+                if (completedAction === "apply-retry" && entry.state !== "active")
+                    return entry;
+
                 const mode = host.targetApplyMode(entry.target);
                 const editorName = entry.target === "code" ? "Code" : entry.target === "cursor_editor" ? "Cursor" : "";
                 const editorFailure = editorName && (response.warnings || []).find((warning) => {
@@ -278,6 +244,58 @@ QtObject {
         } else if (completedAction === "export") {
             host.statusMessage = "Theme exported to " + response.data.path;
         }
+    }
+
+    apiProcess: Process {
+        onExited: (exitCode, exitStatus) => {
+            const request = root.activeRequest;
+            root.activeRequest = null;
+            root.busy = false;
+            if (!request || request.sessionRevision !== host.sessionRevision) {
+                if (host.open && host.candidate === null) {
+                    if (host.themes.length === 0)
+                        host.refreshThemes(false);
+                    else
+                        host.requestSelection(Theme.activeThemeId, false);
+                }
+                return ;
+            }
+            let response = null;
+            try {
+                response = JSON.parse(root.processOutput.trim());
+            } catch (error) {
+                host.errorMessage = "Theme API returned invalid JSON: " + String(error) + (root.processError ? "\n" + root.processError.trim() : "");
+                if (host.validationPending && host.candidate !== null)
+                    host.scheduleValidation();
+
+                host.continueQueuedGeneration();
+                return ;
+            }
+            root.handleResponse(request, response);
+            if (host.validationPending && host.candidate !== null)
+                host.scheduleValidation();
+
+            host.continueQueuedGeneration();
+        }
+
+        stdout: StdioCollector {
+            onStreamFinished: root.processOutput = this.text
+        }
+
+        stderr: SplitParser {
+            splitMarker: "\n"
+            onRead: (line) => {
+                root.processError += line + "\n";
+                if (!root.action.startsWith("apply"))
+                    return ;
+
+                try {
+                    host.handleApplyProgress(JSON.parse(line));
+                } catch (error) {
+                }
+            }
+        }
+
     }
 
 }

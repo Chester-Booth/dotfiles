@@ -1,5 +1,6 @@
 Bar 1.0 Bar.qml
 DesktopWidgets 1.0 DesktopWidgets.qml
+Wallpaper 1.0 Wallpaper.qml
 Osd 1.0 Osd.qml
 OsdController 1.0 OsdController.qml
 OsdIpc 1.0 OsdIpc.qml

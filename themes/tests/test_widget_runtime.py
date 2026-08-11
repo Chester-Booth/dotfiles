@@ -6,6 +6,26 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class WidgetRuntimeSourceTests(unittest.TestCase):
+    def test_wallpaper_uses_double_buffered_per_screen_surfaces(self) -> None:
+        source = (ROOT / "quickshell/.config/quickshell/blox/modules/Wallpaper.qml").read_text(encoding="utf-8")
+        shell = (ROOT / "quickshell/.config/quickshell/blox/shell.qml").read_text(encoding="utf-8")
+        self.assertIn("model: Quickshell.screens", source)
+        self.assertIn("screen: modelData", source)
+        self.assertIn("modelData.devicePixelRatio", source)
+        self.assertIn("WlrLayershell.layer: WlrLayer.Background", source)
+        self.assertIn("exclusionMode: ExclusionMode.Ignore", source)
+        self.assertNotIn("exclusiveZone:", source)
+        self.assertIn("Image.PreserveAspectCrop", source)
+        self.assertIn("Image.PreserveAspectFit", source)
+        self.assertIn("Image.Stretch", source)
+        self.assertEqual(2, source.count("asynchronous: true"))
+        self.assertIn("image.status !== Image.Ready", source)
+        self.assertIn("Wallpaper {", shell)
+        self.assertLess(shell.index("Wallpaper {"), shell.index("DesktopWidgets {"))
+        theme = (ROOT / "quickshell/.config/quickshell/blox/shared/Theme.qml").read_text(encoding="utf-8")
+        self.assertIn("id: wallpaperFile", theme)
+        self.assertIn("preload: true", theme.split("id: wallpaperFile", 1)[1])
+
     def test_normal_overlay_uses_shared_renderer(self) -> None:
         source = (ROOT / "quickshell/.config/quickshell/blox/modules/DesktopWidgets.qml").read_text(encoding="utf-8")
         self.assertIn("Shared.DesktopWidget {", source)

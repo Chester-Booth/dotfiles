@@ -898,103 +898,12 @@ def _reload_widgets(mode: str, run_command: Callable[[list[str]], subprocess.Com
     return None
 
 
-def _reload_vicinae(mode: str, run_command: Callable[[list[str]], subprocess.CompletedProcess[str]]) -> str | None:
-    theme_id = "blox-panel" if mode == "reset" else "blox-generated"
-    command = ["vicinae", "theme", "set", theme_id]
-    result = run_command(command)
-    if result.returncode != 0:
-        return f"Vicinae reload failed; run: {_command_text(command)}"
-    return None
-
-
-def set_live_wallpaper(
-    wallpaper: str,
-    fit: str,
-    run_command: Callable[[list[str]], subprocess.CompletedProcess[str]] = _run,
-) -> str | None:
-    monitors = run_command(["hyprctl", "monitors", "-j"])
-    if monitors.returncode != 0:
-        return "Hyprland monitor discovery failed"
-    try:
-        names = [entry["name"] for entry in json.loads(monitors.stdout) if entry.get("name")]
-    except (json.JSONDecodeError, TypeError, KeyError):
-        return "Hyprland returned invalid monitor data"
-    if not names:
-        return "Hyprland returned no active monitors"
-    commands = [
-        ["hyprctl", "hyprpaper", "wallpaper", f"{name}, {wallpaper}, {fit}"]
-        for name in names
-    ]
-    results = [run_command(command) for command in commands]
-    if any(result.returncode != 0 for result in results):
-        return f"Hyprpaper live update failed; run: {_command_text(commands[0])}"
-    return None
-
-
-def restore_live_wallpaper(
-    run_command: Callable[[list[str]], subprocess.CompletedProcess[str]] = _run,
-) -> str | None:
-    source = state_dir() / "current/hypr/wallpaper.json"
-    try:
-        data = json.loads(source.read_text(encoding="utf-8"))
-        wallpaper = str(resolve_wallpaper_path(data["path"]))
-        fit = data["fit"]
-    except (OSError, json.JSONDecodeError, KeyError, TypeError) as error:
-        return f"Active wallpaper metadata is invalid: {error}"
-    return set_live_wallpaper(wallpaper, fit, run_command)
-
-
 def _reload_wallpaper(root: Path, mode: str, run_command: Callable[[list[str]], subprocess.CompletedProcess[str]]) -> str | None:
-    source = root / "current/hypr/wallpaper.json"
-    if mode == "reset":
-        source = repository_root() / "themes/themes/blox-panel.json"
-        try:
-            data = json.loads(source.read_text(encoding="utf-8"))["wallpaper"]
-        except (OSError, json.JSONDecodeError, KeyError, TypeError) as error:
-            return f"Wallpaper reset metadata is invalid: {error}"
-    else:
-        try:
-            data = json.loads(source.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as error:
-            return f"Wallpaper metadata is invalid: {error}"
-    wallpaper = str(resolve_wallpaper_path(data["path"]))
-    config = root / "integration/hyprpaper.conf"
-    config.parent.mkdir(parents=True, exist_ok=True)
-    temporary = config.with_name(f".{config.name}-{uuid.uuid4().hex}")
-    _write_text(
-        temporary,
-        "splash = false\nipc = true\n\nwallpaper {\n"
-        # Hyprpaper's fallback target is an intentionally blank value. Keep a
-        # space after '=': Hyprlang treats a bare `monitor =` as a missing
-        # assignment, so the daemon starts without creating a wallpaper target.
-        f"    monitor = \n    path = {wallpaper}\n    fit_mode = {data['fit']}\n"
-        "}\n",
-    )
-    os.replace(temporary, config)
-    _fsync_directory(config.parent)
-
-    # Set every active output explicitly. Hyprpaper treats an empty monitor as
-    # a fallback and does not replace outputs which already have an assignment.
-    if set_live_wallpaper(wallpaper, data["fit"], run_command) is None:
-        return None
-
-    # If there is no usable IPC socket, start a clean daemon from the persistent
-    # config. The fallback applies because the new process has no assignments.
-    run_command(["systemctl", "--user", "stop", "blox-hyprpaper.service"])
-    run_command(["pkill", "-x", "hyprpaper"])
-    command = [
-        "systemd-run",
-        "--user",
-        "--unit=blox-hyprpaper",
-        "--collect",
-        "--quiet",
-        "hyprpaper",
-        "--config",
-        str(config),
-    ]
+    function = "resetWallpaper" if mode == "reset" else "reloadWallpaper"
+    command = ["quickshell", "ipc", "--path", str(quickshell_config_path()), "call", "theme", function]
     result = run_command(command)
     if result.returncode != 0:
-        return f"Hyprpaper restart failed; run: {_command_text(command)}"
+        return f"Quickshell wallpaper reload failed; run: {_command_text(command)}"
     return None
 
 
@@ -1077,10 +986,6 @@ def run_reload_actions(root: Path, targets: Iterable[str], mode: str = "reload",
                 warnings.append(warning)
         elif target == "widgets":
             warning = _reload_widgets(mode, run_command)
-            if warning:
-                warnings.append(warning)
-        elif target == "vicinae":
-            warning = _reload_vicinae(mode, run_command)
             if warning:
                 warnings.append(warning)
         elif target == "wallpaper":

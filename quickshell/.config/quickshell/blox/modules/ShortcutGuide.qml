@@ -15,8 +15,8 @@ Scope {
     property var targetMonitor: null
     property var targetWorkspace: null
     property var captureSource: null
-    property string wallpaperSource: ""
-    property string wallpaperFit: "cover"
+    readonly property string wallpaperSource: Theme.wallpaperSource
+    readonly property string wallpaperFit: Theme.wallpaperFit
 
     function focusedScreen() {
         for (const screen of Quickshell.screens) {
@@ -33,19 +33,6 @@ Scope {
         targetMonitor = targetScreen ? Hyprland.monitorFor(targetScreen) : null;
         targetWorkspace = targetMonitor ? targetMonitor.activeWorkspace : null;
         captureSource = targetScreen;
-    }
-
-    function loadWallpaper(raw) {
-        try {
-            const data = JSON.parse(raw);
-            const path = String(data.path || "");
-            wallpaperSource = path.startsWith("~/") ? "file://" + Quickshell.env("HOME") + path.slice(1) : path.startsWith("/") ? "file://" + path : path;
-            wallpaperFit = String(data.fit || "cover");
-        } catch (error) {
-            console.warn("[blox.shortcut-guide] rejected wallpaper state: " + error);
-            wallpaperSource = "";
-            wallpaperFit = "cover";
-        }
     }
 
     function arm() : string {
@@ -145,16 +132,6 @@ Scope {
         }
 
         target: "shortcutGuide"
-    }
-
-    FileView {
-        path: Theme.stateRoot + "/blox-theme/current/hypr/wallpaper.json"
-        preload: true
-        blockLoading: true
-        watchChanges: true
-        printErrors: false
-        onLoaded: root.loadWallpaper(text())
-        onFileChanged: reload()
     }
 
     Timer {

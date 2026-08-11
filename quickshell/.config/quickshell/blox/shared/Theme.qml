@@ -56,8 +56,11 @@ Singleton {
     }
     readonly property string themePath: stateRoot + "/blox-theme/current/quickshell/theme.json"
     readonly property string widgetPath: stateRoot + "/blox-theme/current/widgets/profile.json"
-    property var pendingWallpaperCommand: []
-    property string previewWallpaperKey: ""
+    readonly property string wallpaperPath: stateRoot + "/blox-theme/current/hypr/wallpaper.json"
+    property string activeWallpaperSource: wallpaperUrl("wallpapers/showcase/catppuccin-mocha.webp")
+    property string activeWallpaperFit: "cover"
+    property string wallpaperSource: activeWallpaperSource
+    property string wallpaperFit: activeWallpaperFit
 
     signal osdPositionPreviewRequested()
     signal notificationPositionPreviewRequested()
@@ -117,19 +120,68 @@ Singleton {
         return document.loadActiveIdentity(raw);
     }
 
-    function runPendingWallpaperCommand() {
-        if (wallpaperProcess.running || pendingWallpaperCommand.length === 0)
-            return ;
+    function wallpaperUrl(path) : string {
+        const value = String(path || "");
+        if (value.startsWith("file:"))
+            return value;
 
-        const arguments = pendingWallpaperCommand;
-        pendingWallpaperCommand = [];
-        wallpaperProcess.command = [Quickshell.shellDir + "/scripts/theme/themectl.sh"].concat(arguments).concat(["--json"]);
-        wallpaperProcess.running = true;
+        if (value.startsWith("~/"))
+            return "file://" + Quickshell.env("HOME") + value.slice(1);
+
+        if (value.startsWith("/"))
+            return "file://" + value;
+
+        if (value.startsWith("wallpapers/")) {
+            const configured = Quickshell.env("BLOX_DATA_DIR") || "";
+            const dataRoot = configured.length > 0 ? configured : Quickshell.shellDir + "/../../../../themes";
+            return "file://" + dataRoot + "/" + value;
+        }
+
+        return "file://" + Quickshell.shellDir + "/../../../.." + "/" + value;
     }
 
-    function queueWallpaperCommand(arguments) {
-        pendingWallpaperCommand = arguments;
-        runPendingWallpaperCommand();
+    function setPreviewWallpaper(data) {
+        if (data.targets && data.targets.wallpaper) {
+            wallpaperSource = wallpaperUrl(data.wallpaper.path);
+            wallpaperFit = data.wallpaper.fit;
+        } else {
+            wallpaperSource = activeWallpaperSource;
+            wallpaperFit = activeWallpaperFit;
+        }
+    }
+
+    function loadWallpaper(raw) : bool {
+        try {
+            const data = JSON.parse(raw);
+            if (data.schema_version !== 1 || !data.path || ["cover", "contain", "stretch"].indexOf(data.fit) < 0)
+                throw new Error("unsupported or incomplete wallpaper document");
+
+            activeWallpaperSource = wallpaperUrl(data.path);
+            activeWallpaperFit = data.fit;
+            if (!previewActive) {
+                wallpaperSource = activeWallpaperSource;
+                wallpaperFit = activeWallpaperFit;
+            }
+            return true;
+        } catch (error) {
+            console.warn("[blox.theme] rejected wallpaper state: " + error);
+            return false;
+        }
+    }
+
+    function resetWallpaper() : string {
+        activeWallpaperSource = wallpaperUrl("wallpapers/showcase/catppuccin-mocha.webp");
+        activeWallpaperFit = "cover";
+        if (!previewActive) {
+            wallpaperSource = activeWallpaperSource;
+            wallpaperFit = activeWallpaperFit;
+        }
+        return activeWallpaperSource;
+    }
+
+    function reloadWallpaper() : string {
+        wallpaperFile.reload();
+        return activeWallpaperSource;
     }
 
     function previewSource(raw) : bool {
@@ -138,39 +190,30 @@ Singleton {
             return false;
 
         const data = typeof raw === "string" ? JSON.parse(raw) : raw;
-        if (data.targets && data.targets.wallpaper) {
-            const key = data.wallpaper.path + "\n" + data.wallpaper.fit;
-            if (key !== previewWallpaperKey) {
-                previewWallpaperKey = key;
-                queueWallpaperCommand(["wallpaper-preview", typeof raw === "string" ? raw : JSON.stringify(raw)]);
-            }
-        } else if (previewWallpaperKey.length > 0) {
-            previewWallpaperKey = "";
-            queueWallpaperCommand(["wallpaper-restore"]);
-        }
-
+        setPreviewWallpaper(data);
         return true;
     }
 
     function cancelPreview() : string {
         previewActive = false;
         previewThemeId = "";
-        previewWallpaperKey = "";
+        wallpaperSource = activeWallpaperSource;
+        wallpaperFit = activeWallpaperFit;
         const active = themeFile.text();
         if (!active || !loadJson(active))
             reset();
 
         reloadWidgets();
-        queueWallpaperCommand(["wallpaper-restore"]);
         return themeId;
     }
 
     function reload() : string {
         previewActive = false;
         previewThemeId = "";
-        previewWallpaperKey = "";
+        wallpaperSource = activeWallpaperSource;
+        wallpaperFit = activeWallpaperFit;
         themeFile.reload();
-        queueWallpaperCommand(["wallpaper-restore"]);
+        wallpaperFile.reload();
         return themeId;
     }
 
@@ -181,12 +224,6 @@ Singleton {
 
     ThemeDefaults {
         id: defaults
-    }
-
-    Process {
-        id: wallpaperProcess
-
-        onExited: root.runPendingWallpaperCommand()
     }
 
     ThemeDocumentController {
@@ -216,6 +253,18 @@ Singleton {
             else
                 themeFile.reload();
         }
+    }
+
+    FileView {
+        id: wallpaperFile
+
+        path: root.wallpaperPath
+        preload: true
+        blockLoading: true
+        watchChanges: true
+        printErrors: false
+        onLoaded: root.loadWallpaper(text())
+        onFileChanged: reload()
     }
 
     FileView {
@@ -257,6 +306,14 @@ Singleton {
 
         function resetWidgets() : string {
             return root.resetWidgets();
+        }
+
+        function reloadWallpaper() : string {
+            return root.reloadWallpaper();
+        }
+
+        function resetWallpaper() : string {
+            return root.resetWallpaper();
         }
 
         target: "theme"

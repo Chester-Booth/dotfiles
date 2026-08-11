@@ -35,6 +35,9 @@ Scope {
         id: osd
     }
 
+    Wallpaper {
+    }
+
     DesktopWidgets {
     }
 

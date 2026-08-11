@@ -30,7 +30,8 @@ class ShortcutGuideSourceTests(unittest.TestCase):
 
         self.assertIn("captureSource = targetScreen;", controller)
         self.assertIn("targetWorkspace = targetMonitor ? targetMonitor.activeWorkspace : null;", controller)
-        self.assertIn('path: Theme.stateRoot + "/blox-theme/current/hypr/wallpaper.json"', controller)
+        self.assertIn("readonly property string wallpaperSource: Theme.wallpaperSource", controller)
+        self.assertIn("readonly property string wallpaperFit: Theme.wallpaperFit", controller)
         self.assertNotIn("Hyprland.activeToplevel", controller)
         self.assertIn("takeSnapshot();\n        rendered = true;", controller)
         self.assertIn("id: snapshotRevealTimer", controller)

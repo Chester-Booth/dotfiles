@@ -385,14 +385,14 @@ FloatingWindow {
                     Popup {
                         id: itemMenu
 
-                        readonly property point anchorPosition: menuButton.mapToItem(root.contentItem, menuButton.width, menuButton.height)
+                        readonly property point windowPosition: itemCard.mapToItem(root.contentItem, 0, 0)
 
-                        parent: root.contentItem
+                        parent: itemCard
                         popupType: Popup.Item
                         modal: true
                         dim: false
-                        x: Math.max(6, Math.min(root.width - width - 6, anchorPosition.x - width))
-                        y: anchorPosition.y + height <= root.height - 6 ? anchorPosition.y : Math.max(6, anchorPosition.y - menuButton.height - height)
+                        x: itemCard.width - width - 6
+                        y: windowPosition.y + menuButton.y + menuButton.height + height <= root.height - 6 ? menuButton.y + menuButton.height : menuButton.y - height
                         width: 142
                         padding: 4
                         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside

@@ -98,7 +98,8 @@ QtObject {
             "id": "privacy",
             "enabled": true,
             "region": "hidden",
-            "order": 0
+            "order": 0,
+            "visibility": "normal"
         }, {
             "id": "awake",
             "enabled": true,

@@ -51,7 +51,7 @@ DEFAULT_BAR_ITEMS = (
     {"id": "notifications", "enabled": True, "region": "end", "order": 2},
     {"id": "wifi", "enabled": True, "region": "end", "order": 3},
     {"id": "sound", "enabled": True, "region": "end", "order": 4},
-    {"id": "privacy", "enabled": True, "region": "hidden", "order": 0},
+    {"id": "privacy", "enabled": True, "region": "hidden", "order": 0, "visibility": "normal"},
     {"id": "awake", "enabled": True, "region": "hidden", "order": 1},
     {"id": "display", "enabled": True, "region": "hidden", "order": 2},
     {"id": "bt", "enabled": True, "region": "hidden", "order": 3},

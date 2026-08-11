@@ -19,7 +19,7 @@ Item {
     })
     readonly property string batteryDisplay: itemConfig.display || "toggle"
     readonly property string itemVisibility: itemConfig.visibility || "normal"
-    readonly property bool runtimeSuppressed: itemVisibility === "always" ? false : itemId === "touchpad" ? contentController.touchpad.json.enabled !== false : itemId === "fan" ? contentController.systemInfo.json.profile === undefined || contentController.systemInfo.json.profile === "Quiet" : itemId === "gpu" ? contentController.systemInfo.json.gpuMode === undefined || contentController.systemInfo.json.gpuMode === "eco" : false
+    readonly property bool runtimeSuppressed: itemVisibility === "always" ? false : itemId === "privacy" ? contentController.privacy.json.active !== true : itemId === "touchpad" ? contentController.touchpad.json.enabled !== false : itemId === "fan" ? contentController.systemInfo.json.profile === undefined || contentController.systemInfo.json.profile === "Quiet" : itemId === "gpu" ? contentController.systemInfo.json.gpuMode === undefined || contentController.systemInfo.json.gpuMode === "eco" : false
     readonly property bool contentVisible: contentLoader.item !== null && !runtimeSuppressed
 
     function mappedCentre(item, centre) {

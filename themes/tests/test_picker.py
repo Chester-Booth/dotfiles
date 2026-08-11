@@ -409,7 +409,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn("controller.setBarItemDisplay(barItemRow.barItemId, displayValues[index])", advanced)
         self.assertIn('visible: barItemRow.modelData.id === "battery"', advanced)
         self.assertIn('model: ["always visible", "hidden when normal"]', advanced)
-        self.assertIn('visible: ["touchpad", "fan", "gpu"].indexOf(barItemRow.modelData.id) >= 0', advanced)
+        self.assertIn('visible: ["privacy", "touchpad", "fan", "gpu"].indexOf(barItemRow.modelData.id) >= 0', advanced)
         self.assertIn("Layout.preferredWidth: visible ? 172 : 0", advanced)
         self.assertIn("controller.setBarItemVisibility(barItemRow.barItemId, visibilityValues[index])", advanced)
         self.assertIn('"touchpad": "panel-top"', bar_model)

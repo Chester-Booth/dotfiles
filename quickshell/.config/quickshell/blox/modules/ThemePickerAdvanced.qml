@@ -302,7 +302,7 @@ ColumnLayout {
                                 BloxComboBox {
                                     readonly property var visibilityValues: ["always", "normal"]
 
-                                    visible: ["touchpad", "fan", "gpu"].indexOf(barItemRow.modelData.id) >= 0
+                                    visible: ["privacy", "touchpad", "fan", "gpu"].indexOf(barItemRow.modelData.id) >= 0
                                     Layout.preferredWidth: visible ? 172 : 0
                                     Layout.preferredHeight: 32
                                     model: ["always visible", "hidden when normal"]

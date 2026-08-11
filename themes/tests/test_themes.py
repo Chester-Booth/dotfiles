@@ -290,7 +290,7 @@ class RendererTests(unittest.TestCase):
         self.assertTrue(items["power"]["enabled"])
         self.assertEqual("toggle", items["battery"]["display"])
         self.assertEqual("hidden", items["touchpad"]["region"])
-        for item_id in ("touchpad", "fan", "gpu"):
+        for item_id in ("privacy", "touchpad", "fan", "gpu"):
             self.assertEqual("normal", items[item_id]["visibility"])
 
     def test_bar_item_schema_rejects_unknown_items_and_regions(self) -> None:
@@ -934,6 +934,7 @@ class CliContractTests(unittest.TestCase):
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
         self.assertIn('readonly property string itemVisibility: itemConfig.visibility || "normal"', delegate)
         self.assertIn('itemVisibility === "always" ? false', delegate)
+        self.assertIn('itemId === "privacy" ? contentController.privacy.json.active !== true', delegate)
         self.assertIn('itemId === "touchpad" ? contentController.touchpad.json.enabled !== false', delegate)
         self.assertIn('profile === undefined || contentController.systemInfo.json.profile === "Quiet"', delegate)
         self.assertIn('gpuMode === undefined || contentController.systemInfo.json.gpuMode === "eco"', delegate)

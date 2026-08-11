@@ -1,4 +1,5 @@
 import QtQuick
+import Qt5Compat.GraphicalEffects
 import Quickshell
 
 Column {
@@ -10,10 +11,56 @@ Column {
     property int headerRightPadding: 0
     property var actionItems: []
     readonly property bool hasActions: actionItems.length > 0
-    readonly property bool hasImage: notification && notification.image && String(notification.image).length > 0
-    readonly property string appIcon: notification && notification.appIcon ? Quickshell.iconPath(notification.appIcon, true) : ""
+    readonly property string rawNotificationImage: notification && notification.image ? String(notification.image) : ""
+    readonly property string notificationImageIconName: imageIconName(rawNotificationImage)
+    readonly property string notificationImage: resolvedNotificationImage()
+    readonly property bool hasImage: notificationImage.length > 0
+    readonly property bool tintNotificationImage: notificationImageIconName.endsWith("-symbolic")
+    readonly property string rawAppIcon: notification && notification.appIcon ? String(notification.appIcon) : ""
+    readonly property string appIconName: resolvedAppIconName()
+    readonly property string appIcon: appIconName.length > 0 ? Quickshell.iconPath(appIconName, true) : ""
+    readonly property bool tintAppIcon: appIconName.endsWith("-symbolic") || appIconName.endsWith("-symbolic.svg")
 
     signal actionInvoked(var notification)
+
+    function bluetoothBatteryIcon() {
+        const match = String(notification && notification.body || "").match(/(\d{1,3})\s*%/);
+        if (!match)
+            return "battery-symbolic";
+
+        const percentage = Math.max(0, Math.min(100, Number(match[1])));
+        const level = Math.round(percentage / 10) * 10;
+        return "battery-level-" + level + "-symbolic";
+    }
+
+    function resolvedAppIconName() {
+        return remapIconName(rawAppIcon);
+    }
+
+    function remapIconName(iconName) {
+        if (iconName === "battery")
+            return bluetoothBatteryIcon();
+
+        if (iconName === "audio-headset" || iconName === "audio-headphones")
+            return iconName + "-symbolic";
+
+        return iconName;
+    }
+
+    function imageIconName(imageSource) {
+        const prefix = "image://icon/";
+        if (!imageSource.startsWith(prefix))
+            return "";
+
+        return remapIconName(imageSource.substring(prefix.length));
+    }
+
+    function resolvedNotificationImage() {
+        if (notificationImageIconName.length === 0)
+            return rawNotificationImage;
+
+        return Quickshell.iconPath(notificationImageIconName, true);
+    }
 
     function refreshActions() {
         const next = [];
@@ -63,11 +110,16 @@ Column {
             visible: root.hasImage
             width: visible ? 72 : 0
             height: visible ? 72 : 0
-            source: root.notification ? root.notification.image : ""
+            source: root.notificationImage
             sourceSize.width: 144
             sourceSize.height: 144
             fillMode: Image.PreserveAspectFit
             smooth: true
+            mipmap: true
+            layer.enabled: root.tintNotificationImage
+            layer.effect: ColorOverlay {
+                color: Theme.foreground
+            }
         }
 
         Column {
@@ -86,10 +138,17 @@ Column {
                     height: 30
 
                     Image {
+                        id: appIconImage
+
                         anchors.fill: parent
                         source: root.appIcon
                         fillMode: Image.PreserveAspectFit
                         smooth: true
+                        mipmap: true
+                        layer.enabled: root.tintAppIcon
+                        layer.effect: ColorOverlay {
+                            color: Theme.foreground
+                        }
                     }
 
                 }

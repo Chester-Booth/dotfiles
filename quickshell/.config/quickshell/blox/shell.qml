@@ -1,3 +1,5 @@
+//@ pragma IconTheme Adwaita
+
 import "./modules"
 import QtQuick
 import Quickshell

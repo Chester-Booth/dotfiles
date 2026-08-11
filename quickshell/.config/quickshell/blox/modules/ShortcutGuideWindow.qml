@@ -819,6 +819,7 @@ PanelWindow {
         layer.enabled: true
 
         layer.effect: MultiEffect {
+            brightness: 1
             colorization: 1
             colorizationColor: Theme.selectionForeground
         }

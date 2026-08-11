@@ -195,6 +195,7 @@ QtObject {
             theme.red = data.colours.danger;
             theme.green = data.colours.success;
             theme.yellow = data.colours.warning;
+            theme.accent = data.colours.accent;
             theme.blue = data.colours.info;
             theme.mauve = data.colours.mauve;
             theme.teal = data.colours.teal;

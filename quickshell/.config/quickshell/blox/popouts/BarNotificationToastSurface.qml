@@ -43,7 +43,9 @@ PanelWindow {
         position: Theme.notificationPosition
         visible: root.notificationController.toastsEnabled && root.notificationController.toasts.length > 0 && !root.notificationController.dnd
         toasts: root.notificationController.toasts
-        activationLabel: (notification) => root.notificationController.activationLabel(notification)
+        activationLabel: (notification) => {
+            return root.notificationController.activationLabel(notification);
+        }
         onDismiss: (notification, closeNotification) => {
             root.notificationController.removeToast(notification);
             if (notification && closeNotification)

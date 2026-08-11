@@ -8,27 +8,27 @@ window_address="${BLOX_NOTIFICATION_WINDOW_ADDRESS:-}"
 sender_pid="${BLOX_NOTIFICATION_SENDER_PID:-}"
 
 if [[ -z "$app_name" && -z "$desktop_entry" && -z "$window_address" && -z "$sender_pid" ]]; then
-    exit 0
+	exit 0
 fi
 
 if [[ ! "$window_address" =~ ^0x[0-9a-fA-F]+$ ]]; then
-    window_address=""
+	window_address=""
 fi
 if [[ ! "$sender_pid" =~ ^[0-9]+$ ]]; then
-    sender_pid=""
+	sender_pid=""
 fi
 
 clients_json="$(hyprctl clients -j 2>/dev/null || true)"
 if [[ -z "$clients_json" || "$clients_json" == "[]" ]]; then
-    exit 0
+	exit 0
 fi
 
 match="$(
-    jq -r \
-        --arg app "$app_name" \
-        --arg desktop "$desktop_entry" \
-        --arg address "$window_address" \
-        --argjson pid "${sender_pid:-0}" '
+	jq -r \
+		--arg app "$app_name" \
+		--arg desktop "$desktop_entry" \
+		--arg address "$window_address" \
+		--argjson pid "${sender_pid:-0}" '
         def norm:
             tostring
             | ascii_downcase
@@ -90,18 +90,18 @@ match="$(
 )"
 
 if [[ -z "$match" || "$match" == "null" ]]; then
-    exit 0
+	exit 0
 fi
 
 read -r workspace_id address _ <<<"$match"
 if [[ -z "$address" || "$address" == "null" ]]; then
-    exit 0
+	exit 0
 fi
 
 if [[ "${FOCUS_NOTIFICATION_DRY_RUN:-}" == "1" ]]; then
-    printf 'workspace=%s address=%s source_app=%s desktop_entry=%s\n' \
-        "$workspace_id" "$address" "$app_name" "$desktop_entry"
-    exit 0
+	printf 'workspace=%s address=%s source_app=%s desktop_entry=%s\n' \
+		"$workspace_id" "$address" "$app_name" "$desktop_entry"
+	exit 0
 fi
 
 # Focusing a window also changes to its workspace. Hyprland 0.55 replaced

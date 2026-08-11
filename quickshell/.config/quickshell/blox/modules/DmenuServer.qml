@@ -15,6 +15,7 @@ Scope {
     function finish(value, cancelled) {
         if (!busy || !bridge.running)
             return ;
+
         busy = false;
         bridge.write(JSON.stringify({
             "value": value,
@@ -28,6 +29,13 @@ Scope {
         command: ["python3", root.scripts + "/parent_guard.py", "python3", root.scripts + "/dmenu_server.py"]
         stdinEnabled: true
         running: true
+        onExited: {
+            if (root.busy) {
+                root.busy = false;
+                root.abandoned();
+            }
+            restart.restart();
+        }
 
         stdout: SplitParser {
             splitMarker: "\n"
@@ -48,6 +56,7 @@ Scope {
                     const options = message.options || [];
                     if (message.event !== "request" || !Array.isArray(options))
                         return ;
+
                     root.busy = true;
                     root.request(options, String(message.prompt || ""), String(message.query || ""), {
                         "insensitive": message.insensitive === true,
@@ -61,13 +70,6 @@ Scope {
             }
         }
 
-        onExited: {
-            if (root.busy) {
-                root.busy = false;
-                root.abandoned();
-            }
-            restart.restart();
-        }
     }
 
     Timer {
@@ -76,4 +78,5 @@ Scope {
         interval: 500
         onTriggered: bridge.running = true
     }
+
 }

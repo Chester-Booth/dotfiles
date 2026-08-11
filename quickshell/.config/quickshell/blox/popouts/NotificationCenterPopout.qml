@@ -337,7 +337,9 @@ Rectangle {
             meta: root.notificationMeta(card.notification)
             maximumBodyLineCount: 4
             headerRightPadding: 32
-            onActionInvoked: (notification) => root.actionInvoked(notification)
+            onActionInvoked: (notification) => {
+                return root.actionInvoked(notification);
+            }
         }
 
         Rectangle {

@@ -11,6 +11,57 @@ Scope {
     property bool clipboardPositionReady: false
     property bool emojiPositionReady: false
 
+    function focusedScreen() {
+        for (const screen of Quickshell.screens) if (Hyprland.monitorFor(screen) === Hyprland.focusedMonitor) {
+            return screen;
+        }
+        return Quickshell.screens.length ? Quickshell.screens[0] : null;
+    }
+
+    function requestedScreen(value) {
+        if (!String(value || "").length)
+            return focusedScreen();
+
+        const number = Number(value);
+        for (let index = 0; index < Quickshell.screens.length; index++) {
+            const screen = Quickshell.screens[index];
+            if (screen.name === value || (!isNaN(number) && index === number))
+                return screen;
+
+        }
+        return focusedScreen();
+    }
+
+    function show(surface) {
+        targetScreen = focusedScreen();
+        const opening = activeSurface !== surface;
+        if (activeSurface === "idle")
+            pasteController.captureTarget();
+
+        if (opening && surface === "clipboard") {
+            clipboardPositionReady = false;
+            positionFallback.restart();
+        } else if (opening && surface === "emoji") {
+            emojiPositionReady = false;
+            positionFallback.restart();
+        } else if (!opening) {
+            positionFallback.stop();
+        }
+        activeSurface = activeSurface === surface ? "idle" : surface;
+        return activeSurface;
+    }
+
+    function close() {
+        positionFallback.stop();
+        if (activeSurface === "dmenu") {
+            dmenu.finish("", true);
+            mainController.dmenuMode = false;
+            mainController.dmenuPrompt = "";
+        }
+        activeSurface = "idle";
+        return "idle";
+    }
+
     Process {
         id: windowState
 
@@ -38,54 +89,6 @@ Scope {
             else if (root.activeSurface === "emoji")
                 root.emojiPositionReady = true;
         }
-    }
-
-    function focusedScreen() {
-        for (const screen of Quickshell.screens) if (Hyprland.monitorFor(screen) === Hyprland.focusedMonitor) {
-            return screen;
-        }
-        return Quickshell.screens.length ? Quickshell.screens[0] : null;
-    }
-
-    function requestedScreen(value) {
-        if (!String(value || "").length)
-            return focusedScreen();
-        const number = Number(value);
-        for (let index = 0; index < Quickshell.screens.length; index++) {
-            const screen = Quickshell.screens[index];
-            if (screen.name === value || (!isNaN(number) && index === number))
-                return screen;
-        }
-        return focusedScreen();
-    }
-
-    function show(surface) {
-        targetScreen = focusedScreen();
-        const opening = activeSurface !== surface;
-        if (activeSurface === "idle")
-            pasteController.captureTarget();
-        if (opening && surface === "clipboard") {
-            clipboardPositionReady = false;
-            positionFallback.restart();
-        } else if (opening && surface === "emoji") {
-            emojiPositionReady = false;
-            positionFallback.restart();
-        } else if (!opening) {
-            positionFallback.stop();
-        }
-        activeSurface = activeSurface === surface ? "idle" : surface;
-        return activeSurface;
-    }
-
-    function close() {
-        positionFallback.stop();
-        if (activeSurface === "dmenu") {
-            dmenu.finish("", true);
-            mainController.dmenuMode = false;
-            mainController.dmenuPrompt = "";
-        }
-        activeSurface = "idle";
-        return "idle";
     }
 
     IpcHandler {
@@ -120,6 +123,7 @@ Scope {
                 root.emojiPositionReady = true;
             if (root.activeSurface === surface)
                 positionFallback.stop();
+
             return surface;
         }
 
@@ -178,6 +182,7 @@ Scope {
             mainController.dmenuPrompt = "";
             if (root.activeSurface === "dmenu")
                 root.close();
+
         }
     }
 

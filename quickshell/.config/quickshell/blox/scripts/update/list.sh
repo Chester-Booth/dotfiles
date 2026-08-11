@@ -9,11 +9,11 @@ repo_updates=$(checkupdates 2>/dev/null | wc -l)
 aur_updates=$(yay -Qua 2>/dev/null | wc -l)
 
 {
-    echo "=== Official Repositories ==="
-    echo "$repo_updates updates available"
-    checkupdates
-    echo ""
-    echo "=== AUR ==="
-    echo "$aur_updates updates available"
-    yay -Qua
+	echo "=== Official Repositories ==="
+	echo "$repo_updates updates available"
+	checkupdates
+	echo ""
+	echo "=== AUR ==="
+	echo "$aur_updates updates available"
+	yay -Qua
 } | less -SR

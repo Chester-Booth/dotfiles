@@ -105,16 +105,49 @@ Singleton {
     }
 
     function builtinBarItems() {
-        return defaults.resolvedBarItems([
-            {"id": "active-window-title", "enabled": true, "region": "start", "order": 0, "orientation": "inward"},
-            {"id": "workspaces", "enabled": true, "region": "centre", "order": 0},
-            {"id": "tray", "enabled": true, "region": "end", "order": 0},
-            {"id": "sound", "enabled": true, "region": "end", "order": 1},
-            {"id": "wifi", "enabled": true, "region": "end", "order": 2},
-            {"id": "battery", "enabled": true, "region": "end", "order": 3, "display": "icon"},
-            {"id": "power", "enabled": true, "region": "end", "order": 4},
-            {"id": "application-tray", "enabled": true, "region": "hidden", "order": 0}
-        ]);
+        return defaults.resolvedBarItems([{
+            "id": "active-window-title",
+            "enabled": true,
+            "region": "start",
+            "order": 0,
+            "orientation": "inward"
+        }, {
+            "id": "workspaces",
+            "enabled": true,
+            "region": "centre",
+            "order": 0
+        }, {
+            "id": "tray",
+            "enabled": true,
+            "region": "end",
+            "order": 0
+        }, {
+            "id": "sound",
+            "enabled": true,
+            "region": "end",
+            "order": 1
+        }, {
+            "id": "wifi",
+            "enabled": true,
+            "region": "end",
+            "order": 2
+        }, {
+            "id": "battery",
+            "enabled": true,
+            "region": "end",
+            "order": 3,
+            "display": "icon"
+        }, {
+            "id": "power",
+            "enabled": true,
+            "region": "end",
+            "order": 4
+        }, {
+            "id": "application-tray",
+            "enabled": true,
+            "region": "hidden",
+            "order": 0
+        }]);
     }
 
     function trayOpensForward(items) : bool {
@@ -149,7 +182,6 @@ Singleton {
             const dataRoot = configured.length > 0 ? configured : Quickshell.shellDir + "/../../../../themes";
             return "file://" + dataRoot + "/" + value;
         }
-
         return "file://" + Quickshell.shellDir + "/../../../.." + "/" + value;
     }
 

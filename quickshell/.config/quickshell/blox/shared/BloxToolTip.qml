@@ -35,6 +35,7 @@ Popup {
                 const hostWindow = root.hostWindow;
                 if (!hostWindow)
                     return ;
+
                 const point = root.parent.mapToItem(null, 0, 0);
                 const windowWidth = hostWindow.width;
                 const windowHeight = hostWindow.height;
@@ -48,7 +49,6 @@ Popup {
                 root.y = sceneY - point.y;
                 root.open();
             }
-
         }
     }
 

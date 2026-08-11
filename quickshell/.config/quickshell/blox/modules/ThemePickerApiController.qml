@@ -100,12 +100,13 @@ QtObject {
                 host.applyProgressComplete = true;
                 if (completedAction === "apply-retry")
                     host.applyProgressRows = host.applyProgressRows.map((entry) => {
-                        return entry.state === "active" ? ({
-                            "target": entry.target,
-                            "state": "failed",
-                            "message": "Could not apply automatically"
-                        }) : entry;
-                    });
+                    return entry.state === "active" ? ({
+                        "target": entry.target,
+                        "state": "failed",
+                        "message": "Could not apply automatically"
+                    }) : entry;
+                });
+
             }
             return ;
         }

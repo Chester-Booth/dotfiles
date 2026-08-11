@@ -171,7 +171,6 @@ QtObject {
         else
             visible.push(tray);
         for (let index = 0; index < visible.length; ++index) visible[index].order = index
-
         const applicationTray = items.find((item) => {
             return item.id === "application-tray";
         });

@@ -507,12 +507,12 @@ PanelWindow {
                 }
 
                 Text {
+                    readonly property int widgetCount: controller.previewWidgetCount(resultCard.themeData)
+
                     visible: resultCard.themeResult
                     anchors.right: parent.right
                     anchors.rightMargin: 16
                     y: 64
-                    readonly property int widgetCount: controller.previewWidgetCount(resultCard.themeData)
-
                     text: widgetCount + (widgetCount === 1 ? " widget" : " widgets")
                     color: resultCard.previewMuted
                     font.family: resultCard.previewMonoFont

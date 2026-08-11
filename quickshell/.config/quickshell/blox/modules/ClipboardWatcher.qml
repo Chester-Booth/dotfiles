@@ -30,6 +30,12 @@ Scope {
         id: healthProbe
 
         command: [root.command, "list", "--limit", "1"]
+        onExited: (exitCode) => {
+            if (exitCode !== 0)
+                root.storageHealthy = false;
+
+        }
+
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
@@ -39,10 +45,7 @@ Scope {
                 }
             }
         }
-        onExited: (exitCode) => {
-            if (exitCode !== 0)
-                root.storageHealthy = false;
-        }
+
     }
 
     Timer {
@@ -53,6 +56,7 @@ Scope {
         onTriggered: {
             if (!healthProbe.running)
                 healthProbe.running = true;
+
         }
     }
 

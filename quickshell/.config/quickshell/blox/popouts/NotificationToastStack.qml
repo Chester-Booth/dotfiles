@@ -93,6 +93,7 @@ Item {
                 function resumeExpiry() {
                     if (!dismissing && !expiryTimer.running)
                         startExpiry(remainingLifetime);
+
                 }
 
                 function finishDismiss(closeNotification) {
@@ -158,6 +159,7 @@ Item {
                         text: toast.clickTooltip
                         preferredPlacement: "top-right"
                     }
+
                 }
 
                 HoverHandler {
@@ -182,7 +184,9 @@ Item {
                     meta: toast.notification && toast.notification.appName ? toast.notification.appName + " • now" : "notification • now"
                     maximumBodyLineCount: 4
                     headerRightPadding: 32
-                    onActionInvoked: (notification) => root.actionInvoked(notification)
+                    onActionInvoked: (notification) => {
+                        return root.actionInvoked(notification);
+                    }
                 }
 
                 Rectangle {

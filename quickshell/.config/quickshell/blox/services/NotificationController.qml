@@ -79,6 +79,7 @@ Scope {
             const value = hints[names[i]];
             if (value !== undefined && value !== null && String(value).length > 0)
                 return String(value);
+
         }
         return "";
     }
@@ -95,15 +96,19 @@ Scope {
         const wantedPid = Number(hint(notification, ["x-blox-sender-pid", "sender-pid", "x-kde-pid", "pid"])) || 0;
         const app = normaliseFocusValue(notification.appName);
         const desktop = normaliseFocusValue(notification.desktopEntry);
-        const candidates = [app, desktop].filter((value, index, values) => value.length > 1 && values.indexOf(value) === index);
+        const candidates = [app, desktop].filter((value, index, values) => {
+            return value.length > 1 && values.indexOf(value) === index;
+        });
         const toplevels = Hyprland.toplevels ? Hyprland.toplevels.values : [];
-
         for (let i = 0; i < toplevels.length; i++) {
-            const client = toplevels[i].lastIpcObject || ({});
+            const client = toplevels[i].lastIpcObject || ({
+            });
             if (wantedAddress.length > 0 && String(client.address || "").toLowerCase() === wantedAddress.toLowerCase())
                 return true;
+
             if (wantedPid > 0 && Number(client.pid || 0) === wantedPid)
                 return true;
+
             if (wantedAddress.length > 0 || wantedPid > 0)
                 continue;
 
@@ -113,6 +118,7 @@ Scope {
                 const candidate = candidates[candidateIndex];
                 if (clientClass === candidate || initialClass === candidate || (candidate.length > 2 && (clientClass.indexOf(candidate) >= 0 || initialClass.indexOf(candidate) >= 0)))
                     return true;
+
             }
         }
         return false;

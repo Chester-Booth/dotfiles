@@ -18,13 +18,16 @@ Scope {
     }
 
     function captureTarget() {
-        const state = Hyprland.activeToplevel ? Hyprland.activeToplevel.lastIpcObject || ({}) : ({});
+        const state = Hyprland.activeToplevel ? Hyprland.activeToplevel.lastIpcObject || ({
+        }) : ({
+        });
         const address = normaliseAddress(state.address);
         const title = String(state.title || "");
         const windowClass = String(state.class || "");
         const isPicker = windowClass === "org.quickshell" && (title === "Blox Clipboard" || title === "Blox Emoji Picker");
         if (address.length && !isPicker)
             targetAddress = address;
+
     }
 
     function pasteWhenRestored() {
@@ -55,6 +58,7 @@ Scope {
         onTriggered: {
             if (!root.pending)
                 return ;
+
             if (!root.targetAddress.length) {
                 root.finishWithoutPaste();
                 return ;
@@ -67,10 +71,12 @@ Scope {
         id: activeWindow
 
         command: ["hyprctl", "activewindow", "-j"]
+
         stdout: StdioCollector {
             onStreamFinished: {
                 if (!root.pending)
                     return ;
+
                 let address = "";
                 try {
                     address = root.normaliseAddress(JSON.parse(text).address);
@@ -86,6 +92,7 @@ Scope {
                 }
             }
         }
+
     }
 
     Process {
@@ -95,6 +102,8 @@ Scope {
         onExited: (exitCode) => {
             if (exitCode !== 0)
                 Quickshell.execDetached(["notify-send", "--app-name", "Blox clipboard", "--expire-time", "2500", "Copied", "Automatic paste failed, so the value was left on the clipboard."]);
+
         }
     }
+
 }

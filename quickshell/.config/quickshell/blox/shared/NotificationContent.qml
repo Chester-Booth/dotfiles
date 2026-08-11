@@ -1,5 +1,5 @@
-import QtQuick
 import Qt5Compat.GraphicalEffects
+import QtQuick
 import Quickshell
 
 Column {
@@ -117,9 +117,11 @@ Column {
             smooth: true
             mipmap: true
             layer.enabled: root.tintNotificationImage
+
             layer.effect: ColorOverlay {
                 color: Theme.foreground
             }
+
         }
 
         Column {
@@ -146,9 +148,11 @@ Column {
                         smooth: true
                         mipmap: true
                         layer.enabled: root.tintAppIcon
+
                         layer.effect: ColorOverlay {
                             color: Theme.foreground
                         }
+
                     }
 
                 }

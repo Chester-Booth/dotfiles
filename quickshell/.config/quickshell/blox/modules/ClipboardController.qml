@@ -46,11 +46,13 @@ Scope {
     function startPendingRequest() {
         if (!pendingRequest || queryProcess.running)
             return ;
+
         queryProcess.serial = pendingSerial;
         queryProcess.append = pendingAppend;
         const request = [command, "list", "--query", pendingQuery, "--limit", "50"];
         if (pendingAppend && pendingCursor !== null)
             request.push("--cursor", String(pendingCursor));
+
         pendingRequest = false;
         queryProcess.command = request;
         queryProcess.running = true;
@@ -59,6 +61,7 @@ Scope {
     function loadMore() {
         if (loading || nextCursor === null)
             return ;
+
         requestPage(true, requestSerial);
     }
 
@@ -94,6 +97,7 @@ Scope {
     function clearAll() {
         if (action.running)
             return ;
+
         action.pasteAfterExit = false;
         action.command = [command, "clear"];
         action.running = true;
@@ -105,6 +109,7 @@ Scope {
         pendingRequest = false;
         if (queryProcess.running)
             queryProcess.signal(15);
+
         debounce.restart();
     }
 
@@ -120,6 +125,13 @@ Scope {
 
         property int serial: 0
         property bool append: false
+
+        onExited: {
+            if (root.pendingRequest)
+                Qt.callLater(root.startPendingRequest);
+            else
+                root.loading = false;
+        }
 
         stdout: StdioCollector {
             onStreamFinished: {
@@ -137,20 +149,15 @@ Scope {
                     root.nextCursor = response.ok ? response.cursor : null;
                     if (!queryProcess.append)
                         root.selectedIndex = 0;
+
                 } catch (error) {
                     root.error = "Clipboard history is unavailable";
                     if (!queryProcess.append)
                         root.items = [];
+
                     root.nextCursor = null;
                 }
             }
-        }
-
-        onExited: {
-            if (root.pendingRequest)
-                Qt.callLater(root.startPendingRequest);
-            else
-                root.loading = false;
         }
 
     }
@@ -164,6 +171,21 @@ Scope {
         onRunningChanged: {
             if (running)
                 responseError = "";
+
+        }
+        onExited: (exitCode) => {
+            if (pasteAfterExit) {
+                pasteAfterExit = false;
+                if (exitCode === 0 && !responseError.length)
+                    root.pasteRequested();
+                else
+                    Quickshell.execDetached(["notify-send", "--app-name", "Blox clipboard", "--expire-time", "2500", "Clipboard error", "The selected item could not be copied."]);
+            } else {
+                if (exitCode !== 0 || responseError.length)
+                    Quickshell.execDetached(["notify-send", "--app-name", "Blox clipboard", "--expire-time", "2500", "Clipboard error", responseError || "The clipboard action failed."]);
+
+                root.refresh();
+            }
         }
 
         stdout: StdioCollector {
@@ -177,19 +199,6 @@ Scope {
             }
         }
 
-        onExited: (exitCode) => {
-            if (pasteAfterExit) {
-                pasteAfterExit = false;
-                if (exitCode === 0 && !responseError.length)
-                    root.pasteRequested();
-                else
-                    Quickshell.execDetached(["notify-send", "--app-name", "Blox clipboard", "--expire-time", "2500", "Clipboard error", "The selected item could not be copied."]);
-            } else {
-                if (exitCode !== 0 || responseError.length)
-                    Quickshell.execDetached(["notify-send", "--app-name", "Blox clipboard", "--expire-time", "2500", "Clipboard error", responseError || "The clipboard action failed."]);
-                root.refresh();
-            }
-        }
     }
 
 }

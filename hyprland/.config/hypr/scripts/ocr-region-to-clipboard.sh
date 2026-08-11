@@ -5,10 +5,10 @@ set -eu
 required_tools="grim slurp tesseract wl-copy"
 
 for tool in $required_tools; do
-    if ! command -v "$tool" >/dev/null 2>&1; then
-        printf '%s\n' "Missing required command: $tool" >&2
-        exit 1
-    fi
+	if ! command -v "$tool" >/dev/null 2>&1; then
+		printf '%s\n' "Missing required command: $tool" >&2
+		exit 1
+	fi
 done
 
 tmp_file="$(mktemp --suffix=.png)"

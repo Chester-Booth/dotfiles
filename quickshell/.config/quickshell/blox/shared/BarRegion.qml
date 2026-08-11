@@ -43,6 +43,7 @@ Item {
             const item = repeater.itemAt(index);
             if (item && item.visible)
                 reservedExtent += root.horizontal ? item.implicitWidth : item.implicitHeight;
+
         }
         return Math.max(0, root.maximumExtent - reservedExtent);
     }
@@ -99,10 +100,12 @@ Item {
             onImplicitWidthChanged: {
                 if (modelData.id !== "active-window-title")
                     root.extentsRevision++;
+
             }
             onImplicitHeightChanged: {
                 if (modelData.id !== "active-window-title")
                     root.extentsRevision++;
+
             }
             onVisibleChanged: root.extentsRevision++
             Component.onCompleted: {

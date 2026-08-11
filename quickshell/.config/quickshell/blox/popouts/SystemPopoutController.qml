@@ -32,46 +32,9 @@ QtObject {
     readonly property bool audioOverdriven: currentMode() === "audio" && !audioMuted && audioVolume > 100
     readonly property bool visualAudioOverdriven: currentMode() === "audio" && !audioMuted && visualAudioVolume > 100
     property Timer audioApplyDelay
-
-    audioApplyDelay: Timer {
-        interval: 50
-        repeat: false
-        onTriggered: {
-            if (root.audioApplyPending) {
-                root.applyAudio();
-                restart();
-            }
-        }
-    }
-
     property Timer brightnessApplyDelay
-
-    brightnessApplyDelay: Timer {
-        interval: 50
-        repeat: false
-        onTriggered: {
-            if (root.brightnessApplyPending) {
-                root.applyBrightness();
-                restart();
-            }
-        }
-    }
-
     property Timer audioSyncDelay
-
-    audioSyncDelay: Timer {
-        interval: 250
-        repeat: false
-        onTriggered: root.visualAudioVolume = root.audioVolume
-    }
-
     property Timer brightnessSyncDelay
-
-    brightnessSyncDelay: Timer {
-        interval: 250
-        repeat: false
-        onTriggered: root.visualBrightnessPercent = root.brightnessPercent
-    }
 
     signal actionRequested(string command, bool keepOpen)
     signal levelPreviewRequested(string kind, int value, bool muted)
@@ -195,4 +158,39 @@ QtObject {
 
     }
     onBlueLightModeChanged: visualBlueLightMode = blueLightMode
+
+    audioApplyDelay: Timer {
+        interval: 50
+        repeat: false
+        onTriggered: {
+            if (root.audioApplyPending) {
+                root.applyAudio();
+                restart();
+            }
+        }
+    }
+
+    brightnessApplyDelay: Timer {
+        interval: 50
+        repeat: false
+        onTriggered: {
+            if (root.brightnessApplyPending) {
+                root.applyBrightness();
+                restart();
+            }
+        }
+    }
+
+    audioSyncDelay: Timer {
+        interval: 250
+        repeat: false
+        onTriggered: root.visualAudioVolume = root.audioVolume
+    }
+
+    brightnessSyncDelay: Timer {
+        interval: 250
+        repeat: false
+        onTriggered: root.visualBrightnessPercent = root.brightnessPercent
+    }
+
 }

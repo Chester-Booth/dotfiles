@@ -11,25 +11,25 @@ sink_desc="$(pactl get-default-sink 2>/dev/null)"
 [[ -n "$source_mute" ]] || source_mute=yes
 
 if [[ "$sink_mute" == "yes" ]]; then
-    icon="󰝟"
+	icon="󰝟"
 elif ((sink_volume > 100)); then
-    icon="󰝝"
-elif (( sink_volume < 35 )); then
-    icon="󰕿"
-elif (( sink_volume < 70 )); then
-    icon="󰖀"
+	icon="󰝝"
+elif ((sink_volume < 35)); then
+	icon="󰕿"
+elif ((sink_volume < 70)); then
+	icon="󰖀"
 else
-    icon="󰕾"
+	icon="󰕾"
 fi
 
 mic_icon="󰍬"
 [[ "$source_mute" == "yes" ]] && mic_icon="󰍭"
 
 jq -nc \
-    --arg icon "$icon" \
-    --arg micIcon "$mic_icon" \
-    --arg sinkMute "$sink_mute" \
-    --arg sourceMute "$source_mute" \
-    --arg desc "$sink_desc" \
-    --argjson volume "$sink_volume" \
-    '{icon:$icon,micIcon:$micIcon,volume:$volume,muted:($sinkMute=="yes"),micMuted:($sourceMute=="yes"),tooltip:("Volume: \($volume)%\n\($desc)\nMic muted: \($sourceMute)")}'
+	--arg icon "$icon" \
+	--arg micIcon "$mic_icon" \
+	--arg sinkMute "$sink_mute" \
+	--arg sourceMute "$source_mute" \
+	--arg desc "$sink_desc" \
+	--argjson volume "$sink_volume" \
+	'{icon:$icon,micIcon:$micIcon,volume:$volume,muted:($sinkMute=="yes"),micMuted:($sourceMute=="yes"),tooltip:("Volume: \($volume)%\n\($desc)\nMic muted: \($sourceMute)")}'

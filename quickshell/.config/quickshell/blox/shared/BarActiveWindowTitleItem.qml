@@ -8,7 +8,10 @@ Item {
     readonly property var activeWindow: Hyprland.activeToplevel
     readonly property bool activeWindowIsHere: activeWindow && activeWindow.workspace && Hyprland.focusedWorkspace && activeWindow.workspace.id === Hyprland.focusedWorkspace.id
     readonly property string title: activeWindowIsHere ? activeWindow.title : ""
-    readonly property var itemConfig: Theme.barItems.find((item) => item.id === "active-window-title") || ({})
+    readonly property var itemConfig: Theme.barItems.find((item) => {
+        return item.id === "active-window-title";
+    }) || ({
+    })
     readonly property string titleOrientation: itemConfig.orientation || "inward"
     readonly property bool showFullTitle: itemConfig.titleLength === "full"
     readonly property real preferredTitleExtent: root.context.horizontal ? Math.max(Theme.buttonSize, titleText.implicitWidth + 16) : Math.max(Theme.buttonSize, (staysHorizontal ? titleText.implicitHeight : titleText.implicitWidth) + 16)
@@ -17,6 +20,7 @@ Item {
     readonly property real titleRotation: {
         if (root.context.horizontal || staysHorizontal)
             return 0;
+
         const inward = titleOrientation === "inward";
         return Theme.barPosition === "right" ? (inward ? -90 : 90) : (inward ? 90 : -90);
     }
@@ -42,4 +46,5 @@ Item {
         verticalAlignment: Text.AlignVCenter
         rotation: root.titleRotation
     }
+
 }

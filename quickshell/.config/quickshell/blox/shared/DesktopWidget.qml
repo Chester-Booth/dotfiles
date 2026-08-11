@@ -203,6 +203,7 @@ Rectangle {
                     duration: 110
                     easing.type: Easing.OutCubic
                 }
+
             }
 
             background: Rectangle {
@@ -215,6 +216,7 @@ Rectangle {
                 radius: 999
                 color: verticalScrollbar.hovered || verticalScrollbar.pressed ? Theme.foreground : Theme.surfaceAlt
             }
+
         }
 
         ScrollBar.horizontal: ScrollBar {
@@ -237,6 +239,7 @@ Rectangle {
                     duration: 110
                     easing.type: Easing.OutCubic
                 }
+
             }
 
             background: Rectangle {
@@ -249,7 +252,9 @@ Rectangle {
                 radius: 999
                 color: horizontalScrollbar.hovered || horizontalScrollbar.pressed ? Theme.foreground : Theme.surfaceAlt
             }
+
         }
+
     }
 
     FontMetrics {

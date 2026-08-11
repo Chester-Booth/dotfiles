@@ -6,9 +6,24 @@ from pathlib import Path
 
 REPOSITORY = Path(__file__).resolve().parents[2]
 MODULES = REPOSITORY / "quickshell/.config/quickshell/blox/modules"
+BINDINGS = REPOSITORY / "hyprland/.config/hypr/conf.d/binds.lua"
 
 
 class ShortcutGuideSourceTests(unittest.TestCase):
+    def test_toggle_bind_stays_open_after_super_release_and_accepts_clicks(self) -> None:
+        controller = (MODULES / "ShortcutGuide.qml").read_text(encoding="utf-8")
+        window = (MODULES / "ShortcutGuideWindow.qml").read_text(encoding="utf-8")
+        bindings = BINDINGS.read_text(encoding="utf-8")
+
+        self.assertIn('mainMod .. " + SHIFT + slash"', bindings)
+        self.assertIn('shortcut_guide("toggle")', bindings)
+        self.assertIn("if (toggledOpen)\n            return \"visible\";", controller)
+        self.assertIn("function toggle() : string", controller)
+        self.assertIn("interactive: root.toggledOpen", controller)
+        self.assertIn("enabled: root.interactive", window)
+        self.assertIn("onClicked: root.closeRequested()", window)
+        self.assertIn('"keys": ["Shift", "/"]', window)
+
     def test_preview_composites_live_windows_over_a_frozen_screen(self) -> None:
         controller = (MODULES / "ShortcutGuide.qml").read_text(encoding="utf-8")
         window = (MODULES / "ShortcutGuideWindow.qml").read_text(encoding="utf-8")

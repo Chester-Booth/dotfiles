@@ -9,6 +9,7 @@ Scope {
 
     property bool armed: false
     property bool guideOpen: false
+    property bool toggledOpen: false
     property bool rendered: false
     property var targetScreen: null
     property var targetMonitor: null
@@ -67,18 +68,22 @@ Scope {
     function release() : string {
         armed = false;
         holdTimer.stop();
+        if (toggledOpen)
+            return "visible";
+
         close();
         return "hidden";
     }
 
     function cancel() : string {
-        return release();
+        return close();
     }
 
     function close() : string {
         armed = false;
         holdTimer.stop();
         snapshotRevealTimer.stop();
+        toggledOpen = false;
         guideOpen = false;
         hideTimer.restart();
         return "hidden";
@@ -91,6 +96,14 @@ Scope {
         rendered = true;
         snapshotRevealTimer.restart();
         return "visible";
+    }
+
+    function toggle() : string {
+        if (toggledOpen)
+            return close();
+
+        toggledOpen = true;
+        return show();
     }
 
     function status() : string {
@@ -121,6 +134,10 @@ Scope {
 
         function show() : string {
             return root.show();
+        }
+
+        function toggle() : string {
+            return root.toggle();
         }
 
         function status() : string {
@@ -183,6 +200,7 @@ Scope {
 
             screen: modelData
             guideOpen: root.guideOpen && root.targetScreen === modelData
+            interactive: root.toggledOpen && root.targetScreen === modelData
             rendered: root.rendered && root.targetScreen === modelData
             captureSource: root.captureSource
             captureMonitor: root.targetMonitor

@@ -9,6 +9,7 @@ PanelWindow {
     id: root
 
     required property bool guideOpen
+    required property bool interactive
     required property bool rendered
     property var captureSource: null
     property var captureMonitor: null
@@ -507,6 +508,9 @@ PanelWindow {
                         }, {
                             "keys": ["."],
                             "action": "Emoji picker"
+                        }, {
+                            "keys": ["Shift", "/"],
+                            "action": "Toggle shortcut guide"
                         }]
                     }
 
@@ -600,7 +604,17 @@ PanelWindow {
         precision: SystemClock.Seconds
     }
 
+    MouseArea {
+        id: clickCatcher
+
+        anchors.fill: parent
+        enabled: root.interactive
+        onClicked: root.closeRequested()
+    }
+
     mask: Region {
+        width: root.interactive ? root.width : 0
+        height: root.interactive ? root.height : 0
     }
 
     component KeyCap: Rectangle {

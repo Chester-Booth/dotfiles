@@ -139,6 +139,10 @@ hl.bind("Escape", function()
     shortcut_guide("close")
 end, { non_consuming = true, transparent = true, ignore_mods = true })
 
+hl.bind(mainMod .. " + SHIFT + slash", function()
+    shortcut_guide("toggle")
+end)
+
 super_bind("T", exec(programs.terminal))
 super_bind("Q", exec("/home/blox/.local/bin/ktr killactive"))
 super_bind("L", exec("~/.config/quickshell/blox/scripts/power/safe.sh lock"))

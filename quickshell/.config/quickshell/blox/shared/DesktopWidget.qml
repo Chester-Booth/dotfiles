@@ -1,5 +1,6 @@
 import "../services"
 import QtQuick
+import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 
@@ -12,6 +13,8 @@ Rectangle {
     property bool renderUpdates: true
     property int overrideWidth: 0
     property int overrideHeight: 0
+    property int maximumWidth: 0
+    property int maximumHeight: 0
     property string terminalFrame: ""
     property string clockFrame: ""
     readonly property bool terminalPreset: ["music", "clock", "aquarium", "pipes", "tree", "matrix", "train"].indexOf(widget.type) >= 0
@@ -36,6 +39,9 @@ Rectangle {
     readonly property int clockLineHeight: Math.ceil(clockMetrics.height)
     readonly property int clockContentWidth: clockColumns * clockCellWidth
     readonly property int clockContentHeight: clockRows * clockLineHeight
+    readonly property int scrollbarThreshold: 8
+    readonly property int requestedWidth: overrideWidth > 0 ? overrideWidth : configuredWidth > 0 ? configuredWidth * widgetScale : (widget.type === "clock" ? clockContentWidth : content.implicitWidth) + scaledPadding * 2
+    readonly property int requestedHeight: overrideHeight > 0 ? overrideHeight : configuredHeight > 0 ? configuredHeight * widgetScale : (widget.type === "clock" ? clockContentHeight : content.implicitHeight) + scaledPadding * 2
 
     signal leftClicked()
     signal rightClicked()
@@ -74,8 +80,8 @@ Rectangle {
         }
     }
 
-    width: overrideWidth > 0 ? overrideWidth : configuredWidth > 0 ? configuredWidth * widgetScale : (widget.type === "clock" ? clockContentWidth : content.implicitWidth) + scaledPadding * 2
-    height: overrideHeight > 0 ? overrideHeight : configuredHeight > 0 ? configuredHeight * widgetScale : (widget.type === "clock" ? clockContentHeight : content.implicitHeight) + scaledPadding * 2
+    width: maximumWidth > 0 ? Math.min(requestedWidth, maximumWidth) : requestedWidth
+    height: maximumHeight > 0 ? Math.min(requestedHeight, maximumHeight) : requestedHeight
     // The terminal renderer maps ANSI black to Gruvbox's terminal black.  Use
     // that same colour behind asciiquarium so its unpainted cells and the
     // surrounding widget do not form two visibly different backgrounds.
@@ -150,23 +156,100 @@ Rectangle {
         }
     }
 
-    Text {
-        id: content
+    Flickable {
+        id: contentViewport
 
-        anchors.left: parent.left
-        anchors.top: parent.top
+        z: 1
+        anchors.fill: parent
         anchors.margins: root.scaledPadding
-        text: root.widget.type === "clock" ? (root.clockFrame.length > 0 ? root.clockFrame : "Loading…") : root.terminalPreset ? (root.terminalFrame.length > 0 ? root.terminalFrame : "Loading…") : (contentPoller.raw.length > 0 ? contentPoller.raw : "Loading…")
-        textFormat: root.terminalPreset && root.widget.type !== "clock" && root.widget.type !== "music" ? Text.RichText : Text.PlainText
-        color: Theme.foreground
-        font.family: root.terminalPreset ? Theme.monoFontFamily : Theme.bodyFontFamily
-        font.pixelSize: root.terminalPreset ? Math.max(1, Math.round(Theme.widgetFontSize * root.widgetScale)) : Theme.widgetFontSize * root.widgetScale
-        lineHeightMode: root.widget.type === "music" ? Text.FixedHeight : Text.ProportionalHeight
-        lineHeight: root.widget.type === "music" ? font.pixelSize : 1
-        wrapMode: Text.NoWrap
-        horizontalAlignment: Text.AlignLeft
-        verticalAlignment: Text.AlignTop
+        contentWidth: content.implicitWidth
+        contentHeight: content.implicitHeight
+        boundsBehavior: Flickable.StopAtBounds
+        clip: true
         visible: root.widget.type !== "clock"
+
+        Text {
+            id: content
+
+            text: root.widget.type === "clock" ? (root.clockFrame.length > 0 ? root.clockFrame : "Loading…") : root.terminalPreset ? (root.terminalFrame.length > 0 ? root.terminalFrame : "Loading…") : (contentPoller.raw.length > 0 ? contentPoller.raw : "Loading…")
+            textFormat: root.terminalPreset && root.widget.type !== "clock" && root.widget.type !== "music" ? Text.RichText : Text.PlainText
+            color: Theme.foreground
+            font.family: root.terminalPreset ? Theme.monoFontFamily : Theme.bodyFontFamily
+            font.pixelSize: root.terminalPreset ? Math.max(1, Math.round(Theme.widgetFontSize * root.widgetScale)) : Theme.widgetFontSize * root.widgetScale
+            lineHeightMode: root.widget.type === "music" ? Text.FixedHeight : Text.ProportionalHeight
+            lineHeight: root.widget.type === "music" ? font.pixelSize : 1
+            wrapMode: Text.NoWrap
+            horizontalAlignment: Text.AlignLeft
+            verticalAlignment: Text.AlignTop
+        }
+
+        ScrollBar.vertical: ScrollBar {
+            id: verticalScrollbar
+
+            parent: root
+            z: 3
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.topMargin: root.scaledPadding
+            anchors.rightMargin: Math.max(0, (root.scaledPadding - width) / 2)
+            anchors.bottomMargin: Math.max(0, (root.scaledPadding - height) / 2)
+            width: 8
+            opacity: widgetHover.hovered ? 1 : 0
+            policy: contentViewport.contentHeight > contentViewport.height + root.scrollbarThreshold ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: 110
+                    easing.type: Easing.OutCubic
+                }
+            }
+
+            background: Rectangle {
+                radius: 999
+                color: Theme.withAlpha(Theme.foreground, 0.04)
+            }
+
+            contentItem: Rectangle {
+                implicitWidth: 4
+                radius: 999
+                color: verticalScrollbar.hovered || verticalScrollbar.pressed ? Theme.foreground : Theme.surfaceAlt
+            }
+        }
+
+        ScrollBar.horizontal: ScrollBar {
+            id: horizontalScrollbar
+
+            parent: root
+            z: 3
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.leftMargin: root.scaledPadding
+            anchors.rightMargin: root.scaledPadding
+            anchors.bottomMargin: root.scaledPadding
+            height: 8
+            opacity: widgetHover.hovered ? 1 : 0
+            policy: contentViewport.contentWidth > contentViewport.width + root.scrollbarThreshold ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: 110
+                    easing.type: Easing.OutCubic
+                }
+            }
+
+            background: Rectangle {
+                radius: 999
+                color: Theme.withAlpha(Theme.foreground, 0.04)
+            }
+
+            contentItem: Rectangle {
+                implicitHeight: 4
+                radius: 999
+                color: horizontalScrollbar.hovered || horizontalScrollbar.pressed ? Theme.foreground : Theme.surfaceAlt
+            }
+        }
     }
 
     FontMetrics {
@@ -223,6 +306,7 @@ Rectangle {
     }
 
     MouseArea {
+        z: 2
         anchors.fill: parent
         enabled: root.interactive
         acceptedButtons: Qt.LeftButton | Qt.RightButton
@@ -233,6 +317,26 @@ Rectangle {
             else
                 root.leftClicked();
         }
+        onWheel: (event) => {
+            const pixelDelta = event.pixelDelta.y || event.pixelDelta.x || 0;
+            const angleDelta = event.angleDelta.y || event.angleDelta.x || 0;
+            const delta = pixelDelta !== 0 ? pixelDelta : angleDelta / 2;
+            if (contentViewport.contentHeight > contentViewport.height + root.scrollbarThreshold) {
+                const maximumContentY = Math.max(contentViewport.originY, contentViewport.originY + contentViewport.contentHeight - contentViewport.height);
+                contentViewport.contentY = Math.max(contentViewport.originY, Math.min(maximumContentY, contentViewport.contentY - delta * 4));
+            } else if (contentViewport.contentWidth > contentViewport.width + root.scrollbarThreshold) {
+                const maximumContentX = Math.max(contentViewport.originX, contentViewport.originX + contentViewport.contentWidth - contentViewport.width);
+                contentViewport.contentX = Math.max(contentViewport.originX, Math.min(maximumContentX, contentViewport.contentX - delta * 4));
+            }
+            event.accepted = true;
+        }
+    }
+
+    HoverHandler {
+        id: widgetHover
+
+        enabled: root.interactive
+        cursorShape: Qt.PointingHandCursor
     }
 
 }

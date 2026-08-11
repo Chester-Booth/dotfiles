@@ -154,6 +154,8 @@ PanelWindow {
                 interactive: false
                 overrideWidth: editor.frameWidth
                 overrideHeight: editor.frameHeight
+                maximumWidth: root.width
+                maximumHeight: root.height
             }
 
             Rectangle {

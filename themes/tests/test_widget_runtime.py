@@ -64,6 +64,31 @@ class WidgetRuntimeSourceTests(unittest.TestCase):
         self.assertIn("Text.RichText", source)
         self.assertIn('widget.type === "aquarium" ? "#1d2021"', source)
 
+    def test_oversized_widget_text_scrolls_within_the_screen(self) -> None:
+        renderer = (ROOT / "quickshell/.config/quickshell/blox/shared/DesktopWidget.qml").read_text(encoding="utf-8")
+        widgets = (ROOT / "quickshell/.config/quickshell/blox/modules/DesktopWidgets.qml").read_text(encoding="utf-8")
+        self.assertIn("property int maximumWidth: 0", renderer)
+        self.assertIn("property int maximumHeight: 0", renderer)
+        self.assertIn("width: maximumWidth > 0 ? Math.min(requestedWidth, maximumWidth)", renderer)
+        self.assertIn("height: maximumHeight > 0 ? Math.min(requestedHeight, maximumHeight)", renderer)
+        self.assertIn("id: contentViewport", renderer)
+        self.assertIn("ScrollBar.vertical: ScrollBar", renderer)
+        self.assertIn("ScrollBar.horizontal: ScrollBar", renderer)
+        self.assertIn("contentViewport.contentHeight > contentViewport.height + root.scrollbarThreshold", renderer)
+        self.assertIn("contentViewport.contentWidth > contentViewport.width + root.scrollbarThreshold", renderer)
+        self.assertIn("opacity: widgetHover.hovered ? 1 : 0", renderer)
+        self.assertIn("contentViewport.contentY - delta * 4", renderer)
+        self.assertIn("contentViewport.contentX - delta * 4", renderer)
+        self.assertIn("parent: root", renderer)
+        self.assertIn("anchors.rightMargin: Math.max(0, (root.scaledPadding - width) / 2)", renderer)
+        self.assertIn("anchors.bottomMargin: Math.max(0, (root.scaledPadding - height) / 2)", renderer)
+        self.assertIn("MouseArea {", renderer)
+        click_layer = renderer.split("MouseArea {", 1)[1].split("HoverHandler {", 1)[0]
+        self.assertIn("onWheel: (event) =>", click_layer)
+        self.assertNotIn("WheelHandler {", renderer)
+        self.assertIn("maximumWidth: widgetWindow.screen", widgets)
+        self.assertIn("maximumHeight: widgetWindow.screen", widgets)
+
     def test_clock_uses_an_atomic_canvas_frame(self) -> None:
         source = (ROOT / "quickshell/.config/quickshell/blox/shared/DesktopWidget.qml").read_text(encoding="utf-8")
         self.assertIn('property string clockFrame: ""', source)

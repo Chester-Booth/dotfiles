@@ -173,6 +173,8 @@ Scope {
                 widget: widgetWindow.modelData
                 scriptRoot: root.scriptRoot
                 renderUpdates: widgetWindow.visible
+                maximumWidth: widgetWindow.screen ? Math.max(80, widgetWindow.screen.width - (widgetWindow.modelData.anchor === "centre" ? Math.abs(Number(widgetWindow.modelData.offset_x || 0)) * 2 : Math.max(0, Number(widgetWindow.modelData.offset_x || 0)))) : 0
+                maximumHeight: widgetWindow.screen ? Math.max(48, widgetWindow.screen.height - (widgetWindow.modelData.anchor === "centre" ? Math.abs(Number(widgetWindow.modelData.offset_y || 0)) * 2 : Math.max(0, Number(widgetWindow.modelData.offset_y || 0)))) : 0
                 onLeftClicked: {
                     root.run(root.commandFor(widgetWindow.modelData.left_click_command));
                     actionRefresh.restart();

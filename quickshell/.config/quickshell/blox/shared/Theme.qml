@@ -6,31 +6,31 @@ pragma Singleton
 Singleton {
     id: root
 
-    property string themeId: "blox-panel"
-    property string activeThemeId: "blox-panel"
+    property string themeId: "catppuccin-mocha"
+    property string activeThemeId: "catppuccin-mocha"
     property string previewThemeId: ""
     property string variant: "dark"
-    property color background: "#242424"
-    property color surface: "#1e1e1e"
-    property color surfaceAlt: "#3b3c4a"
+    property color background: "#1e1e2e"
+    property color surface: "#313244"
+    property color surfaceAlt: "#45475a"
     property color foreground: "#cdd6f4"
     property color muted: "#a6adc8"
     property color red: "#f38ba8"
     property color green: "#a6e3a1"
     property color yellow: "#f9e2af"
     property color accent: "#89b4fa"
-    property color blue: "#89b4fa"
-    property color mauve: "#f5c2e7"
+    property color blue: "#74c7ec"
+    property color mauve: "#cba6f7"
     property color teal: "#94e2d5"
-    property color selectionForeground: "#1e1e1e"
-    property color border: "#3b3c4a"
+    property color selectionForeground: "#1e1e2e"
+    property color border: "#6c7086"
     readonly property int railWidth: 34
     readonly property int iconSize: 18
     readonly property int buttonSize: 30
     readonly property int radius: 4
-    property string fontFamily: "MartianMono Nerd Font Propo"
-    property string monoFontFamily: "MartianMono Nerd Font Mono"
-    property string bodyFontFamily: "Google Sans"
+    property string fontFamily: "FiraCode Nerd Font Propo"
+    property string monoFontFamily: "FiraCode Nerd Font Mono"
+    property string bodyFontFamily: "Outfit"
     property bool previewActive: false
     property string widgetProfile: "minimal"
     property real widgetOpacity: 0.3
@@ -38,16 +38,16 @@ Singleton {
     property int widgetRadius: 0
     property int widgetFontSize: 14
     property var widgetItems: []
-    property string barPosition: "left"
-    property var barItems: defaultBarItems()
+    property string barPosition: "right"
+    property var barItems: builtinBarItems()
     readonly property var barStartItems: barItemsForRegion("start")
     readonly property var barCentreItems: barItemsForRegion("centre")
     readonly property var barEndItems: barItemsForRegion("end")
     readonly property var barHiddenItems: barItemsForRegion("hidden")
-    property string osdPosition: "top-left"
+    property string osdPosition: "centre-top"
     property int osdOffsetX: 0
     property int osdOffsetY: 0
-    property string notificationPosition: "bottom-right"
+    property string notificationPosition: "top-left"
     property int notificationOffsetX: 0
     property int notificationOffsetY: 0
     readonly property string stateRoot: {
@@ -102,6 +102,19 @@ Singleton {
 
     function defaultBarItems() {
         return defaults.defaultBarItems();
+    }
+
+    function builtinBarItems() {
+        return defaults.resolvedBarItems([
+            {"id": "active-window-title", "enabled": true, "region": "start", "order": 0, "orientation": "inward"},
+            {"id": "workspaces", "enabled": true, "region": "centre", "order": 0},
+            {"id": "tray", "enabled": true, "region": "end", "order": 0},
+            {"id": "sound", "enabled": true, "region": "end", "order": 1},
+            {"id": "wifi", "enabled": true, "region": "end", "order": 2},
+            {"id": "battery", "enabled": true, "region": "end", "order": 3, "display": "icon"},
+            {"id": "power", "enabled": true, "region": "end", "order": 4},
+            {"id": "application-tray", "enabled": true, "region": "hidden", "order": 0}
+        ]);
     }
 
     function trayOpensForward(items) : bool {

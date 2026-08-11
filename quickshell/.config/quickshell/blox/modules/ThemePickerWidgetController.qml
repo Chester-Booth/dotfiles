@@ -12,7 +12,7 @@ QtObject {
     property bool editModePending: false
 
     function items() {
-        return host.candidate && host.candidate.widgets && host.candidate.widgets.items ? host.candidate.widgets.items : Theme.defaultWidgetItems();
+        return host.candidate && host.candidate.widgets && host.candidate.widgets.items ? host.candidate.widgets.items : [];
     }
 
     function localFileUrl(path) {

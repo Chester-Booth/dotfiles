@@ -8,7 +8,6 @@ import re
 import subprocess
 import sys
 import tempfile
-import tomllib
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -18,7 +17,7 @@ THEMES = Path(__file__).resolve().parents[1]
 REPOSITORY = THEMES.parent
 sys.path.insert(0, str(THEMES / "lib"))
 
-from blox_theme.core import DEFAULT_BAR_ITEMS, dependency_checks, derive_ansi, list_themes, load_theme, render_manifest, render_theme, resolved_bar_items, schema_errors, validate_theme
+from blox_theme.core import DEFAULT_BAR_ITEMS, dependency_checks, derive_ansi, list_themes, load_theme, render_manifest, render_theme, resolve_wallpaper_path, resolved_bar_items, schema_errors, themes_dir, validate_theme
 
 
 def run_cli(*arguments: str, environment: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -27,19 +26,35 @@ def run_cli(*arguments: str, environment: dict[str, str] | None = None) -> subpr
 
 class ThemeSchemaTests(unittest.TestCase):
     def test_canonical_theme_is_valid(self) -> None:
-        _, theme = load_theme("blox-panel")
+        _, theme = load_theme("catppuccin-mocha")
         result = validate_theme(theme)
         self.assertEqual([], result.errors)
 
-    def test_bundled_wallpapers_are_home_relative_and_match_generator_digest(self) -> None:
-        for theme_id in ("grass", "moonlight", "side-pywal", "daylight", "top-down-close", "top-down-wide"):
-            with self.subTest(theme=theme_id):
-                _, theme = load_theme(theme_id)
-                source = theme["wallpaper"]["path"]
-                wallpaper = Path(source).expanduser()
-                self.assertTrue(source.startswith("~/Pictures/wallpapers/"))
-                self.assertTrue(wallpaper.is_file())
-                self.assertEqual(theme["generator"]["wallpaper_sha256"], hashlib.sha256(wallpaper.read_bytes()).hexdigest())
+    def test_source_themes_use_proportional_nerd_fonts_for_panels(self) -> None:
+        for path in sorted((THEMES / "builtin").glob("*.json")):
+            with self.subTest(theme=path.stem):
+                theme = json.loads(path.read_text(encoding="utf-8"))
+                self.assertTrue(
+                    theme["fonts"]["panel"].endswith("Nerd Font Propo"),
+                    theme["fonts"]["panel"],
+                )
+
+    def test_builtin_library_contains_only_the_showcase_themes(self) -> None:
+        ids = {path.stem for path in (THEMES / "builtin").glob("*.json")}
+        self.assertEqual({
+            "catppuccin-frappe", "catppuccin-latte", "catppuccin-macchiato", "catppuccin-mocha",
+            "dracula", "gruvbox-dark", "gruvbox-light", "kanagawa", "nord",
+            "solarized-dark", "solarized-light", "tokyo-night",
+        }, ids)
+
+    def test_configured_application_data_root_takes_precedence(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            schema = root / "schema/theme.schema.json"
+            schema.parent.mkdir(parents=True)
+            schema.write_text("{}", encoding="utf-8")
+            with mock.patch.dict(os.environ, {"BLOX_DATA_DIR": str(root)}):
+                self.assertEqual(root, themes_dir())
 
     def test_invalid_fixtures_fail_schema_validation(self) -> None:
         fixtures = THEMES / "tests/fixtures"
@@ -57,14 +72,14 @@ class ThemeSchemaTests(unittest.TestCase):
                 self.assertEqual("error", json.loads(completed.stdout)["status"])
 
     def test_contrast_failure_is_a_warning(self) -> None:
-        _, theme = load_theme("blox-panel")
+        _, theme = load_theme("catppuccin-mocha")
         theme["colours"]["foreground"] = theme["colours"]["background"]
         result = validate_theme(theme, check_dependencies=False)
         self.assertEqual([], result.errors)
         self.assertTrue(any("contrast" in warning for warning in result.warnings))
 
     def test_gtk_override_source_requires_values(self) -> None:
-        _, theme = load_theme("blox-panel")
+        _, theme = load_theme("catppuccin-mocha")
         theme["gtk"]["colour_source"] = "override"
         result = validate_theme(theme, check_dependencies=False)
         self.assertTrue(any("overrides.gtk" in error for error in result.errors))
@@ -72,14 +87,14 @@ class ThemeSchemaTests(unittest.TestCase):
         self.assertFalse(any("overrides.gtk" in error for error in validate_theme(theme, check_dependencies=False).errors))
 
     def test_low_contrast_gtk_override_is_a_warning(self) -> None:
-        _, theme = load_theme("blox-panel")
+        _, theme = load_theme("catppuccin-mocha")
         theme["overrides"] = {"gtk": {"foreground": theme["colours"]["background"]}}
         result = validate_theme(theme, check_dependencies=False)
         self.assertEqual([], result.errors)
         self.assertTrue(any("GTK override" in warning for warning in result.warnings))
 
     def test_schema_boundaries_and_unknown_nested_fields(self) -> None:
-        _, source = load_theme("blox-panel")
+        _, source = load_theme("catppuccin-mocha")
         mutations = {
             "future schema": lambda theme: theme.update(schema_version=2),
             "invalid id": lambda theme: theme.update(id="Invalid ID"),
@@ -99,7 +114,7 @@ class ThemeSchemaTests(unittest.TestCase):
                 self.assertTrue(schema_errors(theme))
 
     def test_widget_schema_rejects_invalid_identifiers_and_unknown_fields(self) -> None:
-        _, source = load_theme("blox-panel")
+        _, source = load_theme("catppuccin-mocha")
         widget = {
             "id": "clock",
             "name": "Clock",
@@ -131,7 +146,7 @@ class ThemeSchemaTests(unittest.TestCase):
                 self.assertTrue(schema_errors(theme))
 
     def test_dependency_checks_respect_target_enablement(self) -> None:
-        _, source = load_theme("blox-panel")
+        _, source = load_theme("catppuccin-mocha")
         theme = copy.deepcopy(source)
         for target in theme["targets"]:
             theme["targets"][target] = False
@@ -144,27 +159,27 @@ class ThemeSchemaTests(unittest.TestCase):
         self.assertEqual([], result.errors)
         self.assertEqual([], result.warnings)
 
-        expected = {"wallpaper": "wallpaper", "gtk": "GTK base theme", "vicinae": "icon theme", "cursor": "cursor base"}
+        expected = {"wallpaper": "wallpaper", "gtk": "GTK base theme", "cursor": "cursor base"}
         for target, message in expected.items():
             with self.subTest(target=target):
                 candidate = copy.deepcopy(theme)
                 candidate["targets"][target] = True
                 self.assertTrue(any(message in error for error in dependency_checks(candidate).errors))
 
-    def test_repository_relative_wallpaper_paths_resolve_for_checks_and_rendering(self) -> None:
-        path, source = load_theme("blox-panel")
+    def test_builtin_data_relative_wallpaper_paths_resolve_for_checks_and_rendering(self) -> None:
+        path, source = load_theme("catppuccin-mocha")
         theme = copy.deepcopy(source)
-        theme["wallpaper"]["path"] = "themes/schema/theme.schema.json"
+        theme["wallpaper"]["path"] = "schema/theme.schema.json"
 
         result = dependency_checks(theme, source_path=path)
         self.assertFalse(any("wallpaper does not exist" in error for error in result.errors))
         files, _ = render_theme(theme, path)
         wallpaper = json.loads(files["hypr/wallpaper.json"])
-        self.assertEqual(str(REPOSITORY / "themes/schema/theme.schema.json"), wallpaper["path"])
-        self.assertEqual("themes/schema/theme.schema.json", theme["wallpaper"]["path"])
+        self.assertEqual(str(THEMES / "schema/theme.schema.json"), wallpaper["path"])
+        self.assertEqual("schema/theme.schema.json", theme["wallpaper"]["path"])
 
     def test_absolute_and_home_relative_wallpaper_references_are_rendered_unchanged(self) -> None:
-        _, source = load_theme("blox-panel")
+        _, source = load_theme("catppuccin-mocha")
         for reference in ("/tmp/wallpaper.webp", "~/Pictures/wallpaper.webp"):
             with self.subTest(reference=reference):
                 theme = copy.deepcopy(source)
@@ -173,7 +188,7 @@ class ThemeSchemaTests(unittest.TestCase):
                 self.assertEqual(reference, wallpaper["path"])
 
     def test_missing_generated_cursor_is_a_warning(self) -> None:
-        _, theme = load_theme("blox-panel")
+        _, theme = load_theme("catppuccin-mocha")
         theme["cursor"]["base"] = "Definitely-Missing-Cursor"
         with mock.patch("blox_theme.cursor.toolchain_check", return_value={"ok": False, "recovery": "themectl setup cursor --yes"}):
             result = dependency_checks(theme)
@@ -181,7 +196,7 @@ class ThemeSchemaTests(unittest.TestCase):
         self.assertTrue(any("cursor toolchain" in warning for warning in result.warnings))
 
     def test_canonical_palette_matches_live_quickshell_fallback(self) -> None:
-        _, theme = load_theme("blox-panel")
+        _, theme = load_theme("catppuccin-mocha")
         qml = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/Theme.qml").read_text(encoding="utf-8")
         mapping = {"background": "background", "surface": "surface", "surfaceAlt": "surface_alt", "foreground": "foreground", "muted": "muted", "red": "danger", "green": "success", "yellow": "warning", "blue": "info", "mauve": "mauve", "teal": "teal"}
         for qml_name, theme_name in mapping.items():
@@ -193,12 +208,12 @@ class ThemeSchemaTests(unittest.TestCase):
 
 class RendererTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.path, self.theme = load_theme("blox-panel")
+        self.path, self.theme = load_theme("catppuccin-mocha")
 
     def test_render_matches_golden_hashes(self) -> None:
         files, _ = render_theme(self.theme)
         actual = {name: hashlib.sha256(content.encode()).hexdigest() for name, content in files.items()}
-        expected = json.loads((THEMES / "tests/golden/blox-panel.sha256.json").read_text(encoding="utf-8"))
+        expected = json.loads((THEMES / "tests/golden/catppuccin-mocha.sha256.json").read_text(encoding="utf-8"))
         self.assertEqual(expected, actual)
 
     def test_render_is_deterministic(self) -> None:
@@ -213,13 +228,12 @@ class RendererTests(unittest.TestCase):
         quickshell = json.loads(files["quickshell/theme.json"])
         self.assertEqual(self.theme["colours"], quickshell["colours"])
         self.assertEqual(derive_ansi(self.theme), quickshell["ansi"])
-        vicinae = tomllib.loads(files["vicinae/theme.toml"])
-        self.assertEqual(self.theme["colours"]["accent"], vicinae["colors"]["core"]["accent"])
         wallpaper = json.loads(files["hypr/wallpaper.json"])
-        self.assertEqual(self.theme["wallpaper"], {"path": wallpaper["path"], "fit": wallpaper["fit"]})
+        self.assertEqual(str(resolve_wallpaper_path(self.theme["wallpaper"]["path"], self.path)), wallpaper["path"])
+        self.assertEqual(self.theme["wallpaper"]["fit"], wallpaper["fit"])
         for name, colour in derive_ansi(self.theme).items():
             self.assertIn(f"{name} {colour}", files["kitty/theme.conf"])
-        self.assertIn("inactive_tab_background #000000", files["kitty/theme.conf"])
+        self.assertIn(f"inactive_tab_background {self.theme['colours']['background']}", files["kitty/theme.conf"])
         self.assertIn("tab_bar_background none", files["kitty/theme.conf"])
         phase7 = {
             "hyprland/theme.lua", "hyprland/hyprtoolkit.conf", "hyprlock/theme.conf", "btop/theme.theme",
@@ -229,7 +243,7 @@ class RendererTests(unittest.TestCase):
             "widgets/profile.json",
         }
         self.assertTrue(phase7.issubset(files))
-        self.assertNotIn("code/settings.json", files)
+        self.assertIn("code/settings.json", files)
 
     def test_code_target_renders_complete_extension(self) -> None:
         self.theme["targets"]["code"] = True
@@ -261,10 +275,10 @@ class RendererTests(unittest.TestCase):
         self.assertIn('color-link default "#cdd6f4"', files["micro/blox-theme.micro"])
         self.assertNotIn('color-link default "#cdd6f4,#242424"', files["micro/blox-theme.micro"])
         hyprtoolkit = files["hyprland/hyprtoolkit.conf"]
-        self.assertIn("background = 0xFF242424", hyprtoolkit)
+        self.assertIn("background = 0xFF1E1E2E", hyprtoolkit)
         self.assertIn("accent = 0xFF89B4FA", hyprtoolkit)
         self.assertIn("icon_theme = Adwaita", hyprtoolkit)
-        self.assertIn("font_family = Google Sans", hyprtoolkit)
+        self.assertIn("font_family = Outfit", hyprtoolkit)
 
     def test_bar_item_overrides_are_rendered_with_complete_registry(self) -> None:
         self.theme["shell"] = {
@@ -432,7 +446,6 @@ class RendererTests(unittest.TestCase):
         self.assertEqual("#010203", json.loads(files["quickshell/theme.json"])["ansi"]["color1"])
         self.assertIn("color1 #010203", files["kitty/theme.conf"])
         self.assertEqual(self.theme["colours"], theme["colours"])
-        self.assertNotIn("#010203", files["vicinae/theme.toml"])
 
     def test_generated_gtk_outputs_settings_css_and_limitations(self) -> None:
         files, _ = render_theme(self.theme)
@@ -441,7 +454,7 @@ class RendererTests(unittest.TestCase):
         self.assertTrue(metadata["generated_css"])
         self.assertEqual("partial-user-css", metadata["libadwaita_support"])
         self.assertIn("gtk-theme-name=Graphite-Dark-compact", files["gtk/gtk-3.0/settings.ini"])
-        self.assertIn("gtk-font-name=Google Sans 11", files["gtk/gtk-4.0/settings.ini"])
+        self.assertIn("gtk-font-name=Outfit 11", files["gtk/gtk-4.0/settings.ini"])
         self.assertIn("@define-color blox_accent #89b4fa;", files["gtk/gtk-3.0/gtk.css"])
         self.assertIn("switch:checked", gtk4)
         self.assertIn("\nwindow {\n", gtk4)
@@ -494,14 +507,14 @@ class RendererTests(unittest.TestCase):
             environment = os.environ.copy()
             environment["XDG_STATE_HOME"] = temporary
             for command in ("render", "preview", "diff", "doctor"):
-                completed = run_cli(command, *([] if command == "doctor" else ["blox-panel"]), "--json", environment=environment)
+                completed = run_cli(command, *([] if command == "doctor" else ["catppuccin-mocha"]), "--json", environment=environment)
                 self.assertEqual(0, completed.returncode, completed.stderr or completed.stdout)
             self.assertEqual([], list(Path(temporary).iterdir()))
 
     def test_explicit_output_contains_only_rendered_files(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary) / "render"
-            completed = run_cli("render", "blox-panel", "--output", str(output), "--json")
+            completed = run_cli("render", "catppuccin-mocha", "--output", str(output), "--json")
             self.assertEqual(0, completed.returncode, completed.stderr or completed.stdout)
             files = sorted(str(path.relative_to(output)) for path in output.rglob("*") if path.is_file())
             expected = sorted([*render_theme(self.theme)[0], "manifest.json"])
@@ -974,6 +987,12 @@ class CliContractTests(unittest.TestCase):
         self.assertEqual({"ui", "mono", "panel"}, set(preview["fonts"]))
         self.assertIn(preview["bar"]["position"], {"left", "right", "top", "bottom"})
         self.assertTrue(preview["bar"]["items"])
+        solarized = next(entry for entry in entries if entry["id"] == "solarized-dark")
+        self.assertTrue(solarized["builtin"])
+        self.assertEqual(
+            str(REPOSITORY / "themes/wallpapers/showcase/solarized-dark.webp"),
+            solarized["preview"]["wallpaper"],
+        )
 
     def test_tray_toggle_points_towards_its_placement_dependent_drawer(self) -> None:
         toggle = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/TrayToggleButton.qml").read_text(encoding="utf-8")
@@ -982,7 +1001,7 @@ class CliContractTests(unittest.TestCase):
         self.assertIn("iconRotation: active === opensForward ? 180 : 0", toggle)
 
     def test_all_commands_support_human_and_json_output(self) -> None:
-        commands = (("list",), ("show", "blox-panel"), ("validate", "blox-panel"), ("render", "blox-panel"), ("preview", "blox-panel"), ("diff", "blox-panel"), ("doctor",))
+        commands = (("list",), ("show", "catppuccin-mocha"), ("validate", "catppuccin-mocha"), ("render", "catppuccin-mocha"), ("preview", "catppuccin-mocha"), ("diff", "catppuccin-mocha"), ("doctor",))
         for arguments in commands:
             with self.subTest(command=arguments[0], output="human"):
                 completed = run_cli(*arguments)
@@ -1022,7 +1041,7 @@ class CliContractTests(unittest.TestCase):
             self.assertFalse(json.loads(malformed.stdout)["ok"])
 
     def test_preview_reports_gtk_restart_and_libadwaita_boundaries(self) -> None:
-        completed = run_cli("preview", "blox-panel", "--json")
+        completed = run_cli("preview", "catppuccin-mocha", "--json")
         self.assertEqual(0, completed.returncode)
         response = json.loads(completed.stdout)
         self.assertTrue(response["data"]["gtk"]["restart_required"])
@@ -1051,7 +1070,7 @@ class CliContractTests(unittest.TestCase):
             output = Path(temporary) / "render"
             output.mkdir()
             (output / "owned.txt").write_text("keep", encoding="utf-8")
-            completed = run_cli("render", "blox-panel", "--output", str(output), "--json")
+            completed = run_cli("render", "catppuccin-mocha", "--output", str(output), "--json")
             self.assertEqual(5, completed.returncode)
             self.assertEqual("keep", (output / "owned.txt").read_text(encoding="utf-8"))
             self.assertEqual(["owned.txt"], [path.name for path in output.iterdir()])
@@ -1066,7 +1085,7 @@ class CliContractTests(unittest.TestCase):
             link.symlink_to(state, target_is_directory=True)
             for output in (state, state / "candidate", link / "candidate"):
                 with self.subTest(output=output):
-                    completed = run_cli("render", "blox-panel", "--output", str(output), "--json", environment=environment)
+                    completed = run_cli("render", "catppuccin-mocha", "--output", str(output), "--json", environment=environment)
                     self.assertEqual(5, completed.returncode)
             self.assertEqual([], list(state.iterdir()))
 
@@ -1075,18 +1094,16 @@ class CliContractTests(unittest.TestCase):
             environment = os.environ.copy()
             environment["XDG_STATE_HOME"] = temporary
             current = Path(temporary) / "blox-theme/current"
-            files, _ = render_theme(load_theme("blox-panel")[1])
+            files, _ = render_theme(load_theme("catppuccin-mocha")[1])
             for name, content in files.items():
                 path = current / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(content, encoding="utf-8")
             (current / "kitty/theme.conf").write_text("changed\n", encoding="utf-8")
-            (current / "vicinae/theme.toml").unlink()
-            completed = run_cli("diff", "blox-panel", "--json", environment=environment)
+            completed = run_cli("diff", "catppuccin-mocha", "--json", environment=environment)
             self.assertEqual(0, completed.returncode)
             changes = {item["path"]: item["change"] for item in json.loads(completed.stdout)["data"]["changes"]}
             self.assertEqual("modify", changes["kitty/theme.conf"])
-            self.assertEqual("add", changes["vicinae/theme.toml"])
             self.assertEqual("unchanged", changes["quickshell/theme.json"])
 
 

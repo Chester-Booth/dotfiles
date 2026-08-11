@@ -265,7 +265,7 @@ QtObject {
         host.errorMessage = "";
         if (fromWallpaper)
             generate(creationRequest.wallpaper, creationRequest.name, creationRequest.id, creationRequest.backend);
-        else if (host.runApi("new-template", ["show", "blox-panel"]))
+        else if (host.runApi("new-template", ["show", "catppuccin-mocha"]))
             host.activeRequest.inputs = creationRequest;
     }
 

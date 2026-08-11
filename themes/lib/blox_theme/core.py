@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -130,27 +131,60 @@ def repository_root() -> Path:
 
 
 def themes_dir() -> Path:
+    configured = os.environ.get("BLOX_DATA_DIR")
+    candidates = [
+        Path(configured).expanduser() if configured else None,
+        repository_root() / "themes",
+        Path(sys.prefix) / "share/blox",
+        Path("/usr/local/share/blox"),
+        Path("/usr/share/blox"),
+    ]
+    for candidate in candidates:
+        if candidate is not None and (candidate / "schema/theme.schema.json").is_file():
+            return candidate
     return repository_root() / "themes"
+
+
+def builtin_themes_dir() -> Path:
+    return themes_dir() / "builtin"
+
+
+def is_builtin_theme_path(path: Path) -> bool:
+    try:
+        path.expanduser().resolve().relative_to(builtin_themes_dir().resolve())
+    except ValueError:
+        return False
+    return True
+
+
+def user_theme_library() -> Path:
+    base = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")).expanduser()
+    return base / "blox"
 
 
 def resolve_wallpaper_path(value: str, source_path: Path | None = None) -> Path:
     """Resolve a wallpaper reference without changing the source theme.
 
-    Source themes stored in this repository use paths relative to the
-    repository root.  A theme loaded from elsewhere instead uses its own
+    Built-in themes use paths relative to the application data directory. A
+    theme loaded from elsewhere instead uses its own
     directory, which keeps loose JSON exports usable before they are imported.
     Absolute and home-relative references retain their existing meaning.
     """
     path = Path(value).expanduser()
     if path.is_absolute():
         return path.resolve()
-    root = repository_root()
+    root = themes_dir()
     if source_path is not None:
         source = source_path.expanduser().resolve()
         try:
-            source.relative_to(root)
+            source.relative_to(builtin_themes_dir().resolve())
         except ValueError:
-            root = source.parent
+            repository = repository_root().resolve()
+            try:
+                source.relative_to(repository)
+                root = repository
+            except ValueError:
+                root = source.parent
     return (root / path).resolve()
 
 
@@ -171,7 +205,11 @@ def theme_path(reference: str) -> Path:
     candidate = Path(reference).expanduser()
     if candidate.is_file() or candidate.suffix == ".json" or "/" in reference:
         return candidate
-    return themes_dir() / "themes" / f"{reference}.json"
+    built_in = builtin_themes_dir() / f"{reference}.json"
+    if built_in.is_file():
+        return built_in
+    imported = user_theme_library() / "themes" / f"{reference}.json"
+    return imported if imported.is_file() else built_in
 
 
 def load_json(path: Path) -> Any:
@@ -191,16 +229,26 @@ def load_theme(reference: str) -> tuple[Path, dict[str, Any]]:
 
 def list_themes() -> list[dict[str, Any]]:
     entries = []
-    for path in sorted((themes_dir() / "themes").glob("*.json")):
+    paths = [
+        *sorted(builtin_themes_dir().glob("*.json")),
+        *sorted((user_theme_library() / "themes").glob("*.json")),
+    ]
+    seen: set[str] = set()
+    for path in paths:
         try:
             data = load_json(path)
+            theme_id = data.get("id", path.stem)
+            if theme_id in seen:
+                continue
+            seen.add(theme_id)
             wallpaper = data.get("wallpaper", {}).get("path", "")
             entries.append(
                 {
-                    "id": data.get("id", path.stem),
+                    "id": theme_id,
                     "name": data.get("name", path.stem),
                     "variant": data.get("variant"),
                     "path": str(path),
+                    "builtin": is_builtin_theme_path(path),
                     "source_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
                     "preview": {
                         "colours": data.get("colours", {}),
@@ -217,7 +265,7 @@ def list_themes() -> list[dict[str, Any]]:
                 }
             )
         except (OSError, json.JSONDecodeError):
-            entries.append({"id": path.stem, "name": path.stem, "variant": None, "path": str(path), "invalid": True})
+            entries.append({"id": path.stem, "name": path.stem, "variant": None, "path": str(path), "builtin": is_builtin_theme_path(path), "invalid": True})
     return entries
 
 
@@ -948,11 +996,7 @@ def render_widgets(theme: dict[str, Any]) -> str:
         "compact": {"opacity": 0.52, "margin": 12, "padding": 12, "radius": 6, "font_size": 12},
         "comfortable": {"opacity": 0.42, "margin": 24, "padding": 24, "radius": 10, "font_size": 15},
     }
-    defaults = [
-        {"id": "todo", "name": "Todo", "type": "custom", "enabled": True, "content_command": "$SCRIPT_ROOT/widgets/todo-content.sh", "left_click_command": "$SCRIPT_ROOT/widgets/cycle-todo.sh", "right_click_command": "$SCRIPT_ROOT/widgets/open-todo-editor.sh", "interval_ms": 60000, "visibility": "empty-workspace", "anchor": "top-left", "offset_x": 20, "offset_y": 20, "width": 0, "height": 0, "shape": "auto", "options": {}},
-        {"id": "calendar", "name": "Calendar", "type": "custom", "enabled": True, "content_command": "$SCRIPT_ROOT/widgets/gcal-content.sh", "left_click_command": "$SCRIPT_ROOT/widgets/cycle-gcal.sh", "right_click_command": "$SCRIPT_ROOT/widgets/open-gcal.sh", "interval_ms": 60000, "visibility": "empty-workspace", "anchor": "bottom-right", "offset_x": 20, "offset_y": 20, "width": 0, "height": 0, "shape": "auto", "options": {}},
-    ]
-    return canonical_json({"schema_version": 1, "profile": profile, **profiles[profile], "items": widgets.get("items", defaults)})
+    return canonical_json({"schema_version": 1, "profile": profile, **profiles[profile], "items": widgets.get("items", [])})
 
 
 def render_theme(theme: dict[str, Any], source_path: Path | None = None) -> tuple[dict[str, str], list[str]]:

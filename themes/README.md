@@ -53,8 +53,7 @@ creates a new generation without that target and restores its non-generated
 fallback. All live-state mutating commands use a non-blocking application lock.
 
 The `widgets` target renders a named Quickshell overlay profile. Resolved
-geometry remains preset-owned, and reset restores the canonical minimal
-profile.
+geometry remains preset-owned, and reset restores an empty minimal profile.
 
 ## Palette generation
 
@@ -71,7 +70,8 @@ supports `--saturate`. Both support `--mode`. Backend-specific options are
 rejected when used with the other backend.
 
 Extract or edit `.data.theme`, then pass the JSON file (or `-` for stdin) to
-`save`. Saving validates the complete theme, writes it under `themes/themes/`,
+`save`. Saving validates the complete theme, writes it under
+`$XDG_DATA_HOME/blox/themes/`,
 and refuses to overwrite an existing source. A saved generated theme behaves
 like any hand-authored source theme and still requires an explicit `apply`.
 Use `save --replace --expect-sha256 DIGEST` for an existing source; the digest
@@ -87,10 +87,32 @@ icon and cursor themes are recorded as dependencies and are never bundled.
 `import` accepts strict loose JSON or a bundle created by `themectl`. Bundles
 are checked for safe relative paths, regular files, bounded sizes and file
 counts, and matching manifest digests before the theme library is changed.
-Imported wallpapers are placed under `themes/wallpapers/`. Import reports
+Imported themes and wallpapers are placed under `$XDG_DATA_HOME/blox/`
+(`~/.local/share/blox/` by default). Import reports
 missing dependencies as warnings and never previews or applies the theme.
 Unsupported schema versions fail before any files are written; schema migration
 hooks are isolated at the import boundary for future versions.
+
+Source ledgers remain repository documentation and are not added to exported
+bundles or installed with imported themes. Showcase WebPs carry their source,
+author, processing record and licence in embedded XMP, so required notices stay
+with an exported wallpaper.
+
+The twelve read-only themes in `themes/builtin/` form the application library.
+Their wallpaper paths are relative to the Blox data root, such as
+`wallpapers/showcase/nord.webp`. The code checks `BLOX_DATA_DIR`, this checkout,
+`$prefix/share/blox`, `/usr/local/share/blox` and `/usr/share/blox`, in that
+order. A package should install `builtin/`, `schema/` and `wallpapers/` together
+under `share/blox`. Loose JSON outside the data root resolves a relative
+wallpaper beside that JSON file. Render and Apply turn relative references into
+absolute runtime paths, while Export keeps the editable source reference and
+bundles the resolved image.
+
+`.blox-theme` files are import and export archives, not the installed source
+format. Keeping built-ins as JSON and WebP lets the picker read them without
+unpacking an archive and makes package data easy to inspect. Personal themes,
+including Blox Panel, live in the XDG library and never need to exist in the
+application checkout.
 
 ## Picker
 
@@ -102,8 +124,21 @@ display-name rename, delete and revert actions. Temporary preview affects only
 Quickshell until Apply. Dirty navigation and deletion require separate
 confirmation; closing or cancelling restores the active Quickshell theme.
 
-Vicinae script commands provide Apply Theme, Create Theme from Current
-Wallpaper and Open Theme Picker actions. See [picker integration](docs/picker.md).
+Tracked desktop launchers provide Open Theme Picker and Create Theme from
+Current Wallpaper actions. See [picker integration](docs/picker.md).
+
+## Wallpaper target
+
+Quickshell owns one background-layer surface per connected output. It keeps the
+current image visible while an asynchronous second buffer loads, then swaps the
+buffers without a transition. Cover, contain and stretch map to Qt's aspect
+crop, aspect fit and stretch modes. Quickshell's screen model handles output
+scale and creates or removes surfaces when outputs hotplug.
+
+The generated wallpaper document retains its historical
+`hypr/wallpaper.json` name so existing generations and rollback remain valid;
+it no longer controls Hyprpaper. Hyprpaper may remain installed for manual use,
+but the tracked session does not start or call it.
 
 ## GTK target
 
@@ -145,6 +180,7 @@ Every JSON response has `api_version`, `command`, `ok`, `status`, `data`,
 | 7 | reload warning |
 | 8 | application lock contention |
 
-Run `make validate-themes` for schema fixtures, golden render checks, and
-determinism coverage. After an intended change to the canonical `blox-panel`
-theme or its renderer, run `make update-theme-golden` to accept the new output.
+Run `make validate-themes` for schema fixtures, built-in library checks, golden
+render checks, and determinism coverage. After an intended change to the
+default `catppuccin-mocha` theme or its renderer, run
+`make update-theme-golden` to accept the new output.

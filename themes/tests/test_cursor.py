@@ -22,7 +22,7 @@ from blox_theme.cursor import CursorFailure, _extract_source, build_cursor_cache
 
 class CursorMetadataTests(unittest.TestCase):
     def setUp(self) -> None:
-        _, self.theme = load_theme("blox-panel")
+        _, self.theme = load_theme("catppuccin-mocha")
 
     def test_generated_metadata_and_cache_key_are_deterministic(self) -> None:
         first = cursor_metadata(self.theme)
@@ -63,7 +63,7 @@ class CursorCacheTests(unittest.TestCase):
             "XDG_STATE_HOME": str(self.root / "state"),
         })
         self.environment.start()
-        _, theme = load_theme("blox-panel")
+        _, theme = load_theme("catppuccin-mocha")
         self.metadata = cursor_metadata(theme)
         paths = toolchain_paths()
         (paths["source"] / "svg/modern-right").mkdir(parents=True)
@@ -116,7 +116,7 @@ class CursorCacheTests(unittest.TestCase):
             build_cursor_cache(self.metadata)
 
     def test_left_handed_build_uses_normal_upstream_source(self) -> None:
-        _, theme = load_theme("blox-panel")
+        _, theme = load_theme("catppuccin-mocha")
         theme["cursor"]["handedness"] = "left"
         metadata = cursor_metadata(theme)
         with mock.patch("blox_theme.cursor._checked_run", side_effect=self.fake_run) as runner:
@@ -174,7 +174,7 @@ class CursorCliTests(unittest.TestCase):
             environment = os.environ.copy()
             environment.update({"XDG_DATA_HOME": str(root / "data"), "XDG_STATE_HOME": str(root / "state")})
             completed = subprocess.run(
-                [str(THEMES / "bin/themectl"), "apply", "blox-panel", "--targets", "cursor", "--json"],
+                [str(THEMES / "bin/themectl"), "apply", "catppuccin-mocha", "--targets", "cursor", "--json"],
                 cwd=THEMES.parent, env=environment, capture_output=True, text=True, check=False,
             )
             response = json.loads(completed.stdout)

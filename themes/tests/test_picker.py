@@ -19,7 +19,7 @@ PICKER_MODULES = REPOSITORY / "quickshell/.config/quickshell/blox/modules"
 sys.path.insert(0, str(THEMES / "lib"))
 
 from blox_theme import cli
-from blox_theme.core import load_theme
+from blox_theme.core import load_theme, resolve_wallpaper_path
 
 
 def qml_source(name: str) -> str:
@@ -30,48 +30,67 @@ class ThemeLibraryMutationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
-        self.library = self.root / "themes"
-        (self.library / "themes").mkdir(parents=True)
-        self.source = load_theme("blox-panel")[1]
-        (self.library / "themes/blox-panel.json").write_text(json.dumps(self.source), encoding="utf-8")
-        self.patch = mock.patch("blox_theme.cli.themes_dir", return_value=self.library)
-        self.patch.start()
+        self.library = self.root / "data"
+        self.user_library = self.root / "user"
+        (self.library / "builtin").mkdir(parents=True)
+        (self.user_library / "themes").mkdir(parents=True)
+        self.source = load_theme("catppuccin-mocha")[1]
+        (self.library / "builtin/catppuccin-mocha.json").write_text(json.dumps(self.source), encoding="utf-8")
+        editable = copy.deepcopy(self.source)
+        editable.update(id="editable-theme", name="Editable Theme")
+        (self.user_library / "themes/editable-theme.json").write_text(json.dumps(editable), encoding="utf-8")
+
+        def resolve(reference: str) -> Path:
+            builtin = self.library / "builtin" / f"{reference}.json"
+            user = self.user_library / "themes" / f"{reference}.json"
+            return builtin if builtin.is_file() else user
+
+        self.patches = [
+            mock.patch("blox_theme.cli.themes_dir", return_value=self.library),
+            mock.patch("blox_theme.cli.builtin_themes_dir", return_value=self.library / "builtin"),
+            mock.patch("blox_theme.cli.user_theme_library", return_value=self.user_library),
+            mock.patch("blox_theme.cli.theme_path", side_effect=resolve),
+            mock.patch("blox_theme.cli.is_builtin_theme_path", side_effect=lambda path: path.parent == self.library / "builtin"),
+        ]
+        for patcher in self.patches:
+            patcher.start()
 
     def tearDown(self) -> None:
-        self.patch.stop()
+        for patcher in reversed(self.patches):
+            patcher.stop()
         self.temporary.cleanup()
 
     def invoke(self, *arguments: str) -> tuple[dict, int]:
         return cli.run(cli.parser().parse_args(arguments))
 
     def test_duplicate_rename_and_confirmed_delete_preserve_stable_ids(self) -> None:
-        duplicate, code = self.invoke("duplicate", "blox-panel", "phase6-copy", "--name", "Phase Six Copy", "--json")
+        duplicate, code = self.invoke("duplicate", "catppuccin-mocha", "phase6-copy", "--name", "Phase Six Copy", "--json")
         self.assertEqual(0, code)
         self.assertEqual("phase6-copy", duplicate["data"]["id"])
-        copied = json.loads((self.library / "themes/phase6-copy.json").read_text(encoding="utf-8"))
+        copied = json.loads((self.user_library / "themes/phase6-copy.json").read_text(encoding="utf-8"))
         self.assertEqual("phase6-copy", copied["id"])
 
         renamed, code = self.invoke("rename", "phase6-copy", "Renamed Display", "--json")
         self.assertEqual(0, code)
         self.assertEqual("phase6-copy", renamed["data"]["id"])
-        self.assertEqual("Renamed Display", json.loads((self.library / "themes/phase6-copy.json").read_text())["name"])
+        self.assertEqual("Renamed Display", json.loads((self.user_library / "themes/phase6-copy.json").read_text())["name"])
 
         refused, code = self.invoke("delete", "phase6-copy", "--json")
         self.assertEqual(2, code)
-        self.assertTrue((self.library / "themes/phase6-copy.json").exists())
+        self.assertTrue((self.user_library / "themes/phase6-copy.json").exists())
         with mock.patch("blox_theme.cli.current_generation", return_value=None):
             deleted, code = self.invoke("delete", "phase6-copy", "--yes", "--json")
         self.assertEqual(0, code)
         self.assertTrue(deleted["data"]["deleted"])
-        self.assertFalse((self.library / "themes/phase6-copy.json").exists())
-        self.assertFalse(list((self.library / "themes").glob(".*.tmp")))
+        self.assertFalse((self.user_library / "themes/phase6-copy.json").exists())
+        self.assertFalse(list((self.user_library / "themes").glob(".*.tmp")))
 
     def test_delete_protects_canonical_active_and_unsafe_references(self) -> None:
-        _, code = self.invoke("delete", "blox-panel", "--yes", "--json")
+        _, code = self.invoke("delete", "catppuccin-mocha", "--yes", "--json")
         self.assertEqual(3, code)
         _, code = self.invoke("delete", "../escape", "--yes", "--json")
         self.assertEqual(2, code)
-        self.invoke("duplicate", "blox-panel", "active-copy", "--json")
+        self.invoke("duplicate", "catppuccin-mocha", "active-copy", "--json")
         active = (Path("generation"), {"theme_id": "active-copy"})
         with mock.patch("blox_theme.cli.current_generation", return_value=active):
             response, code = self.invoke("delete", "active-copy", "--yes", "--json")
@@ -79,13 +98,14 @@ class ThemeLibraryMutationTests(unittest.TestCase):
         self.assertIn("active", response["errors"][0])
 
     def test_replace_requires_matching_digest_and_never_changes_id(self) -> None:
-        path = self.library / "themes/blox-panel.json"
+        path = self.user_library / "themes/editable-theme.json"
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
         candidate = copy.deepcopy(self.source)
+        candidate["id"] = "editable-theme"
         candidate["name"] = "Updated Display"
         response, code = self.invoke("save", json.dumps(candidate), "--replace", "--expect-sha256", digest, "--json")
         self.assertEqual(0, code)
-        self.assertEqual("blox-panel", json.loads(path.read_text())["id"])
+        self.assertEqual("editable-theme", json.loads(path.read_text())["id"])
         self.assertEqual("Updated Display", json.loads(path.read_text())["name"])
 
         stale = copy.deepcopy(candidate)
@@ -96,11 +116,11 @@ class ThemeLibraryMutationTests(unittest.TestCase):
         self.assertEqual("Updated Display", json.loads(path.read_text())["name"])
 
     def test_duplicate_refuses_invalid_or_existing_id(self) -> None:
-        response, code = self.invoke("duplicate", "blox-panel", "Invalid ID", "--json")
+        response, code = self.invoke("duplicate", "catppuccin-mocha", "Invalid ID", "--json")
         self.assertEqual(3, code)
         self.assertTrue(response["errors"])
-        response, code = self.invoke("duplicate", "blox-panel", "blox-panel", "--json")
-        self.assertEqual(6, code)
+        response, code = self.invoke("duplicate", "catppuccin-mocha", "catppuccin-mocha", "--json")
+        self.assertEqual(3, code)
         self.assertIn("already exists", response["errors"][0])
 
     def test_inline_preview_is_side_effect_free_and_inline_apply_is_rejected(self) -> None:
@@ -121,7 +141,7 @@ class ThemeLibraryMutationTests(unittest.TestCase):
             apply_theme.assert_not_called()
 
     def test_mutations_reject_a_non_object_source(self) -> None:
-        path = self.library / "themes/broken.json"
+        path = self.user_library / "themes/broken.json"
         path.write_text("[]", encoding="utf-8")
         response, code = self.invoke("rename", "broken", "Still Broken", "--json")
         self.assertEqual(3, code)
@@ -166,6 +186,19 @@ class ThemeLibraryMutationTests(unittest.TestCase):
 
 
 class PickerIntegrationSourceTests(unittest.TestCase):
+    def test_inline_wallpaper_preview_uses_the_repository_as_its_base(self) -> None:
+        _, candidate = load_theme("catppuccin-mocha")
+        candidate = copy.deepcopy(candidate)
+        candidate["wallpaper"]["path"] = "themes/schema/theme.schema.json"
+
+        path, _, failure, code = cli.checked_theme(
+            "preview", json.dumps(candidate), check_dependencies=False
+        )
+
+        self.assertEqual(0, code, failure)
+        self.assertEqual(THEMES / "themes/.inline-theme.json", path)
+        self.assertEqual(REPOSITORY / "themes/schema/theme.schema.json", resolve_wallpaper_path(candidate["wallpaper"]["path"], path))
+
     def test_picker_refreshes_sources_each_time_it_opens(self) -> None:
         controller = qml_source("Controller")
         open_picker = controller.split("function openPicker()", 1)[1].split(
@@ -248,7 +281,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn('iconName: "plus"', qml)
         self.assertIn('text: "New theme"', qml)
         self.assertIn("function openNewTheme(wallpaperPage)", qml)
-        self.assertIn('runApi("new-template", ["show", "blox-panel"])', qml)
+        self.assertIn('runApi("new-template", ["show", "catppuccin-mocha"])', qml)
         self.assertIn('text: "From blank"', qml)
         self.assertIn('text: "From wallpaper"', qml)
         self.assertIn("Layout.rightMargin: 10", qml)
@@ -294,9 +327,10 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn("if (!dirty && selectedId === Theme.activeThemeId)", picker)
         self.assertIn("Theme.cancelPreview()", picker)
         self.assertIn("Theme.previewSource(source)", picker)
-        self.assertIn('["wallpaper-preview", typeof raw === "string" ? raw : JSON.stringify(raw)]', theme)
-        self.assertIn('queueWallpaperCommand(["wallpaper-restore"])', theme)
-        self.assertIn("id: wallpaperProcess", theme)
+        self.assertIn("setPreviewWallpaper(data);", theme)
+        self.assertIn("wallpaperSource = activeWallpaperSource;", theme)
+        self.assertIn("id: wallpaperFile", theme)
+        self.assertNotIn("wallpaperProcess", theme)
         self.assertIn("host.applyValidatedPreview(JSON.parse(request.candidateJson))", api)
         self.assertIn("host.validationPending = host.candidate !== null", api)
         self.assertIn("host.continueQueuedGeneration()", api)
@@ -305,7 +339,7 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn('return "busy"', picker)
         self.assertIn("return root.requestClose()", picker)
         self.assertNotIn("candidate.wallpaper.path);\n            }\n            return \"open-generating\"", picker)
-        self.assertIn('property string activeThemeId: "blox-panel"', theme)
+        self.assertIn('property string activeThemeId: "catppuccin-mocha"', theme)
         document = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/ThemeDocumentController.qml").read_text(encoding="utf-8")
         self.assertIn("theme.activeThemeId = data.id", document)
         preview = document.split("function previewSource", 1)[1]
@@ -575,32 +609,6 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertEqual("cursor", parsed.feature)
         self.assertTrue(parsed.yes)
 
-    def test_vicinae_scripts_are_shell_safe_and_cover_quick_actions(self) -> None:
-        scripts = REPOSITORY / "vicinae/.local/share/vicinae/scripts"
-        names = sorted(path.name for path in scripts.glob("*.sh"))
-        self.assertEqual(["apply-theme.sh", "create-theme-from-wallpaper.sh", "open-theme-picker.sh"], names)
-        for path in scripts.glob("*.sh"):
-            text = path.read_text(encoding="utf-8")
-            self.assertIn("@vicinae.schemaVersion 1", text)
-            self.assertNotIn("eval ", text)
-            self.assertTrue(os.access(path, os.X_OK))
-        settings_text = (REPOSITORY / "vicinae/.config/vicinae/settings.json").read_text(encoding="utf-8")
-        settings = json.loads("\n".join(line for line in settings_text.splitlines() if not line.lstrip().startswith("//")))
-        script_provider = settings["providers"]["scripts"]
-        self.assertTrue(script_provider["enabled"])
-        self.assertNotIn("preferences", script_provider)
-
-        apply_script = scripts / "apply-theme.sh"
-        missing_argument = subprocess.run(
-            [str(apply_script)],
-            cwd=REPOSITORY,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        self.assertEqual(2, missing_argument.returncode)
-        self.assertEqual("Usage: apply-theme.sh <theme-id>\n", missing_argument.stderr)
-
     def test_theme_picker_desktop_fallbacks_are_discoverable(self) -> None:
         applications = REPOSITORY / "applications/.local/share/applications"
         launchers = sorted(applications.glob("blox-theme-*.desktop"))
@@ -611,8 +619,12 @@ class PickerIntegrationSourceTests(unittest.TestCase):
             self.assertIn("quickshell ipc -c blox call themePicker", text)
 
         helper = (REPOSITORY / "quickshell/.config/quickshell/blox/scripts/theme/picker-ipc.sh").read_text(encoding="utf-8")
-        self.assertIn('exec quickshell ipc --pid "$main_pid" call themePicker "$action"', helper)
+        self.assertIn('exec "$script_root/ipc.sh" themePicker "$action"', helper)
         self.assertNotIn("ipc -c blox", helper)
+
+        ipc_helper = (REPOSITORY / "quickshell/.config/quickshell/blox/scripts/ipc.sh").read_text(encoding="utf-8")
+        self.assertIn('exec quickshell ipc --pid "$main_pid" call "$@"', ipc_helper)
+        self.assertNotIn("quickshell ipc -c", ipc_helper)
 
 
 if __name__ == "__main__":

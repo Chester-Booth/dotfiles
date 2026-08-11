@@ -25,14 +25,15 @@ class PortabilityTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
         self.library = self.root / "library"
-        self.theme = copy.deepcopy(load_theme("blox-panel")[1])
+        self.theme_path, source = load_theme("catppuccin-mocha")
+        self.theme = copy.deepcopy(source)
 
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
     def export(self, name: str = "theme.blox-theme", include_wallpaper: bool = False) -> Path:
         output = self.root / name
-        portability.export_bundle(self.theme, output, include_wallpaper=include_wallpaper)
+        portability.export_bundle(self.theme, output, include_wallpaper=include_wallpaper, source_path=self.theme_path)
         return output
 
     def rewrite_archive(self, source: Path, destination: Path, change: Callable[[list], None]) -> None:
@@ -78,27 +79,29 @@ class PortabilityTests(unittest.TestCase):
         self.assertEqual(b"portable wallpaper", imported_wallpaper.read_bytes())
         self.assertTrue(data["wallpaper_imported"])
 
-    def test_repository_relative_wallpaper_bundle_keeps_the_source_reference_portable(self) -> None:
+    def test_builtin_wallpaper_bundle_keeps_the_source_reference_portable(self) -> None:
         self.theme["id"] = "repository-wallpaper"
-        self.theme["wallpaper"]["path"] = "themes/schema/theme.schema.json"
         bundle = self.export(include_wallpaper=True)
 
         with zipfile.ZipFile(bundle) as archive:
             exported = json.loads(archive.read("theme.json"))
-            self.assertEqual("themes/schema/theme.schema.json", exported["wallpaper"]["path"])
+            self.assertEqual("wallpapers/showcase/catppuccin-mocha.webp", exported["wallpaper"]["path"])
 
         data, _ = portability.import_theme(bundle, self.library)
         imported = json.loads(Path(data["path"]).read_text(encoding="utf-8"))
         imported_wallpaper = Path(imported["wallpaper"]["path"])
         self.assertTrue(imported_wallpaper.is_file())
-        self.assertEqual((THEMES / "schema/theme.schema.json").read_bytes(), imported_wallpaper.read_bytes())
+        self.assertEqual((THEMES / "wallpapers/showcase/catppuccin-mocha.webp").read_bytes(), imported_wallpaper.read_bytes())
 
     def test_import_cli_never_applies_and_reports_missing_dependencies_as_warnings(self) -> None:
         source = self.root / "loose.json"
-        source.write_text(json.dumps(self.theme), encoding="utf-8")
+        theme = copy.deepcopy(self.theme)
+        theme.update(id="missing-dependencies", name="Missing Dependencies")
+        source.write_text(json.dumps(theme), encoding="utf-8")
         missing = CheckResult(errors=["GTK base theme is not installed: Missing"], warnings=["font 'A' resolves to 'B'"])
         with (
             mock.patch("blox_theme.cli.themes_dir", return_value=self.library),
+            mock.patch("blox_theme.cli.user_theme_library", return_value=self.library),
             mock.patch("blox_theme.portability.dependency_checks", return_value=missing),
             mock.patch("blox_theme.cli.apply_theme") as apply_theme,
         ):
@@ -107,6 +110,24 @@ class PortabilityTests(unittest.TestCase):
         self.assertFalse(result["data"]["applied"])
         self.assertTrue(any("missing dependency" in warning for warning in result["warnings"]))
         apply_theme.assert_not_called()
+
+    def test_import_cli_uses_the_xdg_data_library(self) -> None:
+        source = self.root / "xdg-theme.json"
+        theme = copy.deepcopy(self.theme)
+        theme["id"] = "xdg-theme"
+        source.write_text(json.dumps(theme), encoding="utf-8")
+        data_home = self.root / "data"
+
+        with mock.patch.dict("os.environ", {"XDG_DATA_HOME": str(data_home)}):
+            result, code = cli.run(cli.parser().parse_args(("import", str(source), "--json")))
+            listed, list_code = cli.run(cli.parser().parse_args(("list", "--json")))
+
+        expected = data_home / "blox/themes/xdg-theme.json"
+        self.assertEqual(0, code, result)
+        self.assertEqual(0, list_code, listed)
+        self.assertIn("xdg-theme", {entry["id"] for entry in listed["data"]})
+        self.assertEqual(str(expected), result["data"]["path"])
+        self.assertTrue(expected.is_file())
 
     def test_unsafe_paths_links_duplicates_and_digest_mismatches_are_rejected_without_writes(self) -> None:
         valid = self.export()
@@ -175,7 +196,7 @@ class PortabilityTests(unittest.TestCase):
         self.assertEqual(b"keep", output.read_bytes())
 
         (self.library / "themes").mkdir(parents=True)
-        existing = self.library / "themes/blox-panel.json"
+        existing = self.library / "themes/catppuccin-mocha.json"
         existing.write_text("keep", encoding="utf-8")
         source = self.root / "source.json"
         source.write_text(json.dumps(self.theme), encoding="utf-8")

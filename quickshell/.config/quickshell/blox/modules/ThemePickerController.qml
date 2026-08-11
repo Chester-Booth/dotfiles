@@ -889,9 +889,9 @@ Scope {
         showModal("rename");
     }
 
-    function requestDelete(themeId, themeName) {
+    function requestDelete(themeId, themeName, builtin) {
         const sourceId = themeId || (candidate ? candidate.id : "");
-        if (!sourceId || sourceId === "blox-panel" || sourceId === selectedId && dirty)
+        if (!sourceId || builtin || sourceId === selectedId && dirty)
             return ;
 
         modalThemeId = sourceId;
@@ -934,7 +934,7 @@ Scope {
         else if (kind === "new-wallpaper")
             generateTheme(newWallpaper, newThemeName, newThemeId);
         else if (kind === "new-blank")
-            runApi("new-template", ["show", "blox-panel"]);
+            runApi("new-template", ["show", "catppuccin-mocha"]);
         else if (kind === "export")
             host.dialogs.openExport();
         else if (kind === "generate-current")

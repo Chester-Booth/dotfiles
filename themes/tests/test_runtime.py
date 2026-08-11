@@ -16,10 +16,10 @@ THEMES = Path(__file__).resolve().parents[1]
 REPOSITORY = THEMES.parent
 sys.path.insert(0, str(THEMES / "lib"))
 
-from blox_theme.core import load_theme, render_theme
-from blox_theme.runtime import ApplicationLock, LockContended, RuntimeFailure, TARGET_FILES, TARGET_NAMES, apply_theme, current_generation, cursor_icon_link, hyprtoolkit_theme_link, kitty_theme_link, phase7_loader_specs, reconcile, reset_target, rollback, setup_gtk, validate_generation, vicinae_theme_link
+from blox_theme.core import load_theme, render_theme, resolve_wallpaper_path
+from blox_theme.runtime import ApplicationLock, LockContended, RuntimeFailure, TARGET_FILES, TARGET_NAMES, apply_theme, current_generation, cursor_icon_link, hyprtoolkit_theme_link, kitty_theme_link, phase7_loader_specs, reconcile, reset_target, rollback, setup_gtk, validate_generation
 
-PHASE2_TARGETS = ("quickshell", "vicinae", "kitty", "wallpaper")
+PHASE2_TARGETS = ("quickshell", "kitty", "wallpaper")
 
 
 class FakeCommands:
@@ -57,7 +57,7 @@ class RuntimeTests(unittest.TestCase):
         kitty_config = self.root / "config/kitty/kitty.conf"
         kitty_config.parent.mkdir(parents=True)
         kitty_config.write_text("globinclude blox-theme.conf\n", encoding="utf-8")
-        self.canonical_path, self.canonical = load_theme("blox-panel")
+        self.canonical_path, self.canonical = load_theme("catppuccin-mocha")
         for target in TARGET_NAMES:
             self.canonical["targets"][target] = True
         self.alternate_path = THEMES / "tests/fixtures/phase2-alternate.json"
@@ -84,8 +84,6 @@ class RuntimeTests(unittest.TestCase):
         generation, checked = current_generation(self.state)
         self.assertEqual(manifest, checked)
         self.assertEqual(set(TARGET_NAMES), set(manifest["enabled_targets"]))
-        self.assertTrue(vicinae_theme_link().is_symlink())
-        self.assertEqual(self.state / "current/vicinae/theme.toml", Path(os.readlink(vicinae_theme_link())))
         self.assertTrue((self.root / "config/kitty/blox-theme.conf").is_symlink())
         self.assertTrue(cursor_icon_link().is_symlink())
         for target, (link, expected) in phase7_loader_specs(self.state).items():
@@ -104,7 +102,7 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual([], list((self.state / "generations").glob(".candidate-*")))
         self.assertEqual(generation, (self.state / "current").resolve())
         flattened = [part for command in runner.commands for part in command]
-        for executable in ("quickshell", "vicinae", "hyprctl", "kitty"):
+        for executable in ("quickshell", "hyprctl", "kitty"):
             self.assertIn(executable, flattened)
 
     def test_glow_style_uses_the_xdg_managed_loader(self) -> None:
@@ -186,14 +184,14 @@ class RuntimeTests(unittest.TestCase):
         manifest, _ = apply_theme(self.alternate_path, self.alternate, ("quickshell",), run_command=FakeCommands())
         after_path, _ = current_generation(self.state)
         self.assertNotEqual(before["quickshell/theme.json"], (after_path / "quickshell/theme.json").read_bytes())
-        for name in ("vicinae/theme.toml", "kitty/theme.conf", "hypr/wallpaper.json"):
+        for name in ("kitty/theme.conf", "hypr/wallpaper.json"):
             self.assertEqual(before[name], (after_path / name).read_bytes(), name)
         for name in TARGET_FILES["gtk"]:
             self.assertEqual(before[name], (after_path / name).read_bytes(), name)
         self.assertEqual("phase2-alternate", manifest["target_sources"]["quickshell"]["theme_id"])
-        self.assertEqual("blox-panel", manifest["target_sources"]["kitty"]["theme_id"])
+        self.assertEqual("catppuccin-mocha", manifest["target_sources"]["kitty"]["theme_id"])
 
-    def test_alternate_theme_changes_all_four_targets(self) -> None:
+    def test_alternate_theme_changes_all_phase_two_targets(self) -> None:
         self.apply_canonical()
         before_path, before_manifest = current_generation(self.state)
         before = {name: (before_path / name).read_bytes() for name in before_manifest["files"]}
@@ -204,15 +202,8 @@ class RuntimeTests(unittest.TestCase):
         for name in changed_files:
             self.assertNotEqual(before[name], (after_path / name).read_bytes(), name)
 
-    def test_wallpaper_apply_writes_config_then_updates_active_monitors(self) -> None:
-        class ActiveMonitorCommands(FakeCommands):
-            def __call__(self, command: list[str]) -> subprocess.CompletedProcess[str]:
-                self.commands.append(command)
-                if command == ["hyprctl", "monitors", "-j"]:
-                    return subprocess.CompletedProcess(command, 0, '[{"name":"eDP-1"}]', "")
-                return subprocess.CompletedProcess(command, 0, "", "")
-
-        runner = ActiveMonitorCommands()
+    def test_wallpaper_apply_reloads_the_quickshell_surface(self) -> None:
+        runner = FakeCommands()
         apply_theme(
             self.canonical_path,
             self.canonical,
@@ -220,27 +211,27 @@ class RuntimeTests(unittest.TestCase):
             run_command=runner,
         )
 
-        config = self.state / "integration/hyprpaper.conf"
-        contents = config.read_text(encoding="utf-8")
-        self.assertIn("    monitor = \n", contents)
-        self.assertIn(f"path = {Path(self.canonical['wallpaper']['path']).expanduser().resolve()}", contents)
-        self.assertIn(f"fit_mode = {self.canonical['wallpaper']['fit']}", contents)
+        wallpaper = json.loads((self.state / "current/hypr/wallpaper.json").read_text(encoding="utf-8"))
+        self.assertEqual(str(resolve_wallpaper_path(self.canonical["wallpaper"]["path"], self.canonical_path)), wallpaper["path"])
+        self.assertEqual(self.canonical["wallpaper"]["fit"], wallpaper["fit"])
         self.assertIn(
             [
-                "hyprctl",
-                "hyprpaper",
-                "wallpaper",
-                f"eDP-1, {Path(self.canonical['wallpaper']['path']).expanduser().resolve()}, {self.canonical['wallpaper']['fit']}",
+                "quickshell",
+                "ipc",
+                "--path",
+                str(self.root / "config/quickshell/blox"),
+                "call",
+                "theme",
+                "reloadWallpaper",
             ],
             runner.commands,
         )
-        self.assertNotIn(["pkill", "-x", "hyprpaper"], runner.commands)
 
-    def test_wallpaper_apply_resolves_repository_relative_source_paths(self) -> None:
-        self.canonical["wallpaper"]["path"] = "themes/schema/theme.schema.json"
+    def test_wallpaper_apply_resolves_builtin_data_relative_source_paths(self) -> None:
+        self.canonical["wallpaper"]["path"] = "schema/theme.schema.json"
         apply_theme(self.canonical_path, self.canonical, ("wallpaper",), run_command=FakeCommands())
-        config = (self.state / "integration/hyprpaper.conf").read_text(encoding="utf-8")
-        self.assertIn(f"path = {REPOSITORY / 'themes/schema/theme.schema.json'}", config)
+        wallpaper = json.loads((self.state / "current/hypr/wallpaper.json").read_text(encoding="utf-8"))
+        self.assertEqual(str(THEMES / "schema/theme.schema.json"), wallpaper["path"])
 
     def test_render_failure_cannot_expose_partial_generation(self) -> None:
         self.apply_canonical()
@@ -263,22 +254,11 @@ class RuntimeTests(unittest.TestCase):
             apply_theme(self.alternate_path, self.alternate, ("quickshell",), run_command=FakeCommands())
         self.assertEqual(before, os.readlink(self.state / "current"))
 
-    def test_loader_conflict_rolls_back_activation(self) -> None:
-        link = vicinae_theme_link()
-        link.parent.mkdir(parents=True)
-        link.write_text("owned", encoding="utf-8")
-        with self.assertRaisesRegex(RuntimeFailure, "conflicting"):
-            self.apply_canonical()
-        self.assertFalse((self.state / "current").exists())
-        self.assertFalse((self.state / "active.json").exists())
-        self.assertEqual("owned", link.read_text(encoding="utf-8"))
-
     def test_partial_loader_installation_is_cleaned_up(self) -> None:
         link = kitty_theme_link()
         link.write_text("owned", encoding="utf-8")
         with self.assertRaisesRegex(RuntimeFailure, "conflicting Kitty"):
             self.apply_canonical()
-        self.assertFalse(vicinae_theme_link().exists())
         self.assertEqual("owned", link.read_text(encoding="utf-8"))
         self.assertFalse((self.state / "current").exists())
 
@@ -432,9 +412,8 @@ class RuntimeTests(unittest.TestCase):
             with self.subTest(target=target):
                 if self.state.exists():
                     shutil.rmtree(self.state)
-                for link in (vicinae_theme_link(), kitty_theme_link()):
-                    if link.is_symlink():
-                        link.unlink()
+                if kitty_theme_link().is_symlink():
+                    kitty_theme_link().unlink()
                 for version in ("3", "4"):
                     shutil.rmtree(self.root / f"config/gtk-{version}.0", ignore_errors=True)
                 self.apply_canonical()
@@ -447,9 +426,6 @@ class RuntimeTests(unittest.TestCase):
                 for name in TARGET_FILES[target]:
                     self.assertFalse((active / name).exists())
                 self.assertNotIn(target, manifest["enabled_targets"])
-                if target == "vicinae":
-                    self.assertFalse(vicinae_theme_link().exists())
-                    self.assertIn("blox-panel", runner.commands[0])
                 if target == "kitty":
                     self.assertFalse(kitty_theme_link().exists())
                 if target in {"hyprlock", "btop", "micro", "glow"}:
@@ -517,17 +493,12 @@ class RuntimeCliTests(unittest.TestCase):
             fake_bin = root / "bin"
             fake_bin.mkdir()
             # Every external command used by the targets in this integration
-            # test must be isolated. In particular, letting systemd-run escape
-            # the fake PATH replaces the user's live Hyprpaper service with a
-            # transient service whose TemporaryDirectory is then deleted.
+            # test must be isolated.
             for name in (
                 "hyprctl",
                 "kitty",
-                "pkill",
                 "quickshell",
                 "systemctl",
-                "systemd-run",
-                "vicinae",
             ):
                 executable = fake_bin / name
                 executable.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
@@ -550,7 +521,7 @@ class RuntimeCliTests(unittest.TestCase):
                 completed = subprocess.run([str(THEMES / "bin/themectl"), *arguments, "--json"], cwd=REPOSITORY, env=environment, check=False, capture_output=True, text=True)
                 return completed.returncode, json.loads(completed.stdout)
 
-            apply_code, applied = invoke("apply", "blox-panel", "--targets", "quickshell,wallpaper")
+            apply_code, applied = invoke("apply", "catppuccin-mocha", "--targets", "quickshell,wallpaper")
             self.assertEqual(0, apply_code)
             self.assertTrue(applied["ok"])
             first = applied["data"]["generation"]

@@ -533,8 +533,8 @@ def _phase7_fallback(root: Path, target: str) -> Path:
     if fallback.is_file():
         return fallback
     try:
-        theme = json.loads((repository_root() / "themes/themes/blox-panel.json").read_text(encoding="utf-8"))
-        files, _ = render_theme(theme)
+        source, theme = load_theme(DEFAULT_THEME_ID)
+        files, _ = render_theme(theme, source)
         content = files[TARGET_FILES[target][0]]
     except (OSError, json.JSONDecodeError, KeyError, TypeError) as error:
         raise RuntimeFailure(f"cannot prepare the {target} reset fallback: {error}") from error
@@ -894,9 +894,8 @@ def _reload_kitty(run_command: Callable[[list[str]], subprocess.CompletedProcess
 
 def _reload_gtk(root: Path, mode: str, run_command: Callable[[list[str]], subprocess.CompletedProcess[str]]) -> list[str]:
     if mode == "reset":
-        source = repository_root() / "themes/themes/blox-panel.json"
         try:
-            theme = json.loads(source.read_text(encoding="utf-8"))
+            _, theme = load_theme(DEFAULT_THEME_ID)
             metadata = {"base_theme": theme["gtk"]["base_theme"], "font": f"{theme['fonts']['ui']} {theme['fonts']['gtk_size']}", "icon_theme": theme["icons"]["theme"], "variant": theme["variant"]}
         except (OSError, json.JSONDecodeError, KeyError, TypeError) as error:
             return [f"GTK reset metadata is invalid: {error}"]

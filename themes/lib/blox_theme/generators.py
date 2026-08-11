@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from .core import contrast_ratio, load_theme
+from .core import DEFAULT_THEME_ID, contrast_ratio, load_theme
 
 
 MAPPING_VERSION = 1
@@ -263,8 +263,9 @@ def generate_theme(
             if saturation is not None:
                 options["saturation"] = saturation
 
-    _, base = load_theme("blox-panel")
+    _, base = load_theme(DEFAULT_THEME_ID)
     theme = copy.deepcopy(base)
+    theme.pop("overrides", None)
     stem = re.sub(r"[^a-z0-9]+", "-", source.stem.casefold()).strip("-") or "wallpaper"
     generated_id = f"{stem}-{backend}"[:64].rstrip("-")
     theme.update(

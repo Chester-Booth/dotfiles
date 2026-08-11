@@ -150,7 +150,7 @@ else: print("bad image", file=sys.stderr); raise SystemExit(9)
 
 class SaveTests(unittest.TestCase):
     def test_save_is_canonical_atomic_and_refuses_overwrite(self) -> None:
-        _, source = load_theme("blox-panel")
+        _, source = load_theme("catppuccin-mocha")
         theme = copy.deepcopy(source)
         theme["id"] = "generated-test"
         with tempfile.TemporaryDirectory() as temporary:
@@ -164,14 +164,14 @@ class SaveTests(unittest.TestCase):
             self.assertEqual(theme, json.loads(path.read_text(encoding="utf-8")))
 
     def test_save_rejects_unsafe_id(self) -> None:
-        _, theme = load_theme("blox-panel")
+        _, theme = load_theme("catppuccin-mocha")
         theme["id"] = "../escape"
         with tempfile.TemporaryDirectory() as temporary:
             with self.assertRaisesRegex(GeneratorFailure, "safe"):
                 save_theme_source(theme, Path(temporary))
 
     def test_generator_schema_provenance_is_strict(self) -> None:
-        _, theme = load_theme("blox-panel")
+        _, theme = load_theme("catppuccin-mocha")
         theme["generator"] = {
             "backend": "matugen", "version": "4.1.0", "mapping_version": 1,
             "options": {"mode": "dark", "scheme": "scheme-tonal-spot", "contrast": 0, "source_colour_index": 0},
@@ -182,7 +182,7 @@ class SaveTests(unittest.TestCase):
         self.assertTrue(schema_errors(theme))
 
     def test_validation_allows_changed_source_wallpaper(self) -> None:
-        _, theme = load_theme("blox-panel")
+        _, theme = load_theme("catppuccin-mocha")
         with tempfile.TemporaryDirectory() as temporary:
             wallpaper = Path(temporary) / "wallpaper.png"
             wallpaper.write_bytes(b"changed")

@@ -297,7 +297,7 @@ def _load_loose_json(path: Path) -> tuple[dict[str, Any], list[str]]:
     return migrate_theme(value)
 
 
-def import_theme(path: Path, library: Path) -> tuple[dict[str, Any], list[str]]:
+def import_theme(path: Path, library: Path, reserved_ids: set[str] | None = None) -> tuple[dict[str, Any], list[str]]:
     source = path.expanduser().resolve()
     if path.expanduser().is_symlink() or not source.is_file():
         raise PortabilityFailure(f"import source is not a regular file: {path}")
@@ -314,6 +314,8 @@ def import_theme(path: Path, library: Path) -> tuple[dict[str, Any], list[str]]:
     checked = validate_theme(theme, check_dependencies=False, source_path=source)
     if checked.errors:
         raise PortabilityFailure("invalid imported theme: " + "; ".join(checked.errors))
+    if reserved_ids and theme["id"] in reserved_ids:
+        raise PortabilityFailure(f"theme source already exists: {theme['id']}")
     theme_destination = library / "themes" / f"{theme['id']}.json"
     if theme_destination.exists() or theme_destination.is_symlink():
         raise PortabilityFailure(f"theme source already exists: {theme_destination}")

@@ -2,43 +2,7 @@ import QtQuick
 
 QtObject {
     function defaultWidgetItems() {
-        return [{
-            "id": "todo",
-            "name": "Todo",
-            "type": "custom",
-            "enabled": true,
-            "content_command": "$SCRIPT_ROOT/widgets/todo-content.sh",
-            "left_click_command": "$SCRIPT_ROOT/widgets/cycle-todo.sh",
-            "right_click_command": "$SCRIPT_ROOT/widgets/open-todo-editor.sh",
-            "interval_ms": 60000,
-            "visibility": "empty-workspace",
-            "anchor": "top-left",
-            "offset_x": 20,
-            "offset_y": 20,
-            "width": 0,
-            "height": 0,
-            "shape": "auto",
-            "options": {
-            }
-        }, {
-            "id": "calendar",
-            "name": "Calendar",
-            "type": "custom",
-            "enabled": true,
-            "content_command": "$SCRIPT_ROOT/widgets/gcal-content.sh",
-            "left_click_command": "$SCRIPT_ROOT/widgets/cycle-gcal.sh",
-            "right_click_command": "$SCRIPT_ROOT/widgets/open-gcal.sh",
-            "interval_ms": 60000,
-            "visibility": "empty-workspace",
-            "anchor": "bottom-right",
-            "offset_x": 20,
-            "offset_y": 20,
-            "width": 0,
-            "height": 0,
-            "shape": "auto",
-            "options": {
-            }
-        }];
+        return [];
     }
 
     function defaultBarItems() {

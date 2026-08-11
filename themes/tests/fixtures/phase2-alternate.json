@@ -5,7 +5,7 @@
   "variant": "dark",
   "targets": {
     "quickshell": true,
-    "vicinae": true,
+
     "widgets": false,
     "gtk": false,
     "cursor": false,

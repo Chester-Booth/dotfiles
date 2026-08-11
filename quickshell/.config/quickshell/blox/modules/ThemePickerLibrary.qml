@@ -471,7 +471,7 @@ Rectangle {
                         BloxButton {
                             width: parent.width
                             text: "Rename"
-                            enabled: !modelData.unsaved && (modelData.id !== controller.selectedId || !controller.dirty)
+                            enabled: !modelData.unsaved && !modelData.builtin && (modelData.id !== controller.selectedId || !controller.dirty)
                             onClicked: {
                                 themeActions.close();
                                 controller.openRename(modelData.id, modelData.name);
@@ -482,10 +482,10 @@ Rectangle {
                             width: parent.width
                             text: "Delete"
                             destructive: true
-                            enabled: !modelData.unsaved && modelData.id !== "blox-panel" && (modelData.id !== controller.selectedId || !controller.dirty) && !controller.busy
+                            enabled: !modelData.unsaved && !modelData.builtin && (modelData.id !== controller.selectedId || !controller.dirty) && !controller.busy
                             onClicked: {
                                 themeActions.close();
-                                controller.requestDelete(modelData.id, modelData.name);
+                                controller.requestDelete(modelData.id, modelData.name, modelData.builtin);
                             }
                         }
 

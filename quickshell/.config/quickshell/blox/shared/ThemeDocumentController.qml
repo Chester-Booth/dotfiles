@@ -9,32 +9,32 @@ QtObject {
     function reset() {
         theme.previewActive = false;
         theme.previewThemeId = "";
-        theme.themeId = "blox-panel";
+        theme.themeId = "catppuccin-mocha";
         theme.activeThemeId = theme.themeId;
         theme.variant = "dark";
-        theme.background = "#242424";
-        theme.surface = "#1e1e1e";
-        theme.surfaceAlt = "#3b3c4a";
+        theme.background = "#1e1e2e";
+        theme.surface = "#313244";
+        theme.surfaceAlt = "#45475a";
         theme.foreground = "#cdd6f4";
         theme.muted = "#a6adc8";
         theme.red = "#f38ba8";
         theme.green = "#a6e3a1";
         theme.yellow = "#f9e2af";
         theme.accent = "#89b4fa";
-        theme.blue = "#89b4fa";
-        theme.mauve = "#f5c2e7";
+        theme.blue = "#74c7ec";
+        theme.mauve = "#cba6f7";
         theme.teal = "#94e2d5";
-        theme.selectionForeground = "#1e1e1e";
-        theme.border = "#3b3c4a";
-        theme.fontFamily = "MartianMono Nerd Font Propo";
-        theme.monoFontFamily = "MartianMono Nerd Font Mono";
-        theme.bodyFontFamily = "Google Sans";
-        theme.barPosition = "left";
-        theme.barItems = defaults.defaultBarItems();
-        theme.osdPosition = "top-left";
+        theme.selectionForeground = "#1e1e2e";
+        theme.border = "#6c7086";
+        theme.fontFamily = "FiraCode Nerd Font Propo";
+        theme.monoFontFamily = "FiraCode Nerd Font Mono";
+        theme.bodyFontFamily = "Outfit";
+        theme.barPosition = "right";
+        theme.barItems = theme.builtinBarItems();
+        theme.osdPosition = "centre-top";
         theme.osdOffsetX = 0;
         theme.osdOffsetY = 0;
-        theme.notificationPosition = "bottom-right";
+        theme.notificationPosition = "top-left";
         theme.notificationOffsetX = 0;
         theme.notificationOffsetY = 0;
         return theme.themeId;
@@ -46,7 +46,7 @@ QtObject {
         theme.widgetPadding = 20;
         theme.widgetRadius = 0;
         theme.widgetFontSize = 14;
-        theme.widgetItems = defaults.defaultWidgetItems();
+        theme.widgetItems = [];
         return theme.widgetProfile;
     }
 
@@ -61,7 +61,7 @@ QtObject {
             theme.widgetPadding = data.padding;
             theme.widgetRadius = data.radius;
             theme.widgetFontSize = data.font_size;
-            theme.widgetItems = data.items || defaults.defaultWidgetItems();
+            theme.widgetItems = data.items || [];
             return true;
         } catch (error) {
             console.warn("[blox.theme] rejected widget profile: " + error);

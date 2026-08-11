@@ -22,11 +22,15 @@ git make python3 jq ripgrep qmlformat shfmt shellcheck quickshell hyprctl system
 Runtime helpers used by the desktop include:
 
 ```sh
-gcalcli pactl nmcli bluetoothctl brightnessctl asusctl hyprshot vicinae arch-update qalc sqlite3 wl-copy wl-paste wtype notify-send python-pillow ttf-twemoji
+gcalcli pactl nmcli bluetoothctl brightnessctl asusctl hyprshot arch-update qalc sqlite3 wl-copy wl-paste wtype notify-send python-pillow ttf-twemoji
 ```
 
 The exact package names vary by distro. On Arch-based systems, most are either
 repo packages or AUR packages.
+
+The showcase themes use separate distro-packaged font sets. See
+[`themes/docs/showcase-fonts.md`](../themes/docs/showcase-fonts.md) for the Arch
+and AUR package names and the exact Fontconfig families used by each theme.
 
 ## 3. Link Configs
 
@@ -104,6 +108,7 @@ mkdir -p ~/.config/systemd/user
 ln -sfn "$PWD/systemd"/*.service "$PWD/systemd"/*.timer ~/.config/systemd/user/
 
 systemctl --user daemon-reload
+systemctl --user start quickshell.service
 systemctl --user enable --now battery-low-power.timer
 systemctl --user enable --now fprint-check.timer
 systemctl --user enable --now gcal-update.timer
@@ -112,7 +117,9 @@ systemctl --user enable --now icloud-bisync.timer
 systemctl --user enable --now qalc-currency-update.timer
 ```
 
-Skip timers for services you do not use.
+Skip timers for services you do not use. Hyprland starts `quickshell.service`
+after it imports the Wayland session environment, so do not enable this unit
+under `default.target`.
 
 ## 6. Boot Themes
 
@@ -168,10 +175,25 @@ hyprctl reload
 hyprctl configerrors
 ```
 
-Start Quickshell with the live config:
+Restart Quickshell with the live config:
 
 ```sh
-quickshell -p ~/.config/quickshell/blox
+systemctl --user restart quickshell.service
+```
+
+If repeated start failures hit the service rate limit, inspect the log, clear
+the failed state, then start it again:
+
+```sh
+journalctl --user -u quickshell.service -b
+systemctl --user reset-failed quickshell.service
+systemctl --user restart quickshell.service
+```
+
+To stop automatic restarts while fixing a broken config:
+
+```sh
+systemctl --user stop quickshell.service
 ```
 
 ## 10. Laptop Power Button

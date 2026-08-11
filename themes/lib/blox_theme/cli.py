@@ -22,18 +22,23 @@ from .core import (
     EXIT_RENDER,
     EXIT_USAGE,
     EXIT_VALIDATION,
+    DEFAULT_THEME_ID,
+    builtin_themes_dir,
     canonical_json,
     contrast_ratio,
     dependency_checks,
     derive_ansi,
     list_themes,
     load_theme,
+    is_builtin_theme_path,
     render_manifest,
     render_theme,
     rendered_diff,
     repository_root,
     state_dir,
+    theme_path,
     themes_dir,
+    user_theme_library,
     validate_theme,
     write_render,
 )
@@ -78,7 +83,7 @@ def emit(result: dict[str, Any], as_json: bool) -> None:
 
 
 def parser() -> argparse.ArgumentParser:
-    root = argparse.ArgumentParser(prog="themectl", description="Validate, render, and atomically apply repository-owned themes.")
+    root = argparse.ArgumentParser(prog="themectl", description="Validate, render, and atomically apply built-in or user themes.")
     subcommands = root.add_subparsers(dest="command", required=True)
 
     list_parser = subcommands.add_parser("list", help="list source themes")
@@ -139,7 +144,7 @@ def parser() -> argparse.ArgumentParser:
     rename_parser.add_argument("theme")
     rename_parser.add_argument("display_name")
     rename_parser.add_argument("--json", action="store_true")
-    delete_parser = subcommands.add_parser("delete", help="delete an inactive non-canonical source theme")
+    delete_parser = subcommands.add_parser("delete", help="delete an inactive user theme")
     delete_parser.add_argument("theme")
     delete_parser.add_argument("--yes", action="store_true", help="confirm permanent source deletion")
     delete_parser.add_argument("--json", action="store_true")
@@ -186,7 +191,7 @@ def checked_theme(command: str, reference: str, check_dependencies: bool = True)
             theme = json.loads(reference)
             if not isinstance(theme, dict):
                 raise ValueError("theme root must be a JSON object")
-            path = Path("<inline-theme>")
+            path = themes_dir() / "themes/.inline-theme.json"
         else:
             path, theme = load_theme(reference)
     except FileNotFoundError as error:
@@ -212,7 +217,7 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         checks = {
             "repository": {"ok": repository_root().is_dir(), "path": str(repository_root())},
             "schema": {"ok": (themes_dir() / "schema/theme.schema.json").is_file()},
-            "theme_library": {"ok": (themes_dir() / "themes").is_dir()},
+            "theme_library": {"ok": builtin_themes_dir().is_dir(), "path": str(builtin_themes_dir())},
             "jsonschema": {"ok": False, "required": False},
             "fc_match": {"ok": shutil.which("fc-match") is not None},
             "state_directory": {"ok": state_dir().is_dir(), "path": str(state_dir()), "required": False},
@@ -310,7 +315,7 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
             if command == "widgets-export":
                 widgets = json.loads(args.widgets_json)
                 document = {"schema_version": 1, "kind": "blox-widgets", "widgets": widgets}
-                probe = copy.deepcopy(load_theme("blox-panel")[1])
+                probe = copy.deepcopy(load_theme(DEFAULT_THEME_ID)[1])
                 probe["widgets"] = widgets
                 checked = validate_theme(probe, check_dependencies=False)
                 if checked.errors:
@@ -323,7 +328,7 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
             document = json.loads(args.file.read_text(encoding="utf-8"))
             if not isinstance(document, dict) or document.get("schema_version") != 1 or document.get("kind") != "blox-widgets" or not isinstance(document.get("widgets"), dict):
                 raise ValueError("not a Blox widgets JSON document")
-            probe = copy.deepcopy(load_theme("blox-panel")[1])
+            probe = copy.deepcopy(load_theme(DEFAULT_THEME_ID)[1])
             probe["widgets"] = document["widgets"]
             checked = validate_theme(probe, check_dependencies=False)
             if checked.errors:
@@ -385,7 +390,13 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         if checked.errors:
             return envelope(command, {"theme": theme}, errors=checked.errors, warnings=checked.warnings), EXIT_VALIDATION
         try:
-            destination = save_theme_source(theme, themes_dir() / "themes", replace=args.replace, expected_sha256=args.expect_sha256)
+            existing = theme_path(theme["id"])
+            if existing.is_file() and not args.replace:
+                return envelope(command, errors=[f"theme source already exists: {theme['id']}"]), EXIT_VALIDATION
+            if args.replace and existing.is_file() and is_builtin_theme_path(existing):
+                return envelope(command, errors=["built-in themes are read-only; duplicate the theme first"]), EXIT_VALIDATION
+            directory = existing.parent if args.replace and existing.is_file() else user_theme_library() / "themes"
+            destination = save_theme_source(theme, directory, replace=args.replace, expected_sha256=args.expect_sha256)
         except (GeneratorFailure, OSError) as error:
             return envelope(command, errors=[str(error)]), EXIT_APPLY
         digest = hashlib.sha256(destination.read_bytes()).hexdigest()
@@ -393,7 +404,8 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
 
     if command == "import":
         try:
-            data, warnings = import_theme(args.file, themes_dir())
+            reserved_ids = {path.stem for path in builtin_themes_dir().glob("*.json")}
+            data, warnings = import_theme(args.file, user_theme_library(), reserved_ids=reserved_ids)
         except PortabilityFailure as error:
             return envelope(command, errors=[str(error)]), EXIT_VALIDATION
         except (GeneratorFailure, OSError) as error:
@@ -423,14 +435,14 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     if command in ("duplicate", "rename", "delete"):
         if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", args.theme):
             return envelope(command, errors=["theme library mutations require a stable theme ID"]), EXIT_USAGE
-        source = themes_dir() / "themes" / f"{args.theme}.json"
+        source = theme_path(args.theme)
         if not source.is_file() or source.is_symlink():
             return envelope(command, errors=[f"theme not found: {args.theme}"]), EXIT_DEPENDENCY
+        if command in ("rename", "delete") and is_builtin_theme_path(source):
+            return envelope(command, errors=["built-in themes are read-only; duplicate the theme first"]), EXIT_VALIDATION
         if command == "delete":
             if not args.yes:
                 return envelope(command, errors=["delete requires explicit confirmation with --yes"]), EXIT_USAGE
-            if args.theme == "blox-panel":
-                return envelope(command, errors=["the canonical blox-panel theme cannot be deleted"]), EXIT_VALIDATION
             try:
                 active = current_generation()
             except RuntimeFailure as error:
@@ -457,6 +469,8 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         if command == "duplicate":
             candidate["id"] = args.new_id
             candidate["name"] = args.name or f"{theme['name']} Copy"
+            if theme_path(candidate["id"]).is_file():
+                return envelope(command, errors=[f"theme source already exists: {candidate['id']}"]), EXIT_VALIDATION
         else:
             candidate["name"] = args.display_name
         checked = validate_theme(candidate, check_dependencies=False)
@@ -464,7 +478,7 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
             return envelope(command, errors=checked.errors, warnings=checked.warnings), EXIT_VALIDATION
         try:
             if command == "duplicate":
-                destination = save_theme_source(candidate, source.parent)
+                destination = save_theme_source(candidate, user_theme_library() / "themes")
             else:
                 expected = hashlib.sha256(source.read_bytes()).hexdigest()
                 destination = save_theme_source(candidate, source.parent, replace=True, expected_sha256=expected)

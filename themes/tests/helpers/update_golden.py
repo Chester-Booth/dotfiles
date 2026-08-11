@@ -14,13 +14,13 @@ from blox_theme.core import load_theme, render_theme
 
 
 def main() -> None:
-    _, theme = load_theme("blox-panel")
+    _, theme = load_theme("catppuccin-mocha")
     files, _ = render_theme(theme)
     hashes = {
         name: hashlib.sha256(content.encode()).hexdigest()
         for name, content in files.items()
     }
-    destination = THEMES / "tests/golden/blox-panel.sha256.json"
+    destination = THEMES / "tests/golden/catppuccin-mocha.sha256.json"
     destination.write_text(json.dumps(hashes, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 

@@ -132,7 +132,7 @@ ColumnLayout {
 
     Text {
         visible: controller.widgetItems().length === 0
-        text: "No explicit widgets yet. Add one to replace the default Todo and Calendar widgets."
+        text: "No widgets in this theme. Add one to show it on the desktop."
         color: Theme.muted
         wrapMode: Text.Wrap
     }

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Missing Icon Test
+Comment=Test launcher and notification fallbacks for a missing icon
+Exec=notify-send --app-name="Missing Icon Test" --icon=deliberately-missing-icon "Missing icon test" "Both this notification and its launcher entry request a missing icon."
+TryExec=notify-send
+Icon=deliberately-missing-icon
+Terminal=false
+Categories=Utility;
+Keywords=missing;icon;notification;test;

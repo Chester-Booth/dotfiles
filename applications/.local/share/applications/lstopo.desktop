@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Hardware Locality lstopo
+Comment=Show hardware topology
+Exec=lstopo
+TryExec=lstopo
+Icon=utilities-system-monitor
+Terminal=false
+Categories=System;Monitor;
+Keywords=System;Utility;Hardware;Topology;

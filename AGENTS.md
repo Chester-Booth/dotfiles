@@ -33,3 +33,5 @@ Do not rely on tooltip string parsing for fields the QML needs.
 
 - Edit theme sources under `themes/` and stable target integration files only;
   never edit generated files under `$XDG_STATE_HOME/blox-theme/`.
+
+- When Picking Icons, use Phosphor icons's online full list, and download as needed.

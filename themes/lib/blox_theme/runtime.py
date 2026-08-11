@@ -14,13 +14,12 @@ from pathlib import Path
 from typing import Any, Callable, Iterable
 
 from . import RENDERER_VERSION
-from .core import canonical_json, render_theme, repository_root, resolve_wallpaper_path, sha256_text, state_dir
+from .core import DEFAULT_THEME_ID, canonical_json, load_theme, render_theme, repository_root, resolve_wallpaper_path, sha256_text, state_dir
 from .editor import EditorSettingsFailure, apply_fragment
 
 
 TARGET_FILES = {
     "quickshell": ("quickshell/theme.json",),
-    "vicinae": ("vicinae/theme.toml",),
     "widgets": ("widgets/profile.json",),
     "kitty": ("kitty/theme.conf",),
     "wallpaper": ("hypr/wallpaper.json",),
@@ -292,11 +291,6 @@ def _run(command: list[str]) -> subprocess.CompletedProcess[str]:
 def quickshell_config_path() -> Path:
     config_home = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")).expanduser()
     return config_home / "quickshell/blox"
-
-
-def vicinae_theme_link() -> Path:
-    data_home = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")).expanduser()
-    return data_home / "vicinae/themes/blox-generated.toml"
 
 
 def kitty_config_path() -> Path:
@@ -581,19 +575,6 @@ def remove_phase7_loader(root: Path, target: str) -> None:
         link.unlink()
 
 
-def ensure_vicinae_loader(root: Path) -> None:
-    link = vicinae_theme_link()
-    expected = root / "current/vicinae/theme.toml"
-    if link.is_symlink() and Path(os.readlink(link)) == expected:
-        return
-    if link.exists() or link.is_symlink():
-        raise RuntimeFailure(f"refusing to replace conflicting Vicinae theme loader: {link}")
-    link.parent.mkdir(parents=True, exist_ok=True)
-    temporary = link.parent / f".{link.name}.{uuid.uuid4().hex}.tmp"
-    temporary.symlink_to(expected)
-    os.replace(temporary, link)
-
-
 def ensure_kitty_loader(root: Path) -> None:
     link = kitty_theme_link()
     expected = root / "current/kitty/theme.conf"
@@ -708,14 +689,8 @@ def _remove_managed_loader(link: Path, expected: Path) -> None:
 
 def sync_dynamic_loaders(root: Path, enabled_targets: Iterable[str]) -> None:
     enabled = set(enabled_targets)
-    vicinae = vicinae_theme_link()
-    vicinae_expected = root / "current/vicinae/theme.toml"
     kitty = kitty_theme_link()
     kitty_expected = root / "current/kitty/theme.conf"
-    if "vicinae" in enabled:
-        ensure_vicinae_loader(root)
-    else:
-        _remove_managed_loader(vicinae, vicinae_expected)
     if "kitty" in enabled:
         ensure_kitty_loader(root)
     else:
@@ -739,10 +714,7 @@ def sync_dynamic_loaders(root: Path, enabled_targets: Iterable[str]) -> None:
 
 
 def cleanup_managed_loaders(root: Path) -> None:
-    pairs = (
-        (vicinae_theme_link(), root / "current/vicinae/theme.toml"),
-        (kitty_theme_link(), root / "current/kitty/theme.conf"),
-    )
+    pairs = ((kitty_theme_link(), root / "current/kitty/theme.conf"),)
     for link, expected in pairs:
         if link.is_symlink() and Path(os.readlink(link)) == expected:
             link.unlink()
@@ -816,8 +788,6 @@ def verify_tracked_loaders(targets: Iterable[str]) -> None:
 
 def loader_checks(root: Path | None = None) -> dict[str, dict[str, Any]]:
     root = root or state_dir()
-    vicinae = vicinae_theme_link()
-    expected_vicinae = root / "current/vicinae/theme.toml"
     kitty_link = kitty_theme_link()
     expected_kitty = root / "current/kitty/theme.conf"
     kitty = kitty_config_path()
@@ -839,7 +809,6 @@ def loader_checks(root: Path | None = None) -> dict[str, dict[str, Any]]:
         "quickshell_loader": {"ok": "watchChanges: true" in quickshell_text and "function loadJson" in quickshell_text, "path": str(quickshell)},
         "kitty_loader": {"ok": kitty_include_line() in kitty_text, "path": str(kitty), "expected": kitty_include_line()},
         "kitty_generated_link": {"ok": kitty_link.is_symlink() and Path(os.readlink(kitty_link)) == expected_kitty, "path": str(kitty_link), "expected": str(expected_kitty)},
-        "vicinae_loader": {"ok": vicinae.is_symlink() and Path(os.readlink(vicinae)) == expected_vicinae, "path": str(vicinae), "expected": str(expected_vicinae)},
         "session_reconcile": {"ok": "scripts/theme/reconcile.sh" in startup_text, "path": str(startup)},
     }
     try:

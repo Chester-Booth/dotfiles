@@ -27,7 +27,6 @@ QtObject {
 
         const files = {
             "quickshell": ["quickshell/theme.json"],
-            "vicinae": ["vicinae/theme.toml"],
             "widgets": ["widgets/profile.json"],
             "kitty": ["kitty/theme.conf"],
             "wallpaper": ["hypr/wallpaper.json"],

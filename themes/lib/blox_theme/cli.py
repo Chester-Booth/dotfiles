@@ -236,9 +236,7 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
             except RuntimeFailure as error:
                 checks["generation_integrity"] = {"ok": False, "error": str(error)}
         for name, check in loader_checks().items():
-            if name == "vicinae_loader":
-                check["required"] = "vicinae" in active_targets
-            elif name == "kitty_generated_link":
+            if name == "kitty_generated_link":
                 check["required"] = "kitty" in active_targets
             elif name in ("gtk3_loader", "gtk4_loader", "gtk3_generated_links", "gtk4_generated_links"):
                 check["required"] = "gtk" in active_targets

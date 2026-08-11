@@ -818,7 +818,7 @@ ColumnLayout {
     }
 
     Repeater {
-        model: ["gtk", "vicinae", "hyprlock"]
+        model: ["gtk", "hyprlock"]
 
         ColumnLayout {
             required property string modelData

@@ -72,7 +72,7 @@ hl.window_rule({ match = { class = "^(nvidia-settings)$" }, float = true })
 hl.window_rule({ match = { class = "^(nvidia-settings)$" }, size = { 800, 600 } })
 
 hl.window_rule({
-    match = { title = "^(Picture-in-picture)$" },
+    match = { title = "^(Picture in picture|Picture-in-Picture).*" },
     float = true,
     pin = true,
     move = { "((monitor_w*0.69))", "((monitor_h*0.06))" },

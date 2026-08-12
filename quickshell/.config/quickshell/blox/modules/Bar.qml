@@ -3,6 +3,7 @@ import "../services"
 import "../shared"
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 
 Scope {
@@ -54,6 +55,11 @@ Scope {
         scriptRoot: barSurfaceController.scriptRoot
         barVisible: barSurfaceController.barVisible
         openPanel: barSurfaceController.openPanel
+    }
+
+    CalendarEventWindows {
+        controller: barContentController.calendarController
+        targetScreen: barSurfaceController.activeScreen
     }
 
     Variants {

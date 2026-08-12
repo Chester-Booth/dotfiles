@@ -8,6 +8,7 @@ Rectangle {
     property string suffix: ""
     property bool readOnly: false
     readonly property bool hovered: hover.hovered
+    readonly property bool editorFocused: editor.activeFocus
 
     signal editingFinished()
     signal accepted()

@@ -32,6 +32,7 @@ LauncherThemeApplyWindow 1.0 LauncherThemeApplyWindow.qml
 ClipboardController 1.0 ClipboardController.qml
 ClipboardPicker 1.0 ClipboardPicker.qml
 ClipboardWatcher 1.0 ClipboardWatcher.qml
+CalendarEventWindows 1.0 CalendarEventWindows.qml
 EmojiController 1.0 EmojiController.qml
 EmojiPicker 1.0 EmojiPicker.qml
 DmenuServer 1.0 DmenuServer.qml

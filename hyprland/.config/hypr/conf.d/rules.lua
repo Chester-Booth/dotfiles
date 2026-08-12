@@ -29,6 +29,7 @@ hl.window_rule({ match = { title = "^(Open File|Open Files|Save File|Save As|Sel
 hl.window_rule({ match = { title = "^Blox Theme Picker$" }, float = true, center = true, size = { 1320, 860 } })
 hl.window_rule({ match = { title = "^Blox Theme Application$" }, float = true, center = true })
 hl.window_rule({ match = { class = "^org\\.quickshell$", title = "^Blox (Clipboard|Emoji Picker)$" }, float = true })
+hl.window_rule({ match = { class = "^org\\.quickshell$", title = "^Blox Calendar (Event Details|New Event|Edit Event|Delete Event)$" }, float = true, pin = true })
 hl.window_rule({
     match = {
         class = "^(xdg-desktop-portal-gtk)$",

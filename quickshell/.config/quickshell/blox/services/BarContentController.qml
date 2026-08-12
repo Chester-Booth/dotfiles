@@ -5,6 +5,7 @@ import Quickshell
 Scope {
     id: root
 
+    readonly property bool useRedesignedCalendar: true
     property string scriptRoot: ""
     property bool barVisible: true
     property string openPanel: ""
@@ -27,6 +28,7 @@ Scope {
     property alias touchpad: barStatus.touchpad
     property alias privacy: barStatus.privacy
     property alias caffeine: barStatus.caffeine
+    property alias calendarController: calendarController
     readonly property date now: clock.date
 
     function run(command) {
@@ -106,16 +108,24 @@ Scope {
         openPanel: root.openPanel
         selectedCalendarDate: root.selectedCalendarDate
         todayIso: root.currentIsoDate()
+        useRedesignedCalendar: root.useRedesignedCalendar
     }
 
     BarActions {
         id: barActions
 
         scriptRoot: root.scriptRoot
+        useRedesignedCalendar: root.useRedesignedCalendar
         onControlRefreshRequested: barStatus.refreshControl()
         onPerformanceRefreshRequested: barStatus.refreshPerformance()
         onTodoRefreshRequested: todoRefreshDelay.restart()
         onCalendarRefreshRequested: barStatus.calendar.refresh()
+    }
+
+    CalendarController {
+        id: calendarController
+
+        scriptRoot: root.scriptRoot
     }
 
     BarContent {

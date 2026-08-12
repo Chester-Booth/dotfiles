@@ -14,6 +14,7 @@ Rectangle {
     readonly property bool down: tap.pressed
 
     signal clicked()
+    signal hoverExited()
 
     implicitHeight: 36
     implicitWidth: compact ? Math.max(34, buttonContent.implicitWidth + 18) : Math.max(76, buttonContent.implicitWidth + 30)
@@ -69,6 +70,11 @@ Rectangle {
         id: hover
 
         cursorShape: buttonRoot.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+        onHoveredChanged: {
+            if (!hovered) {
+                buttonRoot.hoverExited();
+            }
+        }
     }
 
     TapHandler {

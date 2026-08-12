@@ -11,6 +11,7 @@ Scope {
     property bool performanceVisible: false
     property string selectedCalendarDate: ""
     property string todayIso: ""
+    property bool useRedesignedCalendar: false
     property alias workspaces: workspaces
     property alias system: systemInfo
     property alias todo: todo
@@ -114,7 +115,7 @@ Scope {
     ScriptPoller {
         id: calendarEvents
 
-        command: [root.scriptRoot + "/calendar/events.sh", root.selectedCalendarDate || root.todayIso]
+        command: root.useRedesignedCalendar ? [] : [root.scriptRoot + "/calendar/events.sh", root.selectedCalendarDate || root.todayIso]
         interval: 3.6e+06
         timeout: 20000
     }

@@ -6,6 +6,7 @@ Scope {
     id: root
 
     property string scriptRoot: ""
+    property bool useRedesignedCalendar: true
     property int notesSaveRevision: 0
     property bool notesSaveBusy: false
     property string notesSaveError: ""
@@ -108,6 +109,10 @@ Scope {
     }
 
     function addCalendarEvent(day, title) {
+        if (useRedesignedCalendar) {
+            calendarAddError = "The redesigned calendar owns event creation.";
+            return ;
+        }
         if (calendarProcess.running) {
             calendarAddError = "An event is already being added.";
             return ;

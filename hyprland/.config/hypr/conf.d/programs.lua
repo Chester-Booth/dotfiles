@@ -1,7 +1,7 @@
 local programs = {
     terminal = "kitty",
     file_manager = "thunar",
-    menu = "quickshell ipc -c blox call launcher main",
+    menu = "~/.config/quickshell/blox/scripts/ipc.sh launcher main",
     editor = "micro",
     visual = "micro",
 }

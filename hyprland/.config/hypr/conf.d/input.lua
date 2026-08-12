@@ -27,7 +27,7 @@ hl.gesture({
     fingers = 3,
     direction = "down",
     action = function()
-        hl.exec_cmd("quickshell ipc -c blox call notifications toggle")
+        hl.exec_cmd("~/.config/quickshell/blox/scripts/ipc.sh notifications toggle")
     end,
 })
 

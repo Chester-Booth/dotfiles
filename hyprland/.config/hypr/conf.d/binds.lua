@@ -6,7 +6,7 @@ local function exec(cmd)
 end
 
 local function shortcut_guide(action)
-    hl.dispatch(exec("quickshell ipc -c blox call shortcutGuide " .. action))
+    hl.dispatch(exec("~/.config/quickshell/blox/scripts/ipc.sh shortcutGuide " .. action))
 end
 
 local function super_bind(keys, action, options)
@@ -149,7 +149,7 @@ super_bind("L", exec("~/.config/quickshell/blox/scripts/power/safe.sh lock"))
 super_bind("E", exec(programs.file_manager))
 super_bind("M", exec("kitty --class micro-active -e /home/blox/.local/bin/micro"))
 super_bind("space", exec(programs.menu))
-super_bind("N", exec("quickshell ipc -c blox call notifications toggle"))
+super_bind("N", exec("~/.config/quickshell/blox/scripts/ipc.sh notifications toggle"))
 super_bind("SHIFT + O", exec("~/.config/hypr/scripts/toggle-orca.sh"))
 
 -- Move focus with mainMod + arrow keys.
@@ -244,7 +244,7 @@ hl.bind("XF86WebCam", exec("~/.config/quickshell/blox/scripts/osd/control.sh cam
 hl.bind("XF86TouchpadToggle", exec("~/.config/quickshell/blox/scripts/osd/control.sh touchpad-toggle"), { locked = true })
 hl.bind("XF86TouchpadOn", exec("~/.config/quickshell/blox/scripts/osd/control.sh touchpad-on"), { locked = true })
 hl.bind("XF86TouchpadOff", exec("~/.config/quickshell/blox/scripts/osd/control.sh touchpad-off"), { locked = true })
-hl.bind("XF86PowerOff", exec("quickshell ipc -c blox call power toggle"), { locked = true })
+hl.bind("XF86PowerOff", exec("~/.config/quickshell/blox/scripts/ipc.sh power toggle"), { locked = true })
 
 -- Requires playerctl.
 hl.bind("XF86AudioNext", exec("playerctl next"), { locked = true })
@@ -273,10 +273,10 @@ super_bind("SHIFT + T", exec("~/.config/hypr/scripts/ocr-region-to-clipboard.sh"
 super_bind("SHIFT + C", exec([[bash -c 'pgrep -x hyprpicker >/dev/null && pkill -x hyprpicker || hyprpicker -a &']]))
 
 -- Clipboard manager toggle.
-super_bind("V", exec("quickshell ipc -c blox call launcher clipboard"))
+super_bind("V", exec("~/.config/quickshell/blox/scripts/ipc.sh launcher clipboard"))
 
 -- Toggle bar.
-super_bind("backslash", exec("quickshell ipc -c blox call bar toggle"))
+super_bind("backslash", exec("~/.config/quickshell/blox/scripts/ipc.sh bar toggle"))
 
 -- Emoji picker.
-super_bind("period", exec("quickshell ipc -c blox call launcher emoji"))
+super_bind("period", exec("~/.config/quickshell/blox/scripts/ipc.sh launcher emoji"))

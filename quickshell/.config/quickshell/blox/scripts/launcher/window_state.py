@@ -13,6 +13,7 @@ from pathlib import Path
 TITLES = {"Blox Clipboard": "clipboard", "Blox Emoji Picker": "emoji"}
 PICKER_CLASS = "org.quickshell"
 CONFIG = Path.home() / ".config/quickshell/blox"
+IPC = CONFIG / "scripts/ipc.sh"
 STATE = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state")) / "blox-launcher/window-geometry.json"
 
 
@@ -113,7 +114,7 @@ def restore(address: str, title: str, state: dict) -> bool:
 
 def mark_positioned(kind: str) -> None:
     subprocess.run(
-        ["quickshell", "ipc", "-p", str(CONFIG), "call", "launcher", "positioned", kind],
+        [str(IPC), "launcher", "positioned", kind],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         check=False,
@@ -122,7 +123,7 @@ def mark_positioned(kind: str) -> None:
 
 def close_picker() -> None:
     subprocess.run(
-        ["quickshell", "ipc", "-p", str(CONFIG), "call", "launcher", "close"],
+        [str(IPC), "launcher", "close"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         check=False,

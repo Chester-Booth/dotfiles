@@ -68,6 +68,7 @@ checks on your own work:
 - **Editing live config first.** Find or create the tracked source before
   touching the live path. Check the link with `realpath`. Do not create a real
   file in `~/.config` and move it into dotfiles later.
+- **Launching a new Quickshell Instance.** Quickshell live-reloads, never spawn a new quickshell process, unless the active process has crashed, and the systemd retry service has failed after 5 attempts, and you are only permitted to restart the service, not spawn processes yourself
 
 ## Repo map
 

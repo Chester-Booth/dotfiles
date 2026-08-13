@@ -109,6 +109,43 @@ ColumnLayout {
         })[0];
     }
 
+    function syncEventModel(model, items) {
+        var wanted = {};
+        for (var i = 0; i < items.length; ++i)
+            wanted[items[i].key] = true;
+        for (var oldIndex = model.count - 1; oldIndex >= 0; --oldIndex) {
+            if (!wanted[model.get(oldIndex).segment.key])
+                model.remove(oldIndex);
+        }
+        for (var target = 0; target < items.length; ++target) {
+            var found = -1;
+            for (var current = target; current < model.count; ++current) {
+                if (model.get(current).segment.key === items[target].key) {
+                    found = current;
+                    break;
+                }
+            }
+            if (found < 0) {
+                model.insert(target, {"segment": items[target]});
+            } else {
+                if (found !== target)
+                    model.move(found, target, 1);
+                if (JSON.stringify(model.get(target).segment) !== JSON.stringify(items[target]))
+                    model.setProperty(target, "segment", items[target]);
+            }
+        }
+    }
+
+    onTimedChanged: syncEventModel(timedEventModel, timed)
+    onAllDayChanged: syncEventModel(allDayEventModel, allDay)
+    Component.onCompleted: {
+        syncEventModel(timedEventModel, timed);
+        syncEventModel(allDayEventModel, allDay);
+    }
+
+    ListModel { id: timedEventModel; dynamicRoles: true }
+    ListModel { id: allDayEventModel; dynamicRoles: true }
+
     spacing: 5
     onEditorOpenChanged: {
         if (!editorOpen && !draftSelecting) {
@@ -182,14 +219,14 @@ ColumnLayout {
         spacing: 3
 
         Repeater {
-            model: root.allDay
+            model: allDayEventModel
 
             CalendarEventBlock {
-                required property var modelData
+                required property var segment
 
                 width: parent.width
                 height: 24
-                event: modelData.event
+                event: segment.event
                 shownStart: 0
                 shownEnd: 24
                 onOpened: function(event) {
@@ -310,30 +347,30 @@ ColumnLayout {
         }
 
         Repeater {
-            model: root.timed
+            model: timedEventModel
 
             CalendarEventBlock {
-                required property var modelData
-                property var shown: root.shownPart(modelData.key) || modelData
-                property var place: root.placements[modelData.key] || ({
+                required property var segment
+                property var shown: root.shownPart(segment.key) || segment
+                property var place: root.placements[segment.key] || ({
                     "lane": 0,
                     "lanes": 1
                 })
                 property real area: timeline.width - 32 - 12 - 4
                 property real laneWidth: (area - 2 * (place.lanes - 1)) / place.lanes
 
-                x: root.movingKey === modelData.key ? 32 : 34 + place.lane * (laneWidth + 2)
+                x: root.movingKey === segment.key ? 32 : 34 + place.lane * (laneWidth + 2)
                 y: LayoutMath.timeToY(shown.start, root.bounds.start, root.bounds.end, timeline.height)
-                width: root.movingKey === modelData.key ? timeline.width - 32 : laneWidth
+                width: root.movingKey === segment.key ? timeline.width - 32 : laneWidth
                 height: Math.max(16, LayoutMath.timeToY(shown.end - shown.start, 0, root.bounds.end - root.bounds.start, timeline.height))
-                z: root.movingKey === modelData.key ? 10 : 2
-                event: modelData.event
+                z: root.movingKey === segment.key ? 10 : 2
+                event: segment.event
                 shownStart: shown.start
                 shownEnd: shown.end
-                directManipulation: !modelData.continuesBefore && !modelData.continuesAfter
+                directManipulation: !segment.continuesBefore && !segment.continuesAfter
                 pixelsPerHour: timeline.height / (root.bounds.end - root.bounds.start)
-                moving: root.movingKey === modelData.key
-                resizing: root.resizingKey === modelData.key
+                moving: root.movingKey === segment.key
+                resizing: root.resizingKey === segment.key
                 onOpened: function(event) {
                     root.eventOpened(event);
                 }
@@ -341,36 +378,36 @@ ColumnLayout {
                     root.menuRequested(event, mapToItem(root, position.x, position.y));
                 }
                 onMoveStarted: function() {
-                    root.movingKey = modelData.key;
-                    root.movingStart = modelData.start;
-                    root.movingDuration = modelData.end - modelData.start;
+                    root.movingKey = segment.key;
+                    root.movingStart = segment.start;
+                    root.movingDuration = segment.end - segment.start;
                     root.movingScale = timeline.height / (root.bounds.end - root.bounds.start);
                     root.draftVisible = false;
                 }
                 onMoveChanged: function(event, delta) {
-                    root.movingStart = Math.max(0, Math.min(24 - root.movingDuration, modelData.start + delta));
+                    root.movingStart = Math.max(0, Math.min(24 - root.movingDuration, segment.start + delta));
                 }
                 onMoveFinished: function(event, cancelled) {
                     var value = root.movingStart;
                     root.movingKey = "";
-                    if (!cancelled && Math.abs(value - modelData.start) >= 0.25)
+                    if (!cancelled && Math.abs(value - segment.start) >= 0.25)
                         root.moveRequested(event, value);
 
                 }
                 onResizeStarted: function(event, pointerY) {
-                    root.resizingKey = modelData.key;
-                    root.resizingStart = modelData.start;
-                    root.resizingEnd = modelData.end;
+                    root.resizingKey = segment.key;
+                    root.resizingStart = segment.start;
+                    root.resizingEnd = segment.end;
                     root.resizingScaleStart = root.bounds.start;
                     root.resizingScaleHours = root.bounds.end - root.bounds.start;
                 }
                 onResizeChanged: function(event, pointerY) {
-                    root.resizingEnd = Math.max(modelData.start + 0.25, Math.min(24, root.snappedTime(pointerY, root.resizingScaleStart, root.resizingScaleStart + root.resizingScaleHours)));
+                    root.resizingEnd = Math.max(segment.start + 0.25, Math.min(24, root.snappedTime(pointerY, root.resizingScaleStart, root.resizingScaleStart + root.resizingScaleHours)));
                 }
                 onResizeFinished: function(event, cancelled) {
                     var value = root.resizingEnd;
                     root.resizingKey = "";
-                    if (!cancelled && Math.abs(value - modelData.end) >= 0.25)
+                    if (!cancelled && Math.abs(value - segment.end) >= 0.25)
                         root.resizeRequested(event, value);
 
                 }

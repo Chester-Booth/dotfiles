@@ -31,6 +31,17 @@ class CalendarStoreTest(unittest.TestCase):
         self.assertEqual(next(e for e in result["events"] if e["id"] == "all-day")["time"]["end_date_exclusive"], "2026-08-13")
         self.assertEqual(result["calendars"][0]["time_zone"], "Europe/London")
 
+    def test_narrow_refresh_keeps_events_outside_the_slice(self):
+        calendar = {"id": "main", "summary": "Main", "accessRole": "owner", "write_allowed": True}
+        events = [
+            {"id": "today", "summary": "Today", "start": {"dateTime": "2026-08-13T09:00:00Z"}, "end": {"dateTime": "2026-08-13T10:00:00Z"}},
+            {"id": "later", "summary": "Later", "start": {"dateTime": "2026-08-20T09:00:00Z"}, "end": {"dateTime": "2026-08-20T10:00:00Z"}},
+        ]
+        self.store.replace_calendar_slice(calendar, events, "2026-08-01T00:00:00Z", "2026-09-01T00:00:00Z")
+        self.store.replace_calendar_slice(calendar, [events[0]], "2026-08-13T00:00:00Z", "2026-08-14T00:00:00Z")
+        result = self.store.snapshot("2026-08-01T00:00:00Z", "2026-09-01T00:00:00Z")
+        self.assertEqual({event["id"] for event in result["events"]}, {"today", "later"})
+
     def test_composite_keys_keep_duplicate_provider_ids(self):
         for calendar_id in ("main", "study"):
             calendar = {"id": calendar_id, "summary": calendar_id, "accessRole": "reader", "backgroundColor": "#3978a8"}

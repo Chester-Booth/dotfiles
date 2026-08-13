@@ -122,6 +122,7 @@ def refresh(store, start, end, calendar_ids=None):
     if requested:
         calendars = [calendar for calendar in calendars if calendar["id"] in requested]
     failures = []
+    refreshed_calendar_ids = []
     for calendar in calendars:
         items, token = [], None
         try:
@@ -132,10 +133,12 @@ def refresh(store, start, end, calendar_ids=None):
                 if not token:
                     break
             store.replace_calendar_slice(calendar, items, start, end)
+            refreshed_calendar_ids.append(calendar["id"])
         except Exception as exc:  # Google client exceptions vary by dependency version.
             error = classify_error(exc)
             failures.append({"calendar_id": calendar["id"], "calendar_summary": calendar.get("summary", calendar["id"]), **error})
-    return {"partial_failures": failures, **store.snapshot(start, end)}
+    return {"partial_failures": failures, "refreshed_calendar_ids": refreshed_calendar_ids,
+            "requested_start": start, "requested_end": end, **store.snapshot(start, end)}
 
 
 def mutate(store, command, payload):

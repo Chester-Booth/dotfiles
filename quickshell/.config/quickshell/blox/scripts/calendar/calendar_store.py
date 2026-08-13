@@ -121,9 +121,15 @@ class CalendarStore:
         start, end = _utc_iso(start), _utc_iso(end)
         now = int(datetime.now(tz=timezone.utc).timestamp() * 1000)
         with self.db:
-            self.db.execute("""INSERT OR REPLACE INTO calendars
+            self.db.execute("""INSERT INTO calendars
                 (id,summary,time_zone,access_role,is_primary,selected,background,foreground,write_allowed,raw_json)
-                VALUES (?,?,?,?,?,?,?,?,?,?)""", (
+                VALUES (?,?,?,?,?,?,?,?,?,?)
+                ON CONFLICT(id) DO UPDATE SET
+                    summary=excluded.summary, time_zone=excluded.time_zone,
+                    access_role=excluded.access_role, is_primary=excluded.is_primary,
+                    selected=excluded.selected, background=excluded.background,
+                    foreground=excluded.foreground, write_allowed=excluded.write_allowed,
+                    raw_json=excluded.raw_json""", (
                 calendar["id"], calendar.get("summary", calendar["id"]), calendar.get("timeZone"),
                 calendar.get("accessRole", "reader"), bool(calendar.get("primary")),
                 calendar.get("selected", True), calendar.get("backgroundColor", "#3978a8"),

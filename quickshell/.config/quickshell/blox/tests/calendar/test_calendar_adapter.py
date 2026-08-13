@@ -75,6 +75,38 @@ class FakeService:
         return self.events_api
 
 
+class FakeRefreshEvents:
+    def __init__(self, results):
+        self.results = results
+
+    def list(self, **kwargs):
+        result = self.results[kwargs["calendarId"]]
+        if isinstance(result, Exception):
+            return SequenceRequest([result])
+        return FakeRequest({"items": result})
+
+
+class FakeRefreshService:
+    def __init__(self, calendars, results):
+        self.calendars = calendars
+        self.events_api = FakeRefreshEvents(results)
+
+    def calendarList(self):
+        return self
+
+    def list(self, **kwargs):
+        return FakeRequest({"items": self.calendars})
+
+    def events(self):
+        return self.events_api
+
+    def colors(self):
+        return self
+
+    def get(self):
+        return FakeRequest({"event": {}})
+
+
 class CalendarAdapterTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -166,6 +198,20 @@ class CalendarAdapterTest(unittest.TestCase):
         unavailable = calendar_adapter.classify_error(calendar_adapter.ProviderFailure(FakeHttpError(503)))
         self.assertEqual(unavailable["code"], "provider_unavailable")
         self.assertTrue(unavailable["details"]["uncertain"])
+
+    def test_refresh_reports_only_slices_that_completed(self):
+        calendars = [
+            {"id": "main", "summary": "Main", "accessRole": "owner", "selected": True},
+            {"id": "failed", "summary": "Failed", "accessRole": "reader", "selected": True},
+        ]
+        service = FakeRefreshService(calendars, {"main": [], "failed": FakeHttpError(503)})
+        with patch.object(calendar_adapter, "build_gcal_client", return_value=object()), \
+                patch.object(calendar_adapter, "service_from_client", return_value=service), \
+                patch.object(calendar_adapter, "allow_list", side_effect=lambda value: value), \
+                patch.object(calendar_adapter.time, "sleep"):
+            result = calendar_adapter.refresh(self.store, "2026-08-01T00:00:00Z", "2026-09-01T00:00:00Z")
+        self.assertEqual(result["refreshed_calendar_ids"], ["main"])
+        self.assertEqual([item["calendar_id"] for item in result["partial_failures"]], ["failed"])
 
 
 if __name__ == "__main__":

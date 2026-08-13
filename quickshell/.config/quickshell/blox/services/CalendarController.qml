@@ -44,6 +44,7 @@ Scope {
     property var pendingReconcileRetries: []
     property var refreshedAt: ({
     })
+    property var pendingSnapshotDate: null
     property double lastHoverRefreshMs: 0
 
     function defaultCalendar() {
@@ -235,8 +236,10 @@ Scope {
     }
 
     function snapshot(date) {
-        if (snapshotProcess.running)
+        if (snapshotProcess.running) {
+            pendingSnapshotDate = date || rangeDate;
             return ;
+        }
 
         rangeDate = date || selectedDate;
         var range = retainedRange(rangeDate);
@@ -759,16 +762,22 @@ Scope {
         return event.time.start_ms < end.getTime() && event.time.end_ms > start.getTime();
     }
 
-    function applyData(response, replaceRange) {
+    function applyData(response, replaceRange, preserveEvents) {
         var data = response.data || {
         };
         revision = response.revision;
-        if (data.events) {
+        if (data.events && !preserveEvents) {
             var providerEvents = data.events.slice();
             if (replaceRange) {
                 var rangeStart = new Date(replaceRange.start), rangeEnd = new Date(replaceRange.end);
+                var refreshedIds = data.refreshed_calendar_ids || replaceRange.calendarIds || [];
+                providerEvents = providerEvents.filter(function(event) {
+                    return refreshedIds.indexOf(event.calendar && event.calendar.id) !== -1;
+                });
                 providerEvents = events.filter(function(event) {
-                    return !eventOverlapsRange(event, rangeStart, rangeEnd);
+                    var calendarId = event.calendar && event.calendar.id;
+                    var sliceWasReplaced = refreshedIds.indexOf(calendarId) !== -1;
+                    return !sliceWasReplaced || !eventOverlapsRange(event, rangeStart, rangeEnd);
                 }).concat(providerEvents);
             }
             for (var pendingIndex = 0; pendingIndex < events.length; ++pendingIndex) {
@@ -963,8 +972,10 @@ Scope {
     function handleRefreshSuccess(item, response) {
         applyData(response, {
             "start": item.args[1],
-            "end": item.args[3]
-        });
+            "end": item.args[3],
+            "calendarIds": item.calendarIds || []
+        }, true);
+        snapshot(rangeDate);
         var failures = response.data && response.data.partial_failures || [];
         if (!failures.length) {
             if (popoutNotice && popoutNotice.operation === "refresh")
@@ -1250,6 +1261,11 @@ Scope {
         onExited: function(code) {
             root.loading = false;
             root.snapshotResult(snapshotOutput.text, "Could not read the calendar cache.");
+            if (root.pendingSnapshotDate) {
+                var nextDate = root.pendingSnapshotDate;
+                root.pendingSnapshotDate = null;
+                root.snapshot(nextDate);
+            }
         }
 
         stdout: StdioCollector {

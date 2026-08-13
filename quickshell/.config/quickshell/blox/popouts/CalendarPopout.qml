@@ -204,6 +204,8 @@ Rectangle {
             }
 
             CalendarDayView {
+                id: dayView
+
                 anchors.fill: parent
                 visible: root.viewIndex === 1
                 enabled: visible
@@ -227,11 +229,13 @@ Rectangle {
                     root.controller.resizeEventTime(event, root.controller.selectedDate, end);
                 }
                 onMenuRequested: function(event, position) {
+                    var anchor = dayView.mapToItem(root, position.x, position.y);
+                    var pointerGap = 6;
                     root.focusRequested();
                     root.controller.eventMenuOpen = true;
                     eventMenu.event = event;
-                    eventMenu.x = Math.max(6, Math.min(root.width - eventMenu.width - 6, position.x));
-                    eventMenu.y = Math.max(6, Math.min(root.height - eventMenu.height - 6, position.y));
+                    eventMenu.x = Math.max(6, Math.min(root.width - eventMenu.width - 6, anchor.x + pointerGap));
+                    eventMenu.y = Math.max(6, Math.min(root.height - eventMenu.height - 6, anchor.y + pointerGap));
                     eventMenu.open();
                 }
             }

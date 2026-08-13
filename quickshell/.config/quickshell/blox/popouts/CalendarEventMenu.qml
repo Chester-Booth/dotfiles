@@ -38,8 +38,11 @@ Popup {
                 iconName: "pencil-simple"
                 enabled: root.event && root.event.can_edit && !root.event.busy
                 onClicked: {
-                    root.close();
-                    root.editRequested(root.event);
+                    var selectedEvent = root.event;
+                    Qt.callLater(function() {
+                        root.close();
+                        root.editRequested(selectedEvent);
+                    });
                 }
             }
 
@@ -50,8 +53,11 @@ Popup {
                 destructive: true
                 enabled: root.event && root.event.can_edit && !root.event.busy
                 onClicked: {
-                    root.close();
-                    root.deleteRequested(root.event);
+                    var selectedEvent = root.event;
+                    Qt.callLater(function() {
+                        root.close();
+                        root.deleteRequested(selectedEvent);
+                    });
                 }
             }
 
@@ -119,8 +125,12 @@ Popup {
                     TapHandler {
                         enabled: root.event && root.event.can_edit && !root.event.busy
                         onTapped: {
-                            root.colourRequested(root.event, parent.modelData.id);
-                            root.close();
+                            var selectedEvent = root.event;
+                            var selectedColour = parent.modelData.id;
+                            Qt.callLater(function() {
+                                root.close();
+                                root.colourRequested(selectedEvent, selectedColour);
+                            });
                         }
                     }
 

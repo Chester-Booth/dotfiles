@@ -91,7 +91,9 @@ Scope {
 
                 RowLayout {
                     Layout.fillWidth: true
+                    Layout.minimumHeight: 34
                     Layout.preferredHeight: 34
+                    Layout.maximumHeight: 34
 
                     Item {
                         Layout.fillWidth: true
@@ -136,7 +138,9 @@ Scope {
 
                 Rectangle {
                     Layout.fillWidth: true
-                    height: 1
+                    Layout.minimumHeight: 1
+                    Layout.preferredHeight: 1
+                    Layout.maximumHeight: 1
                     color: Theme.border
                 }
 
@@ -215,7 +219,6 @@ Scope {
                 ScrollView {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    visible: detailsDescription.text.length > 0
                     clip: true
 
                     Text {
@@ -233,6 +236,9 @@ Scope {
 
                 RowLayout {
                     Layout.fillWidth: true
+                    Layout.minimumHeight: implicitHeight
+                    Layout.preferredHeight: implicitHeight
+                    Layout.maximumHeight: implicitHeight
 
                     Rectangle {
                         width: 8

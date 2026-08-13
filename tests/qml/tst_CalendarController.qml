@@ -13,6 +13,9 @@ TestCase {
         controller.deleteNotice = null;
         controller.cancelReconcileRetry();
         controller.error = "";
+        controller.detailsOpen = false;
+        controller.childPositionReady = false;
+        controller.activeEvent = null;
     }
 
     function event(key, title) {
@@ -72,6 +75,19 @@ TestCase {
         });
         compare(controller.eventByKey(pending.key).title, "Optimistic");
         verify(controller.eventByKey(pending.key).busy);
+    }
+
+    function test_switching_detail_events_keeps_window_ready() {
+        var first = event("main:first", "First");
+        var second = event("main:second", "Second");
+        controller.showDetails(first);
+        controller.childPositionReady = true;
+
+        controller.showDetails(second);
+
+        verify(controller.detailsOpen);
+        verify(controller.childPositionReady);
+        compare(controller.activeEvent.key, second.key);
     }
 
     function test_range_refresh_keeps_events_outside_the_range() {

@@ -349,7 +349,9 @@ Scope {
     function showDetails(event) {
         cancelDelete();
         eventMenuOpen = false;
-        childPositionReady = false;
+        if (!detailsOpen)
+            childPositionReady = false;
+
         activeEvent = event;
         detailsOpen = true;
         editorOpen = false;

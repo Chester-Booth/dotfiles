@@ -178,8 +178,8 @@ Scope {
         refreshViewedDate(date, viewKind);
     }
 
-    function refreshAfterMutation(event) {
-        var date = event && event.time && event.time.kind === "timed" ? new Date(event.time.start_ms) : selectedDate;
+    function refreshAfterMutation(eventOrDate) {
+        var date = eventOrDate instanceof Date ? eventOrDate : eventOrDate && eventOrDate.time && eventOrDate.time.kind === "timed" ? new Date(eventOrDate.time.start_ms) : selectedDate;
         requestRefresh(startOfDay(date), endOfDay(date), "mutation", 0, true);
         var month = monthRange(date);
         requestRefresh(month.start, month.end, "mutation", 0, true);
@@ -229,8 +229,8 @@ Scope {
                 "kind": "timed",
                 "start_ms": dayTime(date, startHour).getTime(),
                 "end_ms": dayTime(date, endHour).getTime(),
-                "start_zone": Qt.locale().name,
-                "end_zone": Qt.locale().name
+                "start_zone": calendar.time_zone || "",
+                "end_zone": calendar.time_zone || ""
             },
             "can_edit": true,
             "capability_reason": "",
@@ -253,7 +253,7 @@ Scope {
         activeEvent = null;
     }
 
-    function write(command, payload, optimisticEvents) {
+    function write(command, payload, optimisticEvents, refreshDate) {
         error = "";
         pendingCommand = command;
         pendingPayload = payload;
@@ -265,7 +265,8 @@ Scope {
             "command": command,
             "payload": payload,
             "args": [],
-            "rollback": rollback
+            "rollback": rollback,
+            "refreshDate": refreshDate || null
         }, true);
         return true;
     }
@@ -334,13 +335,16 @@ Scope {
             };
         } else {
             changes.start = {
-                "dateTime": start.toISOString(),
-                "timeZone": item.time.start_zone
+                "dateTime": start.toISOString()
             };
             changes.end = {
-                "dateTime": end.toISOString(),
-                "timeZone": item.time.end_zone
+                "dateTime": end.toISOString()
             };
+            if (item.time.start_zone)
+                changes.start.timeZone = item.time.start_zone;
+
+            if (item.time.end_zone)
+                changes.end.timeZone = item.time.end_zone;
         }
         if (colourId !== undefined)
             changes.colorId = colourId || null;
@@ -358,19 +362,19 @@ Scope {
                 "event_id": item.id,
                 "etag": item.etag,
                 "changes": changes
-            });
+            }, undefined, start);
             else
                 queued = write("update", {
                 "calendar_id": calendar.id,
                 "event_id": item.id,
                 "etag": item.etag,
                 "changes": changes
-            });
+            }, undefined, start);
         } else {
             queued = write("create", {
                 "calendar_id": calendar.id,
                 "event": changes
-            });
+            }, undefined, start);
         }
         if (queued)
             closeChildren();
@@ -627,6 +631,7 @@ Scope {
         onExited: function(code) {
             processTimeout.stop();
             var finished = root.activeCommand;
+            root.activeCommand = null;
             root.pendingPayload = null;
             if (code === 0) {
                 root.rollbackEvents = null;
@@ -637,7 +642,7 @@ Scope {
                     next[finished.key] = Date.now();
                     root.refreshedAt = next;
                 } else if (finished) {
-                    root.refreshAfterMutation(root.activeEvent);
+                    root.refreshAfterMutation(finished.refreshDate || root.activeEvent);
                 }
             } else {
                 if (root.rollbackEvents)
@@ -646,7 +651,6 @@ Scope {
                 root.rollbackEvents = null;
                 root.acceptOutput(mutatorOutput.text);
             }
-            root.activeCommand = null;
             root.startNext();
             root.updateRefreshing();
         }

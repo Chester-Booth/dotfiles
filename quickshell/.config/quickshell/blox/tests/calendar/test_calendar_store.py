@@ -19,7 +19,7 @@ class CalendarStoreTest(unittest.TestCase):
         self.temp.cleanup()
 
     def test_slice_round_trips_timed_and_all_day_events(self):
-        calendar = {"id": "main", "summary": "Main", "accessRole": "owner", "primary": True, "write_allowed": True, "backgroundColor": "#3978a8"}
+        calendar = {"id": "main", "summary": "Main", "timeZone": "Europe/London", "accessRole": "owner", "primary": True, "write_allowed": True, "backgroundColor": "#3978a8"}
         events = [
             {"id": "timed", "summary": "Lecture", "etag": "one", "start": {"dateTime": "2026-08-12T09:00:00Z", "timeZone": "Europe/London"}, "end": {"dateTime": "2026-08-12T10:00:00Z", "timeZone": "Europe/London"}},
             {"id": "all-day", "summary": "Results", "start": {"date": "2026-08-12"}, "end": {"date": "2026-08-13"}},
@@ -29,6 +29,7 @@ class CalendarStoreTest(unittest.TestCase):
         self.assertEqual({event["id"] for event in result["events"]}, {"timed", "all-day"})
         self.assertTrue(all(event["can_edit"] for event in result["events"]))
         self.assertEqual(next(e for e in result["events"] if e["id"] == "all-day")["time"]["end_date_exclusive"], "2026-08-13")
+        self.assertEqual(result["calendars"][0]["time_zone"], "Europe/London")
 
     def test_composite_keys_keep_duplicate_provider_ids(self):
         for calendar_id in ("main", "study"):

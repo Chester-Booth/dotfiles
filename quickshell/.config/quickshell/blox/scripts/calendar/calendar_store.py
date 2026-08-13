@@ -213,7 +213,7 @@ class CalendarStore:
 
     @staticmethod
     def _calendar(row: dict) -> dict:
-        return {"id": row["id"], "summary": row["summary"], "access_role": row["access_role"], "write_allowed": bool(row["write_allowed"]), "colour": row["background"] or "#3978a8", "primary": bool(row["is_primary"])}
+        return {"id": row["id"], "summary": row["summary"], "time_zone": row["time_zone"] or "", "access_role": row["access_role"], "write_allowed": bool(row["write_allowed"]), "colour": row["background"] or "#3978a8", "primary": bool(row["is_primary"])}
 
     def _canonical(self, row: dict, calendars: dict, colours: dict) -> dict:
         cal = calendars[row["calendar_id"]]

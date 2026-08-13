@@ -11,6 +11,9 @@ Rectangle {
     property real transitionOpacity: 1
     property date pendingNavigationDate: controller.selectedDate
     property string pendingNavigationKind: "day"
+    readonly property real monthViewHeight: 352
+    readonly property real dayViewHeight: 620
+    readonly property real maximumViewHeight: Math.max(monthViewHeight, dayViewHeight)
 
     signal focusRequested()
 
@@ -44,7 +47,7 @@ Rectangle {
     }
 
     width: 360
-    height: viewIndex === 0 ? 352 : 620
+    height: viewIndex === 0 ? monthViewHeight : dayViewHeight
     radius: 9
     color: Theme.background
     border.color: Theme.surfaceAlt

@@ -9,13 +9,9 @@ Scope {
     property bool barVisible: true
     property string openPanel: ""
     property bool performanceVisible: false
-    property string selectedCalendarDate: ""
-    property string todayIso: ""
-    property bool useRedesignedCalendar: false
     property alias workspaces: workspaces
     property alias system: systemInfo
     property alias todo: todo
-    property alias calendar: calendarEvents
     property alias updates: updates
     property alias battery: battery
     property alias audio: audio
@@ -80,8 +76,6 @@ Scope {
 
         if (shouldRefresh && openPanel === "todo")
             todo.refresh();
-        else if (shouldRefresh && openPanel === "calendar")
-            calendarEvents.refresh();
         else if (shouldRefresh && openPanel === "updates")
             updates.refresh();
     }
@@ -110,14 +104,6 @@ Scope {
 
         command: [root.scriptRoot + "/todo/status.sh"]
         interval: 60000
-    }
-
-    ScriptPoller {
-        id: calendarEvents
-
-        command: root.useRedesignedCalendar ? [] : [root.scriptRoot + "/calendar/events.sh", root.selectedCalendarDate || root.todayIso]
-        interval: 3.6e+06
-        timeout: 20000
     }
 
     ScriptPoller {

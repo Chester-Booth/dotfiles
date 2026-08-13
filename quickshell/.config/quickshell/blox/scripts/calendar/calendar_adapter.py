@@ -51,7 +51,7 @@ def build_gcal_client():
     if version("gcalcli") != "4.5.1":
         raise RuntimeError(f'unsupported gcalcli version {version("gcalcli")}; expected 4.5.1')
     # gcalcli does not expose a stable library constructor. Importing here keeps
-    # snapshots fast; the clear error lets the legacy toggle remain useful.
+    # snapshots fast and keeps the private dependency in this function.
     from gcalcli.argparsers import get_argument_parser
     from gcalcli.gcal import GoogleCalendarInterface
     parser = get_argument_parser()

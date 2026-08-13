@@ -48,7 +48,7 @@ Validate script output contracts with:
 
 ## Calendar writes
 
-The redesigned calendar reads Google calendars through the existing gcalcli sign-in. On first use, only the primary writable calendar can be changed.
+The calendar reads Google calendars through the existing gcalcli sign-in. On first use, only the primary writable calendar can be changed.
 
 To allow another writable calendar, create `~/.config/quickshell/blox/calendar.json`:
 
@@ -66,8 +66,6 @@ Run the adapter doctor to check the installed gcalcli version, sign-in and cache
 ```sh
 ~/.config/quickshell/blox/scripts/calendar/calendar_adapter.py doctor
 ```
-
-Set `useRedesignedCalendar` in `services/BarContentController.qml` to `false` to restore the legacy popup and scripts.
 
 The contracts keep script changes honest: each producer must emit valid JSON
 with the fields and types the QML expects.

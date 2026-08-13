@@ -5,20 +5,17 @@ import Quickshell
 Scope {
     id: root
 
-    readonly property bool useRedesignedCalendar: true
     property string scriptRoot: ""
     property bool barVisible: true
     property string openPanel: ""
     property bool batteryExpanded: false
     property bool clockDateMode: false
-    property string selectedCalendarDate: ""
     property alias status: barStatus
     property alias actions: barActions
     property alias content: barContent
     property alias workspaces: barStatus.workspaces
     property alias systemInfo: barStatus.system
     property alias todo: barStatus.todo
-    property alias calendar: barStatus.calendar
     property alias updates: barStatus.updates
     property alias battery: barStatus.battery
     property alias audio: barStatus.audio
@@ -55,25 +52,6 @@ Scope {
         return barContent.railClockText(horizontal);
     }
 
-    function currentIsoDate() {
-        return Qt.formatDate(clock.date, "yyyy-MM-dd");
-    }
-
-    function resetCalendarMonth() {
-        selectedCalendarDate = currentIsoDate();
-        barStatus.calendar.refresh();
-    }
-
-    function selectCalendarDate(day) {
-        selectedCalendarDate = day;
-        barStatus.calendar.refresh();
-    }
-
-    function openCalendar() {
-        const date = selectedCalendarDate ? new Date(selectedCalendarDate + "T00:00:00") : clock.date;
-        run("xdg-open 'https://calendar.google.com/calendar/u/0/r/week/" + date.getFullYear() + "/" + (date.getMonth() + 1) + "/" + date.getDate() + "'");
-    }
-
     function previousTodo() {
         run(scriptRoot + "/todo/cycle.sh -1");
         todoRefreshDelay.restart();
@@ -106,20 +84,15 @@ Scope {
         scriptRoot: root.scriptRoot
         barVisible: root.barVisible
         openPanel: root.openPanel
-        selectedCalendarDate: root.selectedCalendarDate
-        todayIso: root.currentIsoDate()
-        useRedesignedCalendar: root.useRedesignedCalendar
     }
 
     BarActions {
         id: barActions
 
         scriptRoot: root.scriptRoot
-        useRedesignedCalendar: root.useRedesignedCalendar
         onControlRefreshRequested: barStatus.refreshControl()
         onPerformanceRefreshRequested: barStatus.refreshPerformance()
         onTodoRefreshRequested: todoRefreshDelay.restart()
-        onCalendarRefreshRequested: barStatus.calendar.refresh()
     }
 
     CalendarController {

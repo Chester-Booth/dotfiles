@@ -5,406 +5,244 @@ import QtQuick.Layouts
 Rectangle {
     id: root
 
-    property date baseDate: new Date()
-    property int monthOffset: 0
-    property date selectedDate: new Date()
-    property var events: []
-    property string eventsText: ""
-    property string eventsError: ""
-    property bool eventsLoading: false
-    property string newEventTitle: ""
-    property int addRevision: 0
-    property bool addBusy: false
-    property string addError: ""
-    readonly property int visibleEventCount: Math.max(1, events.length)
-    readonly property int eventRowHeight: 42
-    readonly property int eventRowSpacing: 6
-    readonly property int contentMargins: 28
-    readonly property int contentSpacing: 40
-    readonly property int headerHeight: 30
-    readonly property int monthGridHeight: 246
-    readonly property int selectedDateHeight: 15
-    readonly property int inputHeight: 34
-    readonly property int addStatusHeight: addError.length > 0 ? 18 : 0
-    readonly property int agendaHeight: root.events.length === 0 ? 18 : visibleEventCount * eventRowHeight + Math.max(0, visibleEventCount - 1) * eventRowSpacing
-    readonly property int desiredHeight: contentMargins + contentSpacing + headerHeight + monthGridHeight + selectedDateHeight + agendaHeight + inputHeight + addStatusHeight
+    required property var controller
+    property int viewIndex: 0
+    property date shownMonth: controller.selectedDate
+    property real transitionOpacity: 1
+    property date pendingNavigationDate: controller.selectedDate
+    property string pendingNavigationKind: "day"
 
-    signal selected(string day)
-    signal addEvent(string day, string title)
-    signal resetMonth()
-    signal openEvent(string title)
     signal focusRequested()
 
-    function shownDate() {
-        return new Date(baseDate.getFullYear(), baseDate.getMonth() + monthOffset, 1);
+    function shift(amount) {
+        var d = new Date(controller.selectedDate);
+        if (viewIndex === 0) {
+            d = new Date(shownMonth.getFullYear(), shownMonth.getMonth() + amount, 1);
+            shownMonth = d;
+            pendingNavigationKind = "month";
+        } else {
+            d.setDate(d.getDate() + amount);
+            controller.selectedDate = d;
+            pendingNavigationKind = "day";
+        }
+        pendingNavigationDate = d;
+        controller.snapshot(d);
+        keyboardNavigation.restart();
     }
 
-    function daysInMonth(date) {
-        return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+    function finishNavigation() {
+        keyboardNavigation.stop();
+        controller.finishNavigation(pendingNavigationDate, pendingNavigationKind);
     }
 
-    function firstDay(date) {
-        return (new Date(date.getFullYear(), date.getMonth(), 1).getDay() + 6) % 7;
+    function visibleEvents() {
+        var start = viewIndex === 0 ? new Date(shownMonth.getFullYear(), shownMonth.getMonth(), 1) : new Date(controller.selectedDate.getFullYear(), controller.selectedDate.getMonth(), controller.selectedDate.getDate());
+        var end = viewIndex === 0 ? new Date(shownMonth.getFullYear(), shownMonth.getMonth() + 1, 1) : new Date(controller.selectedDate.getFullYear(), controller.selectedDate.getMonth(), controller.selectedDate.getDate() + 1);
+        return controller.events.filter(function(event) {
+            return event.time.kind === "all_day" ? event.time.start_date < Qt.formatDate(end, "yyyy-MM-dd") && event.time.end_date_exclusive > Qt.formatDate(start, "yyyy-MM-dd") : event.time.start_ms < end.getTime() && event.time.end_ms > start.getTime();
+        });
     }
 
-    function isoDate(date) {
-        const month = date.getMonth() + 1;
-        const day = date.getDate();
-        return date.getFullYear() + "-" + (month < 10 ? "0" + month : month) + "-" + (day < 10 ? "0" + day : day);
-    }
-
-    function sameDay(a, b) {
-        return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-    }
-
-    function eventTime(line) {
-        const match = line.match(/^\s*([0-9]{1,2}:[0-9]{2})\s+(.*)$/);
-        return match ? match[1] : "";
-    }
-
-    function eventTitle(line) {
-        const match = line.match(/^\s*([0-9]{1,2}:[0-9]{2})\s+(.*)$/);
-        if (match)
-            return match[2];
-
-        return line.replace(/^[A-Z][a-z][a-z]\s+[A-Z][a-z][a-z]\s+[0-9]{1,2}\s*/, "");
-    }
-
-    onAddRevisionChanged: {
-        if (addRevision > 0)
-            newEventTitle = "";
-
-    }
-    width: 420
-    height: Math.max(420, desiredHeight)
-    radius: 8
+    width: 360
+    height: viewIndex === 0 ? 352 : 620
+    radius: 9
     color: Theme.background
     border.color: Theme.surfaceAlt
-    border.width: 1
+    clip: true
+    onViewIndexChanged: viewFade.restart()
+
+    NumberAnimation {
+        id: viewFade
+
+        target: root
+        property: "transitionOpacity"
+        from: 0.35
+        to: 1
+        duration: 120
+        easing.type: Easing.OutCubic
+    }
+
+    Timer {
+        id: keyboardNavigation
+
+        interval: 250
+        onTriggered: root.finishNavigation()
+    }
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 14
-        spacing: 10
+        anchors.margins: 12
+        spacing: 8
+        opacity: root.transitionOpacity
 
         RowLayout {
             Layout.fillWidth: true
 
-            Rectangle {
-                width: 30
-                height: 30
-                radius: 5
-                color: prevMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
-                border.color: Theme.surfaceAlt
-                border.width: 1
+            BloxButton {
+                compact: true
+                iconName: "arrow-left"
+                onClicked: root.shift(-1)
+                onHoverExited: root.finishNavigation()
 
-                Text {
-                    anchors.centerIn: parent
-                    text: "‹"
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 16
-                }
-
-                MouseArea {
-                    id: prevMouse
-
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    onClicked: root.monthOffset--
+                BloxToolTip {
+                    shown: parent.hovered
+                    text: root.viewIndex ? "Previous day" : "Previous month"
                 }
 
             }
 
-            Text {
+            BloxButton {
+                compact: true
+                iconName: root.viewIndex ? "calendar-blank" : "clock"
+                onClicked: {
+                    root.viewIndex = 1 - root.viewIndex;
+                    root.controller.refreshViewedDate(root.viewIndex ? root.controller.selectedDate : root.shownMonth, root.viewIndex ? "day" : "month");
+                }
+
+                BloxToolTip {
+                    shown: parent.hovered
+                    text: root.viewIndex ? "Show calendar" : "Show day"
+                }
+
+            }
+
+            ColumnLayout {
                 Layout.fillWidth: true
-                text: Qt.formatDate(root.shownDate(), "MMMM yyyy")
-                color: Theme.blue
-                font.family: Theme.bodyFontFamily
-                font.pixelSize: 16
-                font.bold: true
-                horizontalAlignment: Text.AlignHCenter
-
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        root.monthOffset = 0;
-                        root.selectedDate = root.baseDate;
-                        root.resetMonth();
-                    }
-                }
-
-            }
-
-            Rectangle {
-                width: 30
-                height: 30
-                radius: 5
-                color: nextMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
-                border.color: Theme.surfaceAlt
-                border.width: 1
-
-                Text {
-                    anchors.centerIn: parent
-                    text: "›"
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 16
-                }
-
-                MouseArea {
-                    id: nextMouse
-
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    onClicked: root.monthOffset++
-                }
-
-            }
-
-        }
-
-        GridLayout {
-            id: monthGrid
-
-            readonly property real cellWidth: (width - columnSpacing * 6) / 7
-
-            Layout.fillWidth: true
-            columns: 7
-            rowSpacing: 4
-            columnSpacing: 4
-
-            Repeater {
-                model: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+                spacing: 0
 
                 Text {
                     Layout.fillWidth: true
-                    Layout.preferredWidth: monthGrid.cellWidth
-                    text: modelData
-                    color: Theme.muted
+                    text: root.viewIndex ? Qt.formatDate(root.controller.selectedDate, "dddd d MMMM") : Qt.formatDate(root.shownMonth, "MMMM yyyy")
+                    color: Theme.foreground
                     font.family: Theme.bodyFontFamily
-                    font.pixelSize: 12
+                    font.pixelSize: 16
+                    font.bold: true
+                    horizontalAlignment: Text.AlignHCenter
+
+                    TapHandler {
+                        onTapped: {
+                            var now = new Date();
+                            root.controller.selectedDate = now;
+                            root.shownMonth = now;
+                            root.controller.snapshot();
+                            root.controller.refresh(true);
+                        }
+                    }
+
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: root.controller.refreshing ? "Refreshing…" : root.visibleEvents().length + " events"
+                    color: root.controller.error ? Theme.red : Theme.muted
+                    font.family: Theme.bodyFontFamily
+                    font.pixelSize: 9
                     horizontalAlignment: Text.AlignHCenter
                 }
 
             }
 
-            Repeater {
-                model: 42
+            BloxButton {
+                compact: true
+                iconName: "plus"
+                accent: Theme.accent
+                onClicked: root.controller.createEvent(root.controller.selectedDate, 9, 10)
 
-                Rectangle {
-                    readonly property date monthDate: root.shownDate()
-                    readonly property int dayNumber: index - root.firstDay(monthDate) + 1
-                    readonly property bool inMonth: dayNumber >= 1 && dayNumber <= root.daysInMonth(monthDate)
-                    readonly property date cellDate: new Date(monthDate.getFullYear(), monthDate.getMonth(), Math.max(1, dayNumber))
-                    readonly property bool today: inMonth && root.sameDay(cellDate, root.baseDate)
-                    readonly property bool selected: inMonth && root.sameDay(cellDate, root.selectedDate)
+                BloxToolTip {
+                    shown: parent.hovered
+                    text: "Create event"
+                }
 
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: monthGrid.cellWidth
-                    Layout.preferredHeight: 34
-                    radius: 5
-                    color: selected ? Theme.blue : today ? Theme.surfaceAlt : dayMouse.containsMouse && inMonth ? Theme.surfaceAlt : Theme.surface
-                    opacity: inMonth ? 1 : 0.25
+            }
 
-                    Text {
-                        anchors.centerIn: parent
-                        text: parent.inMonth ? parent.dayNumber : ""
-                        color: parent.selected ? Theme.background : parent.today ? Theme.yellow : Theme.foreground
-                        font.family: Theme.bodyFontFamily
-                        font.pixelSize: 12
-                        font.bold: parent.today || parent.selected
-                    }
+            BloxButton {
+                compact: true
+                iconName: "arrow-right"
+                onClicked: root.shift(1)
+                onHoverExited: root.finishNavigation()
 
-                    MouseArea {
-                        id: dayMouse
-
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: parent.inMonth ? Qt.PointingHandCursor : Qt.ArrowCursor
-                        onClicked: {
-                            if (!parent.inMonth)
-                                return ;
-
-                            root.selectedDate = parent.cellDate;
-                            root.selected(root.isoDate(parent.cellDate));
-                        }
-                    }
-
+                BloxToolTip {
+                    shown: parent.hovered
+                    text: root.viewIndex ? "Next day" : "Next month"
                 }
 
             }
 
         }
 
-        Text {
-            Layout.fillWidth: true
-            text: Qt.formatDate(root.selectedDate, "dddd dd MMM")
-            color: Theme.foreground
-            font.family: Theme.bodyFontFamily
-            font.pixelSize: 14
-            font.bold: true
-        }
+        Item {
+            id: viewArea
 
-        ColumnLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            spacing: 6
+            clip: true
 
-            Text {
-                Layout.fillWidth: true
-                visible: root.events.length === 0
-                text: root.eventsText
-                color: root.eventsError.length > 0 ? Theme.red : Theme.muted
-                font.family: Theme.bodyFontFamily
-                font.pixelSize: 12
-                horizontalAlignment: Text.AlignHCenter
+            CalendarMonthView {
+                anchors.fill: parent
+                visible: root.viewIndex === 0
+                enabled: visible
+                shownMonth: root.shownMonth
+                selectedDate: root.controller.selectedDate
+                events: root.controller.events
+                calendars: root.controller.calendars
+                onSelected: function(day) {
+                    root.controller.selectedDate = day;
+                    root.viewIndex = 1;
+                    root.controller.refreshViewedDate(day, "day");
+                }
             }
 
-            Repeater {
-                model: root.eventsLoading ? [] : root.events
-
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: root.eventRowHeight
-                    radius: 6
-                    color: eventMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
-                    border.color: Theme.surfaceAlt
-                    border.width: 1
-
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.margins: 8
-                        spacing: 8
-
-                        Text {
-                            Layout.preferredWidth: 42
-                            text: root.eventTime(modelData)
-                            visible: text.length > 0
-                            color: Theme.blue
-                            font.family: Theme.bodyFontFamily
-                            font.pixelSize: 12
-                            font.bold: true
-                        }
-
-                        Text {
-                            Layout.fillWidth: true
-                            text: root.eventTitle(modelData)
-                            color: Theme.foreground
-                            font.family: Theme.bodyFontFamily
-                            font.pixelSize: 12
-                            elide: Text.ElideRight
-                        }
-
-                    }
-
-                    MouseArea {
-                        id: eventMouse
-
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.openEvent(root.eventTitle(modelData))
-                    }
-
+            CalendarDayView {
+                anchors.fill: parent
+                visible: root.viewIndex === 1
+                enabled: visible
+                selectedDate: root.controller.selectedDate
+                events: root.controller.events
+                editorOpen: root.controller.editorOpen
+                onSelected: function(day) {
+                    root.controller.selectedDate = day;
+                    root.controller.refreshViewedDate(day, "day");
                 }
-
+                onEventOpened: function(event) {
+                    root.controller.showDetails(event);
+                }
+                onCreateRequested: function(start, end) {
+                    root.controller.createEvent(root.controller.selectedDate, start, end);
+                }
+                onMoveRequested: function(event, start) {
+                    root.controller.moveEventTime(event, root.controller.selectedDate, start);
+                }
+                onResizeRequested: function(event, end) {
+                    root.controller.resizeEventTime(event, root.controller.selectedDate, end);
+                }
+                onMenuRequested: function(event, position) {
+                    root.focusRequested();
+                    root.controller.eventMenuOpen = true;
+                    eventMenu.event = event;
+                    eventMenu.x = Math.max(6, Math.min(root.width - eventMenu.width - 6, position.x));
+                    eventMenu.y = Math.max(6, Math.min(root.height - eventMenu.height - 6, position.y));
+                    eventMenu.open();
+                }
             }
 
         }
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 8
+    }
 
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: root.inputHeight
-                radius: 5
-                color: Theme.surface
-                border.color: Theme.surfaceAlt
-                border.width: 1
+    CalendarEventMenu {
+        id: eventMenu
 
-                TextInput {
-                    id: eventInput
-
-                    anchors.fill: parent
-                    anchors.leftMargin: 10
-                    anchors.rightMargin: 10
-                    text: root.newEventTitle
-                    color: Theme.foreground
-                    font.family: Theme.bodyFontFamily
-                    font.pixelSize: 12
-                    activeFocusOnPress: true
-                    verticalAlignment: TextInput.AlignVCenter
-                    clip: true
-                    onActiveFocusChanged: {
-                        if (activeFocus)
-                            root.focusRequested();
-
-                    }
-                    onTextChanged: root.newEventTitle = text
-                }
-
-                Text {
-                    anchors.left: parent.left
-                    anchors.leftMargin: 10
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: eventInput.text.length === 0
-                    text: "New event title"
-                    color: Theme.muted
-                    font.family: Theme.bodyFontFamily
-                    font.pixelSize: 12
-                }
-
-            }
-
-            Rectangle {
-                Layout.preferredWidth: 42
-                Layout.preferredHeight: root.inputHeight
-                radius: 5
-                color: addMouse.containsMouse ? Theme.surfaceAlt : Theme.surface
-                border.color: Theme.surfaceAlt
-                border.width: 1
-                opacity: addMouse.enabled ? 1 : 0.55
-
-                Text {
-                    anchors.centerIn: parent
-                    text: root.addBusy ? "…" : "+"
-                    color: Theme.green
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 16
-                    font.bold: true
-                }
-
-                MouseArea {
-                    id: addMouse
-
-                    anchors.fill: parent
-                    enabled: !root.addBusy && root.newEventTitle.trim().length > 0
-                    hoverEnabled: true
-                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                    onClicked: {
-                        root.addEvent(root.isoDate(root.selectedDate), root.newEventTitle.trim());
-                    }
-                }
-
-            }
-
+        onOpened: root.controller.eventMenuOpen = true
+        onClosed: root.controller.eventMenuOpen = false
+        onEditRequested: function(event) {
+            root.controller.editEvent(event);
         }
-
-        Text {
-            Layout.fillWidth: true
-            Layout.preferredHeight: root.addStatusHeight
-            visible: root.addError.length > 0
-            text: root.addError
-            color: Theme.red
-            font.family: Theme.bodyFontFamily
-            font.pixelSize: 11
-            wrapMode: Text.Wrap
+        onColourRequested: function(event, colourId) {
+            root.controller.changeEventColour(event, colourId);
         }
-
+        onDeleteRequested: function(event) {
+            root.controller.requestDelete(event, false);
+        }
     }
 
 }

@@ -39,19 +39,6 @@
       "tooltip": "string"
     }
   },
-  "calendar": {
-    "command": ["calendar/events.sh", "$TODAY"],
-    "required": {
-      "date": "string",
-      "events": "array",
-      "raw": "string",
-      "ok": "boolean",
-      "error": "string"
-    },
-    "items": {
-      "events": "string"
-    }
-  },
   "network": {
     "command": ["status/network.sh"],
     "required": {

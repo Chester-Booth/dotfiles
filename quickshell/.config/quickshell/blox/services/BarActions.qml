@@ -6,15 +6,11 @@ Scope {
     id: root
 
     property string scriptRoot: ""
-    property bool useRedesignedCalendar: true
     property int notesSaveRevision: 0
     property bool notesSaveBusy: false
     property string notesSaveError: ""
     property bool generatedRefreshBusy: false
     property string generatedRefreshError: ""
-    property int calendarAddRevision: 0
-    property bool calendarAddBusy: false
-    property string calendarAddError: ""
     property bool performanceBusy: false
     property string performanceError: ""
     property string performanceProcessError: ""
@@ -24,12 +20,10 @@ Scope {
     property int performanceExitStatus: 0
     property string notesProcessError: ""
     property string generatedProcessError: ""
-    property string calendarProcessError: ""
 
     signal controlRefreshRequested()
     signal performanceRefreshRequested()
     signal todoRefreshRequested()
-    signal calendarRefreshRequested()
 
     function errorMessage(prefix, exitCode, errorOutput) {
         const lines = errorOutput.trim().split("\n").filter((line) => {
@@ -108,22 +102,6 @@ Scope {
         generatedProcess.running = true;
     }
 
-    function addCalendarEvent(day, title) {
-        if (useRedesignedCalendar) {
-            calendarAddError = "The redesigned calendar owns event creation.";
-            return ;
-        }
-        if (calendarProcess.running) {
-            calendarAddError = "An event is already being added.";
-            return ;
-        }
-        calendarProcessError = "";
-        calendarAddError = "";
-        calendarAddBusy = true;
-        calendarProcess.command = [scriptRoot + "/calendar/add-event.sh", day, title];
-        calendarProcess.running = true;
-    }
-
     Timer {
         id: refreshDelay
 
@@ -191,26 +169,6 @@ Scope {
 
         stderr: StdioCollector {
             onStreamFinished: root.generatedProcessError = this.text
-        }
-
-    }
-
-    Process {
-        id: calendarProcess
-
-        onExited: (exitCode, exitStatus) => {
-            root.calendarAddBusy = false;
-            if (exitCode === 0 && exitStatus === 0) {
-                root.calendarAddRevision += 1;
-                root.calendarAddError = "";
-                root.calendarRefreshRequested();
-            } else {
-                root.calendarAddError = root.errorMessage("Could not add the event", exitCode, root.calendarProcessError);
-            }
-        }
-
-        stderr: StdioCollector {
-            onStreamFinished: root.calendarProcessError = this.text
         }
 
     }

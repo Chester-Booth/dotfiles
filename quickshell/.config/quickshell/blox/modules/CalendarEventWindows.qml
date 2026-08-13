@@ -350,6 +350,7 @@ Scope {
         property date pickerMonth: chosenDate
         property string startText: Qt.formatTime(chosenStart, "h:mm AP")
         property string endText: Qt.formatTime(chosenEnd, "h:mm AP")
+        property bool suppressRepeatActivation: false
 
         function timeOptions() {
             var result = [];
@@ -437,7 +438,22 @@ Scope {
                 recurrenceRule = root.controller.activeEvent.recurrence && root.controller.activeEvent.recurrence.rules && root.controller.activeEvent.recurrence.rules.length ? root.controller.activeEvent.recurrence.rules[0] : "";
                 chosenColourId = root.controller.activeEvent.colour ? (root.controller.activeEvent.colour.event_id || "") : "";
                 root.floatWindow(root.controller.activeEvent && root.controller.activeEvent.id ? "Blox Calendar Edit Event" : "Blox Calendar New Event", 320, 428);
+                Qt.callLater(function() {
+                    if (editor.visible)
+                        titleField.focusEditor(false);
+
+                });
+            } else {
+                suppressRepeatActivation = false;
+                dateMenuGuard.stop();
             }
+        }
+
+        Timer {
+            id: dateMenuGuard
+
+            interval: 180
+            onTriggered: editor.suppressRepeatActivation = false
         }
 
         Shortcut {
@@ -491,10 +507,18 @@ Scope {
                     }
 
                     BloxButton {
+                        id: closeButton
+
                         compact: true
                         iconName: "x"
                         enabled: !root.controller.editorSaving
                         onClicked: root.controller.closeChildren()
+
+                        BloxToolTip {
+                            shown: closeButton.hovered
+                            text: "Close"
+                        }
+
                     }
 
                 }
@@ -643,6 +667,7 @@ Scope {
                         BloxButton {
                             id: repeatButton
 
+                            activationEnabled: !editor.suppressRepeatActivation
                             text: editor.recurrenceRule ? "Repeats" : "Does not repeat"
                             iconName: "caret-down"
                             onClicked: repeatMenu.open()
@@ -799,6 +824,11 @@ Scope {
                         width: 206
                         padding: 8
                         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+                        onOpened: {
+                            dateMenuGuard.stop();
+                            editor.suppressRepeatActivation = true;
+                        }
+                        onClosed: dateMenuGuard.restart()
 
                         background: Rectangle {
                             radius: 7
@@ -862,6 +892,7 @@ Scope {
 
                                     Rectangle {
                                         required property int index
+                                        readonly property bool hovered: dayHover.hovered
                                         property date day: {
                                             var first = new Date(editor.pickerMonth.getFullYear(), editor.pickerMonth.getMonth(), 1);
                                             first.setDate(first.getDate() - ((first.getDay() + 6) % 7) + index);
@@ -871,7 +902,9 @@ Scope {
                                         Layout.preferredWidth: 24
                                         Layout.preferredHeight: 23
                                         radius: 5
-                                        color: Qt.formatDate(day, "yyyyMMdd") === Qt.formatDate(editor.chosenDate, "yyyyMMdd") ? Theme.accent : Theme.surface
+                                        color: Qt.formatDate(day, "yyyyMMdd") === Qt.formatDate(editor.chosenDate, "yyyyMMdd") ? Theme.accent : hovered ? Theme.surfaceAlt : Theme.surface
+                                        border.color: hovered ? Theme.withAlpha(Theme.foreground, 0.34) : "transparent"
+                                        border.width: hovered ? 1 : 0
 
                                         Text {
                                             anchors.centerIn: parent
@@ -887,6 +920,12 @@ Scope {
                                                 editor.chosenDate = parent.day;
                                                 dateMenu.close();
                                             }
+                                        }
+
+                                        HoverHandler {
+                                            id: dayHover
+
+                                            cursorShape: Qt.PointingHandCursor
                                         }
 
                                     }
@@ -974,6 +1013,8 @@ Scope {
                             id: calendarButton
 
                             Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            elideText: true
                             text: {
                                 var c = root.controller.calendars.filter(function(x) {
                                     return x.id === editor.selectedCalendarId;
@@ -981,6 +1022,12 @@ Scope {
                                 return c ? c.summary : "Calendar";
                             }
                             onClicked: calendarMenu.open()
+
+                            BloxToolTip {
+                                shown: calendarButton.hovered
+                                text: calendarButton.text
+                            }
+
                         }
 
                         Popup {
@@ -1006,15 +1053,24 @@ Scope {
                                     model: root.controller.calendars
 
                                     BloxButton {
+                                        id: calendarChoice
+
                                         required property var modelData
 
                                         width: parent.width
+                                        elideText: true
                                         text: modelData.summary
                                         enabled: modelData.write_allowed
                                         onClicked: {
                                             editor.selectedCalendarId = modelData.id;
                                             calendarMenu.close();
                                         }
+
+                                        BloxToolTip {
+                                            shown: calendarChoice.hovered
+                                            text: calendarChoice.text
+                                        }
+
                                     }
 
                                 }
@@ -1044,37 +1100,49 @@ Scope {
                             Repeater {
                                 model: [{
                                     "id": "9",
-                                    "c": "#5484ed"
+                                    "c": "#5484ed",
+                                    "n": "Blueberry"
                                 }, {
                                     "id": "3",
-                                    "c": "#dbadff"
+                                    "c": "#dbadff",
+                                    "n": "Grape"
                                 }, {
                                     "id": "7",
-                                    "c": "#46d6db"
+                                    "c": "#46d6db",
+                                    "n": "Peacock"
                                 }, {
                                     "id": "5",
-                                    "c": "#fbd75b"
+                                    "c": "#fbd75b",
+                                    "n": "Banana"
                                 }, {
                                     "id": "11",
-                                    "c": "#dc2127"
+                                    "c": "#dc2127",
+                                    "n": "Tomato"
                                 }, {
                                     "id": "1",
-                                    "c": "#a4bdfc"
+                                    "c": "#a4bdfc",
+                                    "n": "Lavender"
                                 }, {
                                     "id": "10",
-                                    "c": "#51b749"
+                                    "c": "#51b749",
+                                    "n": "Basil"
                                 }, {
                                     "id": "2",
-                                    "c": "#7ae7bf"
+                                    "c": "#7ae7bf",
+                                    "n": "Sage"
                                 }, {
                                     "id": "6",
-                                    "c": "#ffb878"
+                                    "c": "#ffb878",
+                                    "n": "Tangerine"
                                 }, {
                                     "id": "4",
-                                    "c": "#ff887c"
+                                    "c": "#ff887c",
+                                    "n": "Flamingo"
                                 }]
 
                                 Rectangle {
+                                    id: colourChoice
+
                                     required property var modelData
 
                                     Layout.preferredWidth: 18
@@ -1085,11 +1153,22 @@ Scope {
                                     border.width: activeFocus || editor.chosenColourId === modelData.id ? 3 : 1
                                     activeFocusOnTab: true
                                     Accessible.role: Accessible.RadioButton
-                                    Accessible.name: "Event colour " + modelData.id
+                                    Accessible.name: modelData.n
                                     Accessible.checked: editor.chosenColourId === modelData.id
                                     Keys.onSpacePressed: editor.chosenColourId = modelData.id
                                     Keys.onReturnPressed: editor.chosenColourId = modelData.id
                                     Keys.onEnterPressed: editor.chosenColourId = modelData.id
+
+                                    BloxToolTip {
+                                        shown: colourHover.hovered
+                                        text: colourChoice.modelData.n
+                                    }
+
+                                    HoverHandler {
+                                        id: colourHover
+
+                                        cursorShape: Qt.PointingHandCursor
+                                    }
 
                                     TapHandler {
                                         onTapped: editor.chosenColourId = parent.modelData.id

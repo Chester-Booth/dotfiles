@@ -64,9 +64,13 @@ Item {
             id: grid
 
             // Derive the columns from the view, not GridLayout's implicit width.
-            // Using the grid here creates a sizing loop and collapses the month.
-            // Fractional widths can round up across the row and clip Sunday.
+            // Whole-pixel widths avoid clipping; wider columns use the remainder.
             property real cellSize: Math.floor((root.width - columnSpacing * 6) / 7)
+            property int widerColumns: Math.round(root.width - columnSpacing * 6 - cellSize * 7)
+
+            function cellWidth(column) {
+                return cellSize + (column < widerColumns ? 1 : 0);
+            }
 
             Layout.fillWidth: true
             columns: 7
@@ -77,9 +81,10 @@ Item {
                 model: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
                 Text {
+                    required property int index
                     required property string modelData
 
-                    Layout.preferredWidth: grid.cellSize
+                    Layout.preferredWidth: grid.cellWidth(index)
                     Layout.preferredHeight: 18
                     text: modelData
                     color: Theme.muted
@@ -100,7 +105,7 @@ Item {
                     property bool chosen: root.sameDate(day, root.selectedDate)
                     property var marks: root.coloursFor(day)
 
-                    Layout.preferredWidth: grid.cellSize
+                    Layout.preferredWidth: grid.cellWidth(index % 7)
                     Layout.preferredHeight: 34
                     radius: 6
                     color: chosen ? Theme.accent : hover.hovered ? Theme.surfaceAlt : Theme.surface

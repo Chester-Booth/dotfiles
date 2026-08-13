@@ -12,6 +12,7 @@ Item {
     property bool moving: false
     property bool resizing: false
     property bool interacting: bodyDrag.active || resizeArea.pressed || bodyTap.pressed
+    readonly property bool updatePending: !!root.event && root.event.pending === true && root.event.busy === true
 
     signal opened(var event)
     signal menuRequested(var event, point position)
@@ -123,7 +124,7 @@ Item {
 
             target: null
             acceptedButtons: Qt.LeftButton
-            enabled: root.directManipulation && root.event && root.event.can_edit
+            enabled: root.directManipulation && root.event && root.event.can_edit && !root.event.busy
             xAxis.enabled: false
             onActiveChanged: {
                 if (active) {
@@ -152,7 +153,7 @@ Item {
         anchors.bottom: parent.bottom
         height: 8
         z: 8
-        enabled: root.directManipulation && root.event && root.event.can_edit
+        enabled: root.directManipulation && root.event && root.event.can_edit && !root.event.busy
         cursorShape: Qt.SizeVerCursor
         onPressed: function(mouse) {
             var p = mapToItem(root.parent, 0, mouse.y);
@@ -167,6 +168,29 @@ Item {
         }
         onReleased: root.resizeFinished(root.event, false)
         onCanceled: root.resizeFinished(root.event, true)
+    }
+
+    SequentialAnimation on opacity {
+        running: root.updatePending
+        loops: Animation.Infinite
+        onRunningChanged: {
+            if (!running)
+                root.opacity = 1;
+
+        }
+
+        NumberAnimation {
+            from: 0.45
+            to: 1
+            duration: 550
+        }
+
+        NumberAnimation {
+            from: 1
+            to: 0.45
+            duration: 550
+        }
+
     }
 
 }

@@ -7,6 +7,7 @@ Scope {
 
     required property string scriptRoot
     readonly property int refreshTimeoutMs: 20000
+    property bool automaticRefresh: true
     property var events: []
     property var calendars: []
     property bool loading: false
@@ -28,12 +29,19 @@ Scope {
     readonly property bool childWindowOpen: detailsOpen || editorOpen || confirmDeleteOpen || eventMenuOpen
     property string pendingCommand: ""
     property var pendingPayload: null
-    property var rollbackEvents: null
+    property var popoutNotice: null
+    property var editorNotice: null
+    property var deleteNotice: null
+    property bool editorSaving: false
+    property bool deleteSaving: false
     property var coverage: []
     property bool coverageComplete: false
     property double coverageOldestMs: 0
     property var commandQueue: []
     property var activeCommand: null
+    property bool ignoreMutatorExit: false
+    property var timedOutCommand: null
+    property var pendingReconcileRetries: []
     property var refreshedAt: ({
     })
     property double lastHoverRefreshMs: 0
@@ -77,6 +85,149 @@ Scope {
         return start.toISOString() + "/" + end.toISOString();
     }
 
+    function createId() {
+        var value = Date.now().toString(16);
+        while (value.length < 32)value += Math.floor(Math.random() * 16).toString(16)
+        return value.slice(0, 32);
+    }
+
+    function eventByKey(key) {
+        return events.filter(function(item) {
+            return item.key === key;
+        })[0] || null;
+    }
+
+    function replaceEvent(event) {
+        if (!event)
+            return ;
+
+        var found = false, next = events.map(function(item) {
+            if (item.key === event.key) {
+                found = true;
+                return event;
+            }
+            return item;
+        });
+        if (!found)
+            next.push(event);
+
+        events = next;
+    }
+
+    function settledEvent(event) {
+        if (!event)
+            return null;
+
+        var result = Object.assign({
+        }, event);
+        result.pending = false;
+        result.busy = false;
+        return result;
+    }
+
+    function clearNotice(surface) {
+        if (surface === "editor")
+            editorNotice = null;
+        else if (surface === "delete")
+            deleteNotice = null;
+        else
+            popoutNotice = null;
+        error = "";
+    }
+
+    function failureHeading(item, errorObject) {
+        var command = item.command;
+        var code = errorObject && errorObject.code || "provider_error";
+        if (code === "partial_mutation")
+            return "Google Calendar only completed part of the change";
+
+        if (code === "not_applied")
+            return "Google Calendar did not save the change";
+
+        if (code === "reconciliation_failed")
+            return "Couldn’t confirm what Google Calendar saved";
+
+        if (code === "auth_required")
+            return "Google Calendar needs you to sign in";
+
+        if (code === "etag_conflict")
+            return "This event changed in Google Calendar";
+
+        if (code === "permission_denied")
+            return "Google Calendar refused this change";
+
+        if (code === "rate_limited")
+            return "Google Calendar is busy";
+
+        if (code === "timeout")
+            return command === "refresh" ? "Calendar refresh timed out" : "The calendar request timed out";
+
+        if (code === "provider_unavailable")
+            return "Google Calendar is unavailable";
+
+        if (command === "create")
+            return "Event wasn’t created";
+
+        if (command === "delete")
+            return "Event wasn’t deleted";
+
+        if (command === "refresh")
+            return "Couldn’t refresh Google Calendar";
+
+        if (item.actionLabel === "colour")
+            return "Couldn’t change the event colour";
+
+        if (item.actionLabel === "move" || item.actionLabel === "resize")
+            return "Couldn’t change the event time";
+
+        return "Couldn’t update the event";
+    }
+
+    function failureDetail(item, errorObject) {
+        var command = item.command;
+        var code = errorObject && errorObject.code || "provider_error";
+        if (code === "partial_mutation")
+            return "Refresh to see the result before trying another change.";
+
+        if (code === "not_applied")
+            return "The event is unchanged. You can try again.";
+
+        if (code === "reconciliation_failed")
+            return "It will retry when the connection returns. You can also retry now.";
+
+        if (code === "auth_required")
+            return "Run gcalcli once, then return and try again.";
+
+        if (code === "etag_conflict")
+            return "Reload the latest version before saving your changes.";
+
+        if (code === "permission_denied")
+            return "Check that this calendar still allows changes.";
+
+        if (code === "rate_limited")
+            return "Wait a moment, then try again.";
+
+        if (command === "refresh")
+            return "Showing saved events from the last successful refresh.";
+
+        if (code === "provider_unavailable" || code === "timeout")
+            return "Your local data is unchanged.";
+
+        if (command === "create")
+            return "Your details are still here. Check the connection, then try again.";
+
+        if (command === "delete")
+            return "The event is unchanged. You can try again.";
+
+        if (item.actionLabel === "colour")
+            return "The previous colour has been restored.";
+
+        if (item.actionLabel === "move" || item.actionLabel === "resize")
+            return "The previous time has been restored.";
+
+        return "The previous value has been restored.";
+    }
+
     function open(date, screen) {
         selectedDate = date;
         activeScreen = screen;
@@ -95,7 +246,7 @@ Scope {
         snapshotProcess.running = true;
     }
 
-    function requestRefresh(start, end, reason, maxAgeMs, priority) {
+    function requestRefresh(start, end, reason, maxAgeMs, priority, calendarIds) {
         if (!(start instanceof Date))
             start = new Date(start);
 
@@ -105,7 +256,7 @@ Scope {
         if (end <= start)
             return false;
 
-        var key = rangeKey(start, end), now = Date.now(), age = maxAgeMs === undefined ? 0 : maxAgeMs;
+        var ids = calendarIds || [], key = rangeKey(start, end) + (ids.length ? "|" + ids.slice().sort().join(",") : ""), now = Date.now(), age = maxAgeMs === undefined ? 0 : maxAgeMs;
         if (age > 0 && refreshedAt[key] && now - refreshedAt[key] < age)
             return false;
 
@@ -117,13 +268,16 @@ Scope {
         }))
             return false;
 
+        var args = ["--start", start.toISOString(), "--end", end.toISOString()];
+        for (var i = 0; i < ids.length; ++i) args.push("--calendar-id", ids[i])
         enqueue({
             "command": "refresh",
             "payload": null,
-            "args": ["--start", start.toISOString(), "--end", end.toISOString()],
+            "args": args,
             "key": key,
+            "calendarIds": ids,
             "reason": reason || "manual",
-            "rollback": null
+            "surface": "popout"
         }, priority === true);
         return true;
     }
@@ -209,6 +363,13 @@ Scope {
         var calendar = defaultCalendar();
         if (!calendar) {
             error = "No writable calendar is allowed.";
+            popoutNotice = {
+                "operation": "create",
+                "message": error,
+                "severity": "error",
+                "phase": "failed",
+                "retryable": false
+            };
             return false;
         }
         cancelDelete();
@@ -216,6 +377,7 @@ Scope {
         activeEvent = {
             "key": "local:draft",
             "id": "",
+            "create_id": createId(),
             "etag": "",
             "title": "",
             "description": "",
@@ -253,7 +415,10 @@ Scope {
         return true;
     }
 
-    function closeChildren() {
+    function closeChildren(force) {
+        if (!force && (editorSaving || deleteSaving))
+            return false;
+
         detailsOpen = false;
         editorOpen = false;
         confirmDeleteOpen = false;
@@ -261,23 +426,43 @@ Scope {
         eventMenuOpen = false;
         activeEvent = null;
         deleteEvent = null;
+        editorNotice = null;
+        deleteNotice = null;
+        return true;
     }
 
-    function write(command, payload, optimisticEvents, refreshDate) {
-        error = "";
-        pendingCommand = command;
-        pendingPayload = payload;
-        var rollback = events;
-        if (optimisticEvents !== undefined)
-            events = optimisticEvents;
+    function write(command, payload, optimisticEvent, refreshDate, surface, eventKey, successClose, actionLabel) {
+        if (eventKey && eventByKey(eventKey) && eventByKey(eventKey).busy)
+            return false;
 
-        enqueue({
+        clearNotice(surface);
+        var rollback = eventKey ? eventByKey(eventKey) : null;
+        if (optimisticEvent) {
+            optimisticEvent.busy = true;
+            replaceEvent(optimisticEvent);
+        } else if (rollback) {
+            var busyEvent = Object.assign({
+            }, rollback);
+            busyEvent.busy = true;
+            replaceEvent(busyEvent);
+        }
+        var item = {
             "command": command,
             "payload": payload,
             "args": [],
             "rollback": rollback,
-            "refreshDate": refreshDate || null
-        }, true);
+            "optimistic": optimisticEvent || null,
+            "refreshDate": refreshDate || null,
+            "surface": surface || "popout",
+            "eventKey": eventKey || "",
+            "successClose": successClose || "",
+            "actionLabel": actionLabel || "update"
+        };
+        if (surface === "editor")
+            editorSaving = true;
+        else if (surface === "delete")
+            deleteSaving = true;
+        enqueue(item, true);
         return true;
     }
 
@@ -293,7 +478,13 @@ Scope {
     }
 
     function updateRefreshing() {
-        refreshing = mutator.running || commandQueue.length > 0 || activeCommand !== null;
+        refreshing = (activeCommand && activeCommand.command === "refresh") || commandQueue.some(function(item) {
+            return item.command === "refresh";
+        });
+        if (!activeCommand && !commandQueue.length) {
+            pendingCommand = "";
+            pendingPayload = null;
+        }
     }
 
     function startNext() {
@@ -305,7 +496,6 @@ Scope {
         activeCommand = next;
         pendingCommand = next.command;
         pendingPayload = next.payload;
-        rollbackEvents = next.rollback || null;
         mutator.command = [root.scriptRoot + "/calendar/calendar_adapter.py", next.command].concat(next.args);
         mutator.running = true;
         processTimeout.restart();
@@ -313,15 +503,26 @@ Scope {
     }
 
     function saveEvent(title, description, location, chosenDate, chosenStart, chosenEnd, colourId, allDay, calendarId, recurrenceRule) {
+        if (editorSaving)
+            return false;
+
         if (!title.trim()) {
-            error = "Add an event title.";
+            editorNotice = {
+                "message": "Add an event title.",
+                "retryable": false,
+                "code": "invalid_request"
+            };
             return false;
         }
         var item = activeEvent, calendar = calendars.filter(function(c) {
             return c.id === calendarId;
         })[0] || item.calendar || defaultCalendar();
         if (!calendar) {
-            error = "No writable calendar is allowed.";
+            editorNotice = {
+                "message": "No writable calendar is allowed.",
+                "retryable": false,
+                "code": "invalid_request"
+            };
             return false;
         }
         var sourceStart = chosenStart || new Date(item.time.start_ms), sourceEnd = chosenEnd || new Date(item.time.end_ms), date = chosenDate || sourceStart;
@@ -355,6 +556,7 @@ Scope {
 
             if (item.time.end_zone)
                 changes.end.timeZone = item.time.end_zone;
+
         }
         if (colourId !== undefined)
             changes.colorId = colourId || null;
@@ -372,28 +574,26 @@ Scope {
                 "event_id": item.id,
                 "etag": item.etag,
                 "changes": changes
-            }, undefined, start);
+            }, null, start, "editor", item.key, "editor", "edit");
             else
                 queued = write("update", {
                 "calendar_id": calendar.id,
                 "event_id": item.id,
                 "etag": item.etag,
                 "changes": changes
-            }, undefined, start);
+            }, null, start, "editor", item.key, "editor", "edit");
         } else {
             queued = write("create", {
                 "calendar_id": calendar.id,
+                "create_id": item.create_id || createId(),
                 "event": changes
-            }, undefined, start);
+            }, null, start, "editor", "", "editor", "create");
         }
-        if (queued)
-            closeChildren();
-
         return queued;
     }
 
     function requestDelete(event, openHost) {
-        if (event && event.can_edit) {
+        if (event && event.can_edit && !event.busy) {
             activeEvent = event;
             deleteEvent = event;
             deleteScope = "instance";
@@ -412,25 +612,29 @@ Scope {
     }
 
     function cancelDelete() {
+        if (deleteSaving)
+            return ;
+
         confirmDeleteOpen = false;
         deleteStandalone = false;
         deleteEvent = null;
     }
 
     function confirmDelete() {
+        if (deleteSaving)
+            return ;
+
         var event = deleteEvent;
-        if (event && event.can_edit) {
-            if (write("delete", {
+        if (event && event.can_edit)
+            write("delete", {
                 "calendar_id": event.calendar.id,
                 "event_id": event.id,
                 "etag": event.etag,
                 "scope": deleteScope,
                 "master_id": event.recurrence ? event.recurrence.master_id : "",
                 "original_start": event.recurrence ? event.recurrence.original_start : null
-            }))
-                closeChildren();
+            }, null, event.time && event.time.kind === "timed" ? new Date(event.time.start_ms) : selectedDate, "delete", event.key, "delete", "delete");
 
-        }
     }
 
     function dayTime(date, hour) {
@@ -438,7 +642,7 @@ Scope {
     }
 
     function moveEventTime(event, date, startHour) {
-        if (!event.can_edit || event.time.kind !== "timed")
+        if (!event.can_edit || event.busy || event.time.kind !== "timed")
             return ;
 
         var duration = event.time.end_ms - event.time.start_ms, start = dayTime(date, startHour);
@@ -463,13 +667,11 @@ Scope {
                     "timeZone": event.time.end_zone
                 }
             }
-        }, events.map(function(item) {
-            return item.key === event.key ? candidate : item;
-        }));
+        }, candidate, start, "event", event.key, "", "move");
     }
 
     function resizeEventTime(event, date, endHour) {
-        if (!event.can_edit || event.time.kind !== "timed")
+        if (!event.can_edit || event.busy || event.time.kind !== "timed")
             return ;
 
         var end = dayTime(date, endHour);
@@ -489,13 +691,11 @@ Scope {
                     "timeZone": event.time.end_zone
                 }
             }
-        }, events.map(function(item) {
-            return item.key === event.key ? candidate : item;
-        }));
+        }, candidate, date, "event", event.key, "", "resize");
     }
 
     function changeEventColour(event, colourId) {
-        if (!event || !event.can_edit)
+        if (!event || !event.can_edit || event.busy)
             return false;
 
         var palette = {
@@ -524,46 +724,435 @@ Scope {
             "changes": {
                 "colorId": colourId
             }
-        }, events.map(function(item) {
-            return item.key === event.key ? candidate : item;
-        }));
+        }, candidate, event.time && event.time.kind === "timed" ? new Date(event.time.start_ms) : selectedDate, "event", event.key, "", "colour");
     }
 
-    function acceptOutput(text) {
+    function parseOutput(text) {
         try {
             var response = JSON.parse(text);
-            if (!response.ok) {
-                error = response.error.message;
+            if (!response || typeof response.ok !== "boolean")
+                throw new Error("missing ok field");
+
+            return {
+                "valid": true,
+                "response": response
+            };
+        } catch (e) {
+            return {
+                "valid": false,
+                "error": {
+                    "code": "invalid_response",
+                    "message": "Calendar returned invalid data: " + e,
+                    "retryable": true,
+                    "details": {
+                        "uncertain": true
+                    }
+                }
+            };
+        }
+    }
+
+    function eventOverlapsRange(event, start, end) {
+        if (event.time.kind === "all_day")
+            return event.time.start_date < Qt.formatDate(end, "yyyy-MM-dd") && event.time.end_date_exclusive > Qt.formatDate(start, "yyyy-MM-dd");
+
+        return event.time.start_ms < end.getTime() && event.time.end_ms > start.getTime();
+    }
+
+    function applyData(response, replaceRange) {
+        var data = response.data || {
+        };
+        revision = response.revision;
+        if (data.events) {
+            var providerEvents = data.events.slice();
+            if (replaceRange) {
+                var rangeStart = new Date(replaceRange.start), rangeEnd = new Date(replaceRange.end);
+                providerEvents = events.filter(function(event) {
+                    return !eventOverlapsRange(event, rangeStart, rangeEnd);
+                }).concat(providerEvents);
+            }
+            for (var pendingIndex = 0; pendingIndex < events.length; ++pendingIndex) {
+                var pendingEvent = events[pendingIndex];
+                if (!pendingEvent.busy)
+                    continue;
+
+                var replaced = false;
+                providerEvents = providerEvents.map(function(providerEvent) {
+                    if (providerEvent.key === pendingEvent.key) {
+                        replaced = true;
+                        return pendingEvent;
+                    }
+                    return providerEvent;
+                });
+                if (!replaced)
+                    providerEvents.push(pendingEvent);
+
+            }
+            if (modelSignature(events) !== modelSignature(providerEvents))
+                events = providerEvents;
+
+        }
+        if (data.calendars && JSON.stringify(calendars) !== JSON.stringify(data.calendars))
+            calendars = data.calendars;
+
+        if (data.coverage)
+            coverage = data.coverage;
+
+        if (data.coverage_complete !== undefined)
+            coverageComplete = data.coverage_complete;
+
+        if (data.coverage_oldest_ms !== undefined)
+            coverageOldestMs = data.coverage_oldest_ms;
+
+        if (data.range_freshness) {
+            var grouped = {
+            }, calendarCount = (data.calendars || calendars).length;
+            for (var i = 0; i < data.range_freshness.length; ++i) {
+                var item = data.range_freshness[i], key = rangeKey(new Date(item.start_utc), new Date(item.end_utc));
+                if (!grouped[key])
+                    grouped[key] = {
+                    "calendars": {
+                    },
+                    "oldest": item.refreshed_at_ms
+                };
+
+                grouped[key].calendars[item.calendar_id] = true;
+                grouped[key].oldest = Math.min(grouped[key].oldest, item.refreshed_at_ms);
+            }
+            var fresh = Object.assign({
+            }, refreshedAt);
+            for (var range in grouped) {
+                if (Object.keys(grouped[range].calendars).length >= calendarCount)
+                    fresh[range] = grouped[range].oldest;
+
+            }
+            refreshedAt = fresh;
+        }
+    }
+
+    function restoreItem(item) {
+        if (item && item.rollback) {
+            replaceEvent(settledEvent(item.rollback));
+        } else if (item && item.eventKey) {
+            var current = eventByKey(item.eventKey);
+            if (current)
+                replaceEvent(settledEvent(current));
+
+        }
+    }
+
+    function finishSurface(item) {
+        if (!item)
+            return ;
+
+        if (item.surface === "editor")
+            editorSaving = false;
+        else if (item.surface === "delete")
+            deleteSaving = false;
+    }
+
+    function setFailure(item, errorObject, retryItem) {
+        var heading = failureHeading(item, errorObject);
+        var detail = failureDetail(item, errorObject);
+        var notice = {
+            "operation": item.command,
+            "heading": heading,
+            "detail": detail,
+            "message": heading + ". " + detail,
+            "code": errorObject.code || "provider_error",
+            "retryable": errorObject.retryable === true,
+            "retryItem": retryItem || null,
+            "severity": "error",
+            "phase": "failed"
+        };
+        error = notice.message;
+        if (item.surface === "editor")
+            editorNotice = notice;
+        else if (item.surface === "delete")
+            deleteNotice = notice;
+        else
+            popoutNotice = notice;
+    }
+
+    function beginReconcile(item) {
+        enqueue({
+            "command": "reconcile",
+            "payload": {
+                "operation": item.command,
+                "request": item.payload
+            },
+            "args": [],
+            "surface": item.surface,
+            "eventKey": item.eventKey,
+            "original": item,
+            "refreshDate": item.refreshDate
+        }, true);
+    }
+
+    function scheduleReconcileRetry(item) {
+        if (!item)
+            return ;
+
+        var retry = Object.assign({
+        }, item);
+        retry.reconcileAttempt = (retry.reconcileAttempt || 0) + 1;
+        retry.nextRetryAt = Date.now() + Math.min(60000, 5000 * Math.pow(2, retry.reconcileAttempt - 1));
+        var key = reconcileRetryKey(retry);
+        pendingReconcileRetries = pendingReconcileRetries.filter(function(existing) {
+            return reconcileRetryKey(existing) !== key;
+        }).concat([retry]);
+    }
+
+    function reconcileRetryKey(item) {
+        var original = item && (item.original || item);
+        return original ? original.eventKey || original.command + ":" + (original.payload && original.payload.create_id || "") : "";
+    }
+
+    function cancelReconcileRetry(item) {
+        if (item) {
+            var key = reconcileRetryKey(item);
+            pendingReconcileRetries = pendingReconcileRetries.filter(function(existing) {
+                return reconcileRetryKey(existing) !== key;
+            });
+        } else {
+            pendingReconcileRetries = [];
+        }
+        if (!pendingReconcileRetries.length && connectivityProbe.running)
+            connectivityProbe.running = false;
+
+    }
+
+    function resumeReconcile(item) {
+        cancelReconcileRetry(item);
+        if (!item)
+            return ;
+
+        if (item.surface === "editor")
+            editorSaving = true;
+        else if (item.surface === "delete")
+            deleteSaving = true;
+        enqueue(item, true);
+    }
+
+    function finishSuccess(item, data) {
+        if (data && data.event) {
+            if (item.eventKey && item.eventKey !== data.event.key)
+                events = events.filter(function(event) {
+                return event.key !== item.eventKey;
+            });
+
+            replaceEvent(settledEvent(data.event));
+        } else if (item.command === "delete" && item.eventKey) {
+            events = events.filter(function(event) {
+                return event.key !== item.eventKey;
+            });
+        } else if (item.eventKey) {
+            var current = eventByKey(item.eventKey);
+            if (current)
+                replaceEvent(settledEvent(current));
+
+        }
+        finishSurface(item);
+        clearNotice(item.surface);
+        if (item.successClose)
+            closeChildren(true);
+
+        refreshAfterMutation(item.refreshDate || selectedDate);
+    }
+
+    function handleRefreshSuccess(item, response) {
+        applyData(response, {
+            "start": item.args[1],
+            "end": item.args[3]
+        });
+        var failures = response.data && response.data.partial_failures || [];
+        if (!failures.length) {
+            if (popoutNotice && popoutNotice.operation === "refresh")
+                popoutNotice = null;
+
+            var next = Object.assign({
+            }, refreshedAt);
+            next[item.key] = Date.now();
+            refreshedAt = next;
+            error = "";
+            return ;
+        }
+        var names = failures.map(function(failure) {
+            return failure.calendar_summary || failure.calendar_id;
+        });
+        var failedIds = failures.map(function(failure) {
+            return failure.calendar_id;
+        });
+        var stale = Object.assign({
+        }, refreshedAt);
+        delete stale[rangeKey(new Date(item.args[1]), new Date(item.args[3]))];
+        refreshedAt = stale;
+        var retry = Object.assign({
+        }, item);
+        retry.args = ["--start", item.args[1], "--end", item.args[3]];
+        for (var i = 0; i < failedIds.length; ++i) retry.args.push("--calendar-id", failedIds[i])
+        retry.calendarIds = failedIds;
+        retry.key = rangeKey(new Date(item.args[1]), new Date(item.args[3])) + "|" + failedIds.slice().sort().join(",");
+        popoutNotice = {
+            "operation": "refresh",
+            "heading": names.length === 1 ? names[0] + " is out of date" : names.length + " calendars are out of date",
+            "detail": names.join(", ") + (names.length === 1 ? " still shows" : " still show") + " saved events.",
+            "message": names.join(", ") + (names.length === 1 ? " is" : " are") + " showing saved events.",
+            "severity": "warning",
+            "phase": "failed",
+            "retryable": true,
+            "retryItem": retry
+        };
+        error = popoutNotice.message;
+    }
+
+    function handleCommandResult(item, code, stdoutText, stderrText) {
+        if (!item)
+            return ;
+
+        var parsed = parseOutput(stdoutText), response = parsed.valid ? parsed.response : null;
+        if (item.command === "refresh") {
+            if (parsed.valid && response.ok)
+                handleRefreshSuccess(item, response);
+            else
+                setFailure(item, parsed.valid ? response.error : parsed.error, item);
+            return ;
+        }
+        if (item.command === "reconcile") {
+            var original = item.original;
+            if (!parsed.valid || !response.ok) {
+                var reconciliationError = parsed.valid ? response.error : parsed.error;
+                var retryableReconciliation = reconciliationError.retryable === true;
+                reconciliationError = Object.assign({
+                }, reconciliationError, {
+                    "code": retryableReconciliation ? "reconciliation_failed" : reconciliationError.code || "reconciliation_failed",
+                    "message": "Couldn’t confirm what Google Calendar saved.",
+                    "retryable": retryableReconciliation
+                });
+                finishSurface(original);
+                setFailure(original, reconciliationError, item);
+                if (retryableReconciliation)
+                    scheduleReconcileRetry(item);
+
                 return ;
             }
-            revision = response.revision;
-            if (response.data.events && modelSignature(events) !== modelSignature(response.data.events))
-                events = response.data.events;
-
-            if (response.data.calendars && JSON.stringify(calendars) !== JSON.stringify(response.data.calendars))
-                calendars = response.data.calendars;
-
-            if (response.data.coverage)
-                coverage = response.data.coverage;
-
-            if (response.data.coverage_complete !== undefined)
-                coverageComplete = response.data.coverage_complete;
-
-            if (response.data.coverage_oldest_ms !== undefined)
-                coverageOldestMs = response.data.coverage_oldest_ms;
-
-            if (response.data.range_freshness) {
-                var fresh = Object.assign({
-                }, refreshedAt);
-                for (var i = 0; i < response.data.range_freshness.length; ++i) {
-                    var item = response.data.range_freshness[i];
-                    fresh[rangeKey(new Date(item.start_utc), new Date(item.end_utc))] = item.refreshed_at_ms;
-                }
-                refreshedAt = fresh;
+            cancelReconcileRetry(item);
+            applyData(response);
+            if (response.data.state === "applied") {
+                finishSuccess(original, response.data);
+            } else if (response.data.state === "partial") {
+                if (response.data.event)
+                    replaceEvent(settledEvent(response.data.event));
+                else if (original.eventKey && eventByKey(original.eventKey))
+                    replaceEvent(settledEvent(eventByKey(original.eventKey)));
+                finishSurface(original);
+                refreshAfterMutation(original.refreshDate || selectedDate);
+                setFailure(original, {
+                    "code": "partial_mutation",
+                    "message": "Google Calendar only completed part of the change.",
+                    "retryable": false
+                }, null);
+            } else {
+                restoreItem(original);
+                finishSurface(original);
+                setFailure(original, {
+                    "code": "not_applied",
+                    "message": "Google Calendar did not save the change.",
+                    "retryable": true
+                }, original);
             }
-        } catch (e) {
-            error = "Calendar returned invalid data: " + e;
+            return ;
         }
+        if (parsed.valid && response.ok) {
+            applyData(response);
+            finishSuccess(item, response.data || {
+            });
+            return ;
+        }
+        var failure = parsed.valid ? response.error : parsed.error;
+        var uncertain = failure && failure.details && failure.details.uncertain;
+        if (uncertain || failure.code === "duplicate") {
+            beginReconcile(item);
+            return ;
+        }
+        restoreItem(item);
+        finishSurface(item);
+        if (failure.code === "etag_conflict")
+            refreshAfterMutation(item.refreshDate || selectedDate);
+
+        setFailure(item, failure, failure.retryable ? item : null);
+    }
+
+    function retryNotice() {
+        var item = popoutNotice && popoutNotice.retryItem;
+        if (!item)
+            return ;
+
+        popoutNotice = null;
+        error = "";
+        if (item.command === "reconcile") {
+            resumeReconcile(item);
+            return ;
+        }
+        if (item.optimistic)
+            replaceEvent(item.optimistic);
+
+        enqueue(item, true);
+    }
+
+    function retrySurfaceNotice(surface) {
+        var notice = surface === "editor" ? editorNotice : deleteNotice;
+        var item = notice && notice.retryItem;
+        if (!item)
+            return ;
+
+        if (surface === "editor")
+            editorNotice = null;
+        else
+            deleteNotice = null;
+        if (item.command === "reconcile") {
+            resumeReconcile(item);
+            return ;
+        }
+        if (surface === "editor")
+            editorSaving = true;
+        else
+            deleteSaving = true;
+        error = "";
+        enqueue(item, true);
+    }
+
+    function reloadEditorEvent() {
+        if (!activeEvent)
+            return ;
+
+        var date = activeEvent.time && activeEvent.time.kind === "timed" ? new Date(activeEvent.time.start_ms) : selectedDate;
+        editorSaving = false;
+        closeChildren(true);
+        snapshot(date);
+        refreshAfterMutation(date);
+    }
+
+    function snapshotResult(text, fallback) {
+        var parsed = parseOutput(text);
+        if (parsed.valid && parsed.response.ok) {
+            applyData(parsed.response);
+            if (popoutNotice && popoutNotice.operation === "snapshot")
+                popoutNotice = null;
+
+            return true;
+        }
+        error = fallback || (parsed.valid ? parsed.response.error.message : parsed.error.message);
+        popoutNotice = {
+            "operation": "snapshot",
+            "heading": "Couldn’t load saved calendar data",
+            "detail": error,
+            "message": error,
+            "severity": "error",
+            "phase": "failed",
+            "retryable": false
+        };
+        return false;
     }
 
     function modelSignature(model) {
@@ -579,7 +1168,8 @@ Scope {
                 "calendar": e.calendar,
                 "recurrence": e.recurrence,
                 "can_edit": e.can_edit,
-                "pending": e.pending || false
+                "pending": e.pending || false,
+                "busy": e.busy || false
             };
         }));
     }
@@ -587,7 +1177,7 @@ Scope {
     Timer {
         interval: 5 * 60 * 1000
         repeat: true
-        running: true
+        running: root.automaticRefresh
         triggeredOnStart: true
         onTriggered: root.refreshHourlyRanges()
     }
@@ -595,7 +1185,7 @@ Scope {
     Timer {
         interval: 60 * 60 * 1000
         repeat: true
-        running: true
+        running: root.automaticRefresh
         triggeredOnStart: true
         onTriggered: root.refreshDailyRanges()
     }
@@ -606,15 +1196,52 @@ Scope {
         interval: root.refreshTimeoutMs
         onTriggered: {
             if (mutator.running) {
-                root.error = "Calendar refresh timed out.";
+                root.timedOutCommand = root.activeCommand;
+                root.ignoreMutatorExit = true;
                 mutator.running = false;
-                root.rollbackEvents = null;
-                root.activeCommand = null;
-                root.pendingPayload = null;
-                root.startNext();
-                root.updateRefreshing();
             }
         }
+    }
+
+    Timer {
+        id: reconnectTimer
+
+        interval: 3000
+        repeat: true
+        running: root.pendingReconcileRetries.length > 0
+        onTriggered: {
+            var due = root.pendingReconcileRetries.some(function(item) {
+                return Date.now() >= item.nextRetryAt;
+            });
+            if (!due || mutator.running || connectivityProbe.running)
+                return ;
+
+            connectivityProbe.command = ["nmcli", "-t", "-f", "CONNECTIVITY", "general"];
+            connectivityProbe.running = true;
+        }
+    }
+
+    Process {
+        id: connectivityProbe
+
+        onExited: function(code) {
+            if (code !== 0 || connectivityOutput.text.trim() !== "full")
+                return ;
+
+            var due = root.pendingReconcileRetries.filter(function(item) {
+                return Date.now() >= item.nextRetryAt;
+            }).sort(function(left, right) {
+                return left.nextRetryAt - right.nextRetryAt;
+            });
+            if (due.length)
+                root.resumeReconcile(due[0]);
+
+        }
+
+        stdout: StdioCollector {
+            id: connectivityOutput
+        }
+
     }
 
     Process {
@@ -622,10 +1249,7 @@ Scope {
 
         onExited: function(code) {
             root.loading = false;
-            if (code === 0)
-                root.acceptOutput(snapshotOutput.text);
-            else
-                root.error = "Could not read the calendar cache.";
+            root.snapshotResult(snapshotOutput.text, "Could not read the calendar cache.");
         }
 
         stdout: StdioCollector {
@@ -652,23 +1276,42 @@ Scope {
             var finished = root.activeCommand;
             root.activeCommand = null;
             root.pendingPayload = null;
-            if (code === 0) {
-                root.rollbackEvents = null;
-                root.acceptOutput(mutatorOutput.text);
-                if (finished && finished.command === "refresh") {
-                    var next = Object.assign({
-                    }, root.refreshedAt);
-                    next[finished.key] = Date.now();
-                    root.refreshedAt = next;
-                } else if (finished) {
-                    root.refreshAfterMutation(finished.refreshDate || root.activeEvent);
+            if (root.ignoreMutatorExit) {
+                var timedOut = root.timedOutCommand;
+                root.ignoreMutatorExit = false;
+                root.timedOutCommand = null;
+                if (timedOut) {
+                    if (timedOut.command === "refresh")
+                        root.setFailure(timedOut, {
+                        "code": "timeout",
+                        "message": "Calendar refresh timed out.",
+                        "retryable": true
+                    }, timedOut);
+                    else if (timedOut.command === "reconcile")
+                        root.setFailure(timedOut.original, {
+                        "code": "reconciliation_failed",
+                        "message": "Couldn’t confirm what Google Calendar saved.",
+                        "retryable": true
+                    }, timedOut);
+                    else
+                        root.beginReconcile(timedOut);
                 }
             } else {
-                if (root.rollbackEvents)
-                    root.events = root.rollbackEvents;
+                var output = mutatorOutput.text;
+                if (!output.trim() && mutatorErrors.text.trim())
+                    output = JSON.stringify({
+                    "ok": false,
+                    "error": {
+                        "code": "process_error",
+                        "message": mutatorErrors.text.trim(),
+                        "retryable": true,
+                        "details": {
+                            "uncertain": finished && finished.command !== "refresh"
+                        }
+                    }
+                });
 
-                root.rollbackEvents = null;
-                root.acceptOutput(mutatorOutput.text);
+                root.handleCommandResult(finished, code, output, mutatorErrors.text);
             }
             root.startNext();
             root.updateRefreshing();

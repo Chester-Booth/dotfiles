@@ -57,7 +57,7 @@ test-floating-sudo:
 
 test-launcher:
 	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests/test_launcher_apps.py tests/test_launcher_clipboard.py tests/test_launcher_dmenu.py tests/test_launcher_emoji.py tests/test_launcher_processes.py -v
-	@QT_QPA_PLATFORM=offscreen /usr/lib/qt6/bin/qmltestrunner -input tests/qml
+	@QT_QPA_PLATFORM=offscreen /usr/lib/qt6/bin/qmltestrunner -import tests/qml/imports -input tests/qml
 
 validate-status:
 	@$(QS)/scripts/validate-status.py --timeout 10

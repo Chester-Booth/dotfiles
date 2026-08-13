@@ -64,9 +64,9 @@ Scope {
         color: "transparent"
         onClosed: root.controller.closeChildren()
         onVisibleChanged: {
-            if (visible) {
+            if (visible)
                 root.floatWindow("Blox Calendar Event Details", 320, implicitHeight);
-            }
+
         }
 
         Shortcut {
@@ -309,7 +309,7 @@ Scope {
         visible: root.controller.confirmDeleteOpen && root.controller.deleteStandalone
         title: "Blox Calendar Delete Event"
         implicitWidth: 300
-        implicitHeight: root.controller.deleteEvent && root.controller.deleteEvent.recurrence && root.controller.deleteEvent.recurrence.master_id ? 184 : 142
+        implicitHeight: (root.controller.deleteEvent && root.controller.deleteEvent.recurrence && root.controller.deleteEvent.recurrence.master_id ? 184 : 142) + (root.controller.deleteNotice ? 74 : 0)
         minimumSize: Qt.size(300, implicitHeight)
         color: "transparent"
         onVisibleChanged: {
@@ -419,8 +419,8 @@ Scope {
         visible: root.controller.editorOpen
         title: root.controller.activeEvent && root.controller.activeEvent.id ? "Blox Calendar Edit Event" : "Blox Calendar New Event"
         implicitWidth: 320
-        implicitHeight: 428
-        minimumSize: Qt.size(320, 428)
+        implicitHeight: 428 + (root.controller.editorNotice ? 74 : 0)
+        minimumSize: Qt.size(320, implicitHeight)
         color: "transparent"
         onClosed: root.controller.closeChildren()
         onVisibleChanged: {
@@ -466,6 +466,7 @@ Scope {
                 anchors.fill: parent
                 anchors.margins: 14
                 spacing: 9
+                enabled: !root.controller.editorSaving
 
                 RowLayout {
                     Layout.fillWidth: true
@@ -490,9 +491,23 @@ Scope {
                     BloxButton {
                         compact: true
                         iconName: "x"
+                        enabled: !root.controller.editorSaving
                         onClicked: root.controller.closeChildren()
                     }
 
+                }
+
+                CalendarNotice {
+                    Layout.fillWidth: true
+                    visible: !!root.controller.editorNotice
+                    notice: root.controller.editorNotice
+                    actionText: root.controller.editorNotice && root.controller.editorNotice.code === "etag_conflict" ? "Reload" : root.controller.editorNotice && root.controller.editorNotice.code === "reconciliation_failed" ? "Retry" : ""
+                    onActionTriggered: {
+                        if (root.controller.editorNotice.code === "etag_conflict")
+                            root.controller.reloadEditorEvent();
+                        else
+                            root.controller.retrySurfaceNotice("editor");
+                    }
                 }
 
                 BloxTextField {
@@ -534,11 +549,10 @@ Scope {
                             text: editor.allDay ? "—" : editor.startText
                             enabled: !editor.allDay
                             onEditorFocusedChanged: {
-                                if (editorFocused) {
+                                if (editorFocused)
                                     startMenu.open();
-                                } else {
+                                else
                                     startMenu.close();
-                                }
                             }
                             onTextEdited: function(value) {
                                 editor.startText = value;
@@ -564,11 +578,10 @@ Scope {
                             text: editor.allDay ? "—" : editor.endText
                             enabled: !editor.allDay
                             onEditorFocusedChanged: {
-                                if (editorFocused) {
+                                if (editorFocused)
                                     durationMenu.open();
-                                } else {
+                                else
                                     durationMenu.close();
-                                }
                             }
                             onTextEdited: function(value) {
                                 editor.endText = value;
@@ -1066,8 +1079,15 @@ Scope {
                                     Layout.preferredHeight: 18
                                     radius: 9
                                     color: modelData.c
-                                    border.color: editor.chosenColourId === modelData.id ? Theme.foreground : Theme.withAlpha(Theme.foreground, 0.2)
-                                    border.width: editor.chosenColourId === modelData.id ? 3 : 1
+                                    border.color: activeFocus || editor.chosenColourId === modelData.id ? Theme.foreground : Theme.withAlpha(Theme.foreground, 0.2)
+                                    border.width: activeFocus || editor.chosenColourId === modelData.id ? 3 : 1
+                                    activeFocusOnTab: true
+                                    Accessible.role: Accessible.RadioButton
+                                    Accessible.name: "Event colour " + modelData.id
+                                    Accessible.checked: editor.chosenColourId === modelData.id
+                                    Keys.onSpacePressed: editor.chosenColourId = modelData.id
+                                    Keys.onReturnPressed: editor.chosenColourId = modelData.id
+                                    Keys.onEnterPressed: editor.chosenColourId = modelData.id
 
                                     TapHandler {
                                         onTapped: editor.chosenColourId = parent.modelData.id
@@ -1092,6 +1112,7 @@ Scope {
                         text: "Delete"
                         iconName: "trash"
                         destructive: true
+                        enabled: !root.controller.editorSaving && !(root.controller.editorNotice && root.controller.editorNotice.code === "reconciliation_failed")
                         onClicked: root.controller.requestDelete(root.controller.activeEvent)
                     }
 
@@ -1100,9 +1121,10 @@ Scope {
                     }
 
                     BloxButton {
-                        text: root.controller.activeEvent && root.controller.activeEvent.id ? "Save" : "Create"
+                        text: root.controller.editorSaving ? "Saving…" : root.controller.activeEvent && root.controller.activeEvent.id ? "Save" : "Create"
                         iconName: "floppy-disk"
                         accent: Theme.accent
+                        enabled: !root.controller.editorSaving && !(root.controller.editorNotice && root.controller.editorNotice.code === "reconciliation_failed")
                         onClicked: root.controller.saveEvent(titleField.text, descriptionField.text, locationField.text, editor.chosenDate, editor.chosenStart, editor.chosenEnd, editor.chosenColourId, editor.allDay, editor.selectedCalendarId, editor.recurrenceRule)
                     }
 
@@ -1177,7 +1199,7 @@ Scope {
             Rectangle {
                 anchors.centerIn: parent
                 width: confirmation.embedded ? parent.width - 28 : parent.width
-                height: confirmation.embedded ? (confirmation.recurring ? 184 : 142) : parent.height
+                height: confirmation.embedded ? (confirmation.recurring ? 184 : 142) + (root.controller.deleteNotice ? 74 : 0) : parent.height
                 radius: confirmation.embedded ? 10 : confirmation.radius
                 color: confirmation.embedded ? Theme.surface : "transparent"
                 border.color: confirmation.embedded ? Theme.border : "transparent"
@@ -1195,6 +1217,14 @@ Scope {
                         font.pixelSize: 14
                         font.bold: true
                         wrapMode: Text.Wrap
+                    }
+
+                    CalendarNotice {
+                        Layout.fillWidth: true
+                        visible: !!root.controller.deleteNotice
+                        notice: root.controller.deleteNotice
+                        actionText: root.controller.deleteNotice && root.controller.deleteNotice.retryable ? "Retry" : ""
+                        onActionTriggered: root.controller.retrySurfaceNotice("delete")
                     }
 
                     Text {
@@ -1245,11 +1275,13 @@ Scope {
 
                         BloxButton {
                             text: "Cancel"
+                            enabled: !root.controller.deleteSaving
                             onClicked: root.controller.cancelDelete()
                         }
 
                         BloxButton {
-                            text: "Delete"
+                            text: root.controller.deleteSaving ? "Deleting…" : "Delete"
+                            enabled: !root.controller.deleteSaving && !(root.controller.deleteNotice && root.controller.deleteNotice.code === "reconciliation_failed")
                             destructive: true
                             onClicked: root.controller.confirmDelete()
                         }

@@ -36,7 +36,7 @@ Popup {
                 Layout.preferredWidth: 64
                 text: "Edit"
                 iconName: "pencil-simple"
-                enabled: root.event && root.event.can_edit
+                enabled: root.event && root.event.can_edit && !root.event.busy
                 onClicked: {
                     root.close();
                     root.editRequested(root.event);
@@ -48,7 +48,7 @@ Popup {
                 text: "Delete"
                 iconName: "trash"
                 destructive: true
-                enabled: root.event && root.event.can_edit
+                enabled: root.event && root.event.can_edit && !root.event.busy
                 onClicked: {
                     root.close();
                     root.deleteRequested(root.event);
@@ -117,7 +117,7 @@ Popup {
                     }
 
                     TapHandler {
-                        enabled: root.event && root.event.can_edit
+                        enabled: root.event && root.event.can_edit && !root.event.busy
                         onTapped: {
                             root.colourRequested(root.event, parent.modelData.id);
                             root.close();

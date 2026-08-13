@@ -134,7 +134,7 @@ Rectangle {
                 Text {
                     Layout.fillWidth: true
                     text: root.controller.refreshing ? "Refreshing…" : root.visibleEvents().length + " events"
-                    color: root.controller.error ? Theme.red : Theme.muted
+                    color: Theme.muted
                     font.family: Theme.bodyFontFamily
                     font.pixelSize: 9
                     horizontalAlignment: Text.AlignHCenter
@@ -168,6 +168,14 @@ Rectangle {
 
             }
 
+        }
+
+        CalendarNotice {
+            Layout.fillWidth: true
+            visible: !!root.controller.popoutNotice && root.controller.popoutNotice.phase === "failed"
+            notice: root.controller.popoutNotice
+            actionText: root.controller.popoutNotice && root.controller.popoutNotice.retryable ? "Retry" : ""
+            onActionTriggered: root.controller.retryNotice()
         }
 
         Item {

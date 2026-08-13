@@ -79,7 +79,7 @@ Scope {
             implicitHeight: barSurfaceController.horizontalBar ? (barSurfaceController.barVisible || barSurfaceController.barSlide > 0.01 ? Theme.railWidth : 1) : modelData.height
             exclusiveZone: barSurfaceController.barPinnedOpen ? Math.round(Theme.railWidth * barSurfaceController.barSlide) : 0
             focusable: false
-            visible: true
+            visible: Theme.ready
             color: "transparent"
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.namespace: "blox-bar"

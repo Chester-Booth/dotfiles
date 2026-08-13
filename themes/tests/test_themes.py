@@ -589,6 +589,7 @@ class CliContractTests(unittest.TestCase):
 
     def test_bar_consumes_configured_regions_and_positions(self) -> None:
         source = (REPOSITORY / "quickshell/.config/quickshell/blox/modules/Bar.qml").read_text(encoding="utf-8")
+        theme = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/Theme.qml").read_text(encoding="utf-8")
         controller = (REPOSITORY / "quickshell/.config/quickshell/blox/services/BarSurfaceController.qml").read_text(encoding="utf-8")
         delegate = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarItemDelegate.qml").read_text(encoding="utf-8")
         status_item = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/BarStatusItem.qml").read_text(encoding="utf-8")
@@ -626,6 +627,9 @@ class CliContractTests(unittest.TestCase):
         self.assertIn("readonly property bool fullscreenActive", controller)
         self.assertIn("readonly property bool barPinnedOpen: barOpen && !fullscreenActive", controller)
         self.assertIn("exclusiveZone: barSurfaceController.barPinnedOpen", source)
+        self.assertIn("visible: Theme.ready", source)
+        self.assertIn("property bool ready: false", theme)
+        self.assertIn("root.ready = true", theme)
         self.assertEqual(6, source.count("BarRegion {"))
         self.assertIn("BarItemDelegate {", region)
         self.assertIn("Row {", region)

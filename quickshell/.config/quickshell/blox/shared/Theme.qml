@@ -6,6 +6,7 @@ pragma Singleton
 Singleton {
     id: root
 
+    property bool ready: false
     property string themeId: "catppuccin-mocha"
     property string activeThemeId: "catppuccin-mocha"
     property string previewThemeId: ""
@@ -291,6 +292,7 @@ Singleton {
                 root.loadJson(text());
             else
                 root.loadActiveIdentity(text());
+            root.ready = true;
         }
         onFileChanged: {
             if (!root.previewActive)

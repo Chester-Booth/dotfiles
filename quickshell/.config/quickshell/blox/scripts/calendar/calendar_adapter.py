@@ -7,11 +7,24 @@ import argparse
 import json
 import os
 import sys
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from calendar_store import CalendarStore
+
+
+class ProviderFailure(RuntimeError):
+    """A provider call failed after dispatch, with enough state to reconcile it."""
+
+    def __init__(self, cause, stage="dispatched", uncertain=None):
+        super().__init__(str(cause))
+        self.cause = cause
+        self.stage = stage
+        self.status = getattr(getattr(cause, "resp", None), "status", None)
+        inferred = stage in ("moved", "provider_confirmed") or self.status is None or self.status >= 500
+        self.uncertain = inferred if uncertain is None else uncertain
 
 
 def envelope(store, data=None, error=None):
@@ -58,7 +71,7 @@ def build_gcal_client():
     options = parser.parse_args(["list"])
     if not hasattr(options, "ignore_calendars"):
         options.ignore_calendars = []
-    return GoogleCalendarInterface(**vars(options))
+    return GoogleCalendarInterface(do_eager_init=False, **vars(options))
 
 
 def service_from_client(client):
@@ -75,39 +88,53 @@ def service_from_client(client):
     raise RuntimeError("unsupported_gcalcli: Calendar API service was not found")
 
 
-def api_execute(request, etag=None):
+def api_execute(request, etag=None, stage="dispatched", attempts=3):
     if etag and hasattr(request, "headers"):
         request.headers["If-Match"] = etag
-    return request.execute()
+    uncertain_seen = False
+    for attempt in range(attempts):
+        try:
+            return request.execute()
+        except Exception as exc:
+            status = getattr(getattr(exc, "resp", None), "status", None)
+            retryable = status == 429 or status in (500, 502, 503, 504)
+            if not retryable or attempt + 1 == attempts:
+                raise ProviderFailure(exc, stage, uncertain_seen or None) from exc
+            uncertain_seen = True
+            time.sleep(0.2 * (2 ** attempt))
 
 
-def refresh(store, start, end):
+def refresh(store, start, end, calendar_ids=None):
     service = service_from_client(build_gcal_client())
     if store.colours_stale():
-        provider_colours = service.colors().get().execute().get("event", {})
+        provider_colours = api_execute(service.colors().get(), stage="read").get("event", {})
         if provider_colours:
             store.replace_colours(provider_colours)
     calendars, token = [], None
     while True:
-        page = service.calendarList().list(pageToken=token).execute()
+        page = api_execute(service.calendarList().list(pageToken=token), stage="read")
         calendars.extend(page.get("items", []))
         token = page.get("nextPageToken")
         if not token:
             break
     calendars = allow_list([c for c in calendars if c.get("selected") is True])
+    requested = set(calendar_ids or [])
+    if requested:
+        calendars = [calendar for calendar in calendars if calendar["id"] in requested]
     failures = []
     for calendar in calendars:
         items, token = [], None
         try:
             while True:
-                page = service.events().list(calendarId=calendar["id"], timeMin=start, timeMax=end, singleEvents=True, showDeleted=False, pageToken=token).execute()
+                page = api_execute(service.events().list(calendarId=calendar["id"], timeMin=start, timeMax=end, singleEvents=True, showDeleted=False, pageToken=token), stage="read")
                 items.extend(page.get("items", []))
                 token = page.get("nextPageToken")
                 if not token:
                     break
             store.replace_calendar_slice(calendar, items, start, end)
         except Exception as exc:  # Google client exceptions vary by dependency version.
-            failures.append({"calendar_id": calendar["id"], "message": str(exc)})
+            error = classify_error(exc)
+            failures.append({"calendar_id": calendar["id"], "calendar_summary": calendar.get("summary", calendar["id"]), **error})
     return {"partial_failures": failures, **store.snapshot(start, end)}
 
 
@@ -119,8 +146,8 @@ def mutate(store, command, payload):
     service = service_from_client(build_gcal_client())
     events = service.events()
     if command == "create":
-        body = payload["event"]
-        body.setdefault("id", uuid.uuid4().hex)
+        body = dict(payload["event"])
+        body.setdefault("id", payload.get("create_id") or uuid.uuid4().hex)
         result = api_execute(events.insert(calendarId=calendar_id, body=body, sendUpdates="all" if payload.get("send_updates") else "none"))
     elif command == "update":
         result = api_execute(events.patch(calendarId=calendar_id, eventId=payload["event_id"], body=payload["changes"], sendUpdates="all" if payload.get("send_updates") else "none"), payload.get("etag"))
@@ -153,21 +180,127 @@ def mutate(store, command, payload):
         else:
             api_execute(events.delete(calendarId=calendar_id, eventId=target_id, sendUpdates="all" if payload.get("send_updates") else "none"), payload.get("etag"))
             result = {"id": target_id, "status": "cancelled"}
-        store.delete_event(calendar_id, payload["event_id"])
+        try:
+            store.delete_event(calendar_id, payload["event_id"])
+        except Exception as exc:
+            raise ProviderFailure(exc, "provider_confirmed") from exc
     elif command == "move":
         source_id = calendar_id
         result = api_execute(events.move(calendarId=calendar_id, eventId=payload["event_id"], destination=payload["destination_id"]), payload.get("etag"))
         calendar_id = payload["destination_id"]
         if payload.get("changes"):
-            result = api_execute(events.patch(calendarId=calendar_id, eventId=result["id"], body=payload["changes"], sendUpdates="all" if payload.get("send_updates") else "none"), result.get("etag"))
-        store.delete_event(source_id, payload["event_id"])
+            result = api_execute(events.patch(calendarId=calendar_id, eventId=result["id"], body=payload["changes"], sendUpdates="all" if payload.get("send_updates") else "none"), result.get("etag"), stage="moved")
+        try:
+            store.delete_event(source_id, payload["event_id"])
+        except Exception as exc:
+            raise ProviderFailure(exc, "provider_confirmed") from exc
     else:
         raise ValueError(f"Unsupported mutation: {command}")
     if result.get("start"):
+        try:
+            with store.transaction():
+                store.upsert_event(calendar_id, result)
+                store.bump_revision()
+        except Exception as exc:
+            raise ProviderFailure(exc, "provider_confirmed") from exc
+    return {"event": store.canonical_event(calendar_id, result["id"]) if result.get("start") else None, "provider_event": result}
+
+
+def reconcile(store, payload):
+    """Read provider truth after a mutation whose response may have been lost."""
+    command = payload["operation"]
+    request = payload["request"]
+    source_id = request["calendar_id"]
+    destination_id = request.get("destination_id")
+    event_id = request.get("create_id") or (request.get("master_id") if command == "delete" and request.get("scope") in ("series", "following") else None) or request.get("event_id")
+    service = service_from_client(build_gcal_client())
+    events = service.events()
+    found = {}
+    for calendar_id in dict.fromkeys([source_id, destination_id]):
+        if not calendar_id:
+            continue
+        try:
+            found[calendar_id] = api_execute(events.get(calendarId=calendar_id, eventId=event_id), stage="read")
+        except ProviderFailure as exc:
+            if exc.status != 404:
+                raise
+
+    target_id = destination_id or source_id
+    provider_event = found.get(target_id)
+    if command == "delete":
+        if request.get("scope") == "following" and found:
+            return {"state": "partial", "event": None}
+        applied = not found
+        if applied:
+            store.delete_event(source_id, request["event_id"])
+        return {"state": "applied" if applied else "not_applied", "event": None}
+
+    changes = request.get("event") if command == "create" else request.get("changes", {})
+    if command == "move" and provider_event:
+        state = "applied" if event_matches(provider_event, changes) else "partial"
+    elif provider_event:
+        state = "applied" if event_matches(provider_event, changes) else "not_applied"
+    else:
+        state = "not_applied"
+
+    canonical = None
+    if provider_event:
         with store.transaction():
-            store.upsert_event(calendar_id, result)
+            store.upsert_event(target_id, provider_event)
+            if command == "move":
+                store.db.execute("DELETE FROM events WHERE calendar_id=? AND event_id=?", (source_id, request["event_id"]))
             store.bump_revision()
-    return {"event": result}
+        canonical = store.canonical_event(target_id, provider_event["id"])
+    return {"state": state, "event": canonical, "provider_event": provider_event}
+
+
+def event_matches(event, changes):
+    for key, expected in (changes or {}).items():
+        actual = event.get(key)
+        if key in ("start", "end") and isinstance(expected, dict):
+            for nested, value in expected.items():
+                if nested == "timeZone":
+                    continue
+                actual_value = (actual or {}).get(nested)
+                if nested == "dateTime":
+                    if _aware_datetime(actual_value) != _aware_datetime(value):
+                        return False
+                elif actual_value != value:
+                    return False
+        elif key == "colorId":
+            if str(actual or "") != str(expected or ""):
+                return False
+        elif actual != expected:
+            return False
+    return True
+
+
+def classify_error(exc):
+    failure = exc if isinstance(exc, ProviderFailure) else None
+    cause = failure.cause if failure else exc
+    status = failure.status if failure else getattr(getattr(cause, "resp", None), "status", None)
+    message = str(cause)
+    if status == 401 or "auth_required" in message:
+        code = "auth_required"
+    elif status == 403:
+        code = "permission_denied"
+    elif status == 404:
+        code = "not_found"
+    elif status == 409:
+        code = "duplicate"
+    elif status == 412:
+        code = "etag_conflict"
+    elif status == 429:
+        code = "rate_limited"
+    elif status and status >= 500:
+        code = "provider_unavailable"
+    elif "unsupported" in message.lower():
+        code = "unsupported_gcalcli"
+    else:
+        code = "provider_error"
+    retryable = code in ("rate_limited", "provider_unavailable", "provider_error")
+    details = {"status": status, "stage": failure.stage if failure else "not_dispatched", "uncertain": bool(failure and failure.uncertain)}
+    return {"code": code, "message": message, "retryable": retryable, "details": details}
 
 
 def recurrence_info(payload):
@@ -175,7 +308,7 @@ def recurrence_info(payload):
     events = service.events()
     calendar_id = payload["calendar_id"]
     master_id = payload.get("master_id") or payload.get("event_id")
-    master = events.get(calendarId=calendar_id, eventId=master_id).execute()
+    master = api_execute(events.get(calendarId=calendar_id, eventId=master_id), stage="read")
     original = payload.get("original_start_ms")
     if original is None:
         source = payload.get("original_start") or master.get("start", {}).get("dateTime") or master.get("start", {}).get("date")
@@ -185,7 +318,7 @@ def recurrence_info(payload):
     else:
         original_dt = datetime.fromtimestamp(original / 1000, tz=timezone.utc)
     after = (original_dt + timedelta(seconds=1)).isoformat().replace("+00:00", "Z")
-    later = events.instances(calendarId=calendar_id, eventId=master_id, timeMin=after, maxResults=1, showDeleted=False).execute().get("items", [])
+    later = api_execute(events.instances(calendarId=calendar_id, eventId=master_id, timeMin=after, maxResults=1, showDeleted=False), stage="read").get("items", [])
     master_start = master.get("start", {}).get("dateTime") or master.get("start", {}).get("date")
     master_dt = _aware_datetime(master_start)
     return {"master_etag": master.get("etag"), "has_earlier": master_dt < original_dt, "has_later": bool(later), "master": {"id": master_id, "etag": master.get("etag"), "recurrence": master.get("recurrence", [])}}
@@ -198,10 +331,11 @@ def _aware_datetime(value):
 
 def main(argv=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=("doctor", "snapshot", "refresh", "recurrence-info", "create", "update", "move", "delete"))
+    parser.add_argument("command", choices=("doctor", "snapshot", "refresh", "recurrence-info", "reconcile", "create", "update", "move", "delete"))
     parser.add_argument("--start")
     parser.add_argument("--end")
     parser.add_argument("--database")
+    parser.add_argument("--calendar-id", action="append", default=[])
     args = parser.parse_args(argv)
     store = CalendarStore(args.database)
     try:
@@ -216,22 +350,18 @@ def main(argv=None):
             except Exception as exc:
                 output = envelope(store, error=fail("auth_or_client_error", str(exc)))
         elif args.command == "refresh":
-            output = envelope(store, refresh(store, args.start, args.end))
+            output = envelope(store, refresh(store, args.start, args.end, args.calendar_id))
         elif args.command == "recurrence-info":
             output = envelope(store, recurrence_info(read_payload()))
+        elif args.command == "reconcile":
+            output = envelope(store, reconcile(store, read_payload()))
         else:
             output = envelope(store, mutate(store, args.command, read_payload()))
     except (ValueError, PermissionError) as exc:
         output = envelope(store, error=fail("invalid_request", str(exc)))
     except Exception as exc:
-        status = getattr(getattr(exc, "resp", None), "status", None)
-        if status == 412:
-            code = "etag_conflict"
-        elif "auth_required" in str(exc):
-            code = "auth_required"
-        else:
-            code = "unsupported_gcalcli" if "unsupported" in str(exc).lower() else "provider_error"
-        output = envelope(store, error=fail(code, str(exc), retryable=code == "provider_error"))
+        error = classify_error(exc)
+        output = envelope(store, error=fail(error["code"], error["message"], error["retryable"], error["details"]))
     finally:
         store.close()
     print(json.dumps(output, separators=(",", ":")))

@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 def default_path() -> Path:
@@ -77,9 +77,9 @@ class CalendarStore:
                     PRIMARY KEY(calendar_id, start_utc, end_utc)
                 );
                 CREATE TABLE IF NOT EXISTS range_freshness (
-                    start_utc TEXT NOT NULL, end_utc TEXT NOT NULL,
+                    calendar_id TEXT NOT NULL, start_utc TEXT NOT NULL, end_utc TEXT NOT NULL,
                     refreshed_at_ms INTEGER NOT NULL,
-                    PRIMARY KEY(start_utc, end_utc)
+                    PRIMARY KEY(calendar_id, start_utc, end_utc)
                 );
                 CREATE TABLE IF NOT EXISTS operations (
                     id TEXT PRIMARY KEY, kind TEXT NOT NULL, phase TEXT NOT NULL,
@@ -87,6 +87,23 @@ class CalendarStore:
                     before_json TEXT, after_json TEXT, updated_at_ms INTEGER NOT NULL
                 );
             """)
+            freshness_columns = {
+                row["name"] for row in self.db.execute("PRAGMA table_info(range_freshness)")
+            }
+            if "calendar_id" not in freshness_columns:
+                self.db.executescript("""
+                    ALTER TABLE range_freshness RENAME TO range_freshness_v1;
+                    CREATE TABLE range_freshness (
+                        calendar_id TEXT NOT NULL, start_utc TEXT NOT NULL,
+                        end_utc TEXT NOT NULL, refreshed_at_ms INTEGER NOT NULL,
+                        PRIMARY KEY(calendar_id, start_utc, end_utc)
+                    );
+                    INSERT OR IGNORE INTO range_freshness
+                        (calendar_id,start_utc,end_utc,refreshed_at_ms)
+                    SELECT calendars.id,old.start_utc,old.end_utc,old.refreshed_at_ms
+                    FROM range_freshness_v1 AS old CROSS JOIN calendars;
+                    DROP TABLE range_freshness_v1;
+                """)
             self.db.execute("INSERT OR REPLACE INTO meta VALUES ('schema_version', ?)", (str(SCHEMA_VERSION),))
             self.db.execute("INSERT OR IGNORE INTO meta VALUES ('revision', '0')")
 
@@ -117,7 +134,7 @@ class CalendarStore:
             for event in events:
                 self.upsert_event(calendar["id"], event, now)
             self.db.execute("INSERT OR REPLACE INTO range_cache VALUES (?,?,?,?)", (calendar["id"], start, end, now))
-            self.db.execute("INSERT OR REPLACE INTO range_freshness VALUES (?,?,?)", (start, end, now))
+            self.db.execute("INSERT OR REPLACE INTO range_freshness VALUES (?,?,?,?)", (calendar["id"], start, end, now))
             self._merge_coverage(calendar["id"])
             self.bump_revision()
 
@@ -167,6 +184,14 @@ class CalendarStore:
             (calendar_id, event_id),
         ).fetchone()
         return dict(row) if row else None
+
+    def canonical_event(self, calendar_id: str, event_id: str) -> dict | None:
+        row = self.event(calendar_id, event_id)
+        if not row:
+            return None
+        calendar = self.calendar(calendar_id)
+        colours = {item["id"]: dict(item) for item in self.db.execute("SELECT * FROM colours")}
+        return self._canonical(row, {calendar_id: calendar}, colours)
 
     def assert_writable(self, calendar_id: str, event_id: str | None = None):
         calendar = self.calendar(calendar_id)

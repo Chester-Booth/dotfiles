@@ -72,6 +72,14 @@ class CalendarStoreTest(unittest.TestCase):
         ranges = {(row["start_utc"], row["end_utc"]) for row in result["range_freshness"]}
         self.assertIn(("2026-08-12T00:00:00Z", "2026-08-13T00:00:00Z"), ranges)
 
+    def test_range_freshness_is_scoped_to_each_calendar(self):
+        for calendar_id in ("main", "study"):
+            self.store.replace_calendar_slice(
+                {"id": calendar_id, "summary": calendar_id, "accessRole": "owner", "write_allowed": True},
+                [], "2026-08-12T00:00:00Z", "2026-08-13T00:00:00Z")
+        result = self.store.snapshot("2026-08-12T00:00:00Z", "2026-08-13T00:00:00Z")
+        self.assertEqual({row["calendar_id"] for row in result["range_freshness"]}, {"main", "study"})
+
 
 if __name__ == "__main__":
     unittest.main()

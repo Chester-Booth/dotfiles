@@ -9,6 +9,17 @@ local function shortcut_guide(action)
     hl.dispatch(exec("~/.config/quickshell/blox/scripts/ipc.sh shortcutGuide " .. action))
 end
 
+local shortcut_guide_cursor
+local shortcut_guide_cursor_timer = hl.timer(function()
+    local cursor = hl.get_cursor_pos()
+    if cursor and shortcut_guide_cursor
+        and (cursor.x ~= shortcut_guide_cursor.x or cursor.y ~= shortcut_guide_cursor.y) then
+        shortcut_guide("delay")
+    end
+    shortcut_guide_cursor = cursor
+end, { timeout = 50, type = "repeat" })
+shortcut_guide_cursor_timer:set_enabled(false)
+
 local function super_bind(keys, action, options)
     hl.bind(mainMod .. " + " .. keys, function()
         shortcut_guide("cancel")
@@ -128,9 +139,13 @@ end
 
 for _, key in ipairs({ "SUPER_L", "SUPER_R" }) do
     hl.bind(key, function()
+        shortcut_guide_cursor = hl.get_cursor_pos()
+        shortcut_guide_cursor_timer:set_enabled(true)
         shortcut_guide("arm")
     end, { non_consuming = true, transparent = true, ignore_mods = true })
     hl.bind(mainMod .. " + " .. key, function()
+        shortcut_guide_cursor_timer:set_enabled(false)
+        shortcut_guide_cursor = nil
         shortcut_guide("release")
     end, { release = true, non_consuming = true, transparent = true })
 end

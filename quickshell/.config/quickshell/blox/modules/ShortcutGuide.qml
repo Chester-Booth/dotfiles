@@ -52,6 +52,14 @@ Scope {
         guideOpen = true;
     }
 
+    function delay() : string {
+        if (!armed || guideOpen)
+            return guideOpen ? "visible" : "inactive";
+
+        holdTimer.restart();
+        return "delayed";
+    }
+
     function release() : string {
         armed = false;
         holdTimer.stop();
@@ -109,6 +117,10 @@ Scope {
 
         function release() : string {
             return root.release();
+        }
+
+        function delay() : string {
+            return root.delay();
         }
 
         function cancel() : string {

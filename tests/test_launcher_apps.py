@@ -8,6 +8,7 @@ from unittest import mock
 
 MODULE = Path(__file__).parents[1] / "quickshell/.config/quickshell/blox/scripts/launcher/appctl.py"
 DESKTOP_EXEC_MODULE = Path(__file__).parents[1] / "quickshell/.config/quickshell/blox/scripts/launcher/desktop_exec.py"
+ICON_LOOKUP_MODULE = Path(__file__).parents[1] / "quickshell/.config/quickshell/blox/scripts/launcher/icon_lookup.py"
 LAUNCHER = Path(__file__).parents[1] / "quickshell/.config/quickshell/blox/modules/LauncherMainController.qml"
 SPEC = importlib.util.spec_from_file_location("appctl", MODULE)
 appctl = importlib.util.module_from_spec(SPEC)
@@ -15,9 +16,42 @@ SPEC.loader.exec_module(appctl)
 DESKTOP_EXEC_SPEC = importlib.util.spec_from_file_location("desktop_exec", DESKTOP_EXEC_MODULE)
 desktop_exec = importlib.util.module_from_spec(DESKTOP_EXEC_SPEC)
 DESKTOP_EXEC_SPEC.loader.exec_module(desktop_exec)
+ICON_LOOKUP_SPEC = importlib.util.spec_from_file_location("icon_lookup", ICON_LOOKUP_MODULE)
+icon_lookup = importlib.util.module_from_spec(ICON_LOOKUP_SPEC)
+ICON_LOOKUP_SPEC.loader.exec_module(icon_lookup)
+
+
+class FakeIconFile:
+    def __init__(self, path):
+        self.path = path
+
+    def get_path(self):
+        return self.path
+
+
+class FakeIcon:
+    def __init__(self, path):
+        self.path = path
+
+    def get_file(self):
+        return FakeIconFile(self.path)
+
+
+class FakeIconTheme:
+    def has_icon(self, name):
+        return name == "new-app"
+
+    def lookup_icon(self, name, *_args):
+        return FakeIcon(f"/icons/{name}.svg")
 
 
 class AppControllerTests(unittest.TestCase):
+    def test_icon_lookup_returns_fresh_theme_paths(self):
+        self.assertEqual(
+            {"new-app": "/icons/new-app.svg"},
+            icon_lookup.resolve_icons(["new-app", "missing", "new-app"], FakeIconTheme()),
+        )
+
     def test_launcher_resolves_the_current_desktop_exec_when_activated(self):
         source = LAUNCHER.read_text(encoding="utf-8")
         self.assertIn('scripts/launcher/desktop_exec.py", desktopId];', source)

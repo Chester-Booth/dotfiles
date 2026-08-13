@@ -43,6 +43,9 @@ Scope {
     property string applyGuideTarget: ""
     property string retryingTarget: ""
     property bool applyWindowOpen: false
+    property var resolvedIconPaths: ({
+    })
+    property bool iconResolveQueued: false
     readonly property var applicationCategories: [{
         "title": "Audio & Video",
         "key": "AudioVideo",
@@ -366,7 +369,35 @@ Scope {
         if (!icon.length)
             return "";
 
-        return icon.startsWith("/") ? "file://" + icon : Quickshell.iconPath(icon, true);
+        if (icon.startsWith("/"))
+            return "file://" + icon;
+
+        const themed = Quickshell.iconPath(icon, true);
+        const resolved = String(resolvedIconPaths[icon] || "");
+        return themed.length ? themed : resolved.length ? "file://" + resolved : "";
+    }
+
+    function resolveApplicationIcons() {
+        if (iconResolver.running) {
+            iconResolveQueued = true;
+            return ;
+        }
+        const missing = [];
+        const seen = ({
+        });
+        for (const entry of DesktopEntries.applications.values || []) {
+            const icon = String(entry.icon || "");
+            if (!icon.length || icon.startsWith("/") || seen[icon] || Quickshell.iconPath(icon, true).length)
+                continue;
+
+            seen[icon] = true;
+            missing.push(icon);
+        }
+        if (!missing.length)
+            return ;
+
+        iconResolver.command = ["python3", Quickshell.env("HOME") + "/.config/quickshell/blox/scripts/launcher/icon_lookup.py"].concat(missing);
+        iconResolver.running = true;
     }
 
     function executeCurrentDesktopEntry(entry) {
@@ -571,14 +602,26 @@ Scope {
         }
         refresh();
     }
-    Component.onCompleted: loadThemes()
+    Component.onCompleted: {
+        loadThemes();
+        iconResolveDebounce.start();
+    }
 
     Connections {
         function onApplicationsChanged() {
             root.refresh();
+            iconResolveDebounce.restart();
         }
 
         target: DesktopEntries
+    }
+
+    Timer {
+        id: iconResolveDebounce
+
+        // Package installs can write the desktop entry before its icon.
+        interval: 1000
+        onTriggered: root.resolveApplicationIcons()
     }
 
     Timer {
@@ -627,6 +670,38 @@ Scope {
 
     Process {
         id: copyResult
+    }
+
+    Process {
+        id: iconResolver
+
+        property string output: ""
+
+        onRunningChanged: {
+            if (running)
+                output = "";
+
+        }
+        onExited: (exitCode) => {
+            if (exitCode === 0 && output.length) {
+                try {
+                    root.resolvedIconPaths = Object.assign({
+                    }, root.resolvedIconPaths, JSON.parse(output));
+                } catch (error) {
+                    console.warn("Could not read resolved launcher icons:", error);
+                }
+                root.refresh();
+            }
+            if (root.iconResolveQueued) {
+                root.iconResolveQueued = false;
+                Qt.callLater(root.resolveApplicationIcons);
+            }
+        }
+
+        stdout: StdioCollector {
+            onStreamFinished: iconResolver.output = text.trim()
+        }
+
     }
 
     Process {

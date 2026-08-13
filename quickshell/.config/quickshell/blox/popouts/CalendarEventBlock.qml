@@ -11,7 +11,7 @@ Item {
     property real shownEnd: 0
     property bool moving: false
     property bool resizing: false
-    property bool interacting: bodyDrag.active || resizeArea.pressed || bodyTap.pressed || rightTap.pressed
+    property bool interacting: bodyDrag.active || resizeArea.pressed || bodyTap.pressed
 
     signal opened(var event)
     signal menuRequested(var event, point position)
@@ -107,16 +107,12 @@ Item {
         TapHandler {
             id: bodyTap
 
-            acceptedButtons: Qt.LeftButton
-            onTapped: root.opened(root.event)
-        }
-
-        TapHandler {
-            id: rightTap
-
-            acceptedButtons: Qt.RightButton
-            onTapped: function(eventPoint) {
-                root.menuRequested(root.event, eventPoint.position);
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            onTapped: function(eventPoint, button) {
+                if (button === Qt.RightButton)
+                    root.menuRequested(root.event, eventPoint.position);
+                else
+                    root.opened(root.event);
             }
         }
 

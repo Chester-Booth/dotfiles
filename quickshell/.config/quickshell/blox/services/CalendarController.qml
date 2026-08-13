@@ -17,10 +17,12 @@ Scope {
     property bool detailsOpen: false
     property bool editorOpen: false
     property bool confirmDeleteOpen: false
+    property bool deleteStandalone: false
     property bool eventMenuOpen: false
     property bool childPositionReady: false
     property string deleteScope: "instance"
     property var activeEvent: null
+    property var deleteEvent: null
     property date selectedDate: new Date()
     property date rangeDate: selectedDate
     readonly property bool childWindowOpen: detailsOpen || editorOpen || confirmDeleteOpen || eventMenuOpen
@@ -186,6 +188,8 @@ Scope {
     }
 
     function showDetails(event) {
+        cancelDelete();
+        eventMenuOpen = false;
         childPositionReady = false;
         activeEvent = event;
         detailsOpen = true;
@@ -193,6 +197,8 @@ Scope {
     }
 
     function editEvent(event) {
+        cancelDelete();
+        eventMenuOpen = false;
         childPositionReady = false;
         activeEvent = event;
         detailsOpen = false;
@@ -205,6 +211,8 @@ Scope {
             error = "No writable calendar is allowed.";
             return false;
         }
+        cancelDelete();
+        eventMenuOpen = false;
         activeEvent = {
             "key": "local:draft",
             "id": "",
@@ -249,8 +257,10 @@ Scope {
         detailsOpen = false;
         editorOpen = false;
         confirmDeleteOpen = false;
+        deleteStandalone = false;
         eventMenuOpen = false;
         activeEvent = null;
+        deleteEvent = null;
     }
 
     function write(command, payload, optimisticEvents, refreshDate) {
@@ -385,8 +395,15 @@ Scope {
     function requestDelete(event, openHost) {
         if (event && event.can_edit) {
             activeEvent = event;
+            deleteEvent = event;
             deleteScope = "instance";
-            if (openHost !== false && !detailsOpen && !editorOpen) {
+            deleteStandalone = openHost === false;
+            eventMenuOpen = false;
+            if (deleteStandalone) {
+                detailsOpen = false;
+                editorOpen = false;
+                childPositionReady = false;
+            } else if (!detailsOpen && !editorOpen) {
                 childPositionReady = false;
                 detailsOpen = true;
             }
@@ -396,10 +413,12 @@ Scope {
 
     function cancelDelete() {
         confirmDeleteOpen = false;
+        deleteStandalone = false;
+        deleteEvent = null;
     }
 
     function confirmDelete() {
-        var event = activeEvent;
+        var event = deleteEvent;
         if (event && event.can_edit) {
             if (write("delete", {
                 "calendar_id": event.calendar.id,

@@ -254,7 +254,7 @@ Scope {
 
             Loader {
                 anchors.fill: parent
-                active: root.controller.confirmDeleteOpen
+                active: root.controller.confirmDeleteOpen && !root.controller.deleteStandalone
                 sourceComponent: confirmOverlay
             }
 
@@ -306,10 +306,10 @@ Scope {
         id: deleteWindow
 
         screen: root.targetScreen
-        visible: root.controller.confirmDeleteOpen && !root.controller.detailsOpen && !root.controller.editorOpen
+        visible: root.controller.confirmDeleteOpen && root.controller.deleteStandalone
         title: "Blox Calendar Delete Event"
         implicitWidth: 300
-        implicitHeight: root.controller.activeEvent && root.controller.activeEvent.recurrence && root.controller.activeEvent.recurrence.master_id ? 184 : 142
+        implicitHeight: root.controller.deleteEvent && root.controller.deleteEvent.recurrence && root.controller.deleteEvent.recurrence.master_id ? 184 : 142
         minimumSize: Qt.size(300, implicitHeight)
         color: "transparent"
         onVisibleChanged: {
@@ -325,20 +325,13 @@ Scope {
             onActivated: root.controller.cancelDelete()
         }
 
-        Rectangle {
+        Loader {
             anchors.fill: parent
             anchors.margins: 1
-            radius: 12
-            color: Theme.surface
-            border.color: Theme.border
+            active: true
+            sourceComponent: confirmOverlay
             opacity: root.controller.childPositionReady ? 1 : 0
-
-            Loader {
-                anchors.fill: parent
-                active: true
-                sourceComponent: confirmOverlay
-            }
-
+            onLoaded: item.embedded = false
         }
 
     }
@@ -1112,7 +1105,7 @@ Scope {
 
             Loader {
                 anchors.fill: parent
-                active: root.controller.confirmDeleteOpen
+                active: root.controller.confirmDeleteOpen && !root.controller.deleteStandalone
                 sourceComponent: confirmOverlay
             }
 
@@ -1164,16 +1157,23 @@ Scope {
         id: confirmOverlay
 
         Rectangle {
-            color: Theme.withAlpha(Theme.background, 0.86)
+            id: confirmation
+
+            property bool embedded: true
+            readonly property bool recurring: !!(root.controller.deleteEvent && root.controller.deleteEvent.recurrence && root.controller.deleteEvent.recurrence.master_id)
+
+            color: embedded ? Theme.withAlpha(Theme.background, 0.86) : Theme.surface
+            radius: embedded ? 0 : 12
+            border.color: embedded ? "transparent" : Theme.border
             z: 100
 
             Rectangle {
                 anchors.centerIn: parent
-                width: parent.width - 28
-                height: root.controller.activeEvent && root.controller.activeEvent.recurrence && root.controller.activeEvent.recurrence.master_id ? 184 : 142
-                radius: 10
-                color: Theme.surface
-                border.color: Theme.border
+                width: confirmation.embedded ? parent.width - 28 : parent.width
+                height: confirmation.embedded ? (confirmation.recurring ? 184 : 142) : parent.height
+                radius: confirmation.embedded ? 10 : confirmation.radius
+                color: confirmation.embedded ? Theme.surface : "transparent"
+                border.color: confirmation.embedded ? Theme.border : "transparent"
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -1182,7 +1182,7 @@ Scope {
 
                     Text {
                         Layout.fillWidth: true
-                        text: "Delete “" + (root.controller.activeEvent ? root.controller.activeEvent.title : "event") + "”?"
+                        text: "Delete “" + (root.controller.deleteEvent ? root.controller.deleteEvent.title : "event") + "”?"
                         color: Theme.foreground
                         font.family: Theme.bodyFontFamily
                         font.pixelSize: 14
@@ -1200,7 +1200,7 @@ Scope {
 
                     RowLayout {
                         Layout.fillWidth: true
-                        visible: !!(root.controller.activeEvent && root.controller.activeEvent.recurrence && root.controller.activeEvent.recurrence.master_id)
+                        visible: confirmation.recurring
 
                         BloxButton {
                             Layout.fillWidth: true

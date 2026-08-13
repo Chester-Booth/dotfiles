@@ -65,7 +65,8 @@ Item {
 
             // Derive the columns from the view, not GridLayout's implicit width.
             // Using the grid here creates a sizing loop and collapses the month.
-            property real cellSize: (root.width - columnSpacing * 6) / 7
+            // Fractional widths can round up across the row and clip Sunday.
+            property real cellSize: Math.floor((root.width - columnSpacing * 6) / 7)
 
             Layout.fillWidth: true
             columns: 7

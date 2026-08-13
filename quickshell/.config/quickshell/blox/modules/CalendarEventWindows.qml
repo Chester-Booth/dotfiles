@@ -461,7 +461,6 @@ Scope {
             color: Theme.surface
             border.color: Theme.border
             clip: true
-            opacity: root.controller.childPositionReady ? 1 : 0
 
             ColumnLayout {
                 anchors.fill: parent
@@ -519,7 +518,10 @@ Scope {
                         BloxButton {
                             id: dateButton
 
-                            Layout.fillWidth: true
+                            Layout.preferredWidth: 114
+                            Layout.minimumWidth: 114
+                            Layout.maximumWidth: 114
+                            compact: true
                             text: Qt.formatDate(editor.chosenDate, "d MMM yyyy")
                             iconName: "calendar-blank"
                             onClicked: dateMenu.open()
@@ -528,13 +530,14 @@ Scope {
                         BloxTextField {
                             id: startButton
 
-                            Layout.preferredWidth: 68
+                            Layout.preferredWidth: 76
                             text: editor.allDay ? "—" : editor.startText
-                            suffix: "⌄"
                             enabled: !editor.allDay
                             onEditorFocusedChanged: {
                                 if (editorFocused) {
                                     startMenu.open();
+                                } else {
+                                    startMenu.close();
                                 }
                             }
                             onTextEdited: function(value) {
@@ -557,13 +560,14 @@ Scope {
                         BloxTextField {
                             id: endButton
 
-                            Layout.preferredWidth: 68
+                            Layout.preferredWidth: 76
                             text: editor.allDay ? "—" : editor.endText
-                            suffix: "⌄"
                             enabled: !editor.allDay
                             onEditorFocusedChanged: {
                                 if (editorFocused) {
                                     durationMenu.open();
+                                } else {
+                                    durationMenu.close();
                                 }
                             }
                             onTextEdited: function(value) {
@@ -919,6 +923,14 @@ Scope {
                     font.pixelSize: 12
                     padding: 10
                     wrapMode: TextEdit.Wrap
+                    Keys.onTabPressed: function(event) {
+                        calendarButton.forceActiveFocus();
+                        event.accepted = true;
+                    }
+                    Keys.onBacktabPressed: function(event) {
+                        locationField.focusEditor(false);
+                        event.accepted = true;
+                    }
 
                     background: Rectangle {
                         radius: 8
@@ -1085,11 +1097,6 @@ Scope {
 
                     Item {
                         Layout.fillWidth: true
-                    }
-
-                    BloxButton {
-                        text: "Cancel"
-                        onClicked: root.controller.closeChildren()
                     }
 
                     BloxButton {

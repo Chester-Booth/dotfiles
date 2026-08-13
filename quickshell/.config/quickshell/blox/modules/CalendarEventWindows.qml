@@ -358,9 +358,11 @@ Scope {
         property string endText: Qt.formatTime(chosenEnd, "h:mm AP")
         property bool suppressRepeatActivation: false
 
-        function timeOptions() {
+        function startOptions() {
             var result = [];
-            for (var i = 0; i < 96; ++i) result.push(i)
+            var parsed = parseTime(startText);
+            var start = parsed >= 0 ? parsed : chosenStart.getHours() * 60 + chosenStart.getMinutes();
+            for (var minutes = Math.ceil(start / 15) * 15; minutes < 1440; minutes += 15) result.push(minutes)
             return result;
         }
 
@@ -378,15 +380,16 @@ Scope {
 
         function durationLabel(minutes) {
             var d = minutes - (chosenStart.getHours() * 60 + chosenStart.getMinutes());
-            return d < 60 ? d + " min" : d / 60 + " hr" + (d === 60 ? "" : "s");
+            var hours = Math.round(d / 60 * 100) / 100;
+            return d < 60 ? d + " min" : hours + " hr" + (d === 60 ? "" : "s");
         }
 
         function parseTime(value) {
-            var text = String(value).trim().toUpperCase(), match = text.match(/^(\d{1,2}):([0-5]\d)\s*(AM|PM)?$/);
+            var text = String(value).trim().toUpperCase(), match = text.match(/^(\d{1,2})(?::([0-5]?\d)?)?\s*(AM|PM)?$/);
             if (!match)
                 return -1;
 
-            var hour = Number(match[1]), minute = Number(match[2]), suffix = match[3] || "";
+            var hour = Number(match[1]), minute = match[2] ? Number(match[2]) : 0, suffix = match[3] || "";
             if (suffix) {
                 if (hour < 1 || hour > 12)
                     return -1;
@@ -396,6 +399,15 @@ Scope {
                 return -1;
             }
             return hour * 60 + minute;
+        }
+
+        function previewStartText() {
+            var value = parseTime(startText);
+            if (value < 0)
+                return ;
+
+            setStart(value);
+            endText = Qt.formatTime(chosenEnd, "h:mm AP");
         }
 
         function acceptStartText() {
@@ -415,12 +427,23 @@ Scope {
                 endText = Qt.formatTime(chosenEnd, "h:mm AP");
                 return ;
             }
+            setEnd(value);
+            endText = Qt.formatTime(chosenEnd, "h:mm AP");
+        }
+
+        function previewEndText() {
+            var value = parseTime(endText);
+            if (value >= 0)
+                setEnd(value);
+
+        }
+
+        function setEnd(value) {
             var start = chosenStart.getHours() * 60 + chosenStart.getMinutes();
             if (value <= start)
                 value += 1440;
 
             chosenEnd = new Date(chosenDate.getFullYear(), chosenDate.getMonth(), chosenDate.getDate() + (value >= 1440 ? 1 : 0), Math.floor(value / 60) % 24, value % 60);
-            endText = Qt.formatTime(chosenEnd, "h:mm AP");
         }
 
         screen: root.targetScreen
@@ -581,14 +604,23 @@ Scope {
                             text: editor.allDay ? "—" : editor.startText
                             enabled: !editor.allDay
                             onEditorFocusedChanged: {
-                                if (editorFocused)
+                                if (editorFocused) {
                                     startMenu.open();
-                                else
+                                    Qt.callLater(function() {
+                                        startOptionsList.positionViewAtBeginning();
+                                    });
+                                } else {
+                                    editor.acceptStartText();
                                     startMenu.close();
+                                }
                             }
                             onTextEdited: function(value) {
                                 editor.startText = value;
+                                editor.previewStartText();
                                 startMenu.open();
+                                Qt.callLater(function() {
+                                    startOptionsList.positionViewAtBeginning();
+                                });
                             }
                             onAccepted: {
                                 editor.acceptStartText();
@@ -610,14 +642,23 @@ Scope {
                             text: editor.allDay ? "—" : editor.endText
                             enabled: !editor.allDay
                             onEditorFocusedChanged: {
-                                if (editorFocused)
+                                if (editorFocused) {
                                     durationMenu.open();
-                                else
+                                    Qt.callLater(function() {
+                                        durationOptionsList.positionViewAtBeginning();
+                                    });
+                                } else {
+                                    editor.acceptEndText();
                                     durationMenu.close();
+                                }
                             }
                             onTextEdited: function(value) {
                                 editor.endText = value;
+                                editor.previewEndText();
                                 durationMenu.open();
+                                Qt.callLater(function() {
+                                    durationOptionsList.positionViewAtBeginning();
+                                });
                             }
                             onAccepted: {
                                 editor.acceptEndText();
@@ -701,6 +742,8 @@ Scope {
                         }
 
                         contentItem: ListView {
+                            id: durationOptionsList
+
                             implicitHeight: Math.min(144, contentHeight)
                             model: editor.endOptions()
                             clip: true
@@ -740,17 +783,19 @@ Scope {
                         }
 
                         contentItem: ListView {
+                            id: startOptionsList
+
                             implicitHeight: 144
-                            model: editor.timeOptions()
+                            model: editor.startOptions()
                             clip: true
 
                             delegate: BloxButton {
                                 required property int modelData
 
                                 width: ListView.view.width
-                                text: Qt.formatTime(new Date(2000, 0, 1, Math.floor(modelData / 4), modelData % 4 * 15), "h:mm ap")
+                                text: Qt.formatTime(new Date(2000, 0, 1, Math.floor(modelData / 60), modelData % 60), "h:mm ap")
                                 onClicked: {
-                                    editor.setStart(modelData * 15);
+                                    editor.setStart(modelData);
                                     editor.startText = Qt.formatTime(editor.chosenStart, "h:mm AP");
                                     editor.endText = Qt.formatTime(editor.chosenEnd, "h:mm AP");
                                     startMenu.close();

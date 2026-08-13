@@ -110,14 +110,14 @@ Rectangle {
 
             DetailPill {
                 icon: "󰈐"
-                label: "Fan 1"
+                label: "CPU fan"
                 value: root.fanText(root.status.fan1Rpm)
                 accent: Theme.blue
             }
 
             DetailPill {
                 icon: "󰈐"
-                label: "Fan 2"
+                label: "GPU fan"
                 value: root.fanText(root.status.fan2Rpm)
                 accent: Theme.blue
             }

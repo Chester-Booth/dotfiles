@@ -2,30 +2,9 @@
 set -u
 
 action="${1:-}"
-caffeine_state="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell/caffeine.json"
 
 notify() {
 	notify-send -u critical -i dialog-warning "Power action blocked" "$1"
-}
-
-awake_active() {
-	local deadline
-
-	[[ -f "$caffeine_state" ]] || return 1
-	deadline="$(jq -r '.deadline // 0' "$caffeine_state" 2>/dev/null || echo 0)"
-
-	if [[ "$deadline" == "-1" ]]; then
-		return 0
-	fi
-
-	[[ "$deadline" =~ ^[0-9]+$ ]] && ((deadline > $(date +%s)))
-}
-
-guard_awake_before_lock() {
-	awake_active || return 0
-	pkill -x hypridle >/dev/null 2>&1 || true
-	notify-send -u normal -i dialog-information "Lock blocked" "Awake is active, so Hyprlock was not started."
-	return 1
 }
 
 children_of() {
@@ -109,14 +88,31 @@ save_kitty_tabs_before_power_action() {
 	ktr save --all >/dev/null 2>&1 || true
 }
 
+lock_before_sleep() {
+	local lock_pid
+
+	pgrep -x hyprlock >/dev/null 2>&1 && return 0
+	hyprlock --immediate-render >/dev/null 2>&1 &
+	lock_pid=$!
+	sleep 1
+
+	if kill -0 "$lock_pid" 2>/dev/null; then
+		return 0
+	fi
+
+	wait "$lock_pid" 2>/dev/null || true
+	notify "Hyprlock failed to start, so ${action} was cancelled."
+	return 1
+}
+
 case "$action" in
 lock)
-	guard_awake_before_lock || exit 0
 	exec hyprlock
 	;;
 sleep)
 	guard_micro_before_power_action || exit 1
 	save_kitty_tabs_before_power_action
+	lock_before_sleep || exit 1
 	exec systemctl suspend-then-hibernate
 	;;
 shutdown)
@@ -132,6 +128,7 @@ reboot)
 hibernate)
 	guard_micro_before_power_action || exit 1
 	save_kitty_tabs_before_power_action
+	lock_before_sleep || exit 1
 	exec systemctl hibernate
 	;;
 *)

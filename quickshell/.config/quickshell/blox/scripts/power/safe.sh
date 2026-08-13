@@ -122,12 +122,12 @@ sleep)
 shutdown)
 	guard_micro_before_power_action || exit 1
 	save_kitty_tabs_before_power_action
-	exec hyprshutdown -t "Shutting down..." --post-cmd "systemctl poweroff"
+	exec systemctl poweroff
 	;;
 reboot)
 	guard_micro_before_power_action || exit 1
 	save_kitty_tabs_before_power_action
-	exec hyprshutdown -t "Restarting..." --post-cmd "systemctl reboot"
+	exec systemctl reboot
 	;;
 hibernate)
 	guard_micro_before_power_action || exit 1

@@ -21,6 +21,8 @@ Scope {
     property bool deleteStandalone: false
     property bool eventMenuOpen: false
     property bool childPositionReady: false
+    property string popoutScreenName: ""
+    property rect popoutRect: Qt.rect(0, 0, 0, 0)
     property string deleteScope: "instance"
     property var activeEvent: null
     property var deleteEvent: null

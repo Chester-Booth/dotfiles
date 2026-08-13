@@ -4,6 +4,10 @@ set -euo pipefail
 title=${1:?window title required}
 window_width=${2:?window width required}
 window_height=${3:?window height required}
+screen_name=${4:?screen name required}
+popup_x=${5:?popup x required}
+popup_y=${6:?popup y required}
+popup_width=${7:?popup width required}
 
 address=""
 for _ in 1 2 3 4 5; do
@@ -13,23 +17,27 @@ for _ in 1 2 3 4 5; do
 done
 [[ -n "$address" ]] || exit 1
 
-read -r cursor_x cursor_y < <(hyprctl cursorpos | tr -d ',' | awk '{print $1, $2}')
 read -r monitor_x monitor_y monitor_width monitor_height < <(
-	hyprctl monitors -j | jq -r --argjson x "$cursor_x" --argjson y "$cursor_y" '
-        [.[] | select($x >= .x and $x < .x + .width and $y >= .y and $y < .y + .height)][0]
+	hyprctl monitors -j | jq -r --arg name "$screen_name" '
+        [.[] | select(.name == $name)][0]
         | [.x, .y, .width, .height] | @tsv'
 )
 
 gap=8
-popup_width=360
-bar_gap=42
-if ((cursor_x < monitor_x + monitor_width / 2)); then
-	target_x=$((monitor_x + popup_width + gap + 8))
+popup_left=$((monitor_x + popup_x))
+popup_top=$((monitor_y + popup_y))
+popup_right=$((popup_left + popup_width))
+
+if ((popup_right + gap + window_width <= monitor_x + monitor_width - gap)); then
+	target_x=$((popup_right + gap))
 else
-	target_x=$((monitor_x + monitor_width - popup_width - gap - window_width - 8))
+	target_x=$((popup_left - gap - window_width))
 fi
-target_y=$((monitor_y + bar_gap))
-((target_y + window_height > monitor_y + monitor_height - 8)) && target_y=$((monitor_y + monitor_height - window_height - 8))
+((target_x < monitor_x + gap)) && target_x=$((monitor_x + gap))
+
+target_y=$popup_top
+((target_y + window_height > monitor_y + monitor_height - gap)) && target_y=$((monitor_y + monitor_height - window_height - gap))
+((target_y < monitor_y + gap)) && target_y=$((monitor_y + gap))
 
 hyprctl dispatch "hl.dsp.window.float({ action = \"on\", window = \"address:${address}\" })"
 hyprctl dispatch "hl.dsp.window.resize({ x = ${window_width}, y = ${window_height}, relative = false, window = \"address:${address}\" })"

@@ -10,6 +10,14 @@ Item {
     required property BarSurfaceController surfaceController
     required property BarContentController contentController
 
+    function updateChildAnchor() {
+        if (!root.geometry.active)
+            return;
+
+        root.contentController.calendarController.popoutScreenName = root.geometry.panelWindow.screen.name;
+        root.contentController.calendarController.popoutRect = Qt.rect(calendarWindow.anchorX, calendarWindow.anchorY + calendarWindow.cardY, calendarPopout.width, calendarPopout.height);
+    }
+
     HoverPopupWindow {
         id: calendarWindow
 
@@ -59,8 +67,12 @@ Item {
 
     Connections {
         function onChildWindowOpenChanged() {
-            if (root.geometry.active)
+            if (root.geometry.active) {
+                if (root.contentController.calendarController.childWindowOpen)
+                    root.updateChildAnchor();
+
                 root.surfaceController.setInputPopupLocked(root.contentController.calendarController.childWindowOpen);
+            }
 
         }
 

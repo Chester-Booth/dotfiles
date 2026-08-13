@@ -41,7 +41,8 @@ Scope {
 
         interval: 30
         onTriggered: {
-            placementProcess.command = [root.controller.scriptRoot + "/calendar/place-window.sh", root.pendingTitlePattern, String(root.pendingWidth), String(root.pendingHeight)];
+            var popout = root.controller.popoutRect;
+            placementProcess.command = [root.controller.scriptRoot + "/calendar/place-window.sh", root.pendingTitlePattern, String(root.pendingWidth), String(root.pendingHeight), root.controller.popoutScreenName, String(Math.round(popout.x)), String(Math.round(popout.y)), String(Math.round(popout.width))];
             placementProcess.running = true;
         }
     }
@@ -461,6 +462,7 @@ Scope {
             color: Theme.surface
             border.color: Theme.border
             clip: true
+            opacity: root.controller.childPositionReady ? 1 : 0
 
             ColumnLayout {
                 anchors.fill: parent

@@ -17,6 +17,12 @@ for workspace = 11, 22 do
     hl.window_rule({ match = { workspace = tostring(workspace) }, opacity = "1.0 override 1.0 override 1.0 override" })
 end
 
+-- Float modal/dialogue windows globally
+hl.window_rule({
+    match = { modal = true },
+    float = true,
+})
+
 -- Float every Thunar window/dialog
 hl.window_rule({
     match = {

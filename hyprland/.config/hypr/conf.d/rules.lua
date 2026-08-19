@@ -50,7 +50,19 @@ hl.window_rule({
 })
 
 
--- File dialogs float and are centred.
+-- #  File dialogs float and are centred.
+
+-- XDG Desktop Portal file chooser.
+hl.window_rule({
+    match = {
+        class = "^([Xx]dg-desktop-portal-gtk)$",
+    },
+    float = true,
+    center = true,
+    size = { 800, 600 },
+})
+
+-- Fallback 
 hl.window_rule({ match = { title = "^(Open File|Open Files|Save File|Save As|Save Workspace|Select Folder|Open Folder|File Upload|Choose a wallpaper)$" }, float = true, size = { 800, 600 } })
 hl.window_rule({ match = { title = "^(Open File|Open Files|Save File|Save As|Select Folder|Open Folder|File Upload|Choose a wallpaper)$" }, center = true })
 

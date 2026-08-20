@@ -72,6 +72,10 @@ alias codex="codex --yolo"
 alias ns='notify-send'
 alias bin='gio trash'
 
+cpfile() {
+    print -rn -- "${1:A}" | wl-copy
+}
+
 cpss() {
     local files=(~/Pictures/Screenshots/*(.Nom))
     print -rn -- "$files[1]" | wl-copy
@@ -174,3 +178,5 @@ fi
 
 # make multi-char emoji render correctly
 setopt COMBINING_CHARS
+export ANDROID_HOME=/opt/android-sdk
+export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"

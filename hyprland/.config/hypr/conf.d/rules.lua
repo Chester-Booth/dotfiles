@@ -3,14 +3,16 @@
 -- Ignore maximise requests from apps.
 hl.window_rule({ match = { class = ".*" }, suppress_event = "maximize" })
 
--- Fix some dragging issues with XWayland.
+-- Round floating dialogs/popups while keeping tiled windows square.
+hl.window_rule({ match = { float = true }, rounding = 8 })
+
+-- Leave anonymous XWayland tooltips and drag surfaces to draw their own shape.
 hl.window_rule({
     match = { class = "^$", title = "^$", xwayland = true, float = true, fullscreen = false, pin = false },
     no_focus = true,
+    border_size = 0,
+    rounding = 0,
 })
-
--- Round floating dialogs/popups while keeping tiled windows square.
-hl.window_rule({ match = { float = true }, rounding = 8 })
 
 -- Keep external-monitor workspaces fully opaque, even when inactive.
 for workspace = 11, 22 do
@@ -51,17 +53,6 @@ hl.window_rule({
 
 
 -- #  File dialogs float and are centred.
-
--- XDG Desktop Portal file chooser.
-hl.window_rule({
-    match = {
-        class = "^([Xx]dg-desktop-portal-gtk)$",
-    },
-    float = true,
-    center = true,
-    size = { 800, 600 },
-})
-
 -- Fallback 
 hl.window_rule({ match = { title = "^(Open File|Open Files|Save File|Save As|Save Workspace|Select Folder|Open Folder|File Upload|Choose a wallpaper)$" }, float = true, size = { 800, 600 } })
 hl.window_rule({ match = { title = "^(Open File|Open Files|Save File|Save As|Select Folder|Open Folder|File Upload|Choose a wallpaper)$" }, center = true })

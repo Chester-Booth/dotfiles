@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import os
@@ -23,8 +24,6 @@ EXIT_APPLY = 6
 EXIT_RELOAD_WARNING = 7
 EXIT_LOCKED = 8
 
-DEFAULT_THEME_ID = "catppuccin-mocha"
-
 IMPLEMENTED_TARGETS = ("quickshell", "widgets", "kitty", "wallpaper", "gtk", "cursor", "hyprland", "hyprlock", "btop", "micro", "glow", "code", "cursor_editor", "stylus", "obsidian", "powerlevel10k")
 DEFERRED_TARGETS = {}
 TARGET_LIMITATIONS = {
@@ -39,33 +38,6 @@ TARGET_LIMITATIONS = {
     "powerlevel10k": "Powerlevel10k changes apply to new shells",
 }
 
-# Logical regions are deliberately orientation-independent: ``start`` is the
-# top of a vertical bar and the left of a horizontal one.  Keeping the complete
-# registry in rendered documents gives the shell and picker one stable model,
-# while themes written before bar customisation continue to receive defaults.
-DEFAULT_BAR_ITEMS = (
-    {"id": "power", "enabled": True, "region": "start", "order": 0},
-    {"id": "notes", "enabled": True, "region": "start", "order": 1},
-    {"id": "workspaces", "enabled": True, "region": "start", "order": 2},
-    {"id": "clock", "enabled": True, "region": "centre", "order": 0},
-    {"id": "active-window-title", "enabled": False, "region": "centre", "order": 1, "orientation": "inward", "titleLength": "truncate"},
-    {"id": "battery", "enabled": True, "region": "end", "order": 0, "display": "toggle"},
-    {"id": "tray", "enabled": True, "region": "end", "order": 1},
-    {"id": "notifications", "enabled": True, "region": "end", "order": 2},
-    {"id": "wifi", "enabled": True, "region": "end", "order": 3},
-    {"id": "sound", "enabled": True, "region": "end", "order": 4},
-    {"id": "privacy", "enabled": True, "region": "hidden", "order": 0, "visibility": "normal"},
-    {"id": "awake", "enabled": True, "region": "hidden", "order": 1},
-    {"id": "display", "enabled": True, "region": "hidden", "order": 2},
-    {"id": "bt", "enabled": True, "region": "hidden", "order": 3},
-    {"id": "updates", "enabled": True, "region": "hidden", "order": 4},
-    {"id": "fan", "enabled": True, "region": "hidden", "order": 5, "visibility": "normal"},
-    {"id": "gpu", "enabled": True, "region": "hidden", "order": 6, "visibility": "normal"},
-    {"id": "application-tray", "enabled": True, "region": "hidden", "order": 7},
-    {"id": "touchpad", "enabled": True, "region": "hidden", "order": 8, "visibility": "normal"},
-)
-
-
 def resolved_bar_items(bar: dict[str, Any] | None) -> list[dict[str, Any]]:
     """Return a complete, ordered bar registry with optional theme overrides."""
     source = (bar or {}).get("items", [])
@@ -75,7 +47,7 @@ def resolved_bar_items(bar: dict[str, Any] | None) -> list[dict[str, Any]]:
     # migrate that override while giving the new toggle its normal placement.
     if "tray" in overrides and "application-tray" not in overrides:
         overrides["application-tray"] = {**overrides.pop("tray"), "id": "application-tray"}
-    items = [{**default, **overrides.get(default["id"], {})} for default in DEFAULT_BAR_ITEMS]
+    items = [{**default, **overrides.get(default["id"], {})} for default in default_bar_items()]
     tray = next(item for item in items if item["id"] == "tray")
     if tray["region"] == "hidden":
         tray["region"] = "end"
@@ -143,6 +115,47 @@ def themes_dir() -> Path:
         if candidate is not None and (candidate / "schema/theme.schema.json").is_file():
             return candidate
     return repository_root() / "themes"
+
+
+class DefaultsFailure(ValueError):
+    """The package defaults document is missing, invalid, or unsupported."""
+
+
+def defaults_path() -> Path:
+    return themes_dir() / "defaults/v1.json"
+
+
+def load_defaults_document() -> dict[str, Any]:
+    path = defaults_path()
+    try:
+        value = load_json(path)
+    except FileNotFoundError as error:
+        raise DefaultsFailure(f"defaults document is missing: {path}") from error
+    except (OSError, json.JSONDecodeError) as error:
+        raise DefaultsFailure(f"defaults document cannot be read: {path}: {error}") from error
+    if not isinstance(value, dict):
+        raise DefaultsFailure("defaults document root must be an object")
+    errors = defaults_schema_errors(value)
+    if errors:
+        raise DefaultsFailure("invalid defaults document: " + "; ".join(errors))
+    return value
+
+
+def default_bar_items() -> list[dict[str, Any]]:
+    return copy.deepcopy(load_defaults_document()["theme"]["shell"]["bar"]["items"])
+
+
+def default_reset_bar_items() -> list[dict[str, Any]]:
+    return copy.deepcopy(load_defaults_document()["theme"]["shell"]["bar"]["reset_items"])
+
+
+def default_widget_profile(profile: str | None = None) -> dict[str, Any]:
+    document = load_defaults_document()
+    name = profile or document["widgets"]["profile"]
+    try:
+        return copy.deepcopy(document["widgets"]["profiles"][name])
+    except KeyError as error:
+        raise DefaultsFailure(f"defaults document has no widget profile: {name}") from error
 
 
 def builtin_themes_dir() -> Path:
@@ -224,7 +237,51 @@ def load_theme(reference: str) -> tuple[Path, dict[str, Any]]:
     data = load_json(path)
     if not isinstance(data, dict):
         raise ValueError("theme root must be a JSON object")
-    return path, data
+    return path, apply_theme_defaults(data)
+
+
+def apply_theme_defaults(theme: dict[str, Any]) -> dict[str, Any]:
+    """Fill omitted product-owned fields from the versioned package document."""
+    document = load_defaults_document()
+    defaults = document["theme"]
+    colours = defaults["colours"]
+    fragment: dict[str, Any] = {
+        "schema_version": 1,
+        "id": defaults["id"],
+        "variant": defaults["variant"],
+        "colours": {
+            "background": colours["background"],
+            "surface": colours["surface"],
+            "surface_alt": colours["surface_alt"],
+            "foreground": colours["foreground"],
+            "muted": colours["muted"],
+            "danger": colours["red"],
+            "success": colours["green"],
+            "warning": colours["yellow"],
+            "accent": colours["accent"],
+            "info": colours["blue"],
+            "mauve": colours["mauve"],
+            "teal": colours["teal"],
+            "selection_foreground": colours["selection_foreground"],
+            "border": colours["border"],
+        },
+        "fonts": copy.deepcopy(defaults["fonts"]),
+        "shell": copy.deepcopy(defaults["shell"]),
+        "wallpaper": copy.deepcopy(defaults["wallpaper"]),
+        "widgets": {"profile": document["widgets"]["profile"]},
+    }
+    fragment["shell"]["bar"].pop("reset_items", None)
+
+    def merge(base: dict[str, Any], value: dict[str, Any]) -> dict[str, Any]:
+        merged = copy.deepcopy(base)
+        for key, item in value.items():
+            if isinstance(item, dict) and isinstance(merged.get(key), dict):
+                merged[key] = merge(merged[key], item)
+            else:
+                merged[key] = copy.deepcopy(item)
+        return merged
+
+    return merge(fragment, theme)
 
 
 def list_themes() -> list[dict[str, Any]]:
@@ -344,6 +401,23 @@ def schema_errors(theme: dict[str, Any]) -> list[str]:
         return [f"{'.'.join(str(part) for part in error.absolute_path) or '$'}: {error.message}" for error in sorted(validator.iter_errors(theme), key=lambda item: list(item.absolute_path))]
     except ImportError:
         return _basic_schema_errors(theme, schema, schema)
+
+
+def defaults_schema_errors(document: dict[str, Any]) -> list[str]:
+    schema = load_json(themes_dir() / "schema/defaults.schema.json")
+    try:
+        import jsonschema
+
+        validator = jsonschema.Draft202012Validator(schema)
+        return [f"{'.'.join(str(part) for part in error.absolute_path) or '$'}: {error.message}" for error in sorted(validator.iter_errors(document), key=lambda item: list(item.absolute_path))]
+    except ImportError:
+        return _basic_schema_errors(document, schema, schema)
+
+
+# Keep the old public constant for callers that only need the registry shape,
+# but load its value from the package document rather than maintaining a copy.
+DEFAULT_BAR_ITEMS = tuple(default_bar_items())
+DEFAULT_THEME_ID = load_defaults_document()["theme"]["id"]
 
 
 def _channel(value: int) -> float:
@@ -481,11 +555,7 @@ def target_colours(theme: dict[str, Any], target: str) -> dict[str, str]:
 
 def render_quickshell(theme: dict[str, Any], ansi: dict[str, str]) -> str:
     colours = target_colours(theme, "quickshell")
-    shell = theme.get("shell", {
-        "bar": {"position": "left"},
-        "osd": {"position": "top-left", "offset_x": 0, "offset_y": 0},
-        "notifications": {"position": "bottom-right", "offset_x": 0, "offset_y": 0},
-    })
+    shell = copy.deepcopy(theme.get("shell") or load_defaults_document()["theme"]["shell"])
     shell = {**shell, "bar": {**shell.get("bar", {}), "items": resolved_bar_items(shell.get("bar"))}}
     output = {
         "schema_version": 1,
@@ -934,7 +1004,7 @@ def render_code_extension(theme: dict[str, Any]) -> dict[str, str]:
 
 def render_stylus(theme: dict[str, Any]) -> str:
     c = theme["colours"]
-    variables = "\n".join(f"  --blox-{key.replace('_', '-')}: {value.lower()};" for key, value in c.items())
+    variables = "\n".join(f"  --blox-{key.replace('_', '-')}: {c[key].lower()};" for key in sorted(c))
     return f"""/* ==UserStyle==
 @name Blox System Theme
 @namespace blox.local
@@ -995,13 +1065,8 @@ typeset -g POWERLEVEL9K_STATUS_ERROR_BACKGROUND=%s
 
 def render_widgets(theme: dict[str, Any]) -> str:
     widgets = theme.get("widgets", {})
-    profile = widgets.get("profile", "minimal")
-    profiles = {
-        "minimal": {"opacity": 0.3, "margin": 20, "padding": 20, "radius": 0, "font_size": 14},
-        "compact": {"opacity": 0.52, "margin": 12, "padding": 12, "radius": 6, "font_size": 12},
-        "comfortable": {"opacity": 0.42, "margin": 24, "padding": 24, "radius": 10, "font_size": 15},
-    }
-    return canonical_json({"schema_version": 1, "profile": profile, **profiles[profile], "items": widgets.get("items", [])})
+    profile = widgets.get("profile") or load_defaults_document()["widgets"]["profile"]
+    return canonical_json({"schema_version": 1, "profile": profile, **default_widget_profile(profile), "items": widgets.get("items", [])})
 
 
 def render_theme(theme: dict[str, Any], source_path: Path | None = None) -> tuple[dict[str, str], list[str]]:

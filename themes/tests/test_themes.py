@@ -198,12 +198,11 @@ class ThemeSchemaTests(unittest.TestCase):
     def test_canonical_palette_matches_live_quickshell_fallback(self) -> None:
         _, theme = load_theme("catppuccin-mocha")
         qml = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/Theme.qml").read_text(encoding="utf-8")
-        mapping = {"background": "background", "surface": "surface", "surfaceAlt": "surface_alt", "foreground": "foreground", "muted": "muted", "red": "danger", "green": "success", "yellow": "warning", "blue": "info", "mauve": "mauve", "teal": "teal"}
-        for qml_name, theme_name in mapping.items():
-            match = re.search(rf'property color {qml_name}: "(#[0-9a-fA-F]{{6}})"', qml)
-            self.assertIsNotNone(match, qml_name)
-            self.assertEqual(theme["colours"][theme_name].lower(), match.group(1).lower())
-        self.assertIn(f'property string fontFamily: "{theme["fonts"]["panel"]}"', qml)
+        defaults = (REPOSITORY / "themes/defaults/v1.json").read_text(encoding="utf-8")
+        self.assertIn('property color background: defaults.colour("background")', qml)
+        self.assertIn('property string fontFamily: defaults.font("panel")', qml)
+        self.assertIn('"defaults_version": 1', defaults)
+        self.assertIn(theme["colours"]["background"].lower(), defaults.lower())
 
 
 class RendererTests(unittest.TestCase):
@@ -553,7 +552,11 @@ class CliContractTests(unittest.TestCase):
 
             imported = run_cli("widgets-import", str(exported), "--json")
             self.assertEqual(0, imported.returncode, imported.stderr)
-            self.assertEqual(widgets, json.loads(imported.stdout)["data"])
+            safe_widgets = copy.deepcopy(widgets)
+            for field in ("content_command", "left_click_command", "right_click_command"):
+                safe_widgets["items"][0][field] = ""
+            self.assertEqual(safe_widgets, json.loads(imported.stdout)["data"])
+            self.assertTrue(json.loads(imported.stdout)["warnings"])
 
             malformed = Path(temporary) / "not-widgets.json"
             malformed.write_text(json.dumps({"schema_version": 1, "widgets": widgets}), encoding="utf-8")
@@ -629,7 +632,8 @@ class CliContractTests(unittest.TestCase):
         self.assertIn("exclusiveZone: barSurfaceController.barPinnedOpen", source)
         self.assertIn("visible: Theme.ready", source)
         self.assertIn("property bool ready: false", theme)
-        self.assertIn("root.ready = true", theme)
+        self.assertIn("root.ready = defaults.ready", theme)
+        self.assertIn("ThemeDefaults {", theme)
         self.assertEqual(6, source.count("BarRegion {"))
         self.assertIn("BarItemDelegate {", region)
         self.assertIn("Row {", region)

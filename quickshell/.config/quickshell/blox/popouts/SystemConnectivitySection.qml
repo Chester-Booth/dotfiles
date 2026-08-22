@@ -14,6 +14,7 @@ ColumnLayout {
     PillSelector {
         Layout.fillWidth: true
         visible: root.controller.currentMode() === "network"
+        enabled: root.controller.networkCanChange
         title: "Wi-Fi"
         currentText: visualId === "on" ? "On" : "Off"
         currentId: root.controller.networkEnabled ? "on" : "off"
@@ -38,6 +39,7 @@ ColumnLayout {
     PillSelector {
         Layout.fillWidth: true
         visible: root.controller.currentMode() === "bluetooth"
+        enabled: root.controller.bluetoothCanChange
         title: "Bluetooth"
         currentText: visualId === "on" ? "On" : "Off"
         currentId: root.controller.bluetoothEnabled ? "on" : "off"

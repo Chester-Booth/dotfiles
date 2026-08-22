@@ -59,6 +59,7 @@ from .runtime import (
 )
 from .generators import BACKENDS, GeneratorFailure, generate_theme, save_theme_source
 from .portability import PortabilityFailure, export_bundle, import_theme
+from .trust import strip_widget_document
 
 
 def envelope(command: str, data: Any = None, errors: list[str] | None = None, warnings: list[str] | None = None) -> dict[str, Any]:
@@ -335,7 +336,11 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
             checked = validate_theme(probe, check_dependencies=False)
             if checked.errors:
                 return envelope(command, errors=checked.errors), EXIT_VALIDATION
-            return envelope(command, document["widgets"]), EXIT_OK
+            safe_document, executable_fields = strip_widget_document(document)
+            warnings = []
+            if executable_fields:
+                warnings.append("disabled executable fields from untrusted import: " + ", ".join(executable_fields))
+            return envelope(command, safe_document["widgets"], warnings=warnings), EXIT_OK
         except FileExistsError:
             return envelope(command, errors=[f"refusing to overwrite existing file: {args.output}"]), EXIT_VALIDATION
         except (OSError, json.JSONDecodeError, ValueError) as error:

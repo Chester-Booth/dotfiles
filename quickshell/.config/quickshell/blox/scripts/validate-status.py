@@ -86,7 +86,11 @@ def validate_children(label, data, child_specs, errors):
         value = data.get(field)
         if not isinstance(value, dict):
             continue
-        validate_fields(f"{label}.{field}", value, spec, errors)
+        if "required" in spec:
+            validate_fields(f"{label}.{field}", value, spec["required"], errors)
+            validate_enum(f"{label}.{field}", value, spec.get("enum", {}), errors)
+        else:
+            validate_fields(f"{label}.{field}", value, spec, errors)
 
 
 def validate_enum(label, data, enum_specs, errors):

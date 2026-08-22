@@ -30,6 +30,7 @@ TestCase {
             "colour": {
             },
             "calendar": {
+                "id": "main"
             },
             "recurrence": {
             },
@@ -102,7 +103,8 @@ TestCase {
             "revision": 2,
             "data": {
                 "events": [],
-                "calendars": []
+                "calendars": [],
+                "refreshed_calendar_ids": ["main"]
             }
         }, {
             "start": "2026-08-13T00:00:00Z",

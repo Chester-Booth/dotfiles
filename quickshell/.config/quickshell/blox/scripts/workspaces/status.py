@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import shutil
 import subprocess
 
 
@@ -85,9 +86,14 @@ def special_workspace_active(active_workspace, monitors):
     )
 
 
-active = hypr_json("activeworkspace") or {}
-clients = hypr_json("clients") or []
-monitors = hypr_json("monitors") or []
+active_value = hypr_json("activeworkspace")
+clients_value = hypr_json("clients")
+monitors_value = hypr_json("monitors")
+hypr_available = shutil.which("hyprctl") is not None
+hypr_ready = active_value is not None and clients_value is not None and monitors_value is not None
+active = active_value or {}
+clients = clients_value or []
+monitors = monitors_value or []
 
 active_id = active.get("id")
 by_workspace = {}
@@ -145,5 +151,12 @@ print(json.dumps({
         "occupied": len(special_clients) > 0,
         "icon": "󰘻" if special_active else "󰘼",
         "tooltip": "Special workspace" + (f"\\n{len(special_clients)} window(s)" if special_clients else ""),
+    },
+    "capability": {
+        "available": hypr_available,
+        "ready": hypr_ready,
+        "canChange": False,
+        "permission": "not-required",
+        "reason": None if hypr_ready else "query-failed" if hypr_available else "command-unavailable",
     },
 }))

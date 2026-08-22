@@ -12,8 +12,9 @@ import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable
 
-from .core import canonical_json, dependency_checks, resolve_wallpaper_path, validate_theme
+from .core import apply_theme_defaults, canonical_json, dependency_checks, resolve_wallpaper_path, validate_theme
 from .generators import GeneratorFailure, save_theme_source
+from .trust import strip_widget_commands, write_trust_record
 
 
 BUNDLE_VERSION = 1
@@ -59,7 +60,7 @@ def migrate_theme(value: Any) -> tuple[dict[str, Any], list[str]]:
         version = next_version
     if version > THEME_SCHEMA_VERSION:
         raise PortabilityFailure(f"theme schema version {version} is newer than supported version {THEME_SCHEMA_VERSION}")
-    return theme, warnings
+    return apply_theme_defaults(theme), warnings
 
 
 def dependency_notes(theme: dict[str, Any]) -> dict[str, Any]:
@@ -301,6 +302,7 @@ def import_theme(path: Path, library: Path, reserved_ids: set[str] | None = None
     source = path.expanduser().resolve()
     if path.expanduser().is_symlink() or not source.is_file():
         raise PortabilityFailure(f"import source is not a regular file: {path}")
+    source_sha256 = _digest(source.read_bytes())
     if zipfile.is_zipfile(source):
         theme, wallpaper_data, wallpaper_name, warnings = _load_bundle(source)
         source_kind = "bundle"
@@ -311,6 +313,7 @@ def import_theme(path: Path, library: Path, reserved_ids: set[str] | None = None
         source_kind = "json"
         if not Path(theme["wallpaper"]["path"]).expanduser().is_absolute():
             theme["wallpaper"]["path"] = str(resolve_wallpaper_path(theme["wallpaper"]["path"], source))
+    theme, executable_fields = strip_widget_commands(theme)
     checked = validate_theme(theme, check_dependencies=False, source_path=source)
     if checked.errors:
         raise PortabilityFailure("invalid imported theme: " + "; ".join(checked.errors))
@@ -334,14 +337,29 @@ def import_theme(path: Path, library: Path, reserved_ids: set[str] | None = None
             wallpaper_destination.unlink(missing_ok=True)
             wallpaper_directory.rmdir()
             raise
+    destination: Path | None = None
+    trust_path: Path | None = None
     try:
         destination = save_theme_source(theme, library / "themes")
-    except (GeneratorFailure, OSError):
+        trust_path = write_trust_record(
+            library,
+            theme["id"],
+            source_sha256,
+            _digest(destination.read_bytes()),
+            executable_fields,
+        )
+    except (GeneratorFailure, OSError, ValueError):
+        if destination is not None:
+            destination.unlink(missing_ok=True)
         if wallpaper_destination is not None:
             wallpaper_destination.unlink(missing_ok=True)
             wallpaper_destination.parent.rmdir()
+        if trust_path is not None:
+            trust_path.unlink(missing_ok=True)
         raise
     result_warnings = warnings + checked.warnings + _dependency_warnings(theme, destination)
+    if executable_fields:
+        result_warnings.append("disabled executable fields from untrusted import: " + ", ".join(executable_fields))
     data = {
         "id": theme["id"],
         "path": str(destination),
@@ -349,6 +367,10 @@ def import_theme(path: Path, library: Path, reserved_ids: set[str] | None = None
         "source_kind": source_kind,
         "wallpaper_imported": wallpaper_destination is not None,
         "applied": False,
-        "source_sha256": _digest(destination.read_bytes()),
+        "source_sha256": source_sha256,
+        "content_sha256": _digest(destination.read_bytes()),
+        "trusted": False,
+        "trust_record": str(trust_path),
+        "executable_fields": executable_fields,
     }
     return data, result_warnings

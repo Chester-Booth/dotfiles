@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# shellcheck source=../status/common.sh
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../status" && pwd)/common.sh"
+
 state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell/update"
 cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/quickshell/update"
 runtime_dir="${XDG_RUNTIME_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}}/quickshell"
@@ -17,6 +20,7 @@ cache_is_fresh() {
 	local now mtime
 
 	[[ -s "$cache_file" ]] || return 1
+	jq -e 'has("repoCount") and has("aurCount") and has("totalCount") and has("capability")' "$cache_file" >/dev/null 2>&1 || return 1
 	now=$(date +%s)
 	mtime=$(stat -c %Y "$cache_file" 2>/dev/null) || return 1
 
@@ -32,8 +36,16 @@ write_cache() {
 }
 
 emit_json() {
-	write_cache "$1"
-	printf '%s\n' "$1"
+	local payload="$1"
+	local available="${2:-true}"
+	local ready="${3:-true}"
+	local can_change="${4:-false}"
+	local permission="${5:-not-required}"
+	local reason="${6:-}"
+	local output
+	output="$(emit_status "$payload" "$available" "$ready" "$can_change" "$permission" "$reason")"
+	write_cache "$output"
+	printf '%s\n' "$output"
 	exit 0
 }
 
@@ -159,17 +171,21 @@ if ((repo_failed || aur_failed)); then
 
 	printf -v failed_list '%s, ' "${failed_checks[@]}"
 	tooltip="Update check failed: ${failed_list%, }"
-	emit_json "$(printf '{"alt":"error","class":"error","tooltip":"%s"}' "$tooltip")"
+	reason="query-failed"
+	if ! command -v checkupdates >/dev/null 2>&1 || ! command -v yay >/dev/null 2>&1; then
+		reason="command-unavailable"
+	fi
+	emit_json "$(jq -nc --arg tooltip "$tooltip" --arg details "$tooltip" '{alt:"error",class:"error",repoCount:0,aurCount:0,totalCount:0,summary:"Update check failed",details:$details,tooltip:$tooltip}')" true false false unknown "$reason"
 elif ((repo_updates + aur_updates > critical_threshold)); then
 	notify_critical_updates "$((repo_updates + aur_updates))" "$repo_updates" "$aur_updates"
-	emit_json "$(printf '{"alt":"hundred","class":"hundred","tooltip":"%d repo updates, %d AUR updates"}' "$repo_updates" "$aur_updates")"
+	emit_json "$(jq -nc --argjson repo "$repo_updates" --argjson aur "$aur_updates" '{alt:"hundred",class:"hundred",repoCount:$repo,aurCount:$aur,totalCount:($repo + $aur),summary:(($repo + $aur)|tostring) + " updates",details:(($repo)|tostring) + " repo updates, " + (($aur)|tostring) + " AUR updates",tooltip:(($repo)|tostring) + " repo updates, " + (($aur)|tostring) + " AUR updates"}')" true true false not-required ""
 elif ((repo_updates + aur_updates > 50)); then
 	clear_notification_state
-	emit_json "$(printf '{"alt":"fifty","class":"fifty","tooltip":"%d repo updates, %d AUR updates"}' "$repo_updates" "$aur_updates")"
+	emit_json "$(jq -nc --argjson repo "$repo_updates" --argjson aur "$aur_updates" '{alt:"fifty",class:"fifty",repoCount:$repo,aurCount:$aur,totalCount:($repo + $aur),summary:(($repo + $aur)|tostring) + " updates",details:(($repo)|tostring) + " repo updates, " + (($aur)|tostring) + " AUR updates",tooltip:(($repo)|tostring) + " repo updates, " + (($aur)|tostring) + " AUR updates"}')" true true false not-required ""
 elif ((repo_updates + aur_updates == 0)); then
 	clear_notification_state
-	emit_json '{"alt":"zero","class":"zero","tooltip":"Up to Date!"}'
+	emit_json '{"alt":"zero","class":"zero","repoCount":0,"aurCount":0,"totalCount":0,"summary":"0 updates","details":"0 repo updates, 0 AUR updates","tooltip":"Up to Date!"}' true true false not-required ""
 else
 	clear_notification_state
-	emit_json "$(printf '{"alt":"lessfifty","class":"lessfifty","tooltip":"%d repo updates, %d AUR updates"}' "$repo_updates" "$aur_updates")"
+	emit_json "$(jq -nc --argjson repo "$repo_updates" --argjson aur "$aur_updates" '{alt:"lessfifty",class:"lessfifty",repoCount:$repo,aurCount:$aur,totalCount:($repo + $aur),summary:(($repo + $aur)|tostring) + " updates",details:(($repo)|tostring) + " repo updates, " + (($aur)|tostring) + " AUR updates",tooltip:(($repo)|tostring) + " repo updates, " + (($aur)|tostring) + " AUR updates"}')" true true false not-required ""
 fi

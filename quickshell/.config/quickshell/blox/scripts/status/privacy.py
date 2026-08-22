@@ -3,19 +3,23 @@ import json
 import subprocess
 
 
-def emit(icon, state, tooltip, *, microphone=0, video=0):
-    print(
-        json.dumps(
-            {
-                "icon": icon,
-                "class": state,
-                "active": microphone > 0 or video > 0,
-                "microphoneCount": microphone,
-                "videoCount": video,
-                "tooltip": tooltip,
-            }
-        )
-    )
+def emit(icon, state, tooltip, *, microphone=0, video=0, available=True, ready=True, can_change=False, permission="not-required", reason=None):
+    print(json.dumps({
+        "icon": icon,
+        "class": state,
+        "active": microphone > 0 or video > 0,
+        "microphoneCount": microphone,
+        "videoCount": video,
+        "details": tooltip,
+        "tooltip": tooltip,
+        "capability": {
+            "available": available,
+            "ready": ready,
+            "canChange": can_change,
+            "permission": permission,
+            "reason": reason,
+        },
+    }))
 
 
 try:
@@ -27,8 +31,11 @@ try:
         timeout=4,
     )
     objects = json.loads(result.stdout)
-except (FileNotFoundError, subprocess.SubprocessError, json.JSONDecodeError) as error:
-    emit("󰍹", "error", f"Privacy status unavailable: {error}")
+except FileNotFoundError as error:
+    emit("󰍹", "error", f"Privacy status unavailable: {error}", available=False, ready=False, reason="command-unavailable")
+    raise SystemExit(0)
+except (subprocess.SubprocessError, json.JSONDecodeError) as error:
+    emit("󰍹", "error", f"Privacy status unavailable: {error}", available=True, ready=False, reason="query-failed")
     raise SystemExit(0)
 
 nodes = {

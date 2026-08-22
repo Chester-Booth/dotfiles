@@ -20,7 +20,24 @@ Item {
     })
     readonly property string batteryDisplay: itemConfig.display || "toggle"
     readonly property string itemVisibility: itemConfig.visibility || "normal"
-    readonly property bool runtimeSuppressed: itemVisibility === "always" ? false : itemId === "privacy" ? contentController.privacy.json.active !== true : itemId === "touchpad" ? contentController.touchpad.json.enabled !== false : itemId === "fan" ? contentController.systemInfo.json.profile === undefined || contentController.systemInfo.json.profile === "Quiet" : itemId === "gpu" ? contentController.systemInfo.json.gpuMode === undefined || contentController.systemInfo.json.gpuMode === "eco" : false
+    readonly property bool capabilitySuppressed: {
+        const sources = {
+            "wifi": contentController.network.json,
+            "sound": contentController.audio.json,
+            "display": contentController.brightness.json,
+            "bt": contentController.bluetooth.json,
+            "privacy": contentController.privacy.json,
+            "awake": contentController.caffeine.json,
+            "updates": contentController.updates.json,
+            "touchpad": contentController.touchpad.json
+        };
+        const status = sources[root.itemId];
+        return status && status.capability && status.capability.available === false;
+    }
+    function suppressForRuntimeState() {
+        return itemId === "privacy" ? contentController.privacy.json.active !== true : itemId === "touchpad" ? contentController.touchpad.json.enabled !== false : itemId === "fan" ? contentController.systemInfo.json.profile === undefined || contentController.systemInfo.json.profile === "Quiet" : itemId === "gpu" ? contentController.systemInfo.json.gpuMode === undefined || contentController.systemInfo.json.gpuMode === "eco" : false;
+    }
+    readonly property bool runtimeSuppressed: itemVisibility === "always" ? false : (capabilitySuppressed || suppressForRuntimeState())
     readonly property bool contentVisible: contentLoader.item !== null && !runtimeSuppressed
 
     function mappedCentre(item, centre) {

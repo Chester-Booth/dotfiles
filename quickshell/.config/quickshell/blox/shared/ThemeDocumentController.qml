@@ -7,45 +7,50 @@ QtObject {
     required property ThemeDefaults defaults
 
     function reset() {
+        const fallback = root.defaults.themeDocument();
+        const colours = fallback.colours;
+        const fonts = fallback.fonts;
+        const shell = fallback.shell;
         theme.previewActive = false;
         theme.previewThemeId = "";
-        theme.themeId = "catppuccin-mocha";
+        theme.themeId = fallback.id;
         theme.activeThemeId = theme.themeId;
-        theme.variant = "dark";
-        theme.background = "#1e1e2e";
-        theme.surface = "#313244";
-        theme.surfaceAlt = "#45475a";
-        theme.foreground = "#cdd6f4";
-        theme.muted = "#a6adc8";
-        theme.red = "#f38ba8";
-        theme.green = "#a6e3a1";
-        theme.yellow = "#f9e2af";
-        theme.accent = "#89b4fa";
-        theme.blue = "#74c7ec";
-        theme.mauve = "#cba6f7";
-        theme.teal = "#94e2d5";
-        theme.selectionForeground = "#1e1e2e";
-        theme.border = "#6c7086";
-        theme.fontFamily = "FiraCode Nerd Font Propo";
-        theme.monoFontFamily = "FiraCode Nerd Font Mono";
-        theme.bodyFontFamily = "Outfit";
-        theme.barPosition = "right";
+        theme.variant = fallback.variant;
+        theme.background = colours.background;
+        theme.surface = colours.surface;
+        theme.surfaceAlt = colours.surface_alt;
+        theme.foreground = colours.foreground;
+        theme.muted = colours.muted;
+        theme.red = colours.red;
+        theme.green = colours.green;
+        theme.yellow = colours.yellow;
+        theme.accent = colours.accent;
+        theme.blue = colours.blue;
+        theme.mauve = colours.mauve;
+        theme.teal = colours.teal;
+        theme.selectionForeground = colours.selection_foreground;
+        theme.border = colours.border;
+        theme.fontFamily = fonts.panel;
+        theme.monoFontFamily = fonts.mono;
+        theme.bodyFontFamily = fonts.ui;
+        theme.barPosition = shell.bar.position;
         theme.barItems = theme.builtinBarItems();
-        theme.osdPosition = "centre-top";
-        theme.osdOffsetX = 0;
-        theme.osdOffsetY = 0;
-        theme.notificationPosition = "top-left";
-        theme.notificationOffsetX = 0;
-        theme.notificationOffsetY = 0;
+        theme.osdPosition = shell.osd.position;
+        theme.osdOffsetX = shell.osd.offset_x;
+        theme.osdOffsetY = shell.osd.offset_y;
+        theme.notificationPosition = shell.notifications.position;
+        theme.notificationOffsetX = shell.notifications.offset_x;
+        theme.notificationOffsetY = shell.notifications.offset_y;
         return theme.themeId;
     }
 
     function resetWidgets() {
-        theme.widgetProfile = "minimal";
-        theme.widgetOpacity = 0.3;
-        theme.widgetPadding = 20;
-        theme.widgetRadius = 0;
-        theme.widgetFontSize = 14;
+        const profile = root.defaults.widgetProfile();
+        theme.widgetProfile = root.defaults.document.widgets.profile;
+        theme.widgetOpacity = profile.opacity;
+        theme.widgetPadding = profile.padding;
+        theme.widgetRadius = profile.radius;
+        theme.widgetFontSize = profile.font_size;
         theme.widgetItems = [];
         return theme.widgetProfile;
     }
@@ -107,30 +112,7 @@ QtObject {
     }
 
     function loadWidgetSource(profile) {
-        const profiles = {
-            "minimal": {
-                "opacity": 0.3,
-                "margin": 20,
-                "padding": 20,
-                "radius": 0,
-                "font_size": 14
-            },
-            "compact": {
-                "opacity": 0.52,
-                "margin": 12,
-                "padding": 12,
-                "radius": 6,
-                "font_size": 12
-            },
-            "comfortable": {
-                "opacity": 0.42,
-                "margin": 24,
-                "padding": 24,
-                "radius": 10,
-                "font_size": 15
-            }
-        };
-        const resolved = profiles[profile || "minimal"];
+        const resolved = root.defaults.widgetProfile(profile);
         if (!resolved)
             return false;
 
@@ -146,20 +128,19 @@ QtObject {
     }
 
     function loadShell(shell) {
-        const data = shell || {
-        };
-        const osd = data.osd || {
-        };
-        const notifications = data.notifications || {
-        };
-        theme.barPosition = data.bar && data.bar.position ? data.bar.position : "left";
+        const fallback = root.defaults.themeDocument().shell;
+        const data = shell || { };
+        const bar = data.bar || fallback.bar;
+        const osd = data.osd || fallback.osd;
+        const notifications = data.notifications || fallback.notifications;
+        theme.barPosition = bar.position;
         theme.barItems = defaults.resolvedBarItems(data.bar && data.bar.items ? data.bar.items : []);
-        theme.osdPosition = osd.position || "top-left";
-        theme.osdOffsetX = osd.offset_x || 0;
-        theme.osdOffsetY = osd.offset_y || 0;
-        theme.notificationPosition = notifications.position || "bottom-right";
-        theme.notificationOffsetX = notifications.offset_x || 0;
-        theme.notificationOffsetY = notifications.offset_y || 0;
+        theme.osdPosition = osd.position;
+        theme.osdOffsetX = osd.offset_x;
+        theme.osdOffsetY = osd.offset_y;
+        theme.notificationPosition = notifications.position;
+        theme.notificationOffsetX = notifications.offset_x;
+        theme.notificationOffsetY = notifications.offset_y;
         return true;
     }
 

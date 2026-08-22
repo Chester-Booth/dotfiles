@@ -13,6 +13,7 @@ ColumnLayout {
 
     SystemLevelSlider {
         Layout.fillWidth: true
+        interactive: root.controller.brightnessCanChange
         value: root.controller.visualBrightnessPercent
         accent: Theme.yellow
         onDragStarted: root.controller.adjustingBrightness = true
@@ -24,6 +25,7 @@ ColumnLayout {
 
     PillSelector {
         Layout.fillWidth: true
+        enabled: root.controller.brightnessCanChange
         title: "Blue light"
         currentId: root.controller.visualBlueLightMode
         optimistic: true

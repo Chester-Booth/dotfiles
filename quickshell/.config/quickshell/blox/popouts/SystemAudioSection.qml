@@ -13,6 +13,7 @@ ColumnLayout {
 
     SystemLevelSlider {
         Layout.fillWidth: true
+        interactive: root.controller.audioCanChange
         value: root.controller.visualAudioVolume
         maxValue: 150
         snapValue: 100
@@ -26,6 +27,7 @@ ColumnLayout {
 
     PillSelector {
         Layout.fillWidth: true
+        enabled: root.controller.audioCanChange
         title: "Microphone"
         currentText: visualId === "muted" ? "Muted" : "Open"
         currentId: root.controller.micMuted ? "muted" : "open"

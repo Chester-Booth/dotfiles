@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -u
 
+# shellcheck source=common.sh
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/common.sh"
+
 profile="$(asusctl profile get 2>/dev/null | awk -F': ' '{print $2}')"
 [ -n "$profile" ] || profile="Unknown"
 
@@ -117,7 +120,7 @@ if [ -n "$gpu_stats" ]; then
 	vram_total="${vram_total//[[:space:]]/}"
 fi
 
-jq -nc \
+payload="$(jq -nc \
 	--arg profile "$profile" \
 	--arg fanRpm "$fan_rpm" \
 	--arg fan1Rpm "$fan1" \
@@ -165,4 +168,5 @@ jq -nc \
       gpuTemp:$gpuTemp,
       vramUsed:$vramUsed,
       vramTotal:$vramTotal
-    }'
+    }')"
+emit_status "$payload" true true false not-required ""

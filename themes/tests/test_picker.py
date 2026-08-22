@@ -372,7 +372,8 @@ class PickerIntegrationSourceTests(unittest.TestCase):
         self.assertIn('return "busy"', picker)
         self.assertIn("return root.requestClose()", picker)
         self.assertNotIn("candidate.wallpaper.path);\n            }\n            return \"open-generating\"", picker)
-        self.assertIn('property string activeThemeId: "catppuccin-mocha"', theme)
+        self.assertIn('property string activeThemeId: ""', theme)
+        self.assertIn('property string themeId: ""', theme)
         document = (REPOSITORY / "quickshell/.config/quickshell/blox/shared/ThemeDocumentController.qml").read_text(encoding="utf-8")
         self.assertIn("theme.activeThemeId = data.id", document)
         preview = document.split("function previewSource", 1)[1]

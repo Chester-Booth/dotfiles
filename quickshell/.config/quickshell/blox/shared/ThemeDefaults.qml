@@ -1,167 +1,115 @@
 import QtQuick
+import Quickshell
+import Quickshell.Io
 
 QtObject {
+    id: root
+
+    property var document: null
+    property bool ready: false
+    property string error: ""
+    readonly property string path: {
+        const configured = Quickshell.env("BLOX_DATA_DIR") || "";
+        return configured.length > 0 ? configured + "/defaults/v1.json" : Quickshell.shellDir + "/../../../../themes/defaults/v1.json";
+    }
+
+    signal loaded()
+    signal failed(string reason)
+
+    function clone(value) {
+        return JSON.parse(JSON.stringify(value));
+    }
+
+    function parse(raw) {
+        try {
+            const data = JSON.parse(raw);
+            if (data.schema_version !== 1 || data.defaults_version !== 1 || !data.theme || !data.widgets)
+                throw new Error("unsupported or incomplete defaults document");
+
+            if (!data.theme.colours || !data.theme.fonts || !data.theme.shell || !data.theme.wallpaper)
+                throw new Error("defaults document has incomplete theme values");
+
+            if (!data.theme.shell.bar || !Array.isArray(data.theme.shell.bar.items) || !Array.isArray(data.theme.shell.bar.reset_items))
+                throw new Error("defaults document has incomplete bar values");
+
+            if (!data.widgets.profile || !data.widgets.profiles)
+                throw new Error("defaults document has incomplete widget values");
+
+            document = data;
+            error = "";
+            ready = true;
+            loaded();
+            return true;
+        } catch (parseError) {
+            document = null;
+            ready = false;
+            error = String(parseError);
+            console.error("[blox.theme] rejected defaults document: " + error);
+            failed(error);
+            return false;
+        }
+    }
+
+    function themeDocument() {
+        return ready && document && document.theme ? document.theme : ({ });
+    }
+
+    function colour(key) {
+        return themeDocument().colours && themeDocument().colours[key] ? themeDocument().colours[key] : "transparent";
+    }
+
+    function font(key) {
+        return themeDocument().fonts && themeDocument().fonts[key] ? themeDocument().fonts[key] : "";
+    }
+
+    function defaultBarItems() {
+        return ready ? clone(themeDocument().shell.bar.items) : [];
+    }
+
+    function resetBarItems() {
+        return ready ? clone(themeDocument().shell.bar.reset_items) : [];
+    }
+
     function defaultWidgetItems() {
         return [];
     }
 
-    function defaultBarItems() {
-        return [{
-            "id": "power",
-            "enabled": true,
-            "region": "start",
-            "order": 0
-        }, {
-            "id": "notes",
-            "enabled": true,
-            "region": "start",
-            "order": 1
-        }, {
-            "id": "workspaces",
-            "enabled": true,
-            "region": "start",
-            "order": 2
-        }, {
-            "id": "clock",
-            "enabled": true,
-            "region": "centre",
-            "order": 0
-        }, {
-            "id": "active-window-title",
-            "enabled": false,
-            "region": "centre",
-            "order": 1,
-            "orientation": "inward",
-            "titleLength": "truncate"
-        }, {
-            "id": "battery",
-            "enabled": true,
-            "region": "end",
-            "order": 0,
-            "display": "toggle"
-        }, {
-            "id": "tray",
-            "enabled": true,
-            "region": "end",
-            "order": 1
-        }, {
-            "id": "notifications",
-            "enabled": true,
-            "region": "end",
-            "order": 2
-        }, {
-            "id": "wifi",
-            "enabled": true,
-            "region": "end",
-            "order": 3
-        }, {
-            "id": "sound",
-            "enabled": true,
-            "region": "end",
-            "order": 4
-        }, {
-            "id": "privacy",
-            "enabled": true,
-            "region": "hidden",
-            "order": 0,
-            "visibility": "normal"
-        }, {
-            "id": "awake",
-            "enabled": true,
-            "region": "hidden",
-            "order": 1
-        }, {
-            "id": "display",
-            "enabled": true,
-            "region": "hidden",
-            "order": 2
-        }, {
-            "id": "bt",
-            "enabled": true,
-            "region": "hidden",
-            "order": 3
-        }, {
-            "id": "updates",
-            "enabled": true,
-            "region": "hidden",
-            "order": 4
-        }, {
-            "id": "fan",
-            "enabled": true,
-            "region": "hidden",
-            "order": 5,
-            "visibility": "normal"
-        }, {
-            "id": "gpu",
-            "enabled": true,
-            "region": "hidden",
-            "order": 6,
-            "visibility": "normal"
-        }, {
-            "id": "application-tray",
-            "enabled": true,
-            "region": "hidden",
-            "order": 7
-        }, {
-            "id": "touchpad",
-            "enabled": true,
-            "region": "hidden",
-            "order": 8,
-            "visibility": "normal"
-        }];
-    }
-
-    function trayOpensForward(items) {
-        const tray = items.find((item) => {
-            return item.id === "tray";
-        });
-        if (!tray || tray.region === "end")
-            return false;
-
-        if (tray.region === "start")
-            return true;
-
-        if (tray.region !== "centre")
-            return false;
-
-        const centre = items.filter((item) => {
-            return item.region === "centre";
-        }).sort((left, right) => {
-            return left.order - right.order;
-        });
-        return centre.length > 0 && centre[centre.length - 1].id === "tray";
+    function widgetProfile(profile) {
+        const name = profile || (ready ? document.widgets.profile : "");
+        return ready && document.widgets.profiles[name] ? clone(document.widgets.profiles[name]) : null;
     }
 
     function resolvedBarItems(overrides) {
+        if (!ready)
+            return [];
+
         const items = defaultBarItems();
-        const byId = {
-        };
-        for (let index = 0; index < overrides.length; index++) byId[overrides[index].id] = overrides[index]
+        const byId = { };
+        for (let index = 0; index < (overrides || []).length; index++)
+            byId[overrides[index].id] = overrides[index];
+
         if (byId["tray"] && !byId["application-tray"]) {
-            byId["application-tray"] = Object.assign({
-            }, byId["tray"], {
+            byId["application-tray"] = Object.assign({ }, byId["tray"], {
                 "id": "application-tray"
             });
             byId["tray"] = null;
         }
+
         for (let index = 0; index < items.length; index++) {
             const override = byId[items[index].id];
             if (override)
-                items[index] = Object.assign({
-            }, items[index], override);
-
+                items[index] = Object.assign({ }, items[index], override);
         }
-        const tray = items.find((item) => {
-            return item.id === "tray";
-        });
+
+        const tray = items.find((item) => item.id === "tray");
+        const applicationTray = items.find((item) => item.id === "application-tray");
+        if (!tray || !applicationTray)
+            return [];
+
         if (tray.region === "hidden")
             tray.region = "end";
 
-        const visible = items.filter((item) => {
-            return item.region === tray.region;
-        }).sort((left, right) => {
-            return left.order - right.order;
-        });
+        const visible = items.filter((item) => item.region === tray.region).sort((left, right) => left.order - right.order);
         const trayIndex = visible.indexOf(tray);
         visible.splice(trayIndex, 1);
         if (tray.region === "start")
@@ -170,30 +118,43 @@ QtObject {
             visible.unshift(tray);
         else
             visible.push(tray);
-        for (let index = 0; index < visible.length; ++index) visible[index].order = index
-        const applicationTray = items.find((item) => {
-            return item.id === "application-tray";
-        });
+        for (let index = 0; index < visible.length; ++index)
+            visible[index].order = index;
+
         applicationTray.region = "hidden";
-        const hidden = items.filter((item) => {
-            return item.region === "hidden" && item.id !== "application-tray";
-        }).sort((left, right) => {
-            return left.order - right.order;
-        });
+        const hidden = items.filter((item) => item.region === "hidden" && item.id !== "application-tray").sort((left, right) => left.order - right.order);
         if (trayOpensForward(items))
             hidden.push(applicationTray);
         else
             hidden.unshift(applicationTray);
-        for (let index = 0; index < hidden.length; index++) hidden[index].order = index
+        for (let index = 0; index < hidden.length; index++)
+            hidden[index].order = index;
         return items;
     }
 
-    function barItemsForRegion(items, region) {
-        return items.filter((item) => {
-            return item.enabled && item.region === region;
-        }).sort((left, right) => {
-            return left.order - right.order;
-        });
+    function trayOpensForward(items) {
+        const tray = (items || []).find((item) => item.id === "tray");
+        if (!tray || tray.region === "end")
+            return false;
+        if (tray.region === "start")
+            return true;
+        if (tray.region !== "centre")
+            return false;
+        const centre = (items || []).filter((item) => item.region === "centre").sort((left, right) => left.order - right.order);
+        return centre.length > 0 && centre[centre.length - 1].id === "tray";
     }
 
+    function barItemsForRegion(items, region) {
+        return (items || []).filter((item) => item.enabled && item.region === region).sort((left, right) => left.order - right.order);
+    }
+
+    property FileView defaultsFile: FileView {
+        path: root.path
+        preload: true
+        blockLoading: true
+        watchChanges: true
+        printErrors: false
+        onLoaded: root.parse(text())
+        onFileChanged: root.parse(text())
+    }
 }

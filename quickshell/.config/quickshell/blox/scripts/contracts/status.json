@@ -7,7 +7,22 @@
       "volume": "number",
       "muted": "boolean",
       "micMuted": "boolean",
-      "tooltip": "string"
+      "tooltip": "string",
+      "capability": "object"
+    },
+    "children": {
+      "capability": {
+        "required": {
+          "available": "boolean",
+          "ready": "boolean",
+          "canChange": "boolean",
+          "permission": "string",
+          "reason": ["string", "null"]
+        },
+        "enum": {
+          "permission": ["not-required", "unknown", "granted", "denied"]
+        }
+      }
     }
   },
   "battery": {
@@ -18,7 +33,22 @@
       "capacity": ["number", "string"],
       "status": "string",
       "timeLabel": "string",
-      "tooltip": "string"
+      "tooltip": "string",
+      "capability": "object"
+    },
+    "children": {
+      "capability": {
+        "required": {
+          "available": "boolean",
+          "ready": "boolean",
+          "canChange": "boolean",
+          "permission": "string",
+          "reason": ["string", "null"]
+        },
+        "enum": {
+          "permission": ["not-required", "unknown", "granted", "denied"]
+        }
+      }
     }
   },
   "bluetooth": {
@@ -26,7 +56,23 @@
     "required": {
       "icon": "string",
       "class": "string",
-      "tooltip": "string"
+      "details": "string",
+      "tooltip": "string",
+      "capability": "object"
+    },
+    "children": {
+      "capability": {
+        "required": {
+          "available": "boolean",
+          "ready": "boolean",
+          "canChange": "boolean",
+          "permission": "string",
+          "reason": ["string", "null"]
+        },
+        "enum": {
+          "permission": ["not-required", "unknown", "granted", "denied"]
+        }
+      }
     }
   },
   "brightness": {
@@ -36,7 +82,23 @@
       "percent": "number",
       "blueLightMode": "string",
       "blueLightActive": "boolean",
-      "tooltip": "string"
+      "details": "string",
+      "tooltip": "string",
+      "capability": "object"
+    },
+    "children": {
+      "capability": {
+        "required": {
+          "available": "boolean",
+          "ready": "boolean",
+          "canChange": "boolean",
+          "permission": "string",
+          "reason": ["string", "null"]
+        },
+        "enum": {
+          "permission": ["not-required", "unknown", "granted", "denied"]
+        }
+      }
     }
   },
   "network": {
@@ -44,13 +106,30 @@
     "required": {
       "icon": "string",
       "class": "string",
-      "tooltip": "string"
+      "summary": "string",
+      "details": "string",
+      "tooltip": "string",
+      "capability": "object"
     },
     "optional": {
       "ssid": "string",
       "signal": "number",
       "freq": "string",
       "device": "string"
+    },
+    "children": {
+      "capability": {
+        "required": {
+          "available": "boolean",
+          "ready": "boolean",
+          "canChange": "boolean",
+          "permission": "string",
+          "reason": ["string", "null"]
+        },
+        "enum": {
+          "permission": ["not-required", "unknown", "granted", "denied"]
+        }
+      }
     }
   },
   "privacy": {
@@ -61,7 +140,23 @@
       "active": "boolean",
       "microphoneCount": "number",
       "videoCount": "number",
-      "tooltip": "string"
+      "details": "string",
+      "tooltip": "string",
+      "capability": "object"
+    },
+    "children": {
+      "capability": {
+        "required": {
+          "available": "boolean",
+          "ready": "boolean",
+          "canChange": "boolean",
+          "permission": "string",
+          "reason": ["string", "null"]
+        },
+        "enum": {
+          "permission": ["not-required", "unknown", "granted", "denied"]
+        }
+      }
     }
   },
   "system": {
@@ -89,10 +184,25 @@
       "gpuUtil": "string",
       "gpuTemp": "string",
       "vramUsed": "string",
-      "vramTotal": "string"
+      "vramTotal": "string",
+      "capability": "object"
     },
     "enum": {
       "gpuMode": ["eco", "high-refresh", "performance", "gaming"]
+    },
+    "children": {
+      "capability": {
+        "required": {
+          "available": "boolean",
+          "ready": "boolean",
+          "canChange": "boolean",
+          "permission": "string",
+          "reason": ["string", "null"]
+        },
+        "enum": {
+          "permission": ["not-required", "unknown", "granted", "denied"]
+        }
+      }
     }
   },
   "todo": {
@@ -104,7 +214,22 @@
       "raw": "string",
       "index": "number",
       "count": "number",
-      "tooltip": "string"
+      "tooltip": "string",
+      "capability": "object"
+    },
+    "children": {
+      "capability": {
+        "required": {
+          "available": "boolean",
+          "ready": "boolean",
+          "canChange": "boolean",
+          "permission": "string",
+          "reason": ["string", "null"]
+        },
+        "enum": {
+          "permission": ["not-required", "unknown", "granted", "denied"]
+        }
+      }
     }
   },
   "touchpad": {
@@ -113,7 +238,22 @@
       "icon": "string",
       "class": "string",
       "enabled": "boolean",
-      "tooltip": "string"
+      "tooltip": "string",
+      "capability": "object"
+    },
+    "children": {
+      "capability": {
+        "required": {
+          "available": "boolean",
+          "ready": "boolean",
+          "canChange": "boolean",
+          "permission": "string",
+          "reason": ["string", "null"]
+        },
+        "enum": {
+          "permission": ["not-required", "unknown", "granted", "denied"]
+        }
+      }
     }
   },
   "caffeine": {
@@ -128,7 +268,22 @@
       "deadline": "number",
       "remaining": "number",
       "hypridleRunning": "boolean",
-      "reconciled": "boolean"
+      "reconciled": "boolean",
+      "capability": "object"
+    },
+    "children": {
+      "capability": {
+        "required": {
+          "available": "boolean",
+          "ready": "boolean",
+          "canChange": "boolean",
+          "permission": "string",
+          "reason": ["string", "null"]
+        },
+        "enum": {
+          "permission": ["not-required", "unknown", "granted", "denied"]
+        }
+      }
     }
   },
   "updates": {
@@ -136,7 +291,27 @@
     "required": {
       "alt": "string",
       "class": "string",
-      "tooltip": "string"
+      "repoCount": "number",
+      "aurCount": "number",
+      "totalCount": "number",
+      "summary": "string",
+      "details": "string",
+      "tooltip": "string",
+      "capability": "object"
+    },
+    "children": {
+      "capability": {
+        "required": {
+          "available": "boolean",
+          "ready": "boolean",
+          "canChange": "boolean",
+          "permission": "string",
+          "reason": ["string", "null"]
+        },
+        "enum": {
+          "permission": ["not-required", "unknown", "granted", "denied"]
+        }
+      }
     }
   },
   "workspaceEmpty": {
@@ -144,14 +319,30 @@
     "required": {
       "workspace": ["number", "null"],
       "empty": "boolean",
-      "count": "number"
+      "count": "number",
+      "capability": "object"
+    },
+    "children": {
+      "capability": {
+        "required": {
+          "available": "boolean",
+          "ready": "boolean",
+          "canChange": "boolean",
+          "permission": "string",
+          "reason": ["string", "null"]
+        },
+        "enum": {
+          "permission": ["not-required", "unknown", "granted", "denied"]
+        }
+      }
     }
   },
   "workspaces": {
     "command": ["workspaces/status.py"],
     "required": {
       "main": "array",
-      "special": "object"
+      "special": "object",
+      "capability": "object"
     },
     "items": {
       "main": {
@@ -170,6 +361,18 @@
         "occupied": "boolean",
         "icon": "string",
         "tooltip": "string"
+      },
+      "capability": {
+        "required": {
+          "available": "boolean",
+          "ready": "boolean",
+          "canChange": "boolean",
+          "permission": "string",
+          "reason": ["string", "null"]
+        },
+        "enum": {
+          "permission": ["not-required", "unknown", "granted", "denied"]
+        }
       }
     }
   }

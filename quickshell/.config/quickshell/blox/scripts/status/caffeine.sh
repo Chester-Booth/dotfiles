@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=common.sh
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/common.sh"
+
 state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell"
 state_file="$state_dir/caffeine.json"
 
@@ -29,9 +32,22 @@ duration_label() {
 
 json_status() {
 	local deadline mode active remaining label class tooltip hypridle_running reconciled
+	local capability_available capability_ready capability_change capability_permission capability_reason
 	deadline="0"
 	mode="off"
 	reconciled=false
+	capability_available=true
+	capability_ready=true
+	capability_change=true
+	capability_permission="granted"
+	capability_reason=""
+	if ! command -v hypridle >/dev/null 2>&1; then
+		capability_available=false
+		capability_ready=false
+		capability_change=false
+		capability_permission="unknown"
+		capability_reason="command-unavailable"
+	fi
 
 	if [[ -f "$state_file" ]]; then
 		deadline="$(jq -r '.deadline // 0' "$state_file" 2>/dev/null || echo 0)"
@@ -59,17 +75,17 @@ json_status() {
 		class="idle"
 		tooltip="Hypridle running"
 		rm -f "$state_file"
-		if ! pgrep -x hypridle >/dev/null 2>&1; then
+		if [[ "$capability_available" == "true" ]] && ! pgrep -x hypridle >/dev/null 2>&1; then
 			hypridle >/dev/null 2>&1 &
 		fi
 	fi
 
-	if [[ "$active" == "true" ]] && pgrep -x hypridle >/dev/null 2>&1; then
+	if [[ "$active" == "true" && "$capability_available" == "true" ]] && pgrep -x hypridle >/dev/null 2>&1; then
 		pkill -x hypridle >/dev/null 2>&1 || true
 		reconciled=true
 	fi
 
-	if pgrep -x hypridle >/dev/null 2>&1; then
+	if [[ "$capability_available" == "true" ]] && pgrep -x hypridle >/dev/null 2>&1; then
 		hypridle_running=true
 	else
 		hypridle_running=false
@@ -88,7 +104,7 @@ json_status() {
 		tooltip+=$'\nHypridle active'
 	fi
 
-	jq -nc \
+	payload="$(jq -nc \
 		--arg icon "󰅶" \
 		--arg class "$class" \
 		--arg mode "$mode" \
@@ -99,7 +115,8 @@ json_status() {
 		--argjson remaining "$remaining" \
 		--argjson hypridleRunning "$hypridle_running" \
 		--argjson reconciled "$reconciled" \
-		'{icon:$icon,class:$class,mode:$mode,label:$label,tooltip:$tooltip,active:$active,deadline:$deadline,remaining:$remaining,hypridleRunning:$hypridleRunning,reconciled:$reconciled}'
+		'{icon:$icon,class:$class,mode:$mode,label:$label,tooltip:$tooltip,active:$active,deadline:$deadline,remaining:$remaining,hypridleRunning:$hypridleRunning,reconciled:$reconciled}')"
+	emit_status "$payload" "$capability_available" "$capability_ready" "$capability_change" "$capability_permission" "$capability_reason"
 }
 
 set_awake() {
@@ -123,7 +140,7 @@ set_awake() {
 			current="$(jq -r '.deadline // 0' "$state_file" 2>/dev/null || echo 0)"
 			if [[ "$current" == "$deadline" ]]; then
 				rm -f "$state_file"
-				if ! pgrep -x hypridle >/dev/null 2>&1; then
+			if command -v hypridle >/dev/null 2>&1 && ! pgrep -x hypridle >/dev/null 2>&1; then
 					hypridle >/dev/null 2>&1 &
 				fi
 			fi
@@ -133,7 +150,7 @@ set_awake() {
 
 turn_off() {
 	rm -f "$state_file"
-	if ! pgrep -x hypridle >/dev/null 2>&1; then
+	if command -v hypridle >/dev/null 2>&1 && ! pgrep -x hypridle >/dev/null 2>&1; then
 		hypridle >/dev/null 2>&1 &
 	fi
 }

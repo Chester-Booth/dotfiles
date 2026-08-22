@@ -9,6 +9,7 @@ RowLayout {
     property int maxValue: 100
     property int snapValue: -1
     property int snapDistance: 3
+    property bool interactive: true
     property color accent: Theme.blue
     property color knobColor: Qt.darker(accent, 1.4)
     property color overdriveTrackColor: Qt.rgba(Theme.surface.r * 0.82 + Theme.red.r * 0.18, Theme.surface.g * 0.82 + Theme.red.g * 0.18, Theme.surface.b * 0.82 + Theme.red.b * 0.18, 1)
@@ -18,6 +19,7 @@ RowLayout {
     signal dragFinished()
 
     spacing: 8
+    opacity: interactive ? 1 : 0.55
 
     Rectangle {
         Layout.fillWidth: true
@@ -69,8 +71,9 @@ RowLayout {
             }
 
             anchors.fill: parent
+            enabled: root.interactive
             hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
+            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
             onPressed: (mouse) => {
                 root.dragStarted();
                 root.changed(valueAt(mouse.x));

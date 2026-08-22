@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -u
 
+# shellcheck source=common.sh
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/common.sh"
+
 CACHE_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/quickshell/battery-status.json"
 
 battery_dir=""
@@ -23,11 +26,11 @@ if [[ ! "$capacity" =~ ^[0-9]+$ ]]; then
 		jq -e '.class | type == "string"' "$CACHE_FILE" >/dev/null 2>&1 &&
 		jq -e '.status | type == "string"' "$CACHE_FILE" >/dev/null 2>&1 &&
 		jq -e '.timeLabel | type == "string"' "$CACHE_FILE" >/dev/null 2>&1; then
-		cat "$CACHE_FILE"
+		emit_status "$(cat "$CACHE_FILE")" true false false not-required "stale"
 		exit 0
 	fi
 
-	jq -nc '{"icon":"󰚥","class":"plugged","capacity":"","status":"Unknown","timeLabel":"N/A","tooltip":"No battery detected"}'
+	emit_status '{"icon":"󰚥","class":"plugged","capacity":"","status":"Unknown","timeLabel":"N/A","tooltip":"No battery detected"}' false false false not-required "device-unavailable"
 	exit 0
 fi
 
@@ -82,4 +85,4 @@ json="$(jq -nc --arg icon "$icon" --arg class "$class" --arg status "$status" --
 cache_tmp="${CACHE_FILE}.$$"
 printf '%s\n' "$json" >"$cache_tmp"
 mv -f "$cache_tmp" "$CACHE_FILE"
-printf '%s\n' "$json"
+	emit_status "$json" true true false not-required ""

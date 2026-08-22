@@ -15,6 +15,10 @@ QtObject {
     property bool micMuted: false
     property bool networkEnabled: true
     property bool bluetoothEnabled: true
+    property bool audioCanChange: false
+    property bool networkCanChange: false
+    property bool bluetoothCanChange: false
+    property bool brightnessCanChange: false
     property string wifiIcon: "󰤩"
     property string wifiText: "Wi-Fi"
     property string bluetoothIcon: "󰂯"
@@ -41,6 +45,18 @@ QtObject {
 
     function currentMode() {
         return mode === "mic" ? "bluetooth" : mode;
+    }
+
+    function modeCanChange() {
+        if (currentMode() === "audio")
+            return audioCanChange;
+        if (currentMode() === "network")
+            return networkCanChange;
+        if (currentMode() === "bluetooth")
+            return bluetoothCanChange;
+        if (currentMode() === "brightness")
+            return brightnessCanChange;
+        return false;
     }
 
     function actionByLabel(text) {
@@ -88,9 +104,9 @@ QtObject {
             return visualBrightnessPercent + "% • " + (blueLightActive ? "Active" : "Inactive");
 
         if (currentMode() === "bluetooth")
-            return body.split("\n").join(" ");
+            return body;
 
-        return body.split("\n")[0];
+        return body;
     }
 
     function runCommand(command, keepOpen) {
@@ -98,11 +114,15 @@ QtObject {
     }
 
     function applyAudio() {
+        if (!audioCanChange)
+            return ;
         audioApplyPending = false;
         runCommand(scriptRoot + "/control.sh audio-set-silent " + visualAudioVolume, true);
     }
 
     function queueAudio(value) {
+        if (!audioCanChange)
+            return ;
         visualAudioVolume = value;
         levelPreviewRequested("volume", value, audioMuted);
         audioApplyPending = true;
@@ -123,11 +143,15 @@ QtObject {
     }
 
     function applyBrightness() {
+        if (!brightnessCanChange)
+            return ;
         brightnessApplyPending = false;
         runCommand(scriptRoot + "/control.sh brightness-set-silent " + visualBrightnessPercent, true);
     }
 
     function queueBrightness(value) {
+        if (!brightnessCanChange)
+            return ;
         visualBrightnessPercent = value;
         levelPreviewRequested("brightness", value, false);
         brightnessApplyPending = true;

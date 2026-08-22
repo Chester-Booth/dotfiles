@@ -1,9 +1,9 @@
 SHELL := /usr/bin/env bash
 QS := quickshell/.config/quickshell/blox
 
-.PHONY: check format lint doctor qmlformat qmllint shfmt shellcheck lua-check py-compile test-floating-sudo test-launcher validate-status validate-themes update-theme-golden systemd-verify diff-check
+.PHONY: check format lint doctor qmlformat qmllint shfmt shellcheck lua-check py-compile test-floating-sudo test-launcher test-status-contracts test-bloxctl test-native validate-status validate-themes update-theme-golden systemd-verify diff-check
 
-check: qmllint lua-check py-compile test-floating-sudo test-launcher validate-status validate-themes systemd-verify diff-check
+check: qmllint lua-check py-compile test-floating-sudo test-launcher test-status-contracts test-bloxctl test-native validate-status validate-themes systemd-verify diff-check
 
 format: qmlformat shfmt
 
@@ -31,7 +31,7 @@ shfmt:
 
 shellcheck:
 	@if command -v shellcheck >/dev/null 2>&1; then \
-		find bin hyprland quickshell systemd system-etc -type f \( -name '*.sh' -o -name 'dotfiles-doctor' \) -print0 | xargs -0 -r shellcheck; \
+		find bin hyprland quickshell systemd system-etc -type f \( -name '*.sh' -o -name 'dotfiles-doctor' \) -print0 | xargs -0 -r shellcheck -x -P quickshell/.config/quickshell/blox/scripts/status; \
 	else \
 		echo 'skip shellcheck: command not found'; \
 	fi
@@ -58,6 +58,15 @@ test-floating-sudo:
 test-launcher:
 	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests/test_launcher_apps.py tests/test_launcher_clipboard.py tests/test_launcher_dmenu.py tests/test_launcher_emoji.py tests/test_launcher_processes.py -v
 	@QT_QPA_PLATFORM=offscreen /usr/lib/qt6/bin/qmltestrunner -import tests/qml/imports -input tests/qml
+
+test-status-contracts:
+	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests/test_status_contracts.py -v
+
+test-bloxctl:
+	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests/test_bloxctl.py -v
+
+test-native:
+	@PYTHONDONTWRITEBYTECODE=1 python3 $(QS)/scripts/launcher/native/test_native.py
 
 validate-status:
 	@$(QS)/scripts/validate-status.py --timeout 10

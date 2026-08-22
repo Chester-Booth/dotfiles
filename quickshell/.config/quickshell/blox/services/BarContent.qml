@@ -48,30 +48,58 @@ QtObject {
         return "systemd-run --user --collect --quiet --setenv=DISPLAY=" + display + " --setenv=WAYLAND_DISPLAY=" + waylandDisplay + " -- kitty --class " + title + " --title " + title + " sh -c '" + command + "'";
     }
 
+    function canChange(status) {
+        return status && status.capability && status.capability.canChange === true;
+    }
+
+    function typedStatus(status, fields) {
+        const result = {};
+        for (const field of fields) {
+            if (status && status[field] !== undefined)
+                result[field] = status[field];
+        }
+        result.capability = status && status.capability ? status.capability : {
+            "available": false,
+            "ready": false,
+            "canChange": false,
+            "permission": "unknown",
+            "reason": "missing-status"
+        };
+        return result;
+    }
+
+    // This is the read-only action boundary used by the shell IPC handler and
+    // bloxctl. Keep presentation strings out of the public result.
+    function statusSnapshot() {
+        return {
+            "version": 1,
+            "ok": true,
+            "code": "ok",
+            "message": "",
+            "data": {
+                "updates": typedStatus(updates, ["repoCount", "aurCount", "totalCount"]),
+                "network": typedStatus(network, ["class", "ssid", "signal", "freq", "device"]),
+                "bluetooth": typedStatus(bluetooth, ["class"]),
+                "audio": typedStatus(audio, ["volume", "muted", "micMuted"]),
+                "brightness": typedStatus(brightness, ["percent", "blueLightMode", "blueLightActive"]),
+                "privacy": typedStatus(privacy, ["active", "microphoneCount", "videoCount"]),
+                "caffeine": typedStatus(caffeine, ["active", "mode", "remaining"])
+            }
+        };
+    }
+
     function updateSummary() {
-        const text = updates.tooltip || "";
-        const match = text.match(/([0-9]+)\s+repo updates,\s+([0-9]+)\s+AUR updates/);
-        if (match)
-            return (parseInt(match[1]) + parseInt(match[2])) + " updates";
+        if (typeof updates.totalCount === "number")
+            return updates.totalCount + " updates";
 
-        if (updates.class === "zero")
-            return "0 updates";
-
-        return text || "Check updates";
+        return updates.summary || "Check updates";
     }
 
     function updateBody() {
-        const text = updates.tooltip || "";
-        const match = text.match(/([0-9]+)\s+repo updates,\s+([0-9]+)\s+AUR updates/i);
-        if (match) {
-            const repo = parseInt(match[1]);
-            const aur = parseInt(match[2]);
-            return repo + " repo updates, " + aur + " yay updates\n" + (repo + aur) + " total updates";
-        }
-        if (updates.class === "zero")
-            return "0 repo updates, 0 yay updates\n0 total updates";
+        if (typeof updates.repoCount === "number" && typeof updates.aurCount === "number" && typeof updates.totalCount === "number")
+            return updates.repoCount + " repo updates, " + updates.aurCount + " yay updates\n" + updates.totalCount + " total updates";
 
-        return text || "Update status unavailable";
+        return updates.details || "Update status unavailable";
     }
 
     function panelTitle() {
@@ -98,32 +126,44 @@ QtObject {
             return "";
 
         if (openPanel === "network")
-            return (network.tooltip || "Network unavailable").split("\n").slice(1).join("\n");
+            return network.details || "Network unavailable";
 
         if (openPanel === "bluetooth")
-            return bluetooth.tooltip || "Bluetooth unavailable";
+            return bluetooth.details || "Bluetooth unavailable";
 
         if (openPanel === "brightness")
-            return (brightness.tooltip || "Brightness unavailable").split("\n").slice(1).join("\n");
+            return brightness.details || "Brightness unavailable";
 
         return "";
     }
 
     function systemPanelActions() {
-        if (openPanel === "audio")
-            return [action(audio.micMuted ? "Unmute mic" : "Mute mic", scriptRoot + "/control.sh mic-toggle", {
-            "keepOpen": true
-        }), action("Open app", "pavucontrol -t 3")];
+        if (openPanel === "audio") {
+            const actions = [action("Open app", "pavucontrol -t 3")];
+            if (canChange(audio))
+                actions.unshift(action(audio.micMuted ? "Unmute mic" : "Mute mic", scriptRoot + "/control.sh mic-toggle", {
+                    "keepOpen": true
+                }));
+            return actions;
+        }
 
-        if (openPanel === "network")
-            return [action(network.class === "disabled" ? "Enable" : "Disable", scriptRoot + "/control.sh wifi " + (network.class === "disabled" ? "on" : "off"), {
-            "keepOpen": true
-        }), action("Open app", scriptRoot + "/network/toggle-applet.sh")];
+        if (openPanel === "network") {
+            const actions = [action("Open app", scriptRoot + "/network/toggle-applet.sh")];
+            if (canChange(network))
+                actions.unshift(action(network.class === "disabled" ? "Enable" : "Disable", scriptRoot + "/control.sh wifi " + (network.class === "disabled" ? "on" : "off"), {
+                    "keepOpen": true
+                }));
+            return actions;
+        }
 
-        if (openPanel === "bluetooth")
-            return [action(bluetooth.class === "disabled" ? "Enable" : "Toggle", scriptRoot + "/control.sh bluetooth-toggle", {
-            "keepOpen": true
-        }), action("Open app", "blueman-manager")];
+        if (openPanel === "bluetooth") {
+            const actions = [action("Open app", "blueman-manager")];
+            if (canChange(bluetooth))
+                actions.unshift(action(bluetooth.class === "disabled" ? "Enable" : "Toggle", scriptRoot + "/control.sh bluetooth-toggle", {
+                    "keepOpen": true
+                }));
+            return actions;
+        }
 
         return [];
     }
@@ -205,13 +245,16 @@ QtObject {
             return "";
 
         if (openPanel === "privacy")
-            return privacy.tooltip || "Privacy status unavailable";
+            return privacy.details || "Privacy status unavailable";
 
         return "";
     }
 
     function panelActions() {
         if (openPanel === "updates") {
+            if (!updates.capability || updates.capability.available !== true || updates.capability.ready !== true)
+                return [];
+
             const updateRun = terminalCommand("update", scriptRoot + "/update/run.sh; echo Done - press enter; read");
             const updateList = terminalCommand("update-list", scriptRoot + "/update/list.sh");
             return [action("Run updates", updateRun, {

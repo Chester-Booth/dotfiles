@@ -89,9 +89,9 @@ Item {
         const content = context.contentController;
         if (itemId === "sound")
             content.run("pavucontrol -t 3");
-        else if (itemId === "awake")
+        else if (itemId === "awake" && content.caffeine.json.capability && content.caffeine.json.capability.canChange === true)
             content.run(content.scriptRoot + "/status/caffeine.sh off");
-        else if (itemId === "display")
+        else if (itemId === "display" && content.brightness.json.capability && content.brightness.json.capability.canChange === true)
             content.run(content.scriptRoot + "/display/hyprsunset-toggle.sh");
         else if (itemId === "bt")
             content.run("blueman-manager");
@@ -138,7 +138,10 @@ Item {
             onHovered: root.context.surfaceController.trayEntered()
             onExited: root.context.surfaceController.trayExited()
             onClicked: {
-                root.context.contentController.run(root.context.contentController.scriptRoot + "/osd/control.sh touchpad-toggle");
+                const status = root.context.contentController.touchpad.json;
+                if (status.capability && status.capability.canChange === true)
+                    root.context.contentController.run(root.context.contentController.scriptRoot + "/osd/control.sh touchpad-toggle");
+
             }
         }
 

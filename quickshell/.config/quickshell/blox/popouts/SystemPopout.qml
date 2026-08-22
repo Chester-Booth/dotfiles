@@ -17,6 +17,10 @@ Rectangle {
     property alias micMuted: controller.micMuted
     property alias networkEnabled: controller.networkEnabled
     property alias bluetoothEnabled: controller.bluetoothEnabled
+    property alias audioCanChange: controller.audioCanChange
+    property alias networkCanChange: controller.networkCanChange
+    property alias bluetoothCanChange: controller.bluetoothCanChange
+    property alias brightnessCanChange: controller.brightnessCanChange
     property alias wifiIcon: controller.wifiIcon
     property alias wifiText: controller.wifiText
     property alias bluetoothIcon: controller.bluetoothIcon
@@ -111,7 +115,7 @@ Rectangle {
                         id: headerIconMouse
 
                         anchors.fill: parent
-                        enabled: controller.currentMode() === "audio"
+                        enabled: controller.currentMode() === "audio" && controller.audioCanChange
                         hoverEnabled: true
                         cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                         onClicked: controller.runCommand(controller.scriptRoot + "/control.sh audio-toggle", true)

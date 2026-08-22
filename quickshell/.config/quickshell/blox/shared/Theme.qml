@@ -7,48 +7,48 @@ Singleton {
     id: root
 
     property bool ready: false
-    property string themeId: "catppuccin-mocha"
-    property string activeThemeId: "catppuccin-mocha"
+    property string themeId: ""
+    property string activeThemeId: ""
     property string previewThemeId: ""
-    property string variant: "dark"
-    property color background: "#1e1e2e"
-    property color surface: "#313244"
-    property color surfaceAlt: "#45475a"
-    property color foreground: "#cdd6f4"
-    property color muted: "#a6adc8"
-    property color red: "#f38ba8"
-    property color green: "#a6e3a1"
-    property color yellow: "#f9e2af"
-    property color accent: "#89b4fa"
-    property color blue: "#74c7ec"
-    property color mauve: "#cba6f7"
-    property color teal: "#94e2d5"
-    property color selectionForeground: "#1e1e2e"
-    property color border: "#6c7086"
+    property string variant: ""
+    property color background: defaults.colour("background")
+    property color surface: defaults.colour("surface")
+    property color surfaceAlt: defaults.colour("surface_alt")
+    property color foreground: defaults.colour("foreground")
+    property color muted: defaults.colour("muted")
+    property color red: defaults.colour("red")
+    property color green: defaults.colour("green")
+    property color yellow: defaults.colour("yellow")
+    property color accent: defaults.colour("accent")
+    property color blue: defaults.colour("blue")
+    property color mauve: defaults.colour("mauve")
+    property color teal: defaults.colour("teal")
+    property color selectionForeground: defaults.colour("selection_foreground")
+    property color border: defaults.colour("border")
     readonly property int railWidth: 34
     readonly property int iconSize: 18
     readonly property int buttonSize: 30
     readonly property int radius: 4
-    property string fontFamily: "FiraCode Nerd Font Propo"
-    property string monoFontFamily: "FiraCode Nerd Font Mono"
-    property string bodyFontFamily: "Outfit"
+    property string fontFamily: defaults.font("panel")
+    property string monoFontFamily: defaults.font("mono")
+    property string bodyFontFamily: defaults.font("ui")
     property bool previewActive: false
-    property string widgetProfile: "minimal"
-    property real widgetOpacity: 0.3
-    property int widgetPadding: 20
-    property int widgetRadius: 0
-    property int widgetFontSize: 14
+    property string widgetProfile: defaults.ready ? defaults.document.widgets.profile : ""
+    property real widgetOpacity: defaults.ready && defaults.widgetProfile(widgetProfile) ? defaults.widgetProfile(widgetProfile).opacity : 0
+    property int widgetPadding: defaults.ready && defaults.widgetProfile(widgetProfile) ? defaults.widgetProfile(widgetProfile).padding : 0
+    property int widgetRadius: defaults.ready && defaults.widgetProfile(widgetProfile) ? defaults.widgetProfile(widgetProfile).radius : 0
+    property int widgetFontSize: defaults.ready && defaults.widgetProfile(widgetProfile) ? defaults.widgetProfile(widgetProfile).font_size : 0
     property var widgetItems: []
-    property string barPosition: "right"
-    property var barItems: builtinBarItems()
+    property string barPosition: defaults.ready ? defaults.themeDocument().shell.bar.position : ""
+    property var barItems: []
     readonly property var barStartItems: barItemsForRegion("start")
     readonly property var barCentreItems: barItemsForRegion("centre")
     readonly property var barEndItems: barItemsForRegion("end")
     readonly property var barHiddenItems: barItemsForRegion("hidden")
-    property string osdPosition: "centre-top"
+    property string osdPosition: defaults.ready ? defaults.themeDocument().shell.osd.position : ""
     property int osdOffsetX: 0
     property int osdOffsetY: 0
-    property string notificationPosition: "top-left"
+    property string notificationPosition: defaults.ready ? defaults.themeDocument().shell.notifications.position : ""
     property int notificationOffsetX: 0
     property int notificationOffsetY: 0
     readonly property string stateRoot: {
@@ -58,8 +58,8 @@ Singleton {
     readonly property string themePath: stateRoot + "/blox-theme/current/quickshell/theme.json"
     readonly property string widgetPath: stateRoot + "/blox-theme/current/widgets/profile.json"
     readonly property string wallpaperPath: stateRoot + "/blox-theme/current/hypr/wallpaper.json"
-    property string activeWallpaperSource: wallpaperUrl("wallpapers/showcase/catppuccin-mocha.webp")
-    property string activeWallpaperFit: "cover"
+    property string activeWallpaperSource: defaults.ready ? wallpaperUrl(defaults.themeDocument().wallpaper.path) : ""
+    property string activeWallpaperFit: defaults.ready ? defaults.themeDocument().wallpaper.fit : ""
     property string wallpaperSource: activeWallpaperSource
     property string wallpaperFit: activeWallpaperFit
 
@@ -106,49 +106,7 @@ Singleton {
     }
 
     function builtinBarItems() {
-        return defaults.resolvedBarItems([{
-            "id": "active-window-title",
-            "enabled": true,
-            "region": "start",
-            "order": 0,
-            "orientation": "inward"
-        }, {
-            "id": "workspaces",
-            "enabled": true,
-            "region": "centre",
-            "order": 0
-        }, {
-            "id": "tray",
-            "enabled": true,
-            "region": "end",
-            "order": 0
-        }, {
-            "id": "sound",
-            "enabled": true,
-            "region": "end",
-            "order": 1
-        }, {
-            "id": "wifi",
-            "enabled": true,
-            "region": "end",
-            "order": 2
-        }, {
-            "id": "battery",
-            "enabled": true,
-            "region": "end",
-            "order": 3,
-            "display": "icon"
-        }, {
-            "id": "power",
-            "enabled": true,
-            "region": "end",
-            "order": 4
-        }, {
-            "id": "application-tray",
-            "enabled": true,
-            "region": "hidden",
-            "order": 0
-        }]);
+        return defaults.resolvedBarItems(defaults.resetBarItems());
     }
 
     function trayOpensForward(items) : bool {
@@ -216,8 +174,9 @@ Singleton {
     }
 
     function resetWallpaper() : string {
-        activeWallpaperSource = wallpaperUrl("wallpapers/showcase/catppuccin-mocha.webp");
-        activeWallpaperFit = "cover";
+        const fallback = defaults.themeDocument().wallpaper;
+        activeWallpaperSource = wallpaperUrl(fallback.path);
+        activeWallpaperFit = fallback.fit;
         if (!previewActive) {
             wallpaperSource = activeWallpaperSource;
             wallpaperFit = activeWallpaperFit;
@@ -288,11 +247,14 @@ Singleton {
         watchChanges: true
         printErrors: false
         onLoaded: {
+            if (!defaults.ready)
+                return ;
+
             if (!root.previewActive)
                 root.loadJson(text());
             else
                 root.loadActiveIdentity(text());
-            root.ready = true;
+            root.ready = defaults.ready;
         }
         onFileChanged: {
             if (!root.previewActive)
@@ -312,6 +274,20 @@ Singleton {
         printErrors: false
         onLoaded: root.loadWallpaper(text())
         onFileChanged: reload()
+    }
+
+    Connections {
+        function onLoaded() {
+            if (!root.previewActive)
+                root.reload();
+        }
+
+        function onFailed(reason) {
+            root.ready = false;
+            console.error("[blox.theme] defaults unavailable: " + reason);
+        }
+
+        target: defaults
     }
 
     FileView {

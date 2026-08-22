@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -u
 
+# shellcheck source=../status/common.sh
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../status" && pwd)/common.sh"
+
 TODO_DIR="$HOME/Documents/todo"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell/todo"
 STATE_FILE="$STATE_DIR/current-index"
@@ -31,10 +34,11 @@ current_tmp="${CURRENT_FILE}.$$"
 printf '%s\n' "$current_file" >"$current_tmp"
 mv -f "$current_tmp" "$CURRENT_FILE"
 
-jq -nc \
+payload="$(jq -nc \
 	--arg file "$current_file" \
 	--arg name "$filename" \
 	--arg raw "$content" \
 	--argjson index "$current_index" \
 	--argjson count "${#files[@]}" \
-	'{"text":"󰺦","file":$file,"name":$name,"raw":$raw,"index":$index,"count":$count,"tooltip":("# " + $name + " " + (($index + 1)|tostring) + "/" + ($count|tostring) + "\n\n" + $raw)}'
+	'{"text":"󰺦","file":$file,"name":$name,"raw":$raw,"index":$index,"count":$count,"tooltip":("# " + $name + " " + (($index + 1)|tostring) + "/" + ($count|tostring) + "\n\n" + $raw)}')"
+emit_status "$payload" true true true granted ""

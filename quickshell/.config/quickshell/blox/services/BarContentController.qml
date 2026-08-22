@@ -1,6 +1,7 @@
 import "."
 import QtQuick
 import Quickshell
+import Quickshell.Io
 
 Scope {
     id: root
@@ -50,6 +51,10 @@ Scope {
 
     function railClockText(horizontal) {
         return barContent.railClockText(horizontal);
+    }
+
+    function statusSnapshot() {
+        return barContent.statusSnapshot();
     }
 
     function previousTodo() {
@@ -116,6 +121,14 @@ Scope {
         network: root.network.json
         privacy: root.privacy.json
         caffeine: root.caffeine.json
+    }
+
+    IpcHandler {
+        function status() : string {
+            return JSON.stringify(root.statusSnapshot());
+        }
+
+        target: "blox"
     }
 
     Timer {

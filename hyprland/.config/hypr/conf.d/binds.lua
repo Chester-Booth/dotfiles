@@ -283,6 +283,7 @@ hl.bind("Print", exec("hyprshot -m output"))
 super_bind("SHIFT + S", exec([[bash -c 'pgrep -x slurp >/dev/null && pkill -x slurp || hyprshot -m region']]))
 super_bind("ALT + S", exec([[bash -c 'pgrep -x slurp >/dev/null && pkill -x slurp || hyprshot -m region --freeze --cursor']]))
 super_bind("SHIFT + T", exec("~/.config/hypr/scripts/ocr-region-to-clipboard.sh"))
+super_bind("ALT + T", exec("~/.config/hypr/scripts/ocr-region-to-clipboard.sh --freeze"))
 
 -- Colour picker toggle.
 super_bind("SHIFT + C", exec([[bash -c 'pgrep -x hyprpicker >/dev/null && pkill -x hyprpicker || hyprpicker -a &']]))

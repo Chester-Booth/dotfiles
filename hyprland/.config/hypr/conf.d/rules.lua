@@ -104,6 +104,9 @@ hl.window_rule({ match = { class = "^(micro-active)$" }, float = true, size = { 
 hl.window_rule({ match = { class = "^(nvidia-settings)$" }, float = true })
 hl.window_rule({ match = { class = "^(nvidia-settings)$" }, size = { 800, 600 } })
 
+-- Keep Obsidian's settings window floating without affecting the vault window.
+hl.window_rule({ match = { class = "^(md[.]obsidian[.]Obsidian)$", initial_title = "^Settings.*" }, float = true })
+
 hl.window_rule({
     match = { title = "^(Picture in picture|Picture-in-Picture).*" },
     float = true,

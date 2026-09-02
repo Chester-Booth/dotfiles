@@ -1,0 +1,16 @@
+[Desktop Entry]
+Name=Discord
+StartupWMClass=discord
+Comment=All-in-one voice and text chat for gamers that's free, secure, and works on both your desktop and phone.
+GenericName=Internet Messenger
+TryExec=/usr/bin/discord
+Exec=/usr/bin/discord --enable-features=UseOzonePlatform --ozone-platform=wayland --url -- %u
+Icon=discord
+Type=Application
+Categories=Network;InstantMessaging;
+MimeType=x-scheme-handler/discord;
+Path=/usr/bin
+
+[Desktop Action new-window]
+Name=New Window
+Exec=/usr/bin/discord --enable-features=UseOzonePlatform --ozone-platform=wayland --url -- %u

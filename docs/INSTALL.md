@@ -57,14 +57,16 @@ the launcher takes focus before the client finishes reading stdin. Font and
 colour flags are no-ops because the active shell theme owns those values.
 
 `floating_sudo` needs Kitty, sudo, Python 3, a graphical session, and
-`XDG_RUNTIME_DIR`. Check its reject path before approving a command:
+`XDG_RUNTIME_DIR`. It streams approved command output back to the calling
+terminal while keeping the approval window open. Check its reject path before
+approving a command:
 
 ```sh
 floating_sudo $'sudo /usr/bin/true\n/usr/bin/true > Test the approval flow > Confirm the wrapper returns success without changing the system\nRisk level: low > The command has no side effects' /usr/bin/true
 ```
 
 Press Enter to reject it. Run the same command again and enter `y` to test the
-approval path.
+approval and output relay paths.
 
 Keep any stale `~/.config/waybar`, `~/.config/eww`, or `~/.config/wofi` links
 disconnected unless intentionally booting the old setup.

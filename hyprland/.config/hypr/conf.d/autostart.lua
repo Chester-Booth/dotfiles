@@ -7,10 +7,13 @@ hl.on("hyprland.start", function()
     -- 2. Then start the authentication agent.
     hl.exec_cmd([[bash -c "sleep 1 && systemctl --user restart hyprpolkitagent"]])
 
-    -- 3. Other apps.
+    -- 3. Start the idle daemon before Quickshell reads Awake state. The
+    -- reconcile action also restores a saved inhibitor after a reboot.
+    hl.exec_cmd([[bash -c "systemctl --user start hypridle.service && ~/.local/share/blox/shell/scripts/status/caffeine.sh reconcile"]])
+
+    -- 4. Other apps.
     hl.exec_cmd([[bash -c 'install -d -m 0700 "$XDG_RUNTIME_DIR/blox-launcher" && systemctl --user restart quickshell.service']])
     hl.exec_cmd("blueman-applet")
-    hl.exec_cmd("hypridle")
     hl.exec_cmd("~/.config/quickshell/blox/scripts/display/blue-light-mode.sh")
     hl.exec_cmd([[bash -c "sleep 2 && ~/.config/quickshell/blox/scripts/theme/reconcile.sh"]])
     hl.exec_cmd("zen-browser")

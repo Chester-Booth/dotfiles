@@ -7,7 +7,7 @@ submenu 'Arch Linux log level options' --class arch --class gnu-linux --class gn
 		insmod part_gpt
 		insmod fat
 		search --no-floppy --fs-uuid --set=root 00DC-201B
-		linux /vmlinuz-linux root=UUID=d22117c8-6b07-420e-848a-ceba26ea2ecd rw rootflags=subvol=@ quiet nvidia-drm.modeset=0 resume=UUID=d22117c8-6b07-420e-848a-ceba26ea2ecd resume_offset=85856907
+		linux /vmlinuz-linux root=UUID=d22117c8-6b07-420e-848a-ceba26ea2ecd rw rootflags=subvol=@ quiet resume=UUID=d22117c8-6b07-420e-848a-ceba26ea2ecd resume_offset=85856907
 		initrd /amd-ucode.img /initramfs-linux.img
 	}
 
@@ -17,7 +17,7 @@ submenu 'Arch Linux log level options' --class arch --class gnu-linux --class gn
 		insmod part_gpt
 		insmod fat
 		search --no-floppy --fs-uuid --set=root 00DC-201B
-		linux /vmlinuz-linux root=UUID=d22117c8-6b07-420e-848a-ceba26ea2ecd rw rootflags=subvol=@ loglevel=3 nvidia-drm.modeset=0
+		linux /vmlinuz-linux root=UUID=d22117c8-6b07-420e-848a-ceba26ea2ecd rw rootflags=subvol=@ loglevel=3
 		initrd /amd-ucode.img /initramfs-linux.img
 	}
 
@@ -27,7 +27,7 @@ submenu 'Arch Linux log level options' --class arch --class gnu-linux --class gn
 		insmod part_gpt
 		insmod fat
 		search --no-floppy --fs-uuid --set=root 00DC-201B
-		linux /vmlinuz-linux root=UUID=d22117c8-6b07-420e-848a-ceba26ea2ecd rw rootflags=subvol=@ loglevel=7 systemd.log_level=debug nvidia-drm.modeset=0
+		linux /vmlinuz-linux root=UUID=d22117c8-6b07-420e-848a-ceba26ea2ecd rw rootflags=subvol=@ loglevel=7 systemd.log_level=debug
 		initrd /amd-ucode.img /initramfs-linux.img
 	}
 }

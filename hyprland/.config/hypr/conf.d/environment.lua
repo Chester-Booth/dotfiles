@@ -10,6 +10,4 @@ hl.env("SDL_VIDEODRIVER", "wayland")
 hl.env("MOZ_ENABLE_WAYLAND", "1")
 hl.env("HYPRSHOT_DIR", "/home/blox/Pictures/Screenshots")
 
-hl.env("AQ_DRM_DEVICES", "/dev/dri/card1:/dev/dri/card0")
-
 hl.env("TERMINAL", "kitty")

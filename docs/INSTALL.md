@@ -144,7 +144,6 @@ under `system-etc/etc`. Review it before applying on another host:
 ```sh
 sudo cp -a system-etc/etc/. /etc/
 sudo systemctl daemon-reload
-sudo systemctl enable --now gpu-eco-boot.service
 ```
 
 The NVIDIA, SDDM, fingerprint, PAM, udev, and logind files in this tree are

@@ -1,0 +1,220 @@
+#!/usr/bin/env python3
+"""Compare whole-laptop battery draw in Hybrid and Integrated GPU modes."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+
+MODES = ("hybrid", "integrated")
+
+
+def fail(message: str) -> None:
+    print(f"error: {message}", file=sys.stderr)
+    raise SystemExit(1)
+
+
+def parse_duration(value: str) -> float:
+    units = {"s": 1, "m": 60, "h": 3600}
+    suffix = value[-1:].lower()
+    number = value[:-1] if suffix in units else value
+    multiplier = units.get(suffix, 1)
+    try:
+        seconds = float(number) * multiplier
+    except ValueError:
+        fail(f"invalid duration: {value}")
+    if seconds <= 0:
+        fail("duration must be greater than zero")
+    return seconds
+
+
+def read_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8").strip()
+    except OSError as error:
+        fail(f"cannot read {path}: {error.strerror}")
+
+
+def battery_path() -> Path:
+    root = Path(os.environ.get("GPU_POWER_COMPARE_POWER_SUPPLY_ROOT", "/sys/class/power_supply"))
+    for candidate in sorted(root.iterdir()):
+        if (candidate / "type").is_file() and read_text(candidate / "type") == "Battery":
+            if (candidate / "energy_now").is_file():
+                return candidate
+    fail("no battery with an energy_now counter was found")
+
+
+def battery_sample(battery: Path) -> dict[str, float | str]:
+    return {
+        "status": read_text(battery / "status"),
+        "energyWh": int(read_text(battery / "energy_now")) / 1_000_000,
+        "capacityPercent": int(read_text(battery / "capacity")),
+    }
+
+
+def controller_mode() -> str:
+    if not shutil.which("supergfxctl"):
+        return "unknown"
+    try:
+        result = subprocess.run(
+            ["supergfxctl", "--get"], capture_output=True, text=True, timeout=3, check=False
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return "unknown"
+    return result.stdout.strip().lower() if result.returncode == 0 else "unknown"
+
+
+def runtime_d3_status() -> str:
+    roots = Path("/sys/bus/pci/devices").glob("*/vendor")
+    for vendor_file in roots:
+        try:
+            if vendor_file.read_text(encoding="utf-8").strip().lower() != "0x10de":
+                continue
+            return read_text(vendor_file.parent / "power" / "runtime_status")
+        except OSError:
+            continue
+    return "absent"
+
+
+def state_dir() -> Path:
+    default = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state"))
+    path = Path(os.environ.get("GPU_POWER_COMPARE_STATE_DIR", default / "gpu-power-compare"))
+    path.mkdir(mode=0o700, parents=True, exist_ok=True)
+    return path
+
+
+def save_result(mode: str, result: dict[str, object]) -> Path:
+    target = state_dir() / f"{mode}.json"
+    temporary = target.with_suffix(".json.new")
+    temporary.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    temporary.chmod(0o600)
+    temporary.replace(target)
+    return target
+
+
+def load_result(mode: str) -> dict[str, object]:
+    path = state_dir() / f"{mode}.json"
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        fail(f"no {mode} result exists; run measure {mode} first")
+    except (OSError, json.JSONDecodeError):
+        fail(f"the saved {mode} result is invalid")
+    if not isinstance(value, dict) or not isinstance(value.get("averageWatts"), (int, float)):
+        fail(f"the saved {mode} result is invalid")
+    return value
+
+
+def ensure_inhibited(argv: list[str]) -> None:
+    if os.environ.get("GPU_POWER_COMPARE_INHIBITED") == "1" or not shutil.which("systemd-inhibit"):
+        return
+    environment = dict(os.environ)
+    environment["GPU_POWER_COMPARE_INHIBITED"] = "1"
+    command = [
+        "systemd-inhibit",
+        "--what=idle:sleep",
+        "--mode=block",
+        "--who=gpu-power-compare",
+        "--why=Measure battery energy without an idle suspend",
+        sys.executable,
+        str(Path(__file__).resolve()),
+        *argv,
+    ]
+    os.execvpe(command[0], command, environment)
+
+
+def measure(mode: str, duration: float, interval: float) -> None:
+    observed_mode = controller_mode()
+    if observed_mode != mode:
+        fail(f"controller reports {observed_mode}, not {mode}; refusing to mislabel the run")
+    battery = battery_path()
+    start = battery_sample(battery)
+    if start["status"] != "Discharging":
+        fail(f"battery reports {start['status']}; unplug AC before measuring")
+
+    started = time.monotonic()
+    deadline = started + duration
+    print(
+        f"Measuring {mode} for {duration / 60:g} minutes from "
+        f"{start['capacityPercent']}% battery. Keep workload, brightness and displays unchanged."
+    )
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        time.sleep(min(interval, remaining))
+        sample = battery_sample(battery)
+        if sample["status"] != "Discharging":
+            fail("power source changed during the run; no result was saved")
+
+    elapsed = time.monotonic() - started
+    end = battery_sample(battery)
+    consumed = float(start["energyWh"]) - float(end["energyWh"])
+    if consumed <= 0:
+        fail("battery energy did not fall during the run; no result was saved")
+    watts = consumed / (elapsed / 3600)
+    result = {
+        "version": 1,
+        "mode": mode,
+        "observedControllerMode": observed_mode,
+        "elapsedSeconds": round(elapsed, 3),
+        "startEnergyWh": start["energyWh"],
+        "endEnergyWh": end["energyWh"],
+        "energyUsedWh": round(consumed, 4),
+        "averageWatts": round(watts, 3),
+        "startCapacityPercent": start["capacityPercent"],
+        "endCapacityPercent": end["capacityPercent"],
+        "nvidiaRuntimeStatusAtEnd": runtime_d3_status(),
+        "measuredAt": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+    }
+    path = save_result(mode, result)
+    print(f"{mode.title()}: {result['averageWatts']:.3f} W average, {result['energyUsedWh']:.4f} Wh used")
+    print(f"Saved {path}")
+
+
+def report() -> None:
+    hybrid = load_result("hybrid")
+    integrated = load_result("integrated")
+    hybrid_watts = float(hybrid["averageWatts"])
+    integrated_watts = float(integrated["averageWatts"])
+    difference = hybrid_watts - integrated_watts
+    percent = difference / hybrid_watts * 100 if hybrid_watts else 0
+    print(f"Hybrid:    {hybrid_watts:.3f} W average")
+    print(f"Integrated: {integrated_watts:.3f} W average")
+    if difference >= 0:
+        print(f"Integrated saved {difference:.3f} W, or {percent:.1f}% of Hybrid draw.")
+    else:
+        print(f"Integrated used {-difference:.3f} W more, or {-percent:.1f}% of Hybrid draw.")
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Measure one battery-powered hour in each GPU mode, then compare total laptop draw."
+    )
+    commands = parser.add_subparsers(dest="command", required=True)
+    measurement = commands.add_parser("measure", help="record one GPU mode")
+    measurement.add_argument("mode", choices=MODES)
+    measurement.add_argument("--duration", default="1h", help="test length, such as 30m or 1h")
+    measurement.add_argument("--interval", default="30s", help="battery check interval")
+    commands.add_parser("report", help="compare the saved Hybrid and Integrated runs")
+    args = parser.parse_args(argv)
+    if args.command == "measure":
+        duration = parse_duration(args.duration)
+        interval = min(parse_duration(args.interval), duration)
+        original = list(argv) if argv is not None else sys.argv[1:]
+        ensure_inhibited(original)
+        measure(args.mode, duration, interval)
+    else:
+        report()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

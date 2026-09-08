@@ -1,9 +1,9 @@
 SHELL := /usr/bin/env bash
 QS := quickshell/.config/quickshell/blox
 
-.PHONY: check format lint doctor qmlformat qmllint shfmt shellcheck lua-check py-compile test-floating-sudo test-launcher test-status-contracts test-bloxctl test-native validate-status validate-themes update-theme-golden systemd-verify diff-check
+.PHONY: check format lint doctor qmlformat qmllint shfmt shellcheck lua-check py-compile test-floating-sudo test-gpu-power-compare test-launcher test-status-contracts test-bloxctl test-native validate-status validate-themes update-theme-golden systemd-verify diff-check
 
-check: qmllint lua-check py-compile test-floating-sudo test-launcher test-status-contracts test-bloxctl test-native validate-status validate-themes systemd-verify diff-check
+check: qmllint lua-check py-compile test-floating-sudo test-gpu-power-compare test-launcher test-status-contracts test-bloxctl test-native validate-status validate-themes systemd-verify diff-check
 
 format: qmlformat shfmt
 
@@ -50,10 +50,13 @@ py-compile:
 	@while IFS= read -r -d '' file; do \
 		python3 -c 'import ast, pathlib, sys; path = pathlib.Path(sys.argv[1]); ast.parse(path.read_text(), filename=str(path))' "$$file"; \
 	done < <(find themes -type f -name '*.py' -print0)
-	@python3 -c 'import ast, pathlib; path = pathlib.Path("bin/floating_sudo"); ast.parse(path.read_text(), filename=str(path))'
+	@python3 -c 'import ast, pathlib; [ast.parse(path.read_text(), filename=str(path)) for path in map(pathlib.Path, ("bin/floating_sudo", "bin/gpu-power-compare"))]'
 
 test-floating-sudo:
 	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests/test_floating_sudo.py -v
+
+test-gpu-power-compare:
+	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests/test_gpu_power_compare.py -v
 
 test-launcher:
 	@PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests/test_launcher_apps.py tests/test_launcher_clipboard.py tests/test_launcher_dmenu.py tests/test_launcher_emoji.py tests/test_launcher_processes.py -v

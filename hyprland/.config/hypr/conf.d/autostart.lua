@@ -1,6 +1,6 @@
 hl.on("hyprland.start", function()
     -- 1. Update systemd environment variables first.
-    hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP GTK_THEME GDK_BACKEND QT_QPA_PLATFORM QT_QPA_PLATFORMTHEME XCURSOR_SIZE HYPRCURSOR_SIZE ELECTRON_OZONE_PLATFORM_HINT SDL_VIDEODRIVER MOZ_ENABLE_WAYLAND HYPRSHOT_DIR TERMINAL")
+    hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_SESSION_TYPE XDG_CURRENT_DESKTOP GTK_THEME GDK_BACKEND QT_QPA_PLATFORM QT_QPA_PLATFORMTHEME XCURSOR_SIZE HYPRCURSOR_SIZE SDL_VIDEODRIVER MOZ_ENABLE_WAYLAND HYPRSHOT_DIR TERMINAL")
     hl.exec_cmd("systemctl --user import-environment SSH_AUTH_SOCK")
     hl.exec_cmd("dbus-update-activation-environment --systemd SSH_AUTH_SOCK")
 

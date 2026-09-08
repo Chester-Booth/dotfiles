@@ -63,3 +63,4 @@ inode/directory=code.desktop;
 image/jpeg=com.github.maoschanz.drawing.desktop;
 application/json=org.gnome.gedit.desktop;
 application/pdf=zen.desktop;helium.desktop;
+x-scheme-handler/t3code=t3code.desktop;

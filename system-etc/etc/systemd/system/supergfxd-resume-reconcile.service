@@ -1,0 +1,14 @@
+[Unit]
+Description=Reconcile integrated GPU mode after sleep
+After=systemd-suspend.service systemd-hibernate.service systemd-hybrid-sleep.service systemd-suspend-then-hibernate.service
+After=nvidia-resume.service supergfxd.service
+ConditionPathExists=/usr/bin/supergfxctl
+
+[Service]
+Type=oneshot
+ExecCondition=/usr/bin/sh -c 'test "$(/usr/bin/supergfxctl --get 2>/dev/null)" = Integrated'
+ExecStartPre=/usr/bin/sleep 3
+ExecStart=/usr/bin/systemctl restart supergfxd.service
+
+[Install]
+WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target

@@ -243,7 +243,7 @@ set_touchpad() {
 
 	[[ "$enabled" == "true" || "$enabled" == "false" ]] || return 1
 	[[ "$touchpad_device" =~ ^[a-zA-Z0-9_.:-]+$ ]] || return 1
-	hyprctl eval "hl.device({ name = \"$touchpad_device\", enabled = $enabled })" >/dev/null || return 1
+	hyprctl -r eval "hl.device({ name = \"$touchpad_device\", enabled = $enabled })" >/dev/null || return 1
 	mkdir -p "$(dirname "$touchpad_state_file")"
 	printf '%s\n' "$enabled" >"$touchpad_state_file"
 }

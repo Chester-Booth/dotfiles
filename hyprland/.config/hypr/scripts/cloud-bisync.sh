@@ -14,6 +14,8 @@ log_file="${log_dir}/${name}-bisync.log"
 marker_file="${work_dir}/.initialized"
 
 mkdir -p "${local_dir}" "${work_dir}" "${log_dir}"
+exec 9>"${state_root}/${name}.lock"
+flock -w 300 9
 
 if mountpoint -q "${local_dir}"; then
 	fs_type="$(findmnt -n -o FSTYPE "${local_dir}" || true)"

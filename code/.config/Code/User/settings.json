@@ -44,7 +44,7 @@
             }
         ]
     },
-    "editor.fontFamily": "'Google Sans Code NF','MartianMono Nerd Font Mono', 'Symbols Nerd Font', 'Droid Sans Mono', 'monospace', monospace",
+    "editor.fontFamily": "MartianMono Nerd Font Mono",
     "dev.containers.mountWaylandSocket": false,
     "editor.minimap.showSlider": "always",
     "editor.minimap.autohide": "scroll",
@@ -117,4 +117,6 @@
     "debug.onTaskErrors": "debugAnyway",
     "github.copilot.nextEditSuggestions.eagerness": "low"
 
-}
+,
+  "workbench.experimental.modernUI": false,
+  "workbench.colorTheme": "blox-theme"}

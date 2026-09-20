@@ -70,7 +70,7 @@ alias cpwd='printf "%s" "$PWD" | wl-copy'
 alias cd..="cd .."
 alias codex="codex --yolo"
 alias ns='notify-send'
-alias bin='gio trash'
+alias trash='gio trash'
 
 cpfile() {
     print -rn -- "${1:A}" | wl-copy

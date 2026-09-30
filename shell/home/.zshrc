@@ -66,14 +66,14 @@ alias LS='ls'
 alias icat='kitty +kitten icat '
 alias fastfetch='fastfetch --logo none'
 alias m='micro'
-alias cpwd='printf "%s" "$PWD" | wl-copy'
+alias cpwd='printf "%s" "${(q)PWD}" | wl-copy'
 alias cd..="cd .."
 alias codex="codex --yolo"
 alias ns='notify-send'
 alias trash='gio trash'
 
 cpfile() {
-    print -rn -- "${1:A}" | wl-copy
+    print -rn -- "${(q)1:A}" | wl-copy
 }
 
 cpss() {

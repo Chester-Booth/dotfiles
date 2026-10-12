@@ -6,7 +6,7 @@ hl.config({
         kb_options = "fkeys:basic_13-24",
         kb_rules = "",
 
-        follow_mouse = 1,
+        follow_mouse = 2,
         sensitivity = 0,
 
         touchpad = {

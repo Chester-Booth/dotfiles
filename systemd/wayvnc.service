@@ -1,0 +1,7 @@
+[Unit]
+Description=Share the Hyprland desktop over Tailscale
+
+[Service]
+ExecStart=/usr/bin/wayvnc --render-cursor --disable-resizing --name=Chester-desktop
+Restart=on-failure
+RestartSec=5

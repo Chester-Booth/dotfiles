@@ -71,6 +71,8 @@ alias cd..="cd .."
 alias codex="codex --yolo"
 alias ns='notify-send'
 alias trash='gio trash'
+alias venv='./.venv/bin/activate'
+alias todo='micro ~/Documents/todo/1-todo.md'
 
 cpfile() {
     print -rn -- "${(q)1:A}" | wl-copy
@@ -105,6 +107,8 @@ export JAVA_HOME=/usr/lib/jvm/java-21-openjdk
 export XDG_CONFIG_HOME="$HOME/.config"
 export GLOW_STYLE="$XDG_CONFIG_HOME/glow/blox-theme.json"
 
+#for azure functions
+export PATH="$HOME/.local/node_modules/azure-functions-core-tools/bin:$PATH"
 
 
 # zoxide

@@ -13,3 +13,4 @@ export JAVA_HOME=/usr/lib/jvm/java-21-openjdk
 . "$HOME/.local/bin/env"
 
 
+export PATH="$HOME/.local/node_modules/azure-functions-core-tools/bin:$PATH"

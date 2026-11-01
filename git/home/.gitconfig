@@ -6,3 +6,5 @@
 [core]
 	editor = micro
 	excludesfile = ~/.gitignore
+[push]
+	autoSetupRemote = true

@@ -52,12 +52,12 @@
     "git.path": "",
     "explorer.confirmDragAndDrop": false,
     "github.copilot.enable": {
-        "*": true,
+        "*": false,
         "plaintext": false,
         "markdown": false,
         "scminput": false,
-        "c": true,
-        "python": true,
+        "c": false,
+        "python": false,
         "cpp": false
     },
     "kotlin.languageServer.enabled": false,
@@ -119,4 +119,17 @@
 
 ,
   "workbench.experimental.modernUI": false,
-  "workbench.colorTheme": "blox-theme"}
+"workbench.colorTheme": "blox-theme",
+"python.terminal.useEnvFile": true,
+"mssql.connectionGroups": [
+    {
+        "name": "ROOT",
+        "id": "ROOT"
+    }
+],
+"azureResourceGroups.selectedSubscriptions": [
+    "bdeaeda8-c81d-45ce-863e-5232a535b7cb/2edaf07a-dd55-4c43-bff7-0a22a9dfe3e7",
+    "bdeaeda8-c81d-45ce-863e-5232a535b7cb/8d849d00-0346-4d6b-a609-0df5539dec19"
+],
+"chat.viewSessions.orientation": "stacked"
+}
